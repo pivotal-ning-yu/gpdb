@@ -4144,7 +4144,7 @@ ConnCreate(int serverFd)
 		if (port->sock >= 0)
 			StreamClose(port->sock);
 		ConnFree(port);
-		port = NULL;
+		return NULL;
 	}
 	else
 	{
