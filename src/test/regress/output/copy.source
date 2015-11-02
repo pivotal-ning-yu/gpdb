@@ -84,9 +84,9 @@ insert into copytest4 values (1,4);
 copy (select * from copytest4) to stdout csv delimiter ',' force quote id, id1, id2;
 ERROR:  column "id2" does not exist
 copy (select * from copytest4) to stdout csv delimiter ',' force quote id, id1;
-1,2
-1,3
-1,4
+"1","2"
+"1","3"
+"1","4"
 -- inject error after query is dispatched in cdbCopyStart
 create table copytest5(a int, b text);
 insert into copytest5 select i, repeat('abcdefghijklmnopqrstuvwxyz', i) from generate_series(1,100) as i;
