@@ -69,6 +69,7 @@ extern void XactLockTableInsert(TransactionId xid);
 extern void XactLockTableDelete(TransactionId xid);
 extern void XactLockTableWait(TransactionId xid);
 extern bool ConditionalXactLockTableWait(TransactionId xid);
+extern bool ConditionalXactLockTableWait_getXwait(TransactionId xid, TransactionId *xwait);
 
 /* Lock a VXID (used to wait for a transaction to finish) */
 extern void VirtualXactLockTableInsert(VirtualTransactionId vxid);

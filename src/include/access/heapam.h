@@ -261,4 +261,9 @@ extern BlockNumber ss_get_location(Relation rel, BlockNumber relnblocks);
 extern void SyncScanShmemInit(void);
 extern Size SyncScanShmemSize(void);
 
+/* GPDB distributed deadlock detection support functions */
+extern bool is_tuple_wait(void);
+extern void refresh_tuple_wait(void);
+
+
 #endif   /* HEAPAM_H */

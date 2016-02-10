@@ -190,6 +190,8 @@ void cdbdisp_destroyDispatcherState(CdbDispatcherState *ds);
 bool cdbdisp_checkForCancel(CdbDispatcherState * ds);
 int cdbdisp_getWaitSocketFd(CdbDispatcherState *ds);
 
+extern void cdbdisp_notifyXidWait(TransactionId xid);
+
 void cdbdisp_onProcExit(void);
 
 void cdbdisp_setAsync(bool async);
