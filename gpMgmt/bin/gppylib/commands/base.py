@@ -205,13 +205,15 @@ class OperationWorkerPool(WorkerPool):
 class Worker(Thread):
     """TODO:"""
     pool = None
+    shouldStop=False
     cmd = None
     name = None
     logger = None
 
-    def __init__(self, name, pool):
+    def __init__(self, name, pool, timeout=0.1):
         self.name = name
         self.pool = pool
+        self.timeout=timeout
         self.logger = logger
         Thread.__init__(self)
         self.daemon = pool.daemonize
