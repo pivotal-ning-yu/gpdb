@@ -673,8 +673,44 @@ pg_stat_get_resgroup_activity(PG_FUNCTION_ARGS)
 
 		funcctx->tuple_desc = BlessTupleDesc(tupdesc);
 
-		/* nothing to return for now */
-		funcctx->max_calls = 0;
+		funcctx->user_fctx = palloc0(sizeof(int));
+		if (PG_ARGISNULL(0))
+		{
+			/* Get all backends */
+			funcctx->max_calls = pgstat_fetch_stat_numbackends();
+		}
+		else
+		{
+			/*
+			 * Get one backend - locate by pid.
+			 *
+			 * We lookup the backend early, so we can return zero rows if it
+			 * doesn't exist, instead of returning a single row full of NULLs.
+			 */
+			int			pid = PG_GETARG_INT32(0);
+			int			i;
+			int			n = pgstat_fetch_stat_numbackends();
+
+			for (i = 1; i <= n; i++)
+			{
+				PgBackendStatus *be = pgstat_fetch_stat_beentry(i);
+
+				if (be)
+				{
+					if (be->st_procpid == pid)
+					{
+						*(int *) (funcctx->user_fctx) = i;
+						break;
+					}
+				}
+			}
+
+			if (*(int *) (funcctx->user_fctx) == 0)
+				/* Pid not found, return zero rows */
+				funcctx->max_calls = 0;
+			else
+				funcctx->max_calls = 1;
+		}
 
 		MemoryContextSwitchTo(oldcontext);
 	}
@@ -684,7 +720,41 @@ pg_stat_get_resgroup_activity(PG_FUNCTION_ARGS)
 
 	if (funcctx->call_cntr < funcctx->max_calls)
 	{
-		/* will never reach here for now */
+		/* for each row */
+		Datum		values[6];
+		bool		nulls[6];
+		HeapTuple	tuple;
+		PgBackendStatus *beentry;
+		Interval	interval;
+
+		MemSet(values, 0, sizeof(values));
+		MemSet(nulls, 0, sizeof(nulls));
+		MemSet(&interval, 0, sizeof(interval));
+
+		if (*(int *) (funcctx->user_fctx) > 0)
+		{
+			/* Get specific pid slot */
+			beentry = pgstat_fetch_stat_beentry(*(int *) (funcctx->user_fctx));
+		}
+		else
+		{
+			/* Get the next one in the list */
+			beentry = pgstat_fetch_stat_beentry(funcctx->call_cntr + 1);		/* 1-based index */
+		}
+
+		/* procpid is the only real value in this placeholder */
+		values[0] = Int32GetDatum(beentry->st_procpid);
+
+		/* Fill with dummy values */
+		values[1] = ObjectIdGetDatum(0);
+		values[2] = CStringGetTextDatum("default");
+		values[3] = BoolGetDatum(false);
+		values[4] = CStringGetTextDatum("");
+		values[5] = IntervalPGetDatum(&interval);
+
+		tuple = heap_form_tuple(funcctx->tuple_desc, values, nulls);
+
+		SRF_RETURN_NEXT(funcctx, HeapTupleGetDatum(tuple));
 	}
 	else
 	{
@@ -727,8 +797,25 @@ pg_stat_get_resgroup(PG_FUNCTION_ARGS)
 
 		funcctx->tuple_desc = BlessTupleDesc(tupdesc);
 
-		/* nothing to return for now */
-		funcctx->max_calls = 0;
+		if (PG_ARGISNULL(0))
+		{
+			/* Assume there is only one resgroup in this placeholder */
+			funcctx->max_calls = 1;
+		}
+		else
+		{
+			int gid = PG_GETARG_INT32(0);
+
+			switch (gid) {
+				/* Assume the only resgroup has oid 0 */
+				case 0:
+					funcctx->max_calls = 1;
+					break;
+				default:
+					funcctx->max_calls = 0;
+					break;
+			}
+		}
 
 		MemoryContextSwitchTo(oldcontext);
 	}
@@ -738,7 +825,34 @@ pg_stat_get_resgroup(PG_FUNCTION_ARGS)
 
 	if (funcctx->call_cntr < funcctx->max_calls)
 	{
-		/* will never reach here for now */
+		/* for each row */
+		Datum		values[15];
+		bool		nulls[15];
+		HeapTuple	tuple;
+
+		MemSet(values, 0, sizeof(values));
+		MemSet(nulls, 0, sizeof(nulls));
+
+		/* Fill with dummy values */
+		values[0] = ObjectIdGetDatum(0);
+		values[1] = Int32GetDatum(20);
+		values[2] = Int32GetDatum(20);
+		values[3] = Int32GetDatum(1);
+		values[4] = Int32GetDatum(0);
+		values[5] = Float4GetDatum(1.0);
+		values[6] = Float4GetDatum(1.0);
+		values[7] = Float4GetDatum(1.0);
+		values[8] = Float4GetDatum(1.0);
+		values[9] = Float4GetDatum(1.0);
+		values[10] = Float4GetDatum(0.2);
+		values[11] = Float4GetDatum(1.0);
+		values[12] = Float4GetDatum(1.0);
+		values[13] = Float4GetDatum(1.0);
+		values[14] = Float4GetDatum(0.2);
+
+		tuple = heap_form_tuple(funcctx->tuple_desc, values, nulls);
+
+		SRF_RETURN_NEXT(funcctx, HeapTupleGetDatum(tuple));
 	}
 	else
 	{
