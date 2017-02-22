@@ -290,6 +290,14 @@ DESCR("change priority of all the backends for a given session id");
 DATA(insert OID = 6071 ( pg_stat_get_activity  PGNSP PGUID 12 1 1000 0 f f f t v 1 0 2249 f "23" "{23,26,23,26,25,25,16,1184,1184,1184,869,23,23,25}" "{i,o,o,o,o,o,o,o,o,o,o,o,o,o}" "{pid,datid,procpid,usesysid,application_name,current_query,waiting,xact_start,query_start,backend_start,client_addr,client_port,sess_id,waiting_reason}" _null_ pg_stat_get_activity _null_ _null_ _null_ n ));
 DESCR("statistics: information about currently active backends");
 
+/* pg_stat_get_resgroup_activity(IN pid int4, OUT procpid int4, OUT groupid oid, OUT groupname text, OUT queueing bool, OUT queuereason text, OUT queueduration interval) => SETOF pg_catalog.record */ 
+DATA(insert OID = 6065 ( pg_stat_get_resgroup_activity  PGNSP PGUID 12 1 1000 0 f f f t v 1 0 2249 f "23" "{23,23,26,25,16,25,1186}" "{i,o,o,o,o,o,o}" "{pid,procpid,groupid,groupname,queueing,queuereason,queueduration}" _null_ pg_stat_get_resgroup_activity _null_ _null_ _null_ n ));
+DESCR("statistics: resource group information about currently active backends");
+
+/* pg_stat_get_resgroup(IN gid oid, OUT groupid oid, OUT max_concurrency int4, OUT proposed_max_concurrency int4, OUT num_running int4, OUT num_queueing int4, OUT cpu_limit float4, OUT cpu_actual float4, OUT memory_limit float4, OUT proposed_memory_limit float4, OUT memory_actual float4, OUT memory_redzone float4, OUT memory_limit_per_query float4, OUT proposed_memory_limit_per_query float4, OUT memory_actual_per_query float4, OUT memory_redzone_per_query float4) => SETOF pg_catalog.record */ 
+DATA(insert OID = 6066 ( pg_stat_get_resgroup  PGNSP PGUID 12 1 1000 0 f f f t v 1 0 2249 f "26" "{26,26,23,23,23,23,700,700,700,700,700,700,700,700,700,700}" "{i,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o}" "{gid,groupid,max_concurrency,proposed_max_concurrency,num_running,num_queueing,cpu_limit,cpu_actual,memory_limit,proposed_memory_limit,memory_actual,memory_redzone,memory_limit_per_query,proposed_memory_limit_per_query,memory_actual_per_query,memory_redzone_per_query}" _null_ pg_stat_get_resgroup _null_ _null_ _null_ n ));
+DESCR("statistics: information about resource groups");
+
 /* pg_stat_get_wal_senders(OUT pid int4, OUT state text, OUT sent_location text, OUT write_location text, OUT flush_location text, OUT replay_location text, OUT sync_priority int4, OUT sync_state text) => SETOF pg_catalog.record */ 
 DATA(insert OID = 3099 ( pg_stat_get_wal_senders  PGNSP PGUID 12 1 1000 0 f f f t s 0 0 2249 f "" "{23,25,25,25,25,25,23,25}" "{o,o,o,o,o,o,o,o}" "{pid,state,sent_location,write_location,flush_location,replay_location,sync_priority,sync_state}" _null_ pg_stat_get_wal_senders _null_ _null_ _null_ n ));
 DESCR("statistics: information about currently active replication");

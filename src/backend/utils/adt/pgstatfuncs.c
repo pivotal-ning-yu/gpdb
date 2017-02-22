@@ -648,6 +648,105 @@ pg_stat_get_activity(PG_FUNCTION_ARGS)
 	}
 }
 
+Datum
+pg_stat_get_resgroup_activity(PG_FUNCTION_ARGS)
+{
+	FuncCallContext *funcctx;
+
+	if (SRF_IS_FIRSTCALL())
+	{
+		MemoryContext oldcontext;
+		TupleDesc	tupdesc;
+		int			nattr = 6;
+
+		funcctx = SRF_FIRSTCALL_INIT();
+
+		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
+
+		tupdesc = CreateTemplateTupleDesc(nattr, false);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 1, "procpid", INT4OID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 2, "groupid", OIDOID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 3, "groupname", TEXTOID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 4, "queueing", BOOLOID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 5, "queuereason", TEXTOID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 6, "queueduration", INTERVALOID, -1, 0);
+
+		funcctx->tuple_desc = BlessTupleDesc(tupdesc);
+
+		/* nothing to return for now */
+		funcctx->max_calls = 0;
+
+		MemoryContextSwitchTo(oldcontext);
+	}
+
+	/* stuff done on every call of the function */
+	funcctx = SRF_PERCALL_SETUP();
+
+	if (funcctx->call_cntr < funcctx->max_calls)
+	{
+		/* will never reach here for now */
+	}
+	else
+	{
+		/* nothing left */
+		SRF_RETURN_DONE(funcctx);
+	}
+}
+
+Datum
+pg_stat_get_resgroup(PG_FUNCTION_ARGS)
+{
+	FuncCallContext *funcctx;
+
+	if (SRF_IS_FIRSTCALL())
+	{
+		MemoryContext oldcontext;
+		TupleDesc	tupdesc;
+		int			nattr = 15;
+
+		funcctx = SRF_FIRSTCALL_INIT();
+
+		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
+
+		tupdesc = CreateTemplateTupleDesc(nattr, false);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 1, "groupid", OIDOID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 2, "max_concurrency", INT4OID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 3, "proposed_max_concurrency", INT4OID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 4, "num_running", INT4OID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 5, "num_queueing", INT4OID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 6, "cpu_limit", FLOAT4OID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 7, "cpu_actual", FLOAT4OID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 8, "memory_limit", FLOAT4OID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 9, "proposed_memory_limit", FLOAT4OID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 10, "memory_actual", FLOAT4OID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 11, "memory_redzone", FLOAT4OID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 12, "memory_limit_per_query", FLOAT4OID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 13, "proposed_memory_limit_per_query", FLOAT4OID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 14, "memory_actual_per_query", FLOAT4OID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 15, "memory_redzone_per_query", FLOAT4OID, -1, 0);
+
+		funcctx->tuple_desc = BlessTupleDesc(tupdesc);
+
+		/* nothing to return for now */
+		funcctx->max_calls = 0;
+
+		MemoryContextSwitchTo(oldcontext);
+	}
+
+	/* stuff done on every call of the function */
+	funcctx = SRF_PERCALL_SETUP();
+
+	if (funcctx->call_cntr < funcctx->max_calls)
+	{
+		/* will never reach here for now */
+	}
+	else
+	{
+		/* nothing left */
+		SRF_RETURN_DONE(funcctx);
+	}
+}
+
 
 Datum
 pg_backend_pid(PG_FUNCTION_ARGS)
