@@ -401,7 +401,7 @@ pg_stat_get_activity(PG_FUNCTION_ARGS)
 	{
 		MemoryContext oldcontext;
 		TupleDesc	tupdesc;
-		int			nattr = 13;
+		int			nattr = 18;
 
 		funcctx = SRF_FIRSTCALL_INIT();
 
@@ -423,6 +423,14 @@ pg_stat_get_activity(PG_FUNCTION_ARGS)
 
 		if (nattr > 12)
 			TupleDescInitEntry(tupdesc, (AttrNumber) 13, "waiting_for", TEXTOID, -1, 0);
+
+		if (nattr > 13) {
+			TupleDescInitEntry(tupdesc, (AttrNumber) 14, "rsgid", OIDOID, -1, 0);
+			TupleDescInitEntry(tupdesc, (AttrNumber) 15, "rsgname", TEXTOID, -1, 0);
+			TupleDescInitEntry(tupdesc, (AttrNumber) 16, "rsgqueueing", BOOLOID, -1, 0);
+			TupleDescInitEntry(tupdesc, (AttrNumber) 17, "rsgqueuereason", TEXTOID, -1, 0);
+			TupleDescInitEntry(tupdesc, (AttrNumber) 18, "rsgqueueduration", INTERVALOID, -1, 0);
+		}
 
 		funcctx->tuple_desc = BlessTupleDesc(tupdesc);
 
@@ -474,8 +482,8 @@ pg_stat_get_activity(PG_FUNCTION_ARGS)
 	if (funcctx->call_cntr < funcctx->max_calls)
 	{
 		/* for each row */
-		Datum		values[13];
-		bool		nulls[13];
+		Datum		values[18];
+		bool		nulls[18];
 		HeapTuple	tuple;
 		PgBackendStatus *beentry;
 
@@ -621,6 +629,19 @@ pg_stat_get_activity(PG_FUNCTION_ARGS)
 					nulls[12] = true;
 			}
 
+			if (funcctx->tuple_desc->natts > 13)
+			{
+				Interval	interval;
+
+				MemSet(&interval, 0, sizeof(interval));
+
+				values[13] = ObjectIdGetDatum(0);
+				values[14] = CStringGetTextDatum("default");
+				values[15] = BoolGetDatum(false);
+				values[16] = CStringGetTextDatum("");
+				values[17] = IntervalPGetDatum(&interval);
+			}
+
 		}
 		else
 		{
@@ -635,122 +656,15 @@ pg_stat_get_activity(PG_FUNCTION_ARGS)
 			values[11] = Int32GetDatum(beentry->st_session_id);
 			if (funcctx->tuple_desc->natts > 12)
 				nulls[12] = true;
-		}
-
-		tuple = heap_form_tuple(funcctx->tuple_desc, values, nulls);
-
-		SRF_RETURN_NEXT(funcctx, HeapTupleGetDatum(tuple));
-	}
-	else
-	{
-		/* nothing left */
-		SRF_RETURN_DONE(funcctx);
-	}
-}
-
-Datum
-pg_stat_get_resgroup_activity(PG_FUNCTION_ARGS)
-{
-	FuncCallContext *funcctx;
-
-	if (SRF_IS_FIRSTCALL())
-	{
-		MemoryContext oldcontext;
-		TupleDesc	tupdesc;
-		int			nattr = 6;
-
-		funcctx = SRF_FIRSTCALL_INIT();
-
-		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
-
-		tupdesc = CreateTemplateTupleDesc(nattr, false);
-		TupleDescInitEntry(tupdesc, (AttrNumber) 1, "procpid", INT4OID, -1, 0);
-		TupleDescInitEntry(tupdesc, (AttrNumber) 2, "groupid", OIDOID, -1, 0);
-		TupleDescInitEntry(tupdesc, (AttrNumber) 3, "groupname", TEXTOID, -1, 0);
-		TupleDescInitEntry(tupdesc, (AttrNumber) 4, "queueing", BOOLOID, -1, 0);
-		TupleDescInitEntry(tupdesc, (AttrNumber) 5, "queuereason", TEXTOID, -1, 0);
-		TupleDescInitEntry(tupdesc, (AttrNumber) 6, "queueduration", INTERVALOID, -1, 0);
-
-		funcctx->tuple_desc = BlessTupleDesc(tupdesc);
-
-		funcctx->user_fctx = palloc0(sizeof(int));
-		if (PG_ARGISNULL(0))
-		{
-			/* Get all backends */
-			funcctx->max_calls = pgstat_fetch_stat_numbackends();
-		}
-		else
-		{
-			/*
-			 * Get one backend - locate by pid.
-			 *
-			 * We lookup the backend early, so we can return zero rows if it
-			 * doesn't exist, instead of returning a single row full of NULLs.
-			 */
-			int			pid = PG_GETARG_INT32(0);
-			int			i;
-			int			n = pgstat_fetch_stat_numbackends();
-
-			for (i = 1; i <= n; i++)
+			if (funcctx->tuple_desc->natts > 13)
 			{
-				PgBackendStatus *be = pgstat_fetch_stat_beentry(i);
-
-				if (be)
-				{
-					if (be->st_procpid == pid)
-					{
-						*(int *) (funcctx->user_fctx) = i;
-						break;
-					}
-				}
+				nulls[13] = true;
+				nulls[14] = true;
+				nulls[15] = true;
+				nulls[16] = true;
+				nulls[17] = true;
 			}
-
-			if (*(int *) (funcctx->user_fctx) == 0)
-				/* Pid not found, return zero rows */
-				funcctx->max_calls = 0;
-			else
-				funcctx->max_calls = 1;
 		}
-
-		MemoryContextSwitchTo(oldcontext);
-	}
-
-	/* stuff done on every call of the function */
-	funcctx = SRF_PERCALL_SETUP();
-
-	if (funcctx->call_cntr < funcctx->max_calls)
-	{
-		/* for each row */
-		Datum		values[6];
-		bool		nulls[6];
-		HeapTuple	tuple;
-		PgBackendStatus *beentry;
-		Interval	interval;
-
-		MemSet(values, 0, sizeof(values));
-		MemSet(nulls, 0, sizeof(nulls));
-		MemSet(&interval, 0, sizeof(interval));
-
-		if (*(int *) (funcctx->user_fctx) > 0)
-		{
-			/* Get specific pid slot */
-			beentry = pgstat_fetch_stat_beentry(*(int *) (funcctx->user_fctx));
-		}
-		else
-		{
-			/* Get the next one in the list */
-			beentry = pgstat_fetch_stat_beentry(funcctx->call_cntr + 1);		/* 1-based index */
-		}
-
-		/* procpid is the only real value in this placeholder */
-		values[0] = Int32GetDatum(beentry->st_procpid);
-
-		/* Fill with dummy values */
-		values[1] = ObjectIdGetDatum(0);
-		values[2] = CStringGetTextDatum("default");
-		values[3] = BoolGetDatum(false);
-		values[4] = CStringGetTextDatum("");
-		values[5] = IntervalPGetDatum(&interval);
 
 		tuple = heap_form_tuple(funcctx->tuple_desc, values, nulls);
 
@@ -772,7 +686,7 @@ pg_stat_get_resgroup(PG_FUNCTION_ARGS)
 	{
 		MemoryContext oldcontext;
 		TupleDesc	tupdesc;
-		int			nattr = 15;
+		int			nattr = 8;
 
 		funcctx = SRF_FIRSTCALL_INIT();
 
@@ -780,42 +694,17 @@ pg_stat_get_resgroup(PG_FUNCTION_ARGS)
 
 		tupdesc = CreateTemplateTupleDesc(nattr, false);
 		TupleDescInitEntry(tupdesc, (AttrNumber) 1, "groupid", OIDOID, -1, 0);
-		TupleDescInitEntry(tupdesc, (AttrNumber) 2, "max_concurrency", INT4OID, -1, 0);
-		TupleDescInitEntry(tupdesc, (AttrNumber) 3, "proposed_max_concurrency", INT4OID, -1, 0);
-		TupleDescInitEntry(tupdesc, (AttrNumber) 4, "num_running", INT4OID, -1, 0);
-		TupleDescInitEntry(tupdesc, (AttrNumber) 5, "num_queueing", INT4OID, -1, 0);
-		TupleDescInitEntry(tupdesc, (AttrNumber) 6, "cpu_limit", FLOAT4OID, -1, 0);
-		TupleDescInitEntry(tupdesc, (AttrNumber) 7, "cpu_actual", FLOAT4OID, -1, 0);
-		TupleDescInitEntry(tupdesc, (AttrNumber) 8, "memory_limit", FLOAT4OID, -1, 0);
-		TupleDescInitEntry(tupdesc, (AttrNumber) 9, "proposed_memory_limit", FLOAT4OID, -1, 0);
-		TupleDescInitEntry(tupdesc, (AttrNumber) 10, "memory_actual", FLOAT4OID, -1, 0);
-		TupleDescInitEntry(tupdesc, (AttrNumber) 11, "memory_redzone", FLOAT4OID, -1, 0);
-		TupleDescInitEntry(tupdesc, (AttrNumber) 12, "memory_limit_per_query", FLOAT4OID, -1, 0);
-		TupleDescInitEntry(tupdesc, (AttrNumber) 13, "proposed_memory_limit_per_query", FLOAT4OID, -1, 0);
-		TupleDescInitEntry(tupdesc, (AttrNumber) 14, "memory_actual_per_query", FLOAT4OID, -1, 0);
-		TupleDescInitEntry(tupdesc, (AttrNumber) 15, "memory_redzone_per_query", FLOAT4OID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 2, "num_running", INT4OID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 3, "num_queueing", INT4OID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 4, "cpu_usage", FLOAT4OID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 5, "memory_usage", FLOAT4OID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 6, "memory_usage_per_query", FLOAT4OID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 6, "total_queue_duration", INTERVALOID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 6, "total_execution_duration", INTERVALOID, -1, 0);
 
 		funcctx->tuple_desc = BlessTupleDesc(tupdesc);
 
-		if (PG_ARGISNULL(0))
-		{
-			/* Assume there is only one resgroup in this placeholder */
-			funcctx->max_calls = 1;
-		}
-		else
-		{
-			int gid = PG_GETARG_INT32(0);
-
-			switch (gid) {
-				/* Assume the only resgroup has oid 0 */
-				case 0:
-					funcctx->max_calls = 1;
-					break;
-				default:
-					funcctx->max_calls = 0;
-					break;
-			}
-		}
+		funcctx->max_calls = 0;
 
 		MemoryContextSwitchTo(oldcontext);
 	}
@@ -826,8 +715,79 @@ pg_stat_get_resgroup(PG_FUNCTION_ARGS)
 	if (funcctx->call_cntr < funcctx->max_calls)
 	{
 		/* for each row */
-		Datum		values[15];
-		bool		nulls[15];
+		Datum		values[8];
+		bool		nulls[8];
+		HeapTuple	tuple;
+		Interval	interval;
+
+		MemSet(values, 0, sizeof(values));
+		MemSet(nulls, 0, sizeof(nulls));
+		MemSet(&interval, 0, sizeof(interval));
+
+		/* Fill with dummy values */
+		values[0] = ObjectIdGetDatum(0);
+		values[1] = Int32GetDatum(1);
+		values[2] = Int32GetDatum(0);
+		values[3] = Float4GetDatum(0.0);
+		values[4] = Float4GetDatum(0.0);
+		values[5] = Float4GetDatum(0.0);
+		values[6] = IntervalPGetDatum(&interval);
+		values[7] = IntervalPGetDatum(&interval);
+
+		tuple = heap_form_tuple(funcctx->tuple_desc, values, nulls);
+
+		SRF_RETURN_NEXT(funcctx, HeapTupleGetDatum(tuple));
+	}
+	else
+	{
+		/* nothing left */
+		SRF_RETURN_DONE(funcctx);
+	}
+}
+
+Datum
+pg_resgroup_get_status(PG_FUNCTION_ARGS)
+{
+	FuncCallContext *funcctx;
+
+	if (SRF_IS_FIRSTCALL())
+	{
+		MemoryContext oldcontext;
+		TupleDesc	tupdesc;
+		int			nattr = 11;
+
+		funcctx = SRF_FIRSTCALL_INIT();
+
+		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
+
+		tupdesc = CreateTemplateTupleDesc(nattr, false);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 1, "groupid", OIDOID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 2, "groupname", TEXTOID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 3, "max_concurrency", INT4OID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 4, "proposed_max_concurrency", INT4OID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 5, "cpu_limit", FLOAT4OID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 6, "memory_limit", FLOAT4OID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 7, "proposed_memory_limit", FLOAT4OID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 8, "memory_redzone", FLOAT4OID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 9, "memory_limit_per_query", FLOAT4OID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 10, "proposed_memory_limit_per_query", FLOAT4OID, -1, 0);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 11, "memory_redzone_per_query", FLOAT4OID, -1, 0);
+
+		funcctx->tuple_desc = BlessTupleDesc(tupdesc);
+
+		funcctx->max_calls = 0;
+
+		MemoryContextSwitchTo(oldcontext);
+	}
+
+	/* stuff done on every call of the function */
+	funcctx = SRF_PERCALL_SETUP();
+
+	if (funcctx->call_cntr < funcctx->max_calls)
+	{
+		/* for each row */
+		Datum		values[11];
+		bool		nulls[11];
 		HeapTuple	tuple;
 
 		MemSet(values, 0, sizeof(values));
@@ -835,20 +795,17 @@ pg_stat_get_resgroup(PG_FUNCTION_ARGS)
 
 		/* Fill with dummy values */
 		values[0] = ObjectIdGetDatum(0);
-		values[1] = Int32GetDatum(20);
+		values[1] = CStringGetTextDatum("default");
 		values[2] = Int32GetDatum(20);
-		values[3] = Int32GetDatum(1);
-		values[4] = Int32GetDatum(0);
+		values[3] = Int32GetDatum(20);
+		values[4] = Float4GetDatum(1.0);
 		values[5] = Float4GetDatum(1.0);
 		values[6] = Float4GetDatum(1.0);
-		values[7] = Float4GetDatum(1.0);
+		values[7] = Float4GetDatum(0.2);
 		values[8] = Float4GetDatum(1.0);
 		values[9] = Float4GetDatum(1.0);
 		values[10] = Float4GetDatum(0.2);
-		values[11] = Float4GetDatum(1.0);
-		values[12] = Float4GetDatum(1.0);
-		values[13] = Float4GetDatum(1.0);
-		values[14] = Float4GetDatum(0.2);
+
 
 		tuple = heap_form_tuple(funcctx->tuple_desc, values, nulls);
 

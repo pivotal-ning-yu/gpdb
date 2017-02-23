@@ -131,15 +131,15 @@
 
  CREATE FUNCTION pg_renice_session(int4, int4) RETURNS int4 LANGUAGE internal VOLATILE STRICT AS 'pg_renice_session' WITH (OID=6042, DESCRIPTION="change priority of all the backends for a given session id");
 
- CREATE FUNCTION pg_stat_get_activity(IN pid int4, OUT datid oid, OUT procpid int4, OUT usesysid oid, OUT application_name text, OUT current_query text, OUT waiting bool, OUT xact_start timestamptz, OUT query_start timestamptz, OUT backend_start timestamptz, OUT client_addr inet, OUT client_port int4, OUT sess_id int4, OUT waiting_reason text) RETURNS SETOF pg_catalog.record LANGUAGE internal VOLATILE AS 'pg_stat_get_activity' WITH (OID=6071, DESCRIPTION="statistics: information about currently active backends");
-
- CREATE FUNCTION pg_stat_get_resgroup_activity(IN pid int4, OUT procpid int4, OUT groupid oid, OUT groupname text, OUT queueing bool, OUT queuereason text, OUT queueduration interval) RETURNS SETOF pg_catalog.record LANGUAGE internal VOLATILE AS 'pg_stat_get_resgroup_activity' WITH (OID=6065, DESCRIPTION="statistics: resource group information about currently active backends");
-
- CREATE FUNCTION pg_stat_get_resgroup(IN gid oid, OUT groupid oid, OUT max_concurrency int4, OUT proposed_max_concurrency int4, OUT num_running int4, OUT num_queueing int4, OUT cpu_limit float4, OUT cpu_actual float4, OUT memory_limit float4, OUT proposed_memory_limit float4, OUT memory_actual float4, OUT memory_redzone float4, OUT memory_limit_per_query float4, OUT proposed_memory_limit_per_query float4, OUT memory_actual_per_query float4, OUT memory_redzone_per_query float4) RETURNS SETOF pg_catalog.record LANGUAGE internal VOLATILE AS 'pg_stat_get_resgroup' WITH (OID=6066, DESCRIPTION="statistics: information about resource groups");
+ CREATE FUNCTION pg_stat_get_activity(IN pid int4, OUT datid oid, OUT procpid int4, OUT usesysid oid, OUT application_name text, OUT current_query text, OUT waiting bool, OUT xact_start timestamptz, OUT query_start timestamptz, OUT backend_start timestamptz, OUT client_addr inet, OUT client_port int4, OUT sess_id int4, OUT waiting_reason text, OUT rsgid oid, OUT rsgname text, OUT rsgqueueing bool, OUT rsgqueuereason text, OUT rsgqueueduration interval) RETURNS SETOF pg_catalog.record LANGUAGE internal VOLATILE AS 'pg_stat_get_activity' WITH (OID=6071, DESCRIPTION="statistics: information about currently active backends");
 
  CREATE FUNCTION pg_stat_get_wal_senders(OUT pid int4, OUT state text, OUT sent_location text, OUT write_location text, OUT flush_location text, OUT replay_location text, OUT sync_priority int4, OUT sync_state text) RETURNS SETOF pg_catalog.record LANGUAGE internal STABLE AS 'pg_stat_get_wal_senders' WITH (OID=3099, DESCRIPTION="statistics: information about currently active replication");
 
  CREATE FUNCTION pg_terminate_backend(int4) RETURNS bool LANGUAGE internal VOLATILE STRICT AS 'pg_terminate_backend' WITH (OID=6118, DESCRIPTION="terminate a server process");
+
+ CREATE FUNCTION pg_stat_get_resgroup(OUT groupid oid, OUT num_running int4, OUT num_queueing int4, OUT cpu_usage float4, OUT memory_usage float4, OUT memory_usage_per_query float4, OUT total_queue_duration interval, OUT total_execution_duration interval) RETURNS SETOF pg_catalog.record LANGUAGE internal VOLATILE AS 'pg_stat_get_resgroup' WITH (OID=6065, DESCRIPTION="statistics: information about resource groups");
+
+ CREATE FUNCTION pg_resgroup_get_status(OUT groupid oid, OUT groupname text, OUT max_concurrency int4, OUT proposed_max_concurrency int4, OUT cpu_limit float4, OUT memory_limit float4, OUT proposed_memory_limit float4, OUT memory_redzone float4, OUT memory_limit_per_query float4, OUT proposed_memory_limit_per_query float4, OUT memory_redzone_per_query float4) RETURNS SETOF pg_catalog.record LANGUAGE internal VOLATILE AS 'pg_resgroup_get_status' WITH (OID=6066, DESCRIPTION="status information about resource groups");
 
  CREATE FUNCTION pg_resqueue_status() RETURNS SETOF record LANGUAGE internal VOLATILE STRICT AS 'pg_resqueue_status' WITH (OID=6030, DESCRIPTION="Return resource queue information");
 
