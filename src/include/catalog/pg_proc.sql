@@ -137,9 +137,7 @@
 
  CREATE FUNCTION pg_terminate_backend(int4) RETURNS bool LANGUAGE internal VOLATILE STRICT AS 'pg_terminate_backend' WITH (OID=6118, DESCRIPTION="terminate a server process");
 
- CREATE FUNCTION pg_stat_get_resgroup(OUT groupid oid, OUT num_running int4, OUT num_queueing int4, OUT cpu_usage float4, OUT memory_usage float4, OUT memory_usage_per_query float4, OUT total_queue_duration interval, OUT total_execution_duration interval) RETURNS SETOF pg_catalog.record LANGUAGE internal VOLATILE AS 'pg_stat_get_resgroup' WITH (OID=6065, DESCRIPTION="statistics: information about resource groups");
-
- CREATE FUNCTION pg_resgroup_get_status(OUT groupid oid, OUT groupname text, OUT max_concurrency int4, OUT proposed_max_concurrency int4, OUT cpu_limit float4, OUT memory_limit float4, OUT proposed_memory_limit float4, OUT memory_redzone float4, OUT memory_limit_per_query float4, OUT proposed_memory_limit_per_query float4, OUT memory_redzone_per_query float4) RETURNS SETOF pg_catalog.record LANGUAGE internal VOLATILE AS 'pg_resgroup_get_status' WITH (OID=6066, DESCRIPTION="status information about resource groups");
+ CREATE FUNCTION pg_resgroup_get_status(IN gid oid, OUT groupid oid, OUT num_running int4, OUT num_queueing int4, OUT cpu_usage float4, OUT memory_usage float4, OUT total_queue_duration interval, OUT total_execution_duration interval) RETURNS SETOF pg_catalog.record LANGUAGE internal VOLATILE AS 'pg_resgroup_get_status' WITH (OID=6065, DESCRIPTION="statistics: information about resource groups");
 
  CREATE FUNCTION pg_resqueue_status() RETURNS SETOF record LANGUAGE internal VOLATILE STRICT AS 'pg_resqueue_status' WITH (OID=6030, DESCRIPTION="Return resource queue information");
 

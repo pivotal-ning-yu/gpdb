@@ -424,33 +424,6 @@ CREATE VIEW pg_stat_database AS
             pg_stat_get_db_tuples_deleted(D.oid) AS tup_deleted
     FROM pg_database D;
 
-CREATE VIEW pg_stat_resgroup AS
-    SELECT
-            G.groupid,
-            G.num_running,
-            G.num_queueing,
-            G.cpu_usage,
-            G.memory_usage,
-            G.memory_usage_per_query,
-            G.total_queue_duration,
-            G.total_execution_duration
-    FROM pg_stat_get_resgroup() as G;
-
-CREATE VIEW pg_resgroup_status AS
-    SELECT
-            G.groupid,
-            G.groupname,
-            G.max_concurrency,
-            G.proposed_max_concurrency,
-            G.cpu_limit,
-            G.memory_limit,
-            G.proposed_memory_limit,
-            G.memory_redzone,
-            G.memory_limit_per_query,
-            G.proposed_memory_limit_per_query,
-            G.memory_redzone_per_query
-    FROM pg_resgroup_get_status() as G;
-
 CREATE VIEW pg_stat_resqueues AS
 	SELECT
 		Q.oid AS queueid,
