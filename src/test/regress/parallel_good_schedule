@@ -72,7 +72,7 @@ test: qp_with_clause
 test: qp_executor qp_olap_windowerr qp_olap_window qp_bitmapscan session_level_memory_consumption
 test: qp_functions qp_misc_rio_join_small
 test: qp_correlated_query 
-test: qp_dpe qp_subquery qp_functions_idf qp_resource_queue
+test: qp_dpe qp_subquery qp_functions_idf qp_resource_queue qp_orca_fallback
 
 test: olap_setup
 test: qp_olap_group
