@@ -3834,6 +3834,16 @@ static struct config_bool ConfigureNamesBool[] =
 	},
 
 	{
+		{"optimizer_trace_fallback", PGC_USERSET, LOGGING_WHAT,
+			 gettext_noop("Print a message at INFO level, whenever GPORCA falls back."),
+			 NULL,
+			 GUC_NO_SHOW_ALL | GUC_NOT_IN_SAMPLE
+		},
+		&optimizer_trace_fallback,
+		false, NULL, NULL
+	},
+
+	{
 		{"optimizer_partition_selection_log", PGC_USERSET, LOGGING_WHAT,
 			gettext_noop("Log optimizer partition selection."),
 			NULL,

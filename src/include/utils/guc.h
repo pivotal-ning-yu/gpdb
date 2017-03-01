@@ -378,6 +378,7 @@ extern char  *data_directory;
 extern bool	optimizer;
 extern bool optimizer_control;	/* controls whether the user can change the setting of the "optimizer" guc */
 extern bool	optimizer_log;
+extern bool	optimizer_trace_fallback;
 extern int  optimizer_log_failure;
 extern bool	optimizer_trace_fallback;
 extern bool optimizer_minidump;
