@@ -318,7 +318,7 @@ parseStmtOptions(CreateResourceGroupStmt *stmt, ResourceGroupOptions *options)
 		options->concurrency = RESGROUP_DEFAULT_CONCURRENCY;
 
 	if (options->redzoneLimit == 0)
-		options->concurrency = RESGROUP_DEFAULT_REDZONE_LIMIT;
+		options->redzoneLimit = RESGROUP_DEFAULT_REDZONE_LIMIT;
 }
 
 /**
