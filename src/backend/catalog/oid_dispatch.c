@@ -367,17 +367,17 @@ CreateKeyFromCatalogTuple(Relation catalogrel, HeapTuple tuple,
 
 		case ResGroupRelationId:
 			{
-				Form_pg_resgroup typForm = (Form_pg_resgroup) GETSTRUCT(tuple);
+				Form_pg_resgroup rsgForm = (Form_pg_resgroup) GETSTRUCT(tuple);
 
-				key.objname = NameStr(typForm->rsgname);
+				key.objname = NameStr(rsgForm->rsgname);
 				break;
 			}
 		case ResGroupCapabilityRelationId:
 			{
-				Form_pg_resgroupcapability rqcForm = (Form_pg_resgroupcapability) GETSTRUCT(tuple);
+				Form_pg_resgroupcapability rsgCapForm = (Form_pg_resgroupcapability) GETSTRUCT(tuple);
 
-				key.keyOid1 = rqcForm->resgroupid;
-				key.keyOid2 = (Oid) rqcForm->reslimittype;
+				key.keyOid1 = rsgCapForm->resgroupid;
+				key.keyOid2 = (Oid) rsgCapForm->reslimittype;
 				break;
 			}
 
