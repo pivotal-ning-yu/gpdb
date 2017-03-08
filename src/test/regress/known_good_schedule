@@ -120,6 +120,7 @@ test: exttab1
 test: gphdfs
 test: custom_format
 test: external_table
+test: external_table_create_privs
 test: resource_queue
 test: gptokencheck
 test: gpcopy
