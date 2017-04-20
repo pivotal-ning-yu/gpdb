@@ -181,6 +181,11 @@ CreateResourceGroup(CreateResourceGroupStmt *stmt)
 
 		AllocResGroupEntry(groupid);
 
+		/* Create os dependent part for this resource group */
+
+		ResGroupOps_CreateGroup(groupid);
+		ResGroupOps_SetCpuRateLimit(groupid, options.cpuRateLimit);
+
 		/* Argument of callback function should be allocated in heap region */
 		callbackArg = (Oid *)MemoryContextAlloc(TopMemoryContext, sizeof(Oid));
 		*callbackArg = groupid;
@@ -315,13 +320,23 @@ DropResourceGroup(DropResourceGroupStmt *stmt)
 }
 
 /*
- * Get 'concurrency' of on resource group in pg_resgroupcapability.
+ * Get 'concurrency' of one resource group in pg_resgroupcapability.
  */
 int
 GetConcurrencyForGroup(int groupId)
 {
 	text value = getCapabilityForGroup(groupId, RESGROUP_LIMIT_TYPE_CONCURRENCY);
 	return text2int(&value);
+}
+
+/*
+ * Get 'cpu_rate_limit' of one resource group in pg_resgroupcapability.
+ */
+float
+GetCpuRateLimitForGroup(int groupId)
+{
+	text value = getCapabilityForGroup(groupId, RESGROUP_LIMIT_TYPE_CPU);
+	return text2Float(&value, "cpu_rate_limit");
 }
 
 /*
@@ -618,6 +633,7 @@ static void
 createResGroupAbortCallback(ResourceReleasePhase phase,
 							bool isCommit, bool isTopLevel, void *arg)
 {
+	volatile int savedInterruptHoldoffCount;
 	Oid groupId;
 
 	if (!isTopLevel ||
@@ -634,6 +650,21 @@ createResGroupAbortCallback(ResourceReleasePhase phase,
 		 * after LWLockReleaseAll in AbortTransaction, it is safe here
 		 */
 		FreeResGroupEntry(groupId, NULL);
+
+		/* remove the os dependent part for this resource group */
+		PG_TRY();
+		{
+			ResGroupOps_DestroyGroup(groupId);
+		}
+		PG_CATCH();
+		{
+			/*
+			 * leaving a directory behind do no big harm to the whole system, here in a critical section ignore it.
+			 */
+			InterruptHoldoffCount = savedInterruptHoldoffCount;
+		}
+		PG_END_TRY();
+
 	}
 
 	UnregisterResourceReleaseCallback(createResGroupAbortCallback, arg);
@@ -650,6 +681,7 @@ dropResGroupAbortCallback(ResourceReleasePhase phase,
 						  bool isCommit, bool isTopLevel, void *arg)
 {
 	Oid groupId;
+	volatile int savedInterruptHoldoffCount;
 
 	if (!isTopLevel ||
 		IsTransactionPreparing() ||
@@ -665,6 +697,23 @@ dropResGroupAbortCallback(ResourceReleasePhase phase,
 		 * after LWLockReleaseAll in AbortTransaction, it is safe here
 		 */
 		AllocResGroupEntry(groupId);
+	}
+	else
+	{
+		groupId = *(Oid *)arg;
+		savedInterruptHoldoffCount = InterruptHoldoffCount;
+		PG_TRY();
+		{
+			ResGroupOps_DestroyGroup(groupId);
+		}
+		PG_CATCH();
+		{
+			/*
+			 * leaving a directory behind do no big harm to the whole system, here in a critical section ignore it.
+			 */
+			InterruptHoldoffCount = savedInterruptHoldoffCount;
+		}
+		PG_END_TRY();
 	}
 
 	UnregisterResourceReleaseCallback(dropResGroupAbortCallback, arg);
