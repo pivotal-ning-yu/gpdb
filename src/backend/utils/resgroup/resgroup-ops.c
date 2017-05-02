@@ -50,6 +50,12 @@ ResGroupOps_Init(void)
 	CGroupInitTop();
 }
 
+void
+ResGroupOps_AdjustGUCs(void)
+{
+	CGroupAdjustGUCs();
+}
+
 /*
  * Create the OS group for group.
  */

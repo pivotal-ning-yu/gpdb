@@ -14,6 +14,7 @@
 /* cgroup is only available on linux */
 extern void CGroupCheckPermission(Oid group);
 extern void CGroupInitTop(void);
+extern void CGroupAdjustGUCs(void);
 extern void CGroupCreateSub(Oid group);
 extern void CGroupDestroySub(Oid group);
 extern void CGroupAssignGroup(Oid group, int pid);

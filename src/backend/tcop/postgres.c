@@ -4643,6 +4643,7 @@ PostgresMain(int argc, char *argv[],
 	{
 		InitResGroups();
 		AssignResGroup();
+		ResGroupOps_AdjustGUCs();
 	}
 
 	/*

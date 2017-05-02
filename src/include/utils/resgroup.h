@@ -86,6 +86,7 @@ extern void ResGroupGetStat(Oid groupId, ResGroupStatType type, char *retStr, in
 extern const char * ResGroupOps_Name(void);
 extern void ResGroupOps_CheckPermission(void);
 extern void ResGroupOps_Init(void);
+extern void ResGroupOps_AdjustGUCs(void);
 extern void ResGroupOps_CreateGroup(Oid group);
 extern void ResGroupOps_DestroyGroup(Oid group);
 extern void ResGroupOps_AssignGroup(Oid group, int pid);

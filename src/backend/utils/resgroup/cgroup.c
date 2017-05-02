@@ -253,9 +253,27 @@ CGroupInitTop(void)
 }
 
 void
+CGroupAdjustGUCs(void)
+{
+	/*
+	 * cgroup cpu limitation works best when all processes have equal
+	 * priorities, so we force all the segments and postmaster to
+	 * work with nice=0.
+	 *
+	 * this function should be called before GUCs are dispatched to segments.
+	 */
+	/* TODO: when cgroup is enabled we should move postmaster and maybe
+	 *       also other processes to a separate group or gpdb toplevel */
+	if (gp_segworker_relative_priority != 0)
+	{
+		/* TODO: produce a warning */
+		gp_segworker_relative_priority = 0;
+	}
+}
+
+void
 CGroupCreateSub(Oid group)
 {
-
 	if (!createDir(group, "cpu") || !createDir(group, "cpuacct"))
 	{
 		CGROUP_ERROR("can't create cgroup for resgroup '%d': %s",
