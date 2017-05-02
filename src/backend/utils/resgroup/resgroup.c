@@ -260,7 +260,7 @@ exit:
  *  Retrieve statistic information of type from resource group
  */
 void
-ResGroupGetStat(Oid groupId, ResGroupStatType type, char *retStr, int retStrLen)
+ResGroupGetStat(Oid groupId, ResGroupStatType type, char *retStr, int retStrLen, const char *prop)
 {
 	ResGroup group;
 
@@ -303,7 +303,7 @@ ResGroupGetStat(Oid groupId, ResGroupStatType type, char *retStr, int retStrLen)
 		default:
 			ereport(ERROR,
 					(errcode(ERRCODE_INTERNAL_ERROR),
-					 errmsg("Invalid stat type %d", type)));
+					 errmsg("Invalid stat type %s", prop)));
 	}
 
 	LWLockRelease(ResGroupLock);
