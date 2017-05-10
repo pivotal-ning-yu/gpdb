@@ -39,11 +39,11 @@ CREATE VIEW busy AS
     bigtable t3,
     bigtable t4,
     bigtable t5
-    WHERE 0 = (t1.c1 + 10000)!
-      AND 0 = (t2.c1 + 10000)!
-      AND 0 = (t3.c1 + 10000)!
-      AND 0 = (t4.c1 + 10000)!
-      AND 0 = (t5.c1 + 10000)!
+    WHERE 0 = (t1.c1 % 2 + 10000)!
+      AND 0 = (t2.c1 % 2 + 10000)!
+      AND 0 = (t3.c1 % 2 + 10000)!
+      AND 0 = (t4.c1 % 2 + 10000)!
+      AND 0 = (t5.c1 % 2 + 10000)!
     ;
 
 CREATE VIEW cancel_all AS
@@ -60,7 +60,7 @@ CREATE VIEW cancel_all AS
 
 ! python -c "print $(cat /sys/fs/cgroup/cpu/gpdb/cpu.cfs_quota_us) == int($(cat /sys/fs/cgroup/cpu/gpdb/cpu.cfs_period_us) * $(nproc) * $(psql -d isolation2resgrouptest -Aqtc "SHOW gp_resource_group_cpu_limit"))";
 
-! python -c "print $(cat /sys/fs/cgroup/cpu/gpdb/cpu.shares) == 1024 * $(nproc)";
+! python -c "print $(cat /sys/fs/cgroup/cpu/gpdb/cpu.shares) == 1024 * 256";
 
 --
 -- check default groups configuration
@@ -125,15 +125,7 @@ SELECT * FROM cpu_status;
 13&: SELECT * FROM busy;
 14&: SELECT * FROM busy;
 
-SELECT pg_sleep(10);
-SELECT * FROM cpu_status;
-SELECT pg_sleep(1);
-SELECT * FROM cpu_status;
-SELECT pg_sleep(1);
-SELECT * FROM cpu_status;
-SELECT pg_sleep(1);
-SELECT * FROM cpu_status;
-SELECT pg_sleep(1);
+SELECT pg_sleep(20);
 SELECT * FROM cpu_status;
 
 -- start_ignore
@@ -168,15 +160,7 @@ SELECT * FROM cancel_all;
 23&: SELECT * FROM busy;
 24&: SELECT * FROM busy;
 
-SELECT pg_sleep(10);
-SELECT * FROM cpu_status;
-SELECT pg_sleep(1);
-SELECT * FROM cpu_status;
-SELECT pg_sleep(1);
-SELECT * FROM cpu_status;
-SELECT pg_sleep(1);
-SELECT * FROM cpu_status;
-SELECT pg_sleep(1);
+SELECT pg_sleep(20);
 SELECT * FROM cpu_status;
 
 -- start_ignore

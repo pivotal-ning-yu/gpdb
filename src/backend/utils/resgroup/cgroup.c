@@ -18,12 +18,9 @@
 
 /* cgroup is only available on linux */
 
-#include <fcntl.h>
 #include <unistd.h>
 #include <sched.h>
-#include <sys/file.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 
 #define CGROUP_ERROR_PREFIX "cgroup is not properly configured: "
 #define CGROUP_ERROR(...) do { \
@@ -39,6 +36,8 @@ static size_t readData(Oid group, const char *comp, const char *prop, char *data
 static void writeData(Oid group, const char *comp, const char *prop, char *data, size_t datasize);
 static int64 readInt64(Oid group, const char *comp, const char *prop);
 static void writeInt64(Oid group, const char *comp, const char *prop, int64 x);
+
+static int cpucores = 0;
 
 static bool
 isLinuxPlatform(void)
@@ -105,30 +104,30 @@ static int
 getCpuCores(void)
 {
 #ifdef __linux__
-	cpu_set_t set;
-
-	if (sched_getaffinity (0, sizeof (set), &set) == 0)
+	if (cpucores == 0)
 	{
-		unsigned long count;
+		/*
+		 * cpuset ops requires _GNU_SOURCE to be defined,
+		 * and _GNU_SOURCE is forced on in src/template/linux,
+		 * so we assume these ops are always available on linux.
+		 */
+		cpu_set_t cpuset;
+		int i;
 
-#ifdef CPU_COUNT
-		/* glibc >= 2.6 has the CPU_COUNT macro.  */
-		count = CPU_COUNT (&set);
-#else
-		size_t i;
+		if (sched_getaffinity(0, sizeof(cpuset), &cpuset) < 0)
+			CGROUP_ERROR("can't get cpu cores: %s", strerror(errno));
 
-		count = 0;
 		for (i = 0; i < CPU_SETSIZE; i++)
-			if (CPU_ISSET (i, &set))
-				count++;
-#endif
-		if (count > 0)
-			return count;
+		{
+			if (CPU_ISSET(i, &cpuset))
+				cpucores++;
+		}
 	}
 
-	CGROUP_ERROR("can't get cpu cores");
+	if (cpucores == 0)
+		CGROUP_ERROR("can't get cpu cores");
 
-	return 1;
+	return cpucores;
 #else
 	CGROUP_ERROR("unsupported platform");
 	return -1;
@@ -240,7 +239,7 @@ void
 CGroupInitTop(void)
 {
 	/* cfs_quota_us := cfs_period_us * ncores * gp_resource_group_cpu_limit */
-	/* shares := 1024 * ncores */
+	/* shares := 1024 * 256 (max possible value) */
 
 	int64 cfs_period_us;
 	int ncores = getCpuCores();
@@ -249,7 +248,7 @@ CGroupInitTop(void)
 	cfs_period_us = readInt64(0, comp, "cpu.cfs_period_us");
 	writeInt64(0, comp, "cpu.cfs_quota_us",
 			   cfs_period_us * ncores * gp_resource_group_cpu_limit);
-	writeInt64(0, comp, "cpu.shares", 1024 * ncores);
+	writeInt64(0, comp, "cpu.shares", 1024 * 256);
 }
 
 void

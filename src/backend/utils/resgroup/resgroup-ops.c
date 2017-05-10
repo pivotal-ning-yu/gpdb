@@ -19,7 +19,7 @@
 /*
  * Interfaces for OS dependent operations.
  *
- * Resource group replies on OS dependent group implementation to manage
+ * Resource group relies on OS dependent group implementation to manage
  * resources like cpu usage, such as cgroup on Linux system.
  * We call it OS group in below function description.
  *

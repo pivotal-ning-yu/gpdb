@@ -2,6 +2,8 @@
 #
 # Copyright (c) GPDB 2017. All Rights Reserved.
 
+import sys
+
 from gppylib.commands import base
 from gppylib.commands.unix import *
 from gppylib.commands.gp import *
@@ -16,19 +18,19 @@ def validiate_permission(path, mode):
     try:
         open(os.path.join(cgroup_mount_location, path), mode)
     except Exception, e:
-		exit("cgroup is not properly configured: %s expect permission: %s"%(str(e), mode))
+        exit("cgroup is not properly configured: %s expect permission: %s"%(str(e), mode))
 
 if (not os.access(os.path.join(cgroup_mount_location, "cpu/gpdb"), os.F_OK)):
-        exit("cgroup is not properly configured: directory %s do not exist"%os.path.join(cgroup_mount_location, "cpu/gpdb"))
+    exit("cgroup is not properly configured: directory %s do not exist"%os.path.join(cgroup_mount_location, "cpu/gpdb"))
 
 if (not os.access(os.path.join(cgroup_mount_location, "cpu/gpdb"), os.R_OK|os.W_OK|os.X_OK)):
-		exit("cgroup is not properly configured: directory %s Permission denied, expect permission: rwx"%os.path.join(cgroup_mount_location, "cpu/gpdb"))
+    exit("cgroup is not properly configured: directory %s Permission denied, expect permission: rwx"%os.path.join(cgroup_mount_location, "cpu/gpdb"))
 
 if (not os.access(os.path.join(cgroup_mount_location, "cpuacct/gpdb"), os.F_OK)):
-        exit("cgroup is not properly configured: directory %s do not exist"%os.path.join(cgroup_mount_location, "cpuacct/gpdb"))
+    exit("cgroup is not properly configured: directory %s do not exist"%os.path.join(cgroup_mount_location, "cpuacct/gpdb"))
 
 if (not os.access(os.path.join(cgroup_mount_location, "cpuacct/gpdb"), os.R_OK|os.W_OK|os.X_OK)):
-		exit("cgroup is not properly configured: directory %s Permission denied, expect permission: rwx"%os.path.join(cgroup_mount_location, "cpuacct/gpdb"))
+    exit("cgroup is not properly configured: directory %s Permission denied, expect permission: rwx"%os.path.join(cgroup_mount_location, "cpuacct/gpdb"))
 
 validiate_permission("cpu/gpdb/cgroup.procs","w");
 validiate_permission("cpu/gpdb/cpu.cfs_period_us","r");
@@ -43,9 +45,7 @@ class resgroup(object):
         self.logger = get_default_logger()
 
     def validate(self):
-        import platform
-        system = platform.system()
-        if system == 'Linux':
+        if sys.platform.startswith('linux'):
             return self.validate_cgroup()
         else:
             return "resource group is not supported on this platform"

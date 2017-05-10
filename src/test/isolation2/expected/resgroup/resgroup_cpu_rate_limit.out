@@ -35,7 +35,7 @@ CREATE
 CREATE VIEW cpu_status AS SELECT g.rsgname, round_percentage(s.cpu_usage) FROM gp_toolkit.gp_resgroup_status s, pg_resgroup g WHERE s.groupid=g.oid ORDER BY g.oid;
 CREATE
 
-CREATE VIEW busy AS SELECT count(*) FROM bigtable t1, bigtable t2, bigtable t3, bigtable t4, bigtable t5 WHERE 0 = (t1.c1 + 10000)! AND 0 = (t2.c1 + 10000)! AND 0 = (t3.c1 + 10000)! AND 0 = (t4.c1 + 10000)! AND 0 = (t5.c1 + 10000)! ;
+CREATE VIEW busy AS SELECT count(*) FROM bigtable t1, bigtable t2, bigtable t3, bigtable t4, bigtable t5 WHERE 0 = (t1.c1 % 2 + 10000)! AND 0 = (t2.c1 % 2 + 10000)! AND 0 = (t3.c1 % 2 + 10000)! AND 0 = (t4.c1 % 2 + 10000)! AND 0 = (t5.c1 % 2 + 10000)! ;
 CREATE
 
 CREATE VIEW cancel_all AS SELECT pg_cancel_backend(procpid) FROM pg_stat_activity WHERE current_query LIKE 'SELECT * FROM busy%';
@@ -52,7 +52,7 @@ CREATE
 True
 
 
-! python -c "print $(cat /sys/fs/cgroup/cpu/gpdb/cpu.shares) == 1024 * $(nproc)";
+! python -c "print $(cat /sys/fs/cgroup/cpu/gpdb/cpu.shares) == 1024 * 256";
 True
 
 
@@ -150,59 +150,7 @@ g2           |0%
 13&: SELECT * FROM busy;  <waiting ...>
 14&: SELECT * FROM busy;  <waiting ...>
 
-SELECT pg_sleep(10);
-pg_sleep
---------
-        
-(1 row)
-SELECT * FROM cpu_status;
-rsgname      |round_percentage
--------------+----------------
-default_group|0%              
-admin_group  |0%              
-g1           |90%             
-g2           |0%              
-(4 rows)
-SELECT pg_sleep(1);
-pg_sleep
---------
-        
-(1 row)
-SELECT * FROM cpu_status;
-rsgname      |round_percentage
--------------+----------------
-default_group|0%              
-admin_group  |0%              
-g1           |90%             
-g2           |0%              
-(4 rows)
-SELECT pg_sleep(1);
-pg_sleep
---------
-        
-(1 row)
-SELECT * FROM cpu_status;
-rsgname      |round_percentage
--------------+----------------
-default_group|0%              
-admin_group  |0%              
-g1           |90%             
-g2           |0%              
-(4 rows)
-SELECT pg_sleep(1);
-pg_sleep
---------
-        
-(1 row)
-SELECT * FROM cpu_status;
-rsgname      |round_percentage
--------------+----------------
-default_group|0%              
-admin_group  |0%              
-g1           |90%             
-g2           |0%              
-(4 rows)
-SELECT pg_sleep(1);
+SELECT pg_sleep(20);
 pg_sleep
 --------
         
@@ -261,59 +209,7 @@ ERROR:  canceling statement due to user request
 23&: SELECT * FROM busy;  <waiting ...>
 24&: SELECT * FROM busy;  <waiting ...>
 
-SELECT pg_sleep(10);
-pg_sleep
---------
-        
-(1 row)
-SELECT * FROM cpu_status;
-rsgname      |round_percentage
--------------+----------------
-default_group|0%              
-admin_group  |0%              
-g1           |30%             
-g2           |60%             
-(4 rows)
-SELECT pg_sleep(1);
-pg_sleep
---------
-        
-(1 row)
-SELECT * FROM cpu_status;
-rsgname      |round_percentage
--------------+----------------
-default_group|0%              
-admin_group  |0%              
-g1           |30%             
-g2           |60%             
-(4 rows)
-SELECT pg_sleep(1);
-pg_sleep
---------
-        
-(1 row)
-SELECT * FROM cpu_status;
-rsgname      |round_percentage
--------------+----------------
-default_group|0%              
-admin_group  |0%              
-g1           |30%             
-g2           |60%             
-(4 rows)
-SELECT pg_sleep(1);
-pg_sleep
---------
-        
-(1 row)
-SELECT * FROM cpu_status;
-rsgname      |round_percentage
--------------+----------------
-default_group|0%              
-admin_group  |0%              
-g1           |30%             
-g2           |60%             
-(4 rows)
-SELECT pg_sleep(1);
+SELECT pg_sleep(20);
 pg_sleep
 --------
         

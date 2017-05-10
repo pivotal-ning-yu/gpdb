@@ -54,11 +54,7 @@ typedef struct ResourceGroupStatusRow
 {
 	Datum oid;
 
-	double cpu_avg_usage;
-	int64 cpu_usage1;
-	int64 cpu_usage2;
-	TimestampTz cpu_timestamp1;
-	TimestampTz cpu_timestamp2;
+	double cpuAvgUsage;
 } ResourceGroupStatusRow;
 
 typedef struct ResourceGroupStatusContext
@@ -471,12 +467,17 @@ propNameToType(const char *name)
 static void
 getCpuUsage(ResourceGroupStatusContext *ctx)
 {
+	int64 *usages;
+	TimestampTz *timestamps;
 	int nsegs = 1;
 	int ncores;
 	int i, j;
 
 	if (!IsResGroupEnabled())
 		return;
+
+	usages = palloc(sizeof(*usages) * ctx->nrows);
+	timestamps = palloc(sizeof(*timestamps) * ctx->nrows);
 
 	ncores = ResGroupOps_GetCpuCores();
 
@@ -485,8 +486,8 @@ getCpuUsage(ResourceGroupStatusContext *ctx)
 		ResourceGroupStatusRow *row = &ctx->rows[j];
 		Oid rsgid = DatumGetObjectId(row->oid);
 
-		row->cpu_usage1 = ResGroupOps_GetCpuUsage(rsgid);
-		row->cpu_timestamp1 = GetCurrentTimestamp();
+		usages[j] = ResGroupOps_GetCpuUsage(rsgid);
+		timestamps[j] = GetCurrentTimestamp();
 	}
 
 	if (Gp_role == GP_ROLE_DISPATCH)
@@ -528,12 +529,28 @@ getCpuUsage(ResourceGroupStatusContext *ctx)
 					ResourceGroupStatusRow *row = &ctx->rows[j];
 					Oid rsgid = pg_atoi(PQgetvalue(pg_result, j, 0),
 										sizeof(Oid), 0);
-					Assert(rsgid == DatumGetObjectId(row->oid));
+					/*
+					 * we assume QD and QE shall have the same order
+					 * for all the resgroups, but in case this assumption
+					 * failed we do a full lookup
+					 */
+					if (rsgid != DatumGetObjectId(row->oid))
+					{
+						int k;
+						for (k = 0; k < ctx->nrows; k++)
+						{
+							row = &ctx->rows[k];
+							if (rsgid == DatumGetObjectId(row->oid))
+								break;
+						}
+						if (k == ctx->nrows)
+							elog(ERROR, "gp_resgroup_status: inconsistent resgroups between QD and QE");
+					}
 
 					result = PQgetvalue(pg_result, j, 1);
 					sscanf(result, "%lf", &usage);
 
-					row->cpu_avg_usage += usage;
+					row->cpuAvgUsage += usage;
 				}
 			}
 		}
@@ -554,14 +571,12 @@ getCpuUsage(ResourceGroupStatusContext *ctx)
 		ResourceGroupStatusRow *row = &ctx->rows[j];
 		Oid rsgid = DatumGetObjectId(row->oid);
 
-		row->cpu_usage2 = ResGroupOps_GetCpuUsage(rsgid);
-		row->cpu_timestamp2 = GetCurrentTimestamp();
+		usage = ResGroupOps_GetCpuUsage(rsgid) - usages[j];
 
-		TimestampDifference(row->cpu_timestamp1, row->cpu_timestamp2,
+		TimestampDifference(timestamps[j], GetCurrentTimestamp(),
 							&secs, &usecs);
 
 		duration = secs * 1000000 + usecs;
-		usage = row->cpu_usage2 - row->cpu_usage1;
 
 		/*
 		 * usage is the cpu time (nano seconds) obtained by this group
@@ -572,8 +587,8 @@ getCpuUsage(ResourceGroupStatusContext *ctx)
 		 *
 		 * To convert it to percentange we should multiple 100%.
 		 */
-		row->cpu_avg_usage += usage / 10.0 / duration / ncores;
-		row->cpu_avg_usage /= nsegs;
+		row->cpuAvgUsage += usage / 10.0 / duration / ncores;
+		row->cpuAvgUsage /= nsegs;
 	}
 }
 
@@ -627,7 +642,7 @@ pg_resgroup_get_status_kv(PG_FUNCTION_ARGS)
 			while (HeapTupleIsValid(tuple = systable_getnext(sscan)))
 			{
 				Assert(funcctx->max_calls < MaxResourceGroups);
-				ctx->rows[funcctx->max_calls].cpu_avg_usage = 0;
+				ctx->rows[funcctx->max_calls].cpuAvgUsage = 0;
 				ctx->rows[funcctx->max_calls++].oid =
 					ObjectIdGetDatum(HeapTupleGetOid(tuple));
 			}
@@ -688,7 +703,7 @@ pg_resgroup_get_status_kv(PG_FUNCTION_ARGS)
 
 			case RES_GROUP_STAT_CPU_USAGE:
 				snprintf(statVal, sizeof(statVal), "%.2lf%%",
-						 row->cpu_avg_usage);
+						 row->cpuAvgUsage);
 				values[2] = CStringGetTextDatum(statVal);
 				break;
 
