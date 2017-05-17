@@ -491,6 +491,7 @@ checkPermission(Oid group, bool report)
 	comp = "cpuacct";
 
 	__CHECK("", R_OK | W_OK | X_OK);
+	__CHECK("cgroup.procs", R_OK | W_OK);
 	__CHECK("cpuacct.usage", R_OK);
 	__CHECK("cpuacct.stat", R_OK);
 
