@@ -111,7 +111,7 @@ static float str2Float(const char *str, const char *prop);
 static float text2Float(const text *text, const char *prop);
 static int getResgroupOptionType(const char* defname);
 static void parseStmtOptions(CreateResourceGroupStmt *stmt, ResourceGroupOptions *options);
-static void validateCapabilities(Relation rel, Oid groupid, ResourceGroupOptions *options);
+static void validateCapabilities(Relation rel, Oid groupid, ResourceGroupOptions *options, bool newGroup);
 static void getResgroupCapabilityEntry(int groupId, int type, char **value, char **proposed);
 static void insertResgroupCapabilityEntry(Relation rel, Oid groupid, uint16 type, char *value);
 static void updateResgroupCapabilityEntry(Oid groupid, uint16 type, char *value, char *proposed);
@@ -450,17 +450,20 @@ void
 AlterResourceGroup(AlterResourceGroupStmt *stmt)
 {
 	Relation	pg_resgroup_rel;
+	Relation	resgroup_capability_rel;
 	HeapTuple	tuple;
 	ScanKeyData	scankey;
 	SysScanDesc	sscan;
 	Oid			groupid;
-	ResourceGroupAlterCallbackContext * callbackCtx;
-	char		concurrencyStr[16];
-	char		concurrencyProposedStr[16];
+	ResourceGroupAlterCallbackContext *callbackCtx;
+	char		valueStr[16];
+	char		proposedStr[16];
 	int			concurrency;
 	int			concurrencyVal;
 	int			concurrencyProposed;
 	int			newConcurrency;
+	float		cpuRateLimitVal;
+	float		cpuRateLimitNew;
 	DefElem		*defel;
 	int			limitType;
 
@@ -492,6 +495,20 @@ AlterResourceGroup(AlterResourceGroupStmt *stmt)
 						 errmsg("concurrency limit cannot be less than %d",
 								RESGROUP_CONCURRENCY_UNLIMITED)));
 			break;
+
+		case RESGROUP_LIMIT_TYPE_CPU:
+			cpuRateLimitNew = defGetNumeric(defel);
+			if (cpuRateLimitNew <= .01f)
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_LIMIT_VALUE),
+						 errmsg("cpu rate limit must be greater than 0.01")));
+			if (cpuRateLimitNew >= 1.0)
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_LIMIT_VALUE),
+						 errmsg("cpu rate limit must be less than 1.00")));
+			/* overall limit will be verified later after groupid is known */
+			break;
+
 		default:
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -541,13 +558,45 @@ AlterResourceGroup(AlterResourceGroupStmt *stmt)
 												  concurrency);
 
 
-			snprintf(concurrencyStr, sizeof(concurrencyStr), "%d", newConcurrency);
-			snprintf(concurrencyProposedStr, sizeof(concurrencyProposedStr), "%d", concurrency);
-			updateResgroupCapabilityEntry(groupid, limitType, concurrencyStr, concurrencyProposedStr);
+			snprintf(valueStr, sizeof(valueStr), "%d", newConcurrency);
+			snprintf(proposedStr, sizeof(proposedStr), "%d", concurrency);
+			updateResgroupCapabilityEntry(groupid, limitType, valueStr, proposedStr);
 
 			callbackCtx->value.i = newConcurrency;
 			callbackCtx->proposed.i = concurrency;
 			break;
+
+		case RESGROUP_LIMIT_TYPE_CPU:
+			cpuRateLimitVal = GetCpuRateLimitForResGroup(groupid);
+			cpuRateLimitVal = roundf(cpuRateLimitVal * 100) / 100;
+
+			if (cpuRateLimitVal < cpuRateLimitNew)
+			{
+				ResourceGroupOptions options;
+
+				options.concurrency = 0;
+				options.cpuRateLimit = cpuRateLimitNew;
+				options.memoryLimit = 0;
+				options.redzoneLimit = 0;
+
+				resgroup_capability_rel = heap_open(ResGroupCapabilityRelationId,
+													RowExclusiveLock);
+				validateCapabilities(resgroup_capability_rel,
+									 groupid, &options, false);
+				heap_close(resgroup_capability_rel, NoLock);
+			}
+
+			snprintf(valueStr, sizeof(valueStr),
+					 "%.2f", cpuRateLimitNew);
+			snprintf(proposedStr, sizeof(proposedStr),
+					 "%.2f", cpuRateLimitNew);
+			updateResgroupCapabilityEntry(groupid, limitType,
+										  valueStr, proposedStr);
+
+			callbackCtx->value.f = cpuRateLimitNew;
+			callbackCtx->proposed.f = cpuRateLimitNew;
+			break;
+
 		default:
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -1222,6 +1271,7 @@ alterResGroupCommitCallback(bool isCommit, void *arg)
 {
 	if (isCommit)
 	{
+		int lock;
 		ResourceGroupAlterCallbackContext * ctx =
 			(ResourceGroupAlterCallbackContext *) arg;
 
@@ -1233,6 +1283,29 @@ alterResGroupCommitCallback(bool isCommit, void *arg)
 											ctx->value.i,
 											ctx->proposed.i);
 				break;
+
+			case RESGROUP_LIMIT_TYPE_CPU:
+				/*
+				 * Apply the cpu rate limit to cgroup.
+				 *
+				 * This operation can fail in some cases, e.g.:
+				 * 1. BEGIN;
+				 * 2. CREATE RESOURCE GROUP g1 ...;
+				 * 3. ALTER RESOURCE GROUP g1 SET CPU_RATE_LIMIT ...;
+				 * 4. DROP RESOURCE GROUP g1;
+				 * 5. COMMIT; -- or ABORT;
+				 *
+				 * So we try to lock the group dir before setting the value,
+				 * if the lock can't be accquired then simply give up.
+				 */
+				lock = ResGroupOps_LockGroup(ctx->groupid, false);
+				if (lock >= 0)
+				{
+					ResGroupOps_SetCpuRateLimit(ctx->groupid, ctx->value.f);
+					ResGroupOps_UnLockGroup(ctx->groupid, lock);
+				}
+				break;
+
 			default:
 				break;
 		}
@@ -1262,7 +1335,7 @@ insertResgroupCapabilities(Oid groupid,
 	char value[64];
 	Relation resgroup_capability_rel = heap_open(ResGroupCapabilityRelationId, RowExclusiveLock);
 
-	validateCapabilities(resgroup_capability_rel, groupid, options);
+	validateCapabilities(resgroup_capability_rel, groupid, options, true);
 
 	sprintf(value, "%d", options->concurrency);
 	insertResgroupCapabilityEntry(resgroup_capability_rel, groupid, RESGROUP_LIMIT_TYPE_CONCURRENCY, value);
@@ -1357,7 +1430,8 @@ updateResgroupCapabilityEntry(Oid groupid, uint16 type, char *value, char *propo
 static void
 validateCapabilities(Relation rel,
 					 Oid groupid,
-					 ResourceGroupOptions *options)
+					 ResourceGroupOptions *options,
+					 bool newGroup)
 {
 	HeapTuple tuple;
 	SysScanDesc sscan;
@@ -1372,9 +1446,14 @@ validateCapabilities(Relation rel,
 						(Form_pg_resgroupcapability)GETSTRUCT(tuple);
 
 		if (resgCapability->resgroupid == groupid)
+		{
+			if (!newGroup)
+				continue;
+
 			ereport(ERROR,
 					(errcode(ERRCODE_DUPLICATE_OBJECT),
 					errmsg("Find duplicate resoure group id:%d", groupid)));
+		}
 
 		if (resgCapability->reslimittype == RESGROUP_LIMIT_TYPE_CPU)
 		{
