@@ -47,6 +47,7 @@ typedef ResGroupData *ResGroup;
 typedef struct ResGroupControl
 {
 	HTAB			*htbl;
+	int 			segmentsOnMaster;
 	bool			loaded;
 } ResGroupControl;
 extern double gp_resource_group_cpu_limit;

@@ -14,6 +14,8 @@
 #include "access/genam.h"
 #include "catalog/pg_authid.h"
 #include "catalog/pg_resgroup.h"
+#include "cdb/cdbgang.h"
+#include "cdb/cdbutil.h"
 #include "cdb/cdbvars.h"
 #include "cdb/memquota.h"
 #include "commands/resgroupcmds.h"
@@ -228,6 +230,13 @@ InitResGroups(void)
 		Assert(numGroups <= MaxResourceGroups);
 	}
 	systable_endscan(sscan);
+
+	if (Gp_role == GP_ROLE_DISPATCH)
+	{
+		cdbComponentDBs = getCdbComponentDatabases();
+		qdinfo = &cdbComponentDBs->entry_db_info[0];
+		pResGroupControl->segmentsOnMaster = qdinfo->hostSegs;
+	}
 
 	pResGroupControl->loaded = true;
 	LOG_RESGROUP_DEBUG(LOG, "initialized %d resource groups", numGroups);
