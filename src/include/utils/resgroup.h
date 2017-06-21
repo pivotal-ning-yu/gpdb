@@ -49,6 +49,8 @@ typedef struct ResGroupControl
 	HTAB			*htbl;
 	bool			loaded;
 } ResGroupControl;
+extern double gp_resource_group_cpu_limit;
+extern double gp_resource_group_memory_limit;
 
 /* Type of statistic infomation */
 typedef enum
