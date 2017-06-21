@@ -4843,6 +4843,7 @@ PostgresMain(int argc, char *argv[],
 		MemoryContextSwitchTo(MessageContext);
 		MemoryContextResetAndDeleteChildren(MessageContext);
 		VmemTracker_ResetMaxVmemReserved();
+		VmemTracker_ResetWaiver();
 
 		/* Reset memory accounting */
 
