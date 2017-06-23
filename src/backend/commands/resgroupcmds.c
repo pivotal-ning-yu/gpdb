@@ -466,6 +466,7 @@ AlterResourceGroup(AlterResourceGroupStmt *stmt)
 	float		cpuRateLimitNew;
 	DefElem		*defel;
 	int			limitType;
+	bool		needDispatch = true;
 
 	/* Permission check - only superuser can alter resource groups. */
 	if (!superuser())
@@ -564,6 +565,8 @@ AlterResourceGroup(AlterResourceGroupStmt *stmt)
 
 			callbackCtx->value.i = newConcurrency;
 			callbackCtx->proposed.i = concurrency;
+
+			needDispatch = true;
 			break;
 
 		case RESGROUP_LIMIT_TYPE_CPU:
@@ -603,6 +606,15 @@ AlterResourceGroup(AlterResourceGroupStmt *stmt)
 					 errmsg("unsupported resource group limit type '%s'", defel->defname)));
 	}
 
+	if (needDispatch && Gp_role == GP_ROLE_DISPATCH)
+	{
+		CdbDispatchUtilityStatement((Node *) stmt,
+									DF_CANCEL_ON_ERROR|
+									DF_WITH_SNAPSHOT|
+									DF_NEED_TWO_PHASE,
+									GetAssignedOidsForDispatch(), /* FIXME */
+									NULL);
+	}
 
 	/* Bump command counter to make this change visible in the callback function alterResGroupCommitCallback() */
 	CommandCounterIncrement();
