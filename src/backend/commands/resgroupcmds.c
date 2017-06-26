@@ -582,8 +582,14 @@ AlterResourceGroup(AlterResourceGroupStmt *stmt)
 				options.memoryLimit = 0;
 				options.redzoneLimit = 0;
 
+				/*
+				 * In validateCapabilities() we scan all the resource groups
+				 * to check whether the total cpu_rate_limit exceed 1.0 or not.
+				 * We need to use ExclusiveLock here to prevent concurrent
+				 * increase on different resource group.
+				 */
 				resgroup_capability_rel = heap_open(ResGroupCapabilityRelationId,
-													RowExclusiveLock);
+													ExclusiveLock);
 				validateCapabilities(resgroup_capability_rel,
 									 groupid, &options, false);
 				heap_close(resgroup_capability_rel, NoLock);
@@ -1281,46 +1287,53 @@ dropResGroupAbortCallback(bool isCommit, void *arg)
 static void
 alterResGroupCommitCallback(bool isCommit, void *arg)
 {
-	if (isCommit)
+	volatile int savedInterruptHoldoffCount;
+	ResourceGroupAlterCallbackContext *ctx =
+		(ResourceGroupAlterCallbackContext *) arg;
+
+	if (!isCommit)
 	{
-		int lock;
-		ResourceGroupAlterCallbackContext * ctx =
-			(ResourceGroupAlterCallbackContext *) arg;
+		pfree(arg);
+		return;
+	}
 
-		switch (ctx->limittype)
-		{
-			case RESGROUP_LIMIT_TYPE_CONCURRENCY:
-				/* wake up */
-				ResGroupAlterCheckForWakeup(ctx->groupid,
-											ctx->value.i,
-											ctx->proposed.i);
-				break;
+	switch (ctx->limittype)
+	{
+		case RESGROUP_LIMIT_TYPE_CONCURRENCY:
+			/* wake up */
+			ResGroupAlterCheckForWakeup(ctx->groupid,
+										ctx->value.i,
+										ctx->proposed.i);
+			break;
 
-			case RESGROUP_LIMIT_TYPE_CPU:
-				/*
-				 * Apply the cpu rate limit to cgroup.
-				 *
-				 * This operation can fail in some cases, e.g.:
-				 * 1. BEGIN;
-				 * 2. CREATE RESOURCE GROUP g1 ...;
-				 * 3. ALTER RESOURCE GROUP g1 SET CPU_RATE_LIMIT ...;
-				 * 4. DROP RESOURCE GROUP g1;
-				 * 5. COMMIT; -- or ABORT;
-				 *
-				 * So we try to lock the group dir before setting the value,
-				 * if the lock can't be accquired then simply give up.
-				 */
-				lock = ResGroupOps_LockGroup(ctx->groupid, false);
-				if (lock >= 0)
-				{
-					ResGroupOps_SetCpuRateLimit(ctx->groupid, ctx->value.f);
-					ResGroupOps_UnLockGroup(ctx->groupid, lock);
-				}
-				break;
+		case RESGROUP_LIMIT_TYPE_CPU:
+			/*
+			 * Apply the cpu rate limit to cgroup.
+			 *
+			 * This operation can fail in some cases, e.g.:
+			 * 1. BEGIN;
+			 * 2. CREATE RESOURCE GROUP g1 ...;
+			 * 3. ALTER RESOURCE GROUP g1 SET CPU_RATE_LIMIT ...;
+			 * 4. DROP RESOURCE GROUP g1;
+			 * 5. COMMIT; -- or ABORT;
+			 *
+			 * So the error needs to be catched here.
+			 */
+			PG_TRY();
+			{
+				savedInterruptHoldoffCount = InterruptHoldoffCount;
+				ResGroupOps_SetCpuRateLimit(ctx->groupid, ctx->value.f);
+			}
+			PG_CATCH();
+			{
+				InterruptHoldoffCount = savedInterruptHoldoffCount;
+				elog(LOG, "Fail to set cpu_rate_limit for resource group %d", ctx->groupid);
+			}
+			PG_END_TRY();
+			break;
 
-			default:
-				break;
-		}
+		default:
+			break;
 	}
 
 	pfree(arg);
