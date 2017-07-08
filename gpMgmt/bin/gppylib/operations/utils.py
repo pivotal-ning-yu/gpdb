@@ -6,6 +6,8 @@ from gppylib import gplog
 from gppylib.commands.base import OperationWorkerPool, Command, REMOTE
 from gppylib.operations import Operation
 
+SNAPHOME='/snap'
+
 DEFAULT_NUM_WORKERS = 64
 logger = gplog.get_default_logger()
 
@@ -43,7 +45,7 @@ class RemoteOperation(Operation):
         execname = os.path.split(sys.argv[0])[-1]
         pickled_execname = pickle.dumps(execname) 
         pickled_operation = pickle.dumps(self.operation)
-        cmd = Command('pickling an operation', '$GPHOME/sbin/gpoperation.py',
+        cmd = Command('pickling an operation', '%s/bin/gpdb5.gpoperation' % SNAPHOME,
                       ctxt=REMOTE, remoteHost=self.host, stdin = pickled_execname + pickled_operation)
         cmd.run(validateAfter=True)
         logger.debug(cmd.get_results().stdout)

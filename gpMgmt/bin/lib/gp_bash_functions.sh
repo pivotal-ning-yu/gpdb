@@ -23,7 +23,8 @@
 	fi
 #CMDPATH is the list of locations to search for commands, in precedence order
 declare -a CMDPATH
-CMDPATH=(/usr/kerberos/bin /usr/sfw/bin /opt/sfw/bin /usr/local/bin /bin /usr/bin /sbin /usr/sbin /usr/ucb /sw/bin)
+#CMDPATH=(/usr/kerberos/bin /usr/sfw/bin /opt/sfw/bin /usr/local/bin /bin /usr/bin /sbin /usr/sbin /usr/ucb /sw/bin)
+CMDPATH=($(echo $PATH | tr : ' '))
 
 #GPPATH is the list of possible locations for the Greenplum Database binaries, in precedence order
 declare -a GPPATH

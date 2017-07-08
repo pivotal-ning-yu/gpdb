@@ -24,6 +24,7 @@ logger = get_default_logger()
 
 #TODO:  need a better way of managing environment variables.
 GPHOME=os.environ.get('GPHOME')
+SNAPHOME='/snap'
 
 #Default timeout for segment start
 SEGMENT_TIMEOUT_DEFAULT=600
@@ -739,7 +740,7 @@ class GpSegStartArgs(CmdArgs):
         @param timeout - seconds to wait before giving up
         """
         CmdArgs.__init__(self, [
-            "$GPHOME/sbin/gpsegstart.py",
+            "%s/bin/gpdb5.gpsegstart" % SNAPHOME,
             "-C", str(localeData),
             "-M", str(mirrormode),
             "-V '%s'" % gpversion,
@@ -838,8 +839,8 @@ class GpSegStopCmd(Command):
         else:
             setverbose=""
 
-        self.cmdStr="$GPHOME/sbin/gpsegstop.py %s -D %s -m %s -t %s -V '%s'"  %\
-                        (setverbose,dirstr,mode,timeout,version)
+        self.cmdStr="%s/bin/gpdb5.gpsegstop %s -D %s -m %s -t %s -V '%s'"  %\
+                        (SNAPHOME,setverbose,dirstr,mode,timeout,version)
 
         if (logfileDirectory):
             self.cmdStr = self.cmdStr + " -l '" + logfileDirectory + "'"
@@ -1227,7 +1228,7 @@ class GpCatVersionDirectory(Command):
 #-----------------------------------------------
 class GpAddConfigScript(Command):
     def __init__(self, name, directorystring, entry, value=None, removeonly=False, ctxt=LOCAL, remoteHost=None):
-        cmdStr="echo '%s' | $GPHOME/sbin/gpaddconfig.py --entry %s" % (directorystring, entry)
+        cmdStr="echo '%s' | %s/bin/gpdb5.gpaddconfig --entry %s" % (directorystring, SNAPHOME, entry)
         if value:
             # value will be encoded and unencoded in the script to protect against shell interpretation
             value = base64.urlsafe_b64encode(pickle.dumps(value))

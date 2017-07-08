@@ -25,6 +25,6 @@ clean:
 	rm -rf *.o gpnetbenchServer gpnetbenchClient
 
 install: all
-	mkdir -p $(prefix)/bin/lib
-	cp -p gpnetbenchServer $(prefix)/bin/lib
-	cp -p gpnetbenchClient $(prefix)/bin/lib
+	mkdir -p $(DESTDIR)$(prefix)/bin/lib
+	cp -p gpnetbenchServer $(DESTDIR)$(prefix)/bin/lib
+	cp -p gpnetbenchClient $(DESTDIR)$(prefix)/bin/lib
