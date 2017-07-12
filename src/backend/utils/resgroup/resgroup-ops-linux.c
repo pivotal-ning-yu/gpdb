@@ -43,7 +43,7 @@
 
 #define MAX_INT_STRING_LEN 20
 
-static char * buildPath(Oid group, const char *comp, const char *prop, char *path, size_t pathsize);
+static char * buildPath(Oid group, const char *base, const char *comp, const char *prop, char *path, size_t pathsize);
 static int lockDir(const char *path, bool block);
 static void unassignGroup(Oid group, const char *comp, int fddir);
 static bool createDir(Oid group, const char *comp);
@@ -51,31 +51,36 @@ static bool removeDir(Oid group, const char *comp, bool unassign);
 static int getCpuCores(void);
 static size_t readData(const char *path, char *data, size_t datasize);
 static void writeData(const char *path, char *data, size_t datasize);
-static int64 readInt64(Oid group, const char *comp, const char *prop);
-static void writeInt64(Oid group, const char *comp, const char *prop, int64 x);
+static int64 readInt64(Oid group, const char *base, const char *comp, const char *prop);
+static void writeInt64(Oid group, const char *base, const char *comp, const char *prop, int64 x);
 static bool checkPermission(Oid group, bool report);
 static void getMemoryInfo(unsigned long *ram, unsigned long *swap);
+static void getCgMemoryInfo(int64 *cgram, int64 *cgswap);
 static int getOvercommitRatio(void);
 
 static int cpucores = 0;
 
 /*
  * Build path string with parameters.
- *
+ * - if base is NULL, use default value "gpdb"
  * - if group is 0 then the path is for the gpdb toplevel cgroup;
  * - if prop is "" then the path is for the cgroup dir;
  */
 static char *
 buildPath(Oid group,
+		  const char *base,
 		  const char *comp,
 		  const char *prop,
 		  char *path,
 		  size_t pathsize)
 {
+	if (!base)
+		base = "gpdb";
+
 	if (group)
-		snprintf(path, pathsize, "/sys/fs/cgroup/%s/gpdb/%d/%s", comp, group, prop);
+		snprintf(path, pathsize, "/sys/fs/cgroup/%s/%s/%d/%s", comp, base, group, prop);
 	else
-		snprintf(path, pathsize, "/sys/fs/cgroup/%s/gpdb/%s", comp, prop);
+		snprintf(path, pathsize, "/sys/fs/cgroup/%s/%s/%s", comp, base, prop);
 
 	return path;
 }
@@ -123,7 +128,7 @@ unassignGroup(Oid group, const char *comp, int fddir)
 	} \
 } while (0)
 
-	buildPath(group, comp, "cgroup.procs", path, pathsize);
+	buildPath(group, NULL, comp, "cgroup.procs", path, pathsize);
 
 	fdr = open(path, O_RDONLY);
 	__CHECK(fdr >= 0, ( close(fddir) ), "can't open file for read");
@@ -148,7 +153,7 @@ unassignGroup(Oid group, const char *comp, int fddir)
 
 	close(fdr);
 
-	buildPath(0, comp, "cgroup.procs", path, pathsize);
+	buildPath(0, NULL, comp, "cgroup.procs", path, pathsize);
 
 	fdw = open(path, O_WRONLY);
 	__CHECK(fdw >= 0, ( close(fddir) ), "can't open file for write");
@@ -270,7 +275,7 @@ createDir(Oid group, const char *comp)
 	char path[MAXPGPATH];
 	size_t pathsize = sizeof(path);
 
-	buildPath(group, comp, "", path, pathsize);
+	buildPath(group, NULL, comp, "", path, pathsize);
 
 	if (mkdir(path, 0755) && errno != EEXIST)
 		return false;
@@ -290,7 +295,7 @@ removeDir(Oid group, const char *comp, bool unassign)
 	size_t pathsize = sizeof(path);
 	int fddir;
 
-	buildPath(group, comp, "", path, pathsize);
+	buildPath(group, NULL, comp, "", path, pathsize);
 
 	/*
 	 * To prevent race condition between multiple processes we require a dir
@@ -411,7 +416,7 @@ writeData(const char *path, char *data, size_t datasize)
  * Read an int64 value from a cgroup interface file.
  */
 static int64
-readInt64(Oid group, const char *comp, const char *prop)
+readInt64(Oid group, const char *base, const char *comp, const char *prop)
 {
 	int64 x;
 	char data[MAX_INT_STRING_LEN];
@@ -419,7 +424,7 @@ readInt64(Oid group, const char *comp, const char *prop)
 	char path[128];
 	size_t pathsize = sizeof(path);
 
-	buildPath(group, comp, prop, path, pathsize);
+	buildPath(group, base, comp, prop, path, pathsize);
 
 	readData(path, data, datasize);
 
@@ -433,14 +438,14 @@ readInt64(Oid group, const char *comp, const char *prop)
  * Write an int64 value to a cgroup interface file.
  */
 static void
-writeInt64(Oid group, const char *comp, const char *prop, int64 x)
+writeInt64(Oid group, const char *base, const char *comp, const char *prop, int64 x)
 {
 	char data[MAX_INT_STRING_LEN];
 	size_t datasize = sizeof(data);
 	char path[128];
 	size_t pathsize = sizeof(path);
 
-	buildPath(group, comp, prop, path, pathsize);
+	buildPath(group, base, comp, prop, path, pathsize);
 	snprintf(data, datasize, "%lld", (long long) x);
 
 	writeData(path, data, strlen(data));
@@ -460,7 +465,7 @@ checkPermission(Oid group, bool report)
 	const char *comp;
 
 #define __CHECK(prop, perm) do { \
-	buildPath(group, comp, prop, path, pathsize); \
+	buildPath(group, NULL, comp, prop, path, pathsize); \
 	if (access(path, perm)) \
 	{ \
 		if (report) \
@@ -510,6 +515,15 @@ getMemoryInfo(unsigned long *ram, unsigned long *swap)
 	*swap = info.totalswap;
 }
 
+/* get cgroup ram and swap (in Byte) */
+static void
+getCgMemoryInfo(int64 *cgram, int64 *cgswap)
+{
+	*cgram = readInt64(0, "", "memory", "memory.limit_in_bytes");
+	*cgswap = readInt64(0, "", "memory", "memory.memsw.limit_in_bytes");
+	*cgswap -= *cgram;
+}
+
 /* get vm.overcommit_ratio */
 static int
 getOvercommitRatio(void)
@@ -552,10 +566,10 @@ ResGroupOps_Init(void)
 	int ncores = getCpuCores();
 	const char *comp = "cpu";
 
-	cfs_period_us = readInt64(0, comp, "cpu.cfs_period_us");
-	writeInt64(0, comp, "cpu.cfs_quota_us",
+	cfs_period_us = readInt64(0, NULL, comp, "cpu.cfs_period_us");
+	writeInt64(0, NULL, comp, "cpu.cfs_quota_us",
 			   cfs_period_us * ncores * gp_resource_group_cpu_limit);
-	writeInt64(0, comp, "cpu.shares", 1024 * 256);
+	writeInt64(0, NULL, comp, "cpu.shares", 1024 * 256);
 }
 
 /* Adjust GUCs for this OS group implementation */
@@ -634,8 +648,8 @@ ResGroupOps_DestroyGroup(Oid group)
 void
 ResGroupOps_AssignGroup(Oid group, int pid)
 {
-	writeInt64(group, "cpu", "cgroup.procs", pid);
-	writeInt64(group, "cpuacct", "cgroup.procs", pid);
+	writeInt64(group, NULL, "cpu", "cgroup.procs", pid);
+	writeInt64(group, NULL, "cpuacct", "cgroup.procs", pid);
 }
 
 /*
@@ -654,7 +668,7 @@ ResGroupOps_LockGroup(Oid group, bool block)
 	char path[MAXPGPATH];
 	size_t pathsize = sizeof(path);
 
-	buildPath(group, "cpu", "", path, pathsize);
+	buildPath(group, NULL, "cpu", "", path, pathsize);
 
 	return lockDir(path, block);
 }
@@ -683,8 +697,8 @@ ResGroupOps_SetCpuRateLimit(Oid group, int cpu_rate_limit)
 
 	/* SUB/shares := TOP/shares * cpu_rate_limit */
 
-	int64 shares = readInt64(0, comp, "cpu.shares");
-	writeInt64(group, comp, "cpu.shares", shares * cpu_rate_limit / 100);
+	int64 shares = readInt64(0, NULL, comp, "cpu.shares");
+	writeInt64(group, NULL, comp, "cpu.shares", shares * cpu_rate_limit / 100);
 }
 
 /*
@@ -696,7 +710,7 @@ ResGroupOps_GetCpuUsage(Oid group)
 {
 	const char *comp = "cpuacct";
 
-	return readInt64(group, comp, "cpuacct.usage");
+	return readInt64(group, NULL, comp, "cpuacct.usage");
 }
 
 /*
@@ -710,6 +724,7 @@ ResGroupOps_GetCpuCores(void)
 
 /*
  * Get the total memory on the system.
+ * Read from sysinfo and cgroup to get correct ram and swap.
  * (total RAM * overcommit_ratio + total Swap)
  */
 int
@@ -717,9 +732,13 @@ ResGroupOps_GetTotalMemory(void)
 {
 	unsigned long ram, swap, total;
 	int overcommitRatio;
+	int64 cgram, cgswap;
 
 	overcommitRatio = getOvercommitRatio();
 	getMemoryInfo(&ram, &swap);
+	getCgMemoryInfo(&cgram, &cgswap);
+	ram = Min(ram, cgram);
+	/* TODO: find out correct swap quota in container */
 	total = swap + ram * overcommitRatio / 100;
 	return total >> VmemTracker_GetChunkSizeInBits();
 }
