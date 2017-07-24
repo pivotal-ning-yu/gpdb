@@ -1288,10 +1288,22 @@ SwitchResGroupOnSegment(const char *buf, int len)
 
 	if (procInfo->groupId == InvalidOid)
 	{
-		/* FIXME: below Assert() might be wrong */
-		Assert(prevGroupId == InvalidOid);
-		Assert(prevSlotId == InvalidSlotId);
-		Assert(MyResGroupSharedInfo == NULL);
+		prevSharedInfo = MyResGroupSharedInfo;
+		MyResGroupSharedInfo = NULL;
+
+		if (prevSharedInfo)
+		{
+			Assert(prevSharedInfo->groupId == prevGroupId);
+			prevSlot = &prevSharedInfo->slots[prevSlotId];
+			detachFromSlot(prevSharedInfo, prevSlot, procInfo);
+		}
+		else
+		{
+			Assert(prevGroupId == InvalidOid);
+			Assert(prevSlotId == InvalidSlotId);
+			Assert(MyResGroupSharedInfo == NULL);
+		}
+
 		return;
 	}
 
