@@ -29,6 +29,7 @@
 #include "storage/lock.h"
 #include "storage/pg_shmem.h"
 #include "storage/proc.h"
+#include "storage/procsignal.h"
 #include "utils/builtins.h"
 #include "utils/fmgroids.h"
 #include "utils/memutils.h"
@@ -1143,6 +1144,18 @@ DeserializeResGroupInfo(const char *buf, int len)
 	ptr += sizeof(procInfo->config.spillRatio);
 
 	Assert(len == ptr - buf);
+}
+
+/*
+ * Check whether should assign resource group on master.
+ */
+bool
+ShouldAssignResGroupOnMaster(void)
+{
+	return IsResGroupEnabled() &&
+		IsNormalProcessingMode() &&
+		Gp_role == GP_ROLE_DISPATCH &&
+		!AmIInSIGUSR1Handler();
 }
 
 /*
