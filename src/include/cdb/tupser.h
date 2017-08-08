@@ -48,15 +48,8 @@ typedef struct MotionConn MotionConn;
 typedef struct SerAttrInfo
 {
 	Oid			atttypid;		/* Oid of the attribute's data-type. */
-	bool		typisvarlena;	/* is type varlena (ie possibly toastable)? */
-
-	Oid			typsend;		/* Oid for the type's binary output fn */
-	Oid			send_typio_param;		/* param to pass to the output fn */
-	FmgrInfo	send_finfo;		/* Precomputed call info for output fn */
-
-	Oid			typrecv;		/* Oid for the type's binary input fn */
-	Oid			recv_typio_param;		/* param to pass to the input fn */
-	FmgrInfo	recv_finfo;		/* Precomputed call info for output fn */
+	int16		typlen;
+	bool		typbyval;
 
 #ifdef TUPSER_SCRATCH_SPACE
 	void	   *pv_varlen_scratch;		/* For deserializing varlena
