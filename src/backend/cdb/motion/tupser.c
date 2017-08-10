@@ -590,6 +590,20 @@ SerializeTupleIntoChunks(HeapTuple tuple, SerTupInfo * pSerInfo, TupleChunkList 
 					addByteStringToChunkList(tcList, data, sz, &pSerInfo->chunkCache);
 					addPadding(tcList, &pSerInfo->chunkCache, sz);
 				}
+				else if (attrInfo->typlen == -2)
+				{
+					int32		sz;
+					char	   *data;
+
+					/* CString, we would send the string with the terminating '\0' */
+					data = DatumGetCString(origattr);
+					sz = strlen(data) + 1;
+
+					/* Send length first, then data */
+					addInt32ToChunkList(tcList, sz, &pSerInfo->chunkCache);
+					addByteStringToChunkList(tcList, data, sz, &pSerInfo->chunkCache);
+					addPadding(tcList, &pSerInfo->chunkCache, sz);
+				}
 				else if (attrInfo->typbyval)
 				{
 					/*
@@ -810,6 +824,25 @@ DeserializeTuple(SerTupInfo * pSerInfo, StringInfo serialTup)
 			SET_VARSIZE(p, sz + VARHDRSZ);
 
 			pSerInfo->values[i] = PointerGetDatum(p);
+		}
+		else if (attrInfo->typlen == -2)
+		{
+			int32		sz;
+			char	   *p;
+
+			/* CString, with terminating '\0' included */
+
+			/* Read length first */
+			pq_copymsgbytes(serialTup, (char *) &sz, sizeof(int32));
+			if (sz < 0)
+				elog(ERROR, "invalid length received for a CString");
+
+			p = palloc(sz + VARHDRSZ);
+
+			/* Then data */
+			pq_copymsgbytes(serialTup, p, sz);
+
+			pSerInfo->values[i] = CStringGetDatum(p);
 		}
 		else if (attrInfo->typbyval)
 		{
