@@ -177,13 +177,9 @@ InitSerTupInfo(TupleDesc tupdesc, SerTupInfo * pSerInfo)
 		attrInfo->atttypid = tupdesc->attrs[i]->atttypid;
 		
 		/*
-		 * Ok, we want the Binary input/output routines for the type if they exist,
-		 * else we want the normal text input/output routines.
-		 * 
-		 * User defined types might or might not have binary routines.
-		 * 
-		 * getTypeBinaryOutputInfo throws an error if we try to call it to get
-		 * the binary output routine and one doesn't exist, so let's not call that.
+		 * Serialization will be performed at a high level abstraction,
+		 * we only care about whether it's toasted or pass-by-value or
+		 * a CString, so only track the high level type information.
 		 */
 		{
 			HeapTuple	typeTuple;
@@ -210,17 +206,6 @@ InitSerTupInfo(TupleDesc tupdesc, SerTupInfo * pSerInfo)
 
 			ReleaseSysCache(typeTuple);
 		}
-		
-#ifdef TUPSER_SCRATCH_SPACE
-
-		/*
-		 * If the field is a varlena, allocate some space to use for
-		 * deserializing it.  If most of the values are smaller than this
-		 * scratch-space then we save time on allocation and freeing.
-		 */
-		attrInfo->pv_varlen_scratch = palloc(VARLEN_SCRATCH_SIZE);
-		attrInfo->varlen_scratch_size = VARLEN_SCRATCH_SIZE;
-#endif
 	}
 }
 

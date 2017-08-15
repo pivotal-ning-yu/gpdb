@@ -16,19 +16,6 @@
 #include "cdb/tupleremap.h"
 
 
-/* Define this to pack the NULLs-mask into the minimum number of bytes
- * possible.  If undefined, the NULLs-sequence is sent as one character per
- * attribute.
- */
-#undef TUPSER_BITPACK_NULLMASK
-
-/* Define this to allocate scratch-space for varlena attribute-values, so that
- * tuple-deserialization doesn't have to allocate space if the varlena's value
- * is smaller than the scratch size.
- */
-#undef TUPSER_SCRATCH_SPACE
-#define VARLEN_SCRATCH_SIZE 500
-
 typedef struct MotionConn MotionConn;
 
 /*
@@ -50,12 +37,6 @@ typedef struct SerAttrInfo
 	Oid			atttypid;		/* Oid of the attribute's data-type. */
 	int16		typlen;
 	bool		typbyval;
-
-#ifdef TUPSER_SCRATCH_SPACE
-	void	   *pv_varlen_scratch;		/* For deserializing varlena
-										 * attributes. */
-	int			varlen_scratch_size;	/* Size of varlena scratch space. */
-#endif
 }	SerAttrInfo;
 
 /* The information for sending and receiving tuples that match a particular
