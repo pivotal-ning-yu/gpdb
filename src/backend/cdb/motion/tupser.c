@@ -558,12 +558,6 @@ SerializeTupleIntoChunks(HeapTuple tuple, SerTupInfo * pSerInfo, TupleChunkList 
 					 * happen in our reset-able serialization context.
 					 */
 					oldCtxt = MemoryContextSwitchTo(s_tupSerMemCtxt);
-					/* we want to detoast but leave compressed, if
-					 * possible, but we have to handle varlena
-					 * attributes (and others ?) differently than we
-					 * currently do (first step is to use
-					 * heap_tuple_fetch_attr() instead of
-					 * PG_DETOAST_DATUM()). */
 					attr = PointerGetDatum(PG_DETOAST_DATUM_PACKED(origattr));
 					MemoryContextSwitchTo(oldCtxt);
 
