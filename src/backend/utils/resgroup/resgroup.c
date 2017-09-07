@@ -532,7 +532,6 @@ ResGroupDropCheckForWakeup(Oid groupId, bool isCommit)
 		waitQueue->size--;
 
 		waitProc->resWaiting = false;
-		waitProc->resGranted = false;
 		waitProc->resSlotId = InvalidSlotId;
 		SetLatch(&waitProc->procLatch);
 		wakeNum--;
@@ -1630,7 +1629,6 @@ wakeupSlots(ResGroupData *group)
 		waitQueue->size--;
 
 		waitProc->resWaiting = false;
-		waitProc->resGranted = true; /* TODO: retire resGranted */
 		waitProc->resSlotId = slotId;
 		SetLatch(&waitProc->procLatch);
 	}
@@ -1803,7 +1801,6 @@ ResGroupSlotRelease(void)
 		waitProc = (PGPROC *) MAKE_PTR(waitQueue->links.next);
 		SHMQueueDelete(&waitProc->links);
 		waitQueue->size--;
-		waitProc->resGranted = true;
 		waitProc->resSlotId = slotId;	/* pass the slot to new query */
 		/* TODO: why we need to release the lock here? */
 		LWLockRelease(ResGroupLock);
@@ -2336,7 +2333,7 @@ ResGroupWaitCancel(void)
 		SHMQueueDelete(&(MyProc->links));
 		waitQueue->size--;
 	}
-	else if (MyProc->links.next == INVALID_OFFSET && MyProc->resGranted)
+	else if (MyProc->links.next == INVALID_OFFSET && MyProc->resSlotId != InvalidSlotId)
 	{
 		/* Woken up by a slot holder */
 
