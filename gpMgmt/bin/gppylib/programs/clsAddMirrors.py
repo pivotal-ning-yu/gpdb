@@ -109,13 +109,13 @@ class GpMirrorBuildCalculator:
 
         Unlike __addMirrorForTargetHost, this does not require that the segments be added to
                a host that already has a primary
-        
+
         """
         if targetHost not in self.__mirrorsAddedByHost:
             self.__mirrorsAddedByHost[targetHost] = 0
             self.__primaryPortBaseByHost[targetHost] = self.__minPrimaryPortOverall
             self.__primariesUpdatedToHaveMirrorsByHost[targetHost] = 0
-            
+
         mirrorIndexOnTargetHost = self.__mirrorsAddedByHost[targetHost]
         assert mirrorIndexOnTargetHost is not None
 
@@ -289,7 +289,7 @@ class GpMirrorBuildCalculator:
 class GpAddMirrorsProgram:
     """
     The implementation of gpaddmirrors
-    
+
     """
     def __init__(self, options):
         """
@@ -335,7 +335,7 @@ class GpAddMirrorsProgram:
 
         # note: passed port offset in this call should not matter
         calc = GpMirrorBuildCalculator(gpArray, self.__options.mirrorOffset, [], [])
-        
+
         for row in fileData.getRows():
             fixedValues = row.getFixedValuesMap()
             flexibleValues = row.getFlexibleValuesMap()
@@ -352,7 +352,7 @@ class GpAddMirrorsProgram:
             hostName = interfaceLookup.getHostName(address)
             if hostName is None:
                 raise Exception("Segment Host Address %s is unreachable" % address)
-            
+
             filespaceOidToPathMap = {}
             for fsName, path in flexibleValues.iteritems():
                 path = normalizeAndValidateInputPath( path, "in config file", row.getLine())
@@ -384,7 +384,7 @@ class GpAddMirrorsProgram:
         lines.append("filespaceOrder=" + (":".join([fs.getName() for fs in filespaceArr])))
 
         #
-        # now a line for each mirror 
+        # now a line for each mirror
         #
         for i, toBuild in enumerate(mirrorBuilder.getMirrorsToBuild()):
             mirror = toBuild.getFailoverSegment()
@@ -623,7 +623,8 @@ class GpAddMirrorsProgram:
                     raise UserAbortedException()
 
             gpArray.setFaultStrategy(gparray.FAULT_STRATEGY_FILE_REPLICATION)
-            mirrorBuilder.buildMirrors("add", gpEnv, gpArray )
+            if not mirrorBuilder.buildMirrors("add", gpEnv, gpArray ):
+                return 1
 
             logger.info("******************************************************************")
             logger.info("Mirror segments have been added; data synchronization is in progress.")
@@ -631,7 +632,7 @@ class GpAddMirrorsProgram:
             logger.info("")
             logger.info("Use  gpstate -s  to check the resynchronization progress.")
             logger.info("******************************************************************")
-                
+
         return 0 # success -- exit code 0!
 
     def cleanup(self):
@@ -668,7 +669,7 @@ class GpAddMirrorsProgram:
                          metavar="<configFile>", type="string",
                          help="Sample configuration file name to output; "
                          "this file can be passed to a subsequent call using -i option")
-        
+
         addTo.add_option("-m", None, type="string",
                          dest="mirrorDataDirConfigFile",
                          metavar="<dataDirConfigFile>",
