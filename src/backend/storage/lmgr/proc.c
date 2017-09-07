@@ -382,8 +382,13 @@ InitProcess(void)
 	MyProc->lwWaitLink = NULL;
 	MyProc->waitLock = NULL;
 	MyProc->waitProcLock = NULL;
+	MyProc->resGroup = NULL;
+	MyProc->resGroupId = InvalidOid;
 	MyProc->resWaiting = false;
 	MyProc->resSlotId = -1;
+	MyProc->resMemUsage = 0;
+	MyProc->resDoMemCheck = false;
+	MemSet(&MyProc->resCaps, 0, sizeof(MyProc->resCaps));
 	for (i = 0; i < NUM_LOCK_PARTITIONS; i++)
 		SHMQueueInit(&(MyProc->myProcLocks[i]));
 

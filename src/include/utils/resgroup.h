@@ -19,6 +19,9 @@
 #include "cdb/memquota.h"
 #include "catalog/pg_resgroup.h"
 
+typedef struct ResGroupSlotData			ResGroupSlotData;
+typedef struct ResGroupData				ResGroupData;
+
 /*
  * Resource group capability.
  */

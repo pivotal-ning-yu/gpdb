@@ -21,6 +21,7 @@
 #include "storage/spin.h"
 #include "storage/pg_sema.h"
 #include "access/xlog.h"
+#include "utils/resgroup.h"
 
 #include "cdb/cdblocaldistribxact.h"  /* LocalDistribXactData */
 
@@ -167,12 +168,24 @@ struct PGPROC
 	bool inDropTransaction; /* true if proc is in vacuum drop transaction */
 
 	/*
-	 * Information for resource group
+	 * Information for resource group.
+	 *
+	 * To run in a resource group a proc must first acquire a slot,
+	 * if no free slot is available at present it must wait for one,
+	 * which can be released by other session or be allocated when more
+	 * resources are granted to the resource group.
+	 *
+	 * A slot might not be acquired even after a wait, this indicates
+	 * that the resource group is concurrently dropped.
+	 * resSlotId is InvalidSlotId in such a case.
 	 */
-	bool		resWaiting;	/* true if waiting for an Resource Group lock */
-	int			resSlotId;	/* the resource group slot id granted.
-   							 * InvalidSlotId indicates the resource group is
-							 * locked for drop. */
+	ResGroupData	*resGroup;	/* the granted resgroup, NULL if not granted */
+	ResGroupCaps	resCaps;	/* config snapshot of the granted slot */
+	Oid			resGroupId;		/* the resource group id */
+	int			resSlotId;		/* id of the granted slot */
+	bool		resWaiting;		/* true if waiting for a slot */
+	uint32		resMemUsage;	/* memory usage of current proc */
+	bool		resDoMemCheck;	/* whether to do memory limit check */
 };
 
 /* NOTE: "typedef struct PGPROC PGPROC" appears in storage/lock.h. */
