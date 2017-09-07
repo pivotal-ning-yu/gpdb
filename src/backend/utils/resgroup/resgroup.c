@@ -634,13 +634,13 @@ void
 ResGroupDumpMemoryInfo(void)
 {
 	ResGroupSlotData	*slot;
-	ResGroupData		*sharedInfo = MyProc->resGroup;
+	ResGroupData		*group = MyProc->resGroup;
 
-	if (sharedInfo)
+	if (group)
 	{
 		Assert(MyProc->resSlotId != InvalidSlotId);
 
-		slot = &sharedInfo->slots[MyProc->resSlotId];
+		slot = &group->slots[MyProc->resSlotId];
 
 		write_log("Resource group memory information: "
 				  "group memory limit is %d MB, "
@@ -649,9 +649,9 @@ ResGroupDumpMemoryInfo(void)
 				  "memory quota in current slot is %d MB, "
 				  "memory usage in current slot is %d MB, "
 				  "memory usage in current proc is %d MB",
-				  VmemTracker_ConvertVmemChunksToMB(sharedInfo->memExpected),
-				  VmemTracker_ConvertVmemChunksToMB(sharedInfo->memSharedGranted),
-				  VmemTracker_ConvertVmemChunksToMB(sharedInfo->memUsage),
+				  VmemTracker_ConvertVmemChunksToMB(group->memExpected),
+				  VmemTracker_ConvertVmemChunksToMB(group->memSharedGranted),
+				  VmemTracker_ConvertVmemChunksToMB(group->memUsage),
 				  VmemTracker_ConvertVmemChunksToMB(slot->memQuota),
 				  VmemTracker_ConvertVmemChunksToMB(slot->memUsage),
 				  VmemTracker_ConvertVmemChunksToMB(MyProc->resMemUsage));
@@ -679,7 +679,7 @@ ResGroupReserveMemory(int32 memoryChunks, int32 overuseChunks, bool *waiverUsed)
 	int32				slotMemUsage;
 	int32				slotMemSharedNeeded;
 	ResGroupSlotData	*slot;
-	ResGroupData		*sharedInfo = MyProc->resGroup;
+	ResGroupData		*group = MyProc->resGroup;
 
 	/*
 	 * Memories may be allocated before resource group is initialized,
@@ -701,24 +701,24 @@ ResGroupReserveMemory(int32 memoryChunks, int32 overuseChunks, bool *waiverUsed)
 	if (!MyProc->resDoMemCheck)
 		return true;
 
-	if (sharedInfo->groupId != MyProc->resGroupId)
+	if (group->groupId != MyProc->resGroupId)
 	{
 		if (Debug_resource_group)
 			write_log("Resource group is concurrently dropped while reserving memory: "
 					  "dropped group=%d, my group=%d",
-					  sharedInfo->groupId, MyProc->resGroupId);
+					  group->groupId, MyProc->resGroupId);
 		MyProc->resGroup = NULL;
 		MyProc->resDoMemCheck = false;
 		return true;
 	}
 
-	Assert(sharedInfo != NULL);
-	Assert(sharedInfo->groupId != InvalidOid);
+	Assert(group != NULL);
+	Assert(group->groupId != InvalidOid);
 	Assert(MyProc->resSlotId != InvalidSlotId);
-	Assert(sharedInfo->memUsage >= 0);
+	Assert(group->memUsage >= 0);
 	Assert(MyProc->resMemUsage >= 0);
 
-	slot = &sharedInfo->slots[MyProc->resSlotId];
+	slot = &group->slots[MyProc->resSlotId];
 
 	/* reserve from slot memory */
 	slotMemUsage = pg_atomic_add_fetch_u32((pg_atomic_uint32 *)&slot->memUsage, memoryChunks);
@@ -731,15 +731,15 @@ ResGroupReserveMemory(int32 memoryChunks, int32 overuseChunks, bool *waiverUsed)
 		slotMemSharedNeeded = Min(slotMemSharedNeeded, memoryChunks);
 
 		/* reserve from shared zone */
-		total = pg_atomic_add_fetch_u32((pg_atomic_uint32 *)&sharedInfo->memSharedUsage,
+		total = pg_atomic_add_fetch_u32((pg_atomic_uint32 *)&group->memSharedUsage,
 										slotMemSharedNeeded);
 
 		if (CritSectionCount == 0 &&
-			total > sharedInfo->memSharedGranted + overuseChunks)
+			total > group->memSharedGranted + overuseChunks)
 		{
 			int32		oldUsage;
 
-			oldUsage = pg_atomic_fetch_sub_u32((pg_atomic_uint32 *)&sharedInfo->memSharedUsage,
+			oldUsage = pg_atomic_fetch_sub_u32((pg_atomic_uint32 *)&group->memSharedUsage,
 										slotMemSharedNeeded);
 			Assert(oldUsage >= slotMemSharedNeeded);
 
@@ -755,14 +755,14 @@ ResGroupReserveMemory(int32 memoryChunks, int32 overuseChunks, bool *waiverUsed)
 
 			return false;
 		}
-		else if (CritSectionCount == 0 && total > sharedInfo->memSharedGranted)
+		else if (CritSectionCount == 0 && total > group->memSharedGranted)
 		{
 			*waiverUsed = true;
 		}
 	}
 
 	/* update memory usage of current resource group */
-	pg_atomic_add_fetch_u32((pg_atomic_uint32 *)&sharedInfo->memUsage,
+	pg_atomic_add_fetch_u32((pg_atomic_uint32 *)&group->memUsage,
 							memoryChunks);
 
 	return true;
@@ -776,7 +776,7 @@ ResGroupReleaseMemory(int32 memoryChunks)
 {
 	int32				sharedMemoryUsage;
 	ResGroupSlotData	*slot;
-	ResGroupData		*sharedInfo = MyProc->resGroup;
+	ResGroupData		*group = MyProc->resGroup;
 	int32				oldUsage;
 
 	if (!IsResGroupActivated())
@@ -789,28 +789,28 @@ ResGroupReleaseMemory(int32 memoryChunks)
 	if (!MyProc->resDoMemCheck)
 		return;
 
-	if (sharedInfo->groupId != MyProc->resGroupId)
+	if (group->groupId != MyProc->resGroupId)
 	{
 		if (Debug_resource_group)
 			write_log("Resource group is concurrently dropped while releasing memory: "
 					  "dropped group=%d, my group=%d",
-					  sharedInfo->groupId, MyProc->resGroupId);
+					  group->groupId, MyProc->resGroupId);
 		MyProc->resGroup = NULL;
 		MyProc->resDoMemCheck = false;
 		return;
 	}
 
-	Assert(sharedInfo != NULL);
-	Assert(sharedInfo->groupId != InvalidOid);
+	Assert(group != NULL);
+	Assert(group->groupId != InvalidOid);
 	Assert(MyProc->resSlotId != InvalidSlotId);
 
-	slot = &sharedInfo->slots[MyProc->resSlotId];
+	slot = &group->slots[MyProc->resSlotId];
 	sharedMemoryUsage = slot->memUsage - slot->memQuota;
 	if (sharedMemoryUsage > 0)
 	{
 		int32 returnSize = Min(memoryChunks, sharedMemoryUsage);
 
-		oldUsage = pg_atomic_fetch_sub_u32((pg_atomic_uint32 *)&sharedInfo->memSharedUsage,
+		oldUsage = pg_atomic_fetch_sub_u32((pg_atomic_uint32 *)&group->memSharedUsage,
 										   returnSize);
 		Assert(oldUsage >= returnSize);
 	}
@@ -818,8 +818,8 @@ ResGroupReleaseMemory(int32 memoryChunks)
 	oldUsage = pg_atomic_fetch_sub_u32((pg_atomic_uint32 *)&slot->memUsage, memoryChunks);
 	Assert(oldUsage >= memoryChunks);
 
-	oldUsage = pg_atomic_fetch_sub_u32((pg_atomic_uint32 *)&sharedInfo->memUsage,
-								memoryChunks);
+	oldUsage = pg_atomic_fetch_sub_u32((pg_atomic_uint32 *)&group->memUsage,
+									   memoryChunks);
 	Assert(oldUsage >= memoryChunks);
 }
 
@@ -1871,7 +1871,7 @@ ShouldAssignResGroupOnMaster(void)
 void
 AssignResGroupOnMaster(void)
 {
-	ResGroupData		*sharedInfo;
+	ResGroupData		*group;
 	ResGroupSlotData	*slot;
 	int		slotId;
 	Oid		groupId;
@@ -1884,13 +1884,13 @@ AssignResGroupOnMaster(void)
 		slotId = ResGroupSlotAcquire();
 		Assert(slotId != InvalidSlotId);
 		Assert(MyProc->resGroup != NULL);
-		sharedInfo = MyProc->resGroup;
-		groupId = sharedInfo->groupId;
+		group = MyProc->resGroup;
+		groupId = group->groupId;
 		Assert(groupId != InvalidOid);
 		Assert(!MyProc->resDoMemCheck);
 
 		/* Init slot */
-		slot = &sharedInfo->slots[slotId];
+		slot = &group->slots[slotId];
 		Assert(slot->memQuota > 0);
 		slot->sessionId = gp_session_id;
 		pg_atomic_add_fetch_u32((pg_atomic_uint32*)&slot->nProcs, 1);
@@ -1902,7 +1902,7 @@ AssignResGroupOnMaster(void)
 		Assert(pResGroupControl != NULL);
 		Assert(pResGroupControl->segmentsOnMaster > 0);
 
-		attachToSlot(sharedInfo, slot);
+		attachToSlot(group, slot);
 
 		/* Start memory limit checking */
 		Assert(MyProc->resGroupId != InvalidOid);
@@ -1913,7 +1913,7 @@ AssignResGroupOnMaster(void)
 		SIMPLE_FAULT_INJECTOR(ResGroupAssignedOnMaster);
 
 		/* Add into cgroup */
-		ResGroupOps_AssignGroup(sharedInfo->groupId, MyProcPid);
+		ResGroupOps_AssignGroup(group->groupId, MyProcPid);
 
 		/* Set spill guc */
 		ResGroupSetMemorySpillRatio(&slot->caps);
@@ -1932,7 +1932,7 @@ AssignResGroupOnMaster(void)
 void
 UnassignResGroupOnMaster(void)
 {
-	ResGroupData		*sharedInfo;
+	ResGroupData		*group;
 	ResGroupSlotData	*slot;
 
 	if (MyProc->resGroup == NULL)
@@ -1941,18 +1941,18 @@ UnassignResGroupOnMaster(void)
 		return;
 	}
 
-	sharedInfo = MyProc->resGroup;
+	group = MyProc->resGroup;
 
-	Assert(sharedInfo->groupId != InvalidOid);
-	Assert(MyProc->resGroupId == sharedInfo->groupId);
+	Assert(group->groupId != InvalidOid);
+	Assert(MyProc->resGroupId == group->groupId);
 	Assert(MyProc->resSlotId != InvalidSlotId);
 
 	/* Stop memory limit checking */
 	MyProc->resDoMemCheck = false;
 
-	slot = &sharedInfo->slots[MyProc->resSlotId];
+	slot = &group->slots[MyProc->resSlotId];
 
-	detachFromSlot(sharedInfo, slot);
+	detachFromSlot(group, slot);
 
 	/* Cleanup resource group information in MyProc */
 	if (MyProc->resMemUsage > 10)
@@ -1965,7 +1965,7 @@ UnassignResGroupOnMaster(void)
 	/* Release the slot */
 	ResGroupSlotRelease();
 
-	/* Cleanup sharedInfo */
+	/* Unset resource group pointer in MyProc */
 	MyProc->resGroup = NULL;
 }
 
@@ -1980,7 +1980,7 @@ SwitchResGroupOnSegment(const char *buf, int len)
 	Oid		prevGroupId;
 	int		prevSlotId;
 	ResGroupCaps		caps;
-	ResGroupData		*sharedInfo;
+	ResGroupData		*group;
 	ResGroupSlotData	*slot;
 	ResGroupData		*prevSharedInfo = NULL;
 	ResGroupSlotData	*prevSlot = NULL;
@@ -2042,8 +2042,8 @@ SwitchResGroupOnSegment(const char *buf, int len)
 		}
 	}
 
-	sharedInfo = ResGroupHashFind(MyProc->resGroupId);
-	Assert(sharedInfo != NULL);
+	group = ResGroupHashFind(MyProc->resGroupId);
+	Assert(group != NULL);
 
 	LWLockRelease(ResGroupLock);
 
@@ -2054,14 +2054,14 @@ SwitchResGroupOnSegment(const char *buf, int len)
 	MyProc->resCaps = caps;
 
 	/* Init slot */
-	slot = &sharedInfo->slots[MyProc->resSlotId];
+	slot = &group->slots[MyProc->resSlotId];
 	slot->sessionId = gp_session_id;
 	slot->caps = caps;
 	slot->memQuota = slotGetMemQuotaExpected(&caps);
 	ResGroupSetMemorySpillRatio(&caps);
 	Assert(slot->memQuota > 0);
 
-	if (prevSharedInfo != sharedInfo || prevSlot != slot)
+	if (prevSharedInfo != group || prevSlot != slot)
 	{
 		LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
 		if (prevSharedInfo)
@@ -2071,13 +2071,13 @@ SwitchResGroupOnSegment(const char *buf, int len)
 			groupReleaseMemQuota(prevSharedInfo, prevSlot);
 		}
 
-		groupAcquireMemQuota(sharedInfo, &slot->caps);
+		groupAcquireMemQuota(group, &slot->caps);
 		LWLockRelease(ResGroupLock);
 
-		attachToSlot(sharedInfo, slot);
+		attachToSlot(group, slot);
 	}
 
-	MyProc->resGroup = sharedInfo;
+	MyProc->resGroup = group;
 
 	/* Start memory limit checking */
 	Assert(MyProc->resGroupId != InvalidOid);
