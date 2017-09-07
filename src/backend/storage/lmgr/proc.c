@@ -383,6 +383,7 @@ InitProcess(void)
 	MyProc->waitLock = NULL;
 	MyProc->waitProcLock = NULL;
 	MyProc->resGroup = NULL;
+	MyProc->resSlot = NULL;
 	MyProc->resGroupId = InvalidOid;
 	MyProc->resWaiting = false;
 	MyProc->resSlotId = -1;

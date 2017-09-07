@@ -180,6 +180,7 @@ struct PGPROC
 	 * resSlotId is InvalidSlotId in such a case.
 	 */
 	ResGroupData	*resGroup;	/* the granted resgroup, NULL if not granted */
+	ResGroupSlotData	*resSlot;	/* the granted slot, NULL if not granted */
 	ResGroupCaps	resCaps;	/* config snapshot of the granted slot */
 	Oid			resGroupId;		/* the resource group id */
 	int			resSlotId;		/* id of the granted slot */
