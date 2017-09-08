@@ -518,9 +518,7 @@ ResGroupDropCheckForWakeup(Oid groupId, bool isCommit)
 		waitProc = groupWaitQueuePop(group);
 		Assert(procHasGroup(waitProc));
 		Assert(!procHasSlot(waitProc));
-		Assert(waitProc->resWaiting != false);
 
-		waitProc->resWaiting = false;
 		SetLatch(&waitProc->procLatch);
 	}
 
@@ -1574,7 +1572,6 @@ wakeupSlots(ResGroupData *group)
 		/* wake up one process in the wait queue */
 		groupWaitQueuePop(group);
 
-		waitProc->resWaiting = false;
 		SetLatch(&waitProc->procLatch);
 	}
 }
@@ -1747,7 +1744,6 @@ ResGroupSlotRelease(void)
 		/* TODO: why we need to release the lock here? */
 		LWLockRelease(ResGroupLock);
 
-		waitProc->resWaiting = false;
 		SetLatch(&waitProc->procLatch);
 
 		LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
@@ -2099,8 +2095,6 @@ ResGroupWait(ResGroupData *group, bool isLocked)
 	Assert(procHasGroup(proc));
 	Assert(!procHasSlot(proc));
 
-	proc->resWaiting = true;
-
 	groupWaitQueuePush(group, proc);
 
 	if (!isLocked)
@@ -2124,7 +2118,7 @@ ResGroupWait(ResGroupData *group, bool isLocked)
 
 			CHECK_FOR_INTERRUPTS();
 
-			if (!proc->resWaiting)
+			if (!procIsInWaitQueue(proc))
 				break;
 			WaitLatch(&proc->procLatch, WL_LATCH_SET | WL_POSTMASTER_DEATH, -1);
 		}
@@ -2269,7 +2263,6 @@ ResGroupWaitCancel(void)
 		/* Still waiting on the queue when get interrupted, remove myself from the queue */
 
 		Assert(!groupWaitQueueEmpty(group));
-		Assert(MyProc->resWaiting);
 		Assert(procHasGroup(MyProc));
 		Assert(!procHasSlot(MyProc));
 
@@ -2397,8 +2390,6 @@ procValidateResGroupInfo(const PGPROC *proc)
 static bool
 procIsInWaitQueue(const PGPROC *proc)
 {
-	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
-
 	/* TODO: verify that proc is really in the queue in debug mode */
 
 	return proc->links.next != INVALID_OFFSET;

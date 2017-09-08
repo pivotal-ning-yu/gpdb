@@ -184,7 +184,6 @@ struct PGPROC
 	ResGroupCaps	resCaps;	/* config snapshot of the granted slot */
 	Oid			resGroupId;		/* the resource group id */
 	int			resSlotId;		/* id of the granted slot */
-	bool		resWaiting;		/* true if waiting for a slot */
 	uint32		resMemUsage;	/* memory usage of current proc */
 	bool		resDoMemCheck;	/* whether to do memory limit check */
 };
