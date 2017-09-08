@@ -227,6 +227,7 @@ static bool selfIsAssignedDroppedGroup(void);
 static bool selfIsAssignedValidGroup(void);
 static bool selfIsAssigned(void);
 static bool selfIsUnassigned(void);
+static void selfUnassignDroppedGroup(void);
 static bool selfHasSlot(void);
 static bool selfHasGroup(void);
 static void selfSetGroup(ResGroupData *group);
@@ -795,9 +796,7 @@ ResGroupReserveMemory(int32 memoryChunks, int32 overuseChunks, bool *waiverUsed)
 			write_log("Resource group is concurrently dropped while reserving memory: "
 					  "dropped group=%d, my group=%d",
 					  group->groupId, self->groupId);
-		selfUnsetGroup();
-		selfUnsetSlot();
-		Assert(selfIsUnassigned());
+		selfUnassignDroppedGroup();
 		self->doMemCheck = false;
 		return true;
 	}
@@ -863,9 +862,7 @@ ResGroupReleaseMemory(int32 memoryChunks)
 			write_log("Resource group is concurrently dropped while releasing memory: "
 					  "dropped group=%d, my group=%d",
 					  group->groupId, self->groupId);
-		selfUnsetGroup();
-		selfUnsetSlot();
-		Assert(selfIsUnassigned());
+		selfUnassignDroppedGroup();
 		self->doMemCheck = false;
 		return;
 	}
@@ -2552,6 +2549,24 @@ selfIsUnassigned(void)
 	selfValidateResGroupInfo();
 
 	return self->groupId == InvalidOid;
+}
+
+/*
+ * Unassign from an assigned but dropped resgroup.
+ *
+ * This is mostly equal to selfUnsetGroup() + selfUnsetSlot(),
+ * however this function requires self must be assigned
+ * to that dropped resgroup before unassign.
+ */
+static void
+selfUnassignDroppedGroup(void)
+{
+	Assert(selfIsAssignedDroppedGroup());
+
+	selfUnsetSlot();
+	selfUnsetGroup();
+
+	Assert(selfIsUnassigned());
 }
 
 /*
