@@ -199,6 +199,7 @@ static bool procIsAssignedDroppedGroup(const PGPROC *proc);
 static bool procIsAssignedValidGroup(const PGPROC *proc);
 static bool procIsAssigned(const PGPROC *proc);
 static bool procIsUnassigned(const PGPROC *proc);
+static void procUnassignDroppedGroup(PGPROC *proc);
 static bool procHasSlot(const PGPROC *proc);
 static bool procHasGroup(const PGPROC *proc);
 static void procSetGroup(PGPROC *proc, ResGroupData *group);
@@ -727,9 +728,7 @@ ResGroupReserveMemory(int32 memoryChunks, int32 overuseChunks, bool *waiverUsed)
 			write_log("Resource group is concurrently dropped while reserving memory: "
 					  "dropped group=%d, my group=%d",
 					  group->groupId, MyProc->resGroupId);
-		procUnsetGroup(MyProc);
-		procUnsetSlot(MyProc);
-		Assert(procIsUnassigned(MyProc));
+		procUnassignDroppedGroup(MyProc);
 		MyProc->resDoMemCheck = false;
 		return true;
 	}
@@ -795,9 +794,7 @@ ResGroupReleaseMemory(int32 memoryChunks)
 			write_log("Resource group is concurrently dropped while releasing memory: "
 					  "dropped group=%d, my group=%d",
 					  group->groupId, MyProc->resGroupId);
-		procUnsetGroup(MyProc);
-		procUnsetSlot(MyProc);
-		Assert(procIsUnassigned(MyProc));
+		procUnassignDroppedGroup(MyProc);
 		MyProc->resDoMemCheck = false;
 		return;
 	}
@@ -2509,6 +2506,24 @@ procIsUnassigned(const PGPROC *proc)
 	procValidateResGroupInfo(proc);
 
 	return proc->resGroupId == InvalidOid;
+}
+
+/*
+ * Unassign from an assigned but dropped resgroup.
+ *
+ * This is mostly equal to procUnsetGroup() + procUnsetSlot(),
+ * however this function requires the proc must be assigned
+ * to that dropped resgroup before unassign.
+ */
+static void
+procUnassignDroppedGroup(PGPROC *proc)
+{
+	Assert(procIsAssignedDroppedGroup(proc));
+
+	procUnsetSlot(proc);
+	procUnsetGroup(proc);
+
+	Assert(procIsUnassigned(proc));
 }
 
 /*
