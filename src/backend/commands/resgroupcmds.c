@@ -70,6 +70,68 @@ typedef struct {
  */
 typedef void (*ResourceGroupCallback) (bool isCommit, void *arg);
 
+typedef struct ResGroupLimitTypeDesc
+{
+	ResGroupLimitType		type;
+	const char				*name;
+	const char				*fullname;
+	int						min;
+	int						max;
+	int						def;
+} ResGroupLimitTypeDesc;
+
+const ResGroupLimitTypeDesc limitTypeDescs[RESGROUP_LIMIT_TYPE_COUNT] =
+{
+	{
+		RESGROUP_LIMIT_TYPE_UNKNOWN, "unknown", "unknown", -1, -3, -2,
+	},
+
+	{
+		RESGROUP_LIMIT_TYPE_CONCURRENCY,
+		"concurrency",
+		"concurrency limit",
+		RESGROUP_MIN_CONCURRENCY,
+		INT_MAX,
+		RESGROUP_DEFAULT_CONCURRENCY,
+	},
+
+	{
+		RESGROUP_LIMIT_TYPE_CPU,
+		"cpu_rate_limit",
+		"cpu rate limit",
+		RESGROUP_MIN_CPU_RATE_LIMIT,
+		RESGROUP_MAX_CPU_RATE_LIMIT,
+		-1,
+	},
+
+	{
+		RESGROUP_LIMIT_TYPE_MEMORY,
+		"memory_limit",
+		"memory limit",
+		RESGROUP_MIN_MEMORY_LIMIT,
+		RESGROUP_MAX_MEMORY_LIMIT,
+		-1,
+	},
+
+	{
+		RESGROUP_LIMIT_TYPE_MEMORY_SHARED_QUOTA,
+		"memory_shared_quota",
+		"memory shared quota",
+		RESGROUP_MIN_MEMORY_SHARED_QUOTA,
+		RESGROUP_MAX_MEMORY_SHARED_QUOTA,
+		RESGROUP_DEFAULT_MEMORY_SHARED_QUOTA,
+	},
+
+	{
+		RESGROUP_LIMIT_TYPE_MEMORY_SPILL_RATIO,
+		"memory_spill_ratio",
+		"memory spill ratio",
+		RESGROUP_MIN_MEMORY_SPILL_RATIO,
+		RESGROUP_MAX_MEMORY_SPILL_RATIO,
+		RESGROUP_DEFAULT_MEMORY_SPILL_RATIO,
+	},
+};
+
 /*
  * List of add-on callbacks for resource group related operations
  * The list is maintained as circular doubly linked.
