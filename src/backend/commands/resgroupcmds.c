@@ -486,6 +486,7 @@ AlterResourceGroup(AlterResourceGroupStmt *stmt)
 	int			value;
 	DefElem		*defel;
 	ResGroupLimitType	limitType;
+	const ResGroupLimitTypeDesc		*limitDesc;
 	ResGroupCaps		caps;
 	ResGroupOpts		opts;
 
@@ -501,85 +502,56 @@ AlterResourceGroup(AlterResourceGroupStmt *stmt)
 
 	limitType = getResgroupOptionType(defel->defname);
 
-	switch (limitType)
+	/* Verify the limit type and limit value */
+	if (limitType <= RESGROUP_LIMIT_TYPE_UNKNOWN ||
+		limitType >= RESGROUP_LIMIT_TYPE_COUNT)
 	{
-		case RESGROUP_LIMIT_TYPE_CONCURRENCY:
-			value = defGetInt64(defel);
-			if (value < RESGROUP_MIN_CONCURRENCY)
-				ereport(ERROR,
-						(errcode(ERRCODE_INVALID_LIMIT_VALUE),
-						 errmsg("concurrency limit cannot be less than %d",
-								RESGROUP_MIN_CONCURRENCY)));
-			if (value > RESGROUP_MAX_CONCURRENCY)
-				ereport(ERROR,
-						(errcode(ERRCODE_INVALID_LIMIT_VALUE),
-						 errmsg("concurrency limit cannot be greater than 'max_connections'")));
-			break;
+		value = -1;
 
-		case RESGROUP_LIMIT_TYPE_CPU:
-			value = defGetInt64(defel);
-			if (value < RESGROUP_MIN_CPU_RATE_LIMIT)
-				ereport(ERROR,
-						(errcode(ERRCODE_INVALID_LIMIT_VALUE),
-						 errmsg("cpu rate limit must be greater than %d",
-								RESGROUP_MIN_CPU_RATE_LIMIT)));
-			if (value > RESGROUP_MAX_CPU_RATE_LIMIT)
-				ereport(ERROR,
-						(errcode(ERRCODE_INVALID_LIMIT_VALUE),
-						 errmsg("cpu rate limit must be less than %d",
-								RESGROUP_MAX_CPU_RATE_LIMIT)));
-			/* overall limit will be verified later after groupid is known */
-			break;
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("unsupported resource group limit type '%s'", defel->defname)));
+	}
+	else if (limitType == RESGROUP_LIMIT_TYPE_CONCURRENCY)
+	{
+		/* TODO: find a way to merge this logic into the else part */
 
-		case RESGROUP_LIMIT_TYPE_MEMORY_SHARED_QUOTA:
-			value = defGetInt64(defel);
-			if (value < RESGROUP_MIN_MEMORY_SHARED_QUOTA)
-				ereport(ERROR,
-						(errcode(ERRCODE_INVALID_LIMIT_VALUE),
-						 errmsg("memory shared quota must be greater than %d",
-								RESGROUP_MIN_MEMORY_SHARED_QUOTA)));
-			if (value > RESGROUP_MAX_MEMORY_SHARED_QUOTA)
-				ereport(ERROR,
-						(errcode(ERRCODE_INVALID_LIMIT_VALUE),
-						 errmsg("memory shared quota must be less than %d",
-								RESGROUP_MAX_MEMORY_SHARED_QUOTA)));
-			/* sum of shared and spill will be verified later after groupid is known */
-			break;
+		value = defGetInt64(defel);
+		limitDesc = &limitTypeDescs[limitType];
 
-		case RESGROUP_LIMIT_TYPE_MEMORY:
-			value = defGetInt64(defel);
-			if (value < RESGROUP_MIN_MEMORY_LIMIT)
-				ereport(ERROR,
-						(errcode(ERRCODE_INVALID_LIMIT_VALUE),
-						 errmsg("memory limit must be greater than %d",
-								RESGROUP_MIN_MEMORY_LIMIT)));
-			if (value > RESGROUP_MAX_MEMORY_LIMIT)
-				ereport(ERROR,
-						(errcode(ERRCODE_INVALID_LIMIT_VALUE),
-						 errmsg("memory limit must be less than %d",
-								RESGROUP_MAX_MEMORY_LIMIT)));
-			/* overall limit will be verified later after groupid is known */
-			break;
-		case RESGROUP_LIMIT_TYPE_MEMORY_SPILL_RATIO:
-			value = defGetInt64(defel);
-			if (value < RESGROUP_MIN_MEMORY_SPILL_RATIO)
-				ereport(ERROR,
-						(errcode(ERRCODE_INVALID_LIMIT_VALUE),
-						 errmsg("memory spill ratio must be greater than %d",
-								RESGROUP_MIN_MEMORY_SPILL_RATIO)));
-			if (value > RESGROUP_MAX_MEMORY_SPILL_RATIO)
-				ereport(ERROR,
-						(errcode(ERRCODE_INVALID_LIMIT_VALUE),
-						 errmsg("memory spill ratio must be less than %d",
-								RESGROUP_MAX_MEMORY_SPILL_RATIO)));
-			/* sum of shared and spill will be verified later after groupid is known */
-			break;
-
-		default:
-			value = -1;
+		if (value < limitDesc->min)
 			ereport(ERROR,
-					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-					 errmsg("unsupported resource group limit type '%s'", defel->defname)));
+					(errcode(ERRCODE_INVALID_LIMIT_VALUE),
+					 errmsg("%s cannot be less than %d",
+							limitDesc->fullname, limitDesc->min)));
+
+		if (value > RESGROUP_MAX_CONCURRENCY)
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_LIMIT_VALUE),
+					 errmsg("%s cannot be greater than 'max_connections'",
+							limitDesc->fullname)));
+	}
+	else
+	{
+		value = defGetInt64(defel);
+		limitDesc = &limitTypeDescs[limitType];
+
+		/*
+		 * FIXME: below error messages are incorrect as the min and max
+		 * boundaries are actually reachable.
+		 */
+
+		if (value < limitDesc->min)
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_LIMIT_VALUE),
+					 errmsg("%s must be greater than %d",
+							limitDesc->fullname, limitDesc->min)));
+
+		if (value > limitDesc->max)
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_LIMIT_VALUE),
+					 errmsg("%s must be less than %d",
+							limitDesc->fullname, limitDesc->max)));
 	}
 
 	/*
