@@ -860,18 +860,20 @@ GetResGroupIdForRole(Oid roleid)
 static ResGroupLimitType
 getResgroupOptionType(const char* defname)
 {
-	if (strcmp(defname, "cpu_rate_limit") == 0)
-		return RESGROUP_LIMIT_TYPE_CPU;
-	else if (strcmp(defname, "memory_limit") == 0)
-		return RESGROUP_LIMIT_TYPE_MEMORY;
-	else if (strcmp(defname, "concurrency") == 0)
-		return RESGROUP_LIMIT_TYPE_CONCURRENCY;
-	else if (strcmp(defname, "memory_shared_quota") == 0)
-		return RESGROUP_LIMIT_TYPE_MEMORY_SHARED_QUOTA;
-	else if (strcmp(defname, "memory_spill_ratio") == 0)
-		return RESGROUP_LIMIT_TYPE_MEMORY_SPILL_RATIO;
-	else
-		return RESGROUP_LIMIT_TYPE_UNKNOWN;
+	ResGroupLimitType				type;
+	const ResGroupLimitTypeDesc		*desc;
+
+	for (type = RESGROUP_LIMIT_TYPE_UNKNOWN + 1;
+		 type < RESGROUP_LIMIT_TYPE_COUNT;
+		 type++)
+	{
+		desc = &limitTypeDescs[type];
+
+		if (strcmp(defname, desc->name) == 0)
+			return type;
+	}
+
+	return RESGROUP_LIMIT_TYPE_UNKNOWN;
 }
 
 /*
@@ -884,21 +886,15 @@ getResgroupOptionType(const char* defname)
 static const char *
 getResgroupOptionName(ResGroupLimitType type)
 {
-	switch (type)
-	{
-		case RESGROUP_LIMIT_TYPE_CONCURRENCY:
-			return "concurrency";
-		case RESGROUP_LIMIT_TYPE_CPU:
-			return "cpu_rate_limit";
-		case RESGROUP_LIMIT_TYPE_MEMORY:
-			return "memory_limit";
-		case RESGROUP_LIMIT_TYPE_MEMORY_SHARED_QUOTA:
-			return "memory_shared_quota";
-		case RESGROUP_LIMIT_TYPE_MEMORY_SPILL_RATIO:
-			return "memory_spill_ratio";
-		default:
-			return "unknown";
-	}
+	const ResGroupLimitTypeDesc		*desc;
+
+	if (type <= RESGROUP_LIMIT_TYPE_UNKNOWN ||
+		type >= RESGROUP_LIMIT_TYPE_COUNT)
+		return "unknown";
+
+	desc = &limitTypeDescs[type];
+
+	return desc->name;
 }
 
 /*
