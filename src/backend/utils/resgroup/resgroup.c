@@ -2275,10 +2275,11 @@ ResGroupWaitCancel(void)
 
 		groupWaitQueueErase(group, MyProc);
 	}
-	else if (!procIsInWaitQueue(MyProc) && procHasSlot(MyProc))
+	else if (procHasSlot(MyProc))
 	{
 		/* Woken up by a slot holder */
 
+		Assert(!procIsInWaitQueue(MyProc));
 		Assert(procIsAssignedValidGroup(MyProc));
 		putSlot(MyProc);
 		Assert(!procHasSlot(MyProc));
@@ -2298,6 +2299,8 @@ ResGroupWaitCancel(void)
 		 * The transaction of DROP RESOURCE GROUP is finished,
 		 * ResGroupSlotAcquire will do the retry.
 		 */
+		Assert(!procIsInWaitQueue(MyProc));
+		Assert(!procHasSlot(MyProc));
 	}
 
 	LWLockRelease(ResGroupLock);
