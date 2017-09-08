@@ -52,7 +52,6 @@ groups:
   - pulse_QP_memory-accounting
   - QP_runaway-query
   - QP_optimizer-functional
-  - pulse_Gppkg-redhat6
   - pulse_CCLE
   - pulse_CCLE-sles11sp4
   - pulse_mpp-interconnect
@@ -60,6 +59,7 @@ groups:
   - compile_gpdb_windows_ccl
   - TINC_pgcrypto
   - MM_gpcheckcat
+  - MM_gppkg
   - MM_gprecoverseg
 
 - name: CentOS/RHEL
@@ -110,7 +110,6 @@ groups:
   - pulse_cs-pg-two-phase
   - pulse_cs-walrepl-multinode
   - pulse_QP_memory-accounting
-  - pulse_Gppkg-redhat6
   - pulse_CCLE
   - pulse_CCLE-sles11sp4
   - pulse_mpp-interconnect
@@ -136,12 +135,14 @@ groups:
 - name: terraform
   jobs:
   - MM_gpcheckcat
+  - MM_gppkg
   - MM_gprecoverseg
   - DPM_backup-restore
   - DPM_backup-restore_filename_compatibility
 - name: MM
   jobs:
   - MM_gpcheckcat
+  - MM_gppkg
   - MM_gprecoverseg
 - name: Pulse_MU
   jobs:
@@ -766,6 +767,26 @@ resources:
     days: [Sunday]
     start: 1:00 PM
     stop: 2:00 PM
+
+# Resources used for gppkg TINC tests.
+# These are old gppkgs that are not compiled in concourse.
+- name: libgppc_rhel5_gppkg
+  type: s3
+  source:
+    access_key_id: {{bucket-access-key-id}}
+    bucket: gppkgs-used-for-tinc-tests
+    region_name: us-west-2
+    secret_access_key: {{bucket-secret-access-key}}
+    versioned_file: deliverables/libgppc-pv1.2_gpdb4.3orca-rhel5-x86_64.gppkg
+
+- name: before_orca_plperl_rhel6_gppkg
+  type: s3
+  source:
+    access_key_id: {{bucket-access-key-id}}
+    bucket: gppkgs-used-for-tinc-tests
+    region_name: us-west-2
+    secret_access_key: {{bucket-secret-access-key}}
+    versioned_file: deliverables/plperl-ossv5.12.4_pv1.3_gpdb4.3-rhel6-x86_64.gppkg
 
 ## ======================================================================
 ## jobs
@@ -1436,10 +1457,6 @@ jobs:
     file: ccp_src/ci/tasks/gen_cluster.yml
     input_mapping:
       gpdb_binary: bin_gpdb
-    params:
-      AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
-      AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
-      AWS_DEFAULT_REGION: {{aws-region}}
     on_failure:
       <<: *ccp_destroy
   - task: run_tests
@@ -1472,10 +1489,6 @@ jobs:
     file: ccp_src/ci/tasks/gen_cluster.yml
     input_mapping:
       gpdb_binary: bin_gpdb
-    params:
-      AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
-      AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
-      AWS_DEFAULT_REGION: {{aws-region}}
     on_failure:
       <<: *ccp_destroy
   - task: run_tests
@@ -1483,6 +1496,57 @@ jobs:
     image: centos-gpdb-dev-6
     params:
       BEHAVE_FLAGS: --tags=gprecoverseg
+    on_failure:
+      <<: *debug_sleep
+  - *ccp_destroy
+
+- name: MM_gppkg
+  plan:
+  - aggregate:
+    - get: ccp_src
+    - get: gpdb_src
+      passed: [compile_gpdb_centos]
+    - get: sync_tools_gpdb
+      resource: sync_tools_gpdb_centos
+      passed: [compile_gpdb_centos]
+    - get: bin_gpdb
+      resource: bin_gpdb_centos
+      passed: [compile_gpdb_centos]
+      trigger: true
+    - get: centos-gpdb-dev-6
+    - get: pgcrypto_gppkg
+      resource: pgcrypto_rhel5_gppkg
+    - get: postgis_gppkg
+      resource: postgis_rhel5_gppkg
+    - get: plperl_gppkg
+      resource: plperl_rhel6_gppkg
+    - get: pljava_gppkg
+      resource: pljava_rhel5_gppkg
+    - get: plr_gppkg
+      resource: plr_rhel5_gppkg
+    - get: libgppc_gppkg
+      resource: libgppc_rhel5_gppkg
+    - get: before_orca_plperl_gppkg
+      resource: before_orca_plperl_rhel6_gppkg
+  - put: terraform
+    params:
+        <<: *ccp_create_params
+  - task: gen_cluster
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    input_mapping:
+      gpdb_binary: bin_gpdb
+    on_failure:
+      <<: *ccp_destroy
+  - task: get_gppkgs
+    file: gpdb_src/ci/concourse/get_gppkgs.yml
+    image: centos-gpdb-dev-6
+    on_failure:
+      <<: *ccp_destroy
+  - task: run_tests
+    file: gpdb_src/ci/concourse/run_tinc.yml
+    image: centos-gpdb-dev-6
+    params:
+      TINC_TARGET: gppkg
     on_failure:
       <<: *debug_sleep
   - *ccp_destroy
@@ -2151,30 +2215,6 @@ jobs:
         MAKE_TEST_COMMAND: optimizer_functional_part2
         BLDWRAP_POSTGRES_CONF_ADDONS: fsync=off optimizer_print_missing_stats=off
         TEST_OS: centos
-
-- name: pulse_Gppkg-redhat6
-  plan:
-  - get: pulse-api-image
-  - get: nightly-trigger-pulse
-    trigger: true
-  - aggregate: *rhel_artifacts_for_pulse_release-add-trigger
-  - task: trigger_pulse
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/trigger_pulse.yml
-    params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: GPDB-43_STABLE-TINC-gppkg-redhat6
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
-  - task: monitor_pulse
-    attempts: 2
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/monitor_pulse.yml
-    params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: GPDB-43_STABLE-TINC-gppkg-redhat6
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
 
 - name: pulse_CCLE
   plan:

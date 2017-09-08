@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BEHAVE_FLAGS=$@
+TINC_TARGET=$@
 
 cat > ~/gpdb-env.sh << EOF
   source /usr/local/greenplum-db-devel/greenplum_path.sh
@@ -13,5 +13,7 @@ EOF
 source ~/gpdb-env.sh
 
 createdb gptest
-cd /home/gpadmin/gpdb_src/gpMgmt
-make -f Makefile.behave behave flags="$BEHAVE_FLAGS"
+createdb gpadmin
+cd /home/gpadmin/gpdb_src/src/test/tinc
+source tinc_env.sh
+make $@

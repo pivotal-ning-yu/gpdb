@@ -98,24 +98,15 @@ class Gppkg:
         if rc != 0:
             return -1, None, None
 
-        bucket = "gpdb-4.3-stable-concourse"
         compatibility_test = "orca" not in package_name
-        if "gppc" in package_name or compatibility_test:
-            bucket = "gppkgs-used-for-tinc-tests"
 
-        aws_cmd = "unset LD_LIBRARY_PATH && " \
-                  "export PATH=/usr/bin && " \
-                  "unset PYTHONPATH && " \
-                  "unset PYTHONHOME && " \
-                  "aws --region us-west-2 s3api get-object " \
-                  "--bucket %s --key deliverables/%s  %s" \
-                  % (bucket, package_name, os.path.join(target_dir, package_name))
+        copy_cmd = "cp /tmp/downloads/%s %s" % (package_name, os.path.join(target_dir, package_name))
 
-        logger.debug('Download link: %s' % aws_cmd)
+        logger.debug('copy cmd: %s' % copy_cmd)
 
-        cmd = Command("aws get-object", aws_cmd)
+        cmd = Command("copy from expected location", copy_cmd)
 
-        tinctest.logger.info('Executing command: %s' % (aws_cmd))
+        tinctest.logger.info('Executing command: %s' % (copy_cmd))
         cmd.run()
         result = cmd.get_results()
         tinctest.logger.info('Finished command execution with return code %s ' % (str(result.rc)))
@@ -221,6 +212,9 @@ class Gppkg:
             if 'Linux Server release 5.' in res['stdout']:
                 os_ = 'rhel5'
             elif 'Linux Server release 6.' in res['stdout']:
+                os_ = 'rhel6'
+            # We've already confirmed it's redhat/centos with the file
+            elif '6.' in res['stdout']:
                 os_ = 'rhel6'
         elif machine.lower() == 'solaris':
             cmd = cmd + '/etc/release'

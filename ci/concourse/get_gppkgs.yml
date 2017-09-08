@@ -1,0 +1,21 @@
+platform: linux
+inputs:
+ - name: ccp_src
+ - name: cluster_env_files
+ - name: centos-gpdb-dev-6
+ - name: postgis_gppkg
+ - name: pgcrypto_gppkg
+ - name: plperl_gppkg
+ - name: pljava_gppkg
+ - name: plr_gppkg
+ - name: libgppc_gppkg
+ - name: before_orca_plperl_gppkg
+run:
+  path: bash
+  args:
+  - -c
+  - |
+    set -ex
+    ccp_src/aws/setup_ssh_to_cluster.sh
+    ssh -t mdw "mkdir -p /tmp/downloads"
+    scp *_gppkg/*.gppkg mdw:/tmp/downloads/.

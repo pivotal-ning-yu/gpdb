@@ -386,3 +386,7 @@ pgcrypto:
 basic_exttab:
 	$(TESTER) $(DISCOVER) -t tincrepo/mpp/gpdb/tests \
 	-s storage/basic/exttab
+
+# gppkg language package tests:
+gppkg:
+	$(TESTER) $(DISCOVER) -s mpp/gpdb/tests/package
