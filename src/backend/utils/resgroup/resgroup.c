@@ -242,6 +242,7 @@ static void selfUnsetGroup(void);
 static void selfSetSlot(int slotId);
 static void selfUnsetSlot(void);
 static bool procIsInWaitQueue(const PGPROC *proc);
+static void procWakeup(PGPROC *proc);
 static bool slotIsInUse(const ResGroupSlotData *slot);
 static bool slotIdIsValid(int slotId);
 #ifdef USE_ASSERT_CHECKING
@@ -577,9 +578,7 @@ ResGroupDropCheckForWakeup(Oid groupId, bool isCommit)
 		Assert(waitProc->resWaiting != false);
 		Assert(waitProc->resSlotId == InvalidSlotId);
 
-		waitProc->resWaiting = false;
-		waitProc->resSlotId = InvalidSlotId;
-		SetLatch(&waitProc->procLatch);
+		procWakeup(waitProc);
 	}
 
 	if (isCommit)
@@ -1738,9 +1737,8 @@ wakeupSlots(ResGroupData *group)
 
 		initSlot(&pResGroupControl->slots[slotId], &group->caps,
 				group->groupId, waitProc->mppSessionId);
-		waitProc->resWaiting = false;
 		waitProc->resSlotId = slotId;
-		SetLatch(&waitProc->procLatch);
+		procWakeup(waitProc);
 	}
 }
 
@@ -1909,8 +1907,13 @@ ResGroupSlotRelease(void)
 		initSlot(&pResGroupControl->slots[slotId], &group->caps,
 				group->groupId, waitProc->mppSessionId);
 		waitProc->resSlotId = slotId;	/* pass the slot to new query */
-		waitProc->resWaiting = false;
-		SetLatch(&waitProc->procLatch);
+
+		/* TODO: why we need to release the lock here? */
+		LWLockRelease(ResGroupLock);
+
+		procWakeup(waitProc);
+
+		LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
 	}
 }
 
@@ -2728,6 +2731,18 @@ procIsInWaitQueue(const PGPROC *proc)
 	/* TODO: verify that proc is really in the queue in debug mode */
 
 	return proc->links.next != INVALID_OFFSET;
+}
+
+/*
+ * Notify a proc it's woken up.
+ */
+static void
+procWakeup(PGPROC *proc)
+{
+	Assert(proc->resWaiting != false);
+
+	proc->resWaiting = false;
+	SetLatch(&proc->procLatch);
 }
 
 /*
