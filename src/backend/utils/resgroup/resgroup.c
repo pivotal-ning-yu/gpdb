@@ -207,6 +207,7 @@ static void procSetGroup(PGPROC *proc, ResGroupData *group);
 static void procUnsetGroup(PGPROC *proc);
 static void procSetSlot(PGPROC *proc, int slotId);
 static void procUnsetSlot(PGPROC *proc);
+static void procWakeup(PGPROC *proc);
 static bool groupIsNotDropped(const ResGroupData *group);
 static void groupWaitQueueValidate(const ResGroupData *group);
 static void groupWaitQueuePush(ResGroupData *group, PGPROC *proc);
@@ -519,7 +520,7 @@ ResGroupDropCheckForWakeup(Oid groupId, bool isCommit)
 		Assert(procHasGroup(waitProc));
 		Assert(!procHasSlot(waitProc));
 
-		SetLatch(&waitProc->procLatch);
+		procWakeup(waitProc);
 	}
 
 	if (isCommit)
@@ -1572,7 +1573,7 @@ wakeupSlots(ResGroupData *group)
 		/* wake up one process in the wait queue */
 		groupWaitQueuePop(group);
 
-		SetLatch(&waitProc->procLatch);
+		procWakeup(waitProc);
 	}
 }
 
@@ -1741,10 +1742,11 @@ ResGroupSlotRelease(void)
 
 		/* wake up one process in the wait queue */
 		groupWaitQueuePop(group);
+
 		/* TODO: why we need to release the lock here? */
 		LWLockRelease(ResGroupLock);
 
-		SetLatch(&waitProc->procLatch);
+		procWakeup(waitProc);
 
 		LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
 	}
@@ -2619,6 +2621,17 @@ procUnsetSlot(PGPROC *proc)
 
 	proc->resSlotId = InvalidSlotId;
 	proc->resSlot = NULL;
+}
+
+/*
+ * Notify a proc it's woken up.
+ */
+static void
+procWakeup(PGPROC *proc)
+{
+	Assert(procHasGroup(proc));
+
+	SetLatch(&proc->procLatch);
 }
 
 /*
