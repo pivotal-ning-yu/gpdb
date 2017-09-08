@@ -234,7 +234,13 @@ static void selfSetGroup(ResGroupData *group);
 static void selfUnsetGroup(void);
 static void selfSetSlot(void);
 static void selfUnsetSlot(void);
+static bool procIsInWaitQueue(const PGPROC *proc);
 static bool groupIsNotDropped(const ResGroupData *group);
+static void groupWaitQueueValidate(const ResGroupData *group);
+static void groupWaitQueuePush(ResGroupData *group, PGPROC *proc);
+static PGPROC * groupWaitQueuePop(ResGroupData *group);
+static void groupWaitQueueErase(ResGroupData *group, PGPROC *proc);
+static bool groupWaitQueueEmpty(const ResGroupData *group);
 
 /*
  * Estimate size the resource group structures will need in
@@ -516,7 +522,6 @@ ResGroupCheckForDrop(Oid groupId, char *name)
 void
 ResGroupDropCheckForWakeup(Oid groupId, bool isCommit)
 {
-	PROC_QUEUE	*waitQueue;
 	ResGroupData	*group;
 
 	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
@@ -532,17 +537,12 @@ ResGroupDropCheckForWakeup(Oid groupId, bool isCommit)
 
 	Assert(group->lockedForDrop);
 
-	waitQueue = &(group->waitProcs);
-
-	while (waitQueue->size > 0)
+	while (!groupWaitQueueEmpty(group))
 	{
 		PGPROC *waitProc;
 
 		/* wake up one process in the wait queue */
-		waitProc = (PGPROC *) MAKE_PTR(waitQueue->links.next);
-		SHMQueueDelete(&(waitProc->links));
-		waitQueue->size--;
-
+		waitProc = groupWaitQueuePop(group);
 		Assert(waitProc->resWaiting != false);
 		Assert(waitProc->resSlotId == InvalidSlotId);
 
@@ -1273,8 +1273,6 @@ ResGroupSlotAcquire(void)
 {
 	ResGroupData	*group;
 	Oid				 groupId;
-	PROC_QUEUE		*waitQueue;
-	PGPROC			*headProc;
 
 retry:
 	Assert(selfIsUnassigned());
@@ -1327,12 +1325,9 @@ retry:
 	}
 
 	/* add into group wait queue */
-	waitQueue = &(group->waitProcs);
-	headProc = (PGPROC *) &(waitQueue->links);
-	SHMQueueInsertBefore(&(headProc->links), &(MyProc->links));
-	waitQueue->size++;
-
 	MyProc->resWaiting = true;
+	groupWaitQueuePush(group, MyProc);
+
 	if (!group->lockedForDrop)
 		group->totalQueued++;
 	LWLockRelease(ResGroupLock);
@@ -1627,24 +1622,19 @@ slotGetMemSpill(const ResGroupCaps *caps)
 static void
 wakeupSlots(ResGroupData *group)
 {
-	PROC_QUEUE		*waitQueue;
-
-	waitQueue = &group->waitProcs;
-
-	while (waitQueue->size > 0)
+	while (!groupWaitQueueEmpty(group))
 	{
 		PGPROC		*waitProc;
 		int			slotId;
 
+		/* try to get a slot for that proc */
 		slotId = getSlot(group);
 		if (slotId == InvalidSlotId)
+			/* if can't get one then give up */
 			break;
 
 		/* wake up one process in the wait queue */
-		waitProc = (PGPROC *) MAKE_PTR(waitQueue->links.next);
-		SHMQueueDelete(&waitProc->links);
-		waitQueue->size--;
-
+		waitProc = groupWaitQueuePop(group);
 		Assert(waitProc->resWaiting != false);
 		Assert(waitProc->resSlotId == InvalidSlotId);
 
@@ -1682,7 +1672,7 @@ wakeupGroups(Oid skipGroupId)
 		if (group->lockedForDrop)
 			continue;
 
-		if (group->waitProcs.size == 0)
+		if (groupWaitQueueEmpty(group))
 			continue;
 
 		delta = group->memExpected - group->memQuotaGranted - group->memSharedGranted;
@@ -1790,14 +1780,10 @@ static void
 ResGroupSlotRelease(void)
 {
 	ResGroupData	*group = self->group;
-	PROC_QUEUE	*waitQueue;
-	PGPROC		*waitProc;
 
 	Assert(selfIsAssignedValidGroup());
 
 	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
-
-	waitQueue = &group->waitProcs;
 
 	putSlot();
 	Assert(!selfHasSlot());
@@ -1807,8 +1793,9 @@ ResGroupSlotRelease(void)
 	 * Maybe zero, maybe one, maybe more, depends on how the resgroup's
 	 * configuration were changed during our execution.
 	 */
-	while (waitQueue->size > 0)
+	while (!groupWaitQueueEmpty(group))
 	{
+		PGPROC		*waitProc;
 		int			slotId;
 
 		slotId = getSlot(group);
@@ -1816,10 +1803,7 @@ ResGroupSlotRelease(void)
 			break;
 
 		/* wake up one process in the wait queue */
-		waitProc = (PGPROC *) MAKE_PTR(waitQueue->links.next);
-		SHMQueueDelete(&waitProc->links);
-		waitQueue->size--;
-
+		waitProc = groupWaitQueuePop(group);
 		Assert(waitProc->resWaiting != false);
 		Assert(waitProc->resSlotId == InvalidSlotId);
 
@@ -1827,10 +1811,6 @@ ResGroupSlotRelease(void)
 		waitProc->resWaiting = false;
 		SetLatch(&waitProc->procLatch);
 	}
-
-	AssertImply(waitQueue->size == 0,
-				waitQueue->links.next == MAKE_OFFSET(&waitQueue->links) &&
-				waitQueue->links.prev == MAKE_OFFSET(&waitQueue->links));
 
 	LWLockRelease(ResGroupLock);
 }
@@ -2327,7 +2307,6 @@ static void
 ResGroupWaitCancel(void)
 {
 	ResGroupData	*group = self->group;
-	PROC_QUEUE		*waitQueue;
 
 	/* Process exit without waiting for slot */
 	if (!selfHasGroup() || !localResWaiting)
@@ -2336,23 +2315,20 @@ ResGroupWaitCancel(void)
 	/* We are sure to be interrupted in the for loop of ResGroupWait now */
 	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
 
-	waitQueue = &group->waitProcs;
-
-	if (MyProc->links.next != INVALID_OFFSET)
+	if (procIsInWaitQueue(MyProc))
 	{
 		/* Still waiting on the queue when get interrupted, remove myself from the queue */
 
-		Assert(waitQueue->size > 0);
+		Assert(!groupWaitQueueEmpty(group));
 		Assert(MyProc->resWaiting);
 		Assert(selfHasGroup());
 		Assert(!selfHasSlot());
 
 		addTotalQueueDuration(group);
 
-		SHMQueueDelete(&(MyProc->links));
-		waitQueue->size--;
+		groupWaitQueueErase(group, MyProc);
 	}
-	else if (MyProc->links.next == INVALID_OFFSET && selfHasSlot())
+	else if (!procIsInWaitQueue(MyProc) && selfHasSlot())
 	{
 		/* Woken up by a slot holder */
 
@@ -2368,10 +2344,6 @@ ResGroupWaitCancel(void)
 		 * wake up depends on how many slots we can get.
 		 */
 		wakeupSlots(group);
-
-		AssertImply(waitQueue->size == 0,
-					waitQueue->links.next == MAKE_OFFSET(&waitQueue->links) &&
-					waitQueue->links.prev == MAKE_OFFSET(&waitQueue->links));
 	}
 	else
 	{
@@ -2682,6 +2654,19 @@ selfUnsetSlot(void)
 }
 
 /*
+ * Check whether proc is in the resgroup wait queue.
+ */
+static bool
+procIsInWaitQueue(const PGPROC *proc)
+{
+	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
+
+	/* TODO: verify that proc is really in the queue in debug mode */
+
+	return proc->links.next != INVALID_OFFSET;
+}
+
+/*
  * Check whether a resgroup is dropped.
  *
  * A dropped resgroup has groupId == InvalidOid,
@@ -2699,4 +2684,109 @@ groupIsNotDropped(const ResGroupData *group)
 {
 	return group
 		&& group->groupId != InvalidOid;
+}
+
+/*
+ * Validate the consistency of the resgroup wait queue.
+ */
+static void
+groupWaitQueueValidate(const ResGroupData *group)
+{
+	const PROC_QUEUE	*waitQueue;
+
+	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
+
+	waitQueue = &group->waitProcs;
+
+	AssertImply(waitQueue->size == 0,
+				waitQueue->links.next == MAKE_OFFSET(&waitQueue->links) &&
+				waitQueue->links.prev == MAKE_OFFSET(&waitQueue->links));
+}
+
+/*
+ * Push a proc to the resgroup wait queue.
+ */
+static void
+groupWaitQueuePush(ResGroupData *group, PGPROC *proc)
+{
+	PROC_QUEUE			*waitQueue;
+	PGPROC				*headProc;
+
+	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
+	Assert(!procIsInWaitQueue(proc));
+
+	groupWaitQueueValidate(group);
+
+	waitQueue = &group->waitProcs;
+	headProc = (PGPROC *) &waitQueue->links;
+
+	SHMQueueInsertBefore(&headProc->links, &proc->links);
+
+	waitQueue->size++;
+}
+
+/*
+ * Pop the top proc from the resgroup wait queue and return it.
+ */
+static PGPROC *
+groupWaitQueuePop(ResGroupData *group)
+{
+	PROC_QUEUE			*waitQueue;
+	PGPROC				*proc;
+
+	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
+	Assert(!groupWaitQueueEmpty(group));
+
+	groupWaitQueueValidate(group);
+
+	waitQueue = &group->waitProcs;
+
+	proc = (PGPROC *) MAKE_PTR(waitQueue->links.next);
+	Assert(procIsInWaitQueue(proc));
+
+	SHMQueueDelete(&proc->links);
+	Assert(!procIsInWaitQueue(proc));
+
+	waitQueue->size--;
+
+	return proc;
+}
+
+/*
+ * Erase proc from the resgroup wait queue.
+ */
+static void
+groupWaitQueueErase(ResGroupData *group, PGPROC *proc)
+{
+	PROC_QUEUE			*waitQueue;
+
+	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
+	Assert(!groupWaitQueueEmpty(group));
+	Assert(procIsInWaitQueue(proc));
+
+	groupWaitQueueValidate(group);
+
+	waitQueue = &group->waitProcs;
+
+	SHMQueueDelete(&proc->links);
+	Assert(!procIsInWaitQueue(proc));
+
+	waitQueue->size--;
+}
+
+/*
+ * Check whether the resgroup wait queue is empty.
+ */
+static bool
+groupWaitQueueEmpty(const ResGroupData *group)
+{
+	const PROC_QUEUE	*waitQueue;
+
+	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
+
+	groupWaitQueueValidate(group);
+
+	waitQueue = &group->waitProcs;
+
+	return waitQueue->size == 0;
 }
