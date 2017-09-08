@@ -39,8 +39,8 @@
 #include "utils/syscache.h"
 
 #define RESGROUP_DEFAULT_CONCURRENCY (20)
-#define RESGROUP_DEFAULT_MEM_SHARED_QUOTA (20)
-#define RESGROUP_DEFAULT_MEM_SPILL_RATIO (20)
+#define RESGROUP_DEFAULT_MEMORY_SHARED_QUOTA (20)
+#define RESGROUP_DEFAULT_MEMORY_SPILL_RATIO (20)
 
 #define RESGROUP_MIN_CONCURRENCY	(1)
 #define RESGROUP_MAX_CONCURRENCY	(MaxConnections)
@@ -968,10 +968,10 @@ parseStmtOptions(CreateResourceGroupStmt *stmt, ResGroupOpts *options)
 		options->concurrency = RESGROUP_DEFAULT_CONCURRENCY;
 
 	if (!(types & (1 << RESGROUP_LIMIT_TYPE_MEMORY_SHARED_QUOTA)))
-		options->memSharedQuota = RESGROUP_DEFAULT_MEM_SHARED_QUOTA;
+		options->memSharedQuota = RESGROUP_DEFAULT_MEMORY_SHARED_QUOTA;
 
 	if (!(types & (1 << RESGROUP_LIMIT_TYPE_MEMORY_SPILL_RATIO)))
-		options->memSpillRatio = RESGROUP_DEFAULT_MEM_SPILL_RATIO;
+		options->memSpillRatio = RESGROUP_DEFAULT_MEMORY_SPILL_RATIO;
 
 	if (options->memSpillRatio + options->memSharedQuota > RESGROUP_MAX_MEMORY_LIMIT)
 		ereport(ERROR,
