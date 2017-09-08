@@ -165,7 +165,7 @@ static int32 groupGetMemSharedExpected(const ResGroupCaps *caps);
 static int32 groupGetMemSpillTotal(const ResGroupCaps *caps);
 static int32 slotGetMemQuotaExpected(const ResGroupCaps *caps);
 static int32 slotGetMemSpill(const ResGroupCaps *caps);
-static void wakeupSlots(ResGroupData *group);
+static void wakeupSlots(ResGroupData *group, bool grant);
 static void wakeupGroups(Oid skipGroupId);
 static bool groupReleaseMemQuota(ResGroupData *group,
 								ResGroupSlotData *slot);
@@ -511,17 +511,8 @@ ResGroupDropCheckForWakeup(Oid groupId, bool isCommit)
 
 	Assert(group->lockedForDrop);
 
-	while (!groupWaitQueueEmpty(group))
-	{
-		PGPROC *waitProc;
-
-		/* wake up one process in the wait queue */
-		waitProc = groupWaitQueuePop(group);
-		Assert(procHasGroup(waitProc));
-		Assert(!procHasSlot(waitProc));
-
-		procWakeup(waitProc);
-	}
+	wakeupSlots(group, false);
+	Assert(groupWaitQueueEmpty(group));
 
 	if (isCommit)
 	{
@@ -583,7 +574,7 @@ ResGroupAlterOnCommit(Oid groupId,
 
 	shouldWakeUp = groupApplyMemCaps(group, caps);
 
-	wakeupSlots(group);
+	wakeupSlots(group, true);
 	if (shouldWakeUp)
 		wakeupGroups(groupId);
 
@@ -1550,11 +1541,17 @@ slotGetMemSpill(const ResGroupCaps *caps)
 }
 
 /*
- * Attempt to wake up pending slots in the group as long as there are free
- * slots and enough memory quota.
+ * Attempt to wake up pending slots in the group.
+ *
+ * grant indicates whether to grant the proc a slot.
+ *
+ * When grant is true we'll give up once no slot can be get,
+ * e.g. due to lack of free slot or enough memory quota.
+ *
+ * When grant is false all the pending procs will be woken up.
  */
 static void
-wakeupSlots(ResGroupData *group)
+wakeupSlots(ResGroupData *group, bool grant)
 {
 	while (!groupWaitQueueEmpty(group))
 	{
@@ -1564,11 +1561,14 @@ wakeupSlots(ResGroupData *group)
 		Assert(procHasGroup(waitProc));
 		Assert(!procHasSlot(waitProc));
 
-		/* try to get a slot for that proc */
-		getSlot(waitProc);
-		if (!procHasSlot(waitProc))
-			/* if can't get one then give up */
-			break;
+		if (grant)
+		{
+			/* try to get a slot for that proc */
+			getSlot(waitProc);
+			if (!procHasSlot(waitProc))
+				/* if can't get one then give up */
+				break;
+		}
 
 		/* wake up one process in the wait queue */
 		groupWaitQueuePop(group);
@@ -1612,7 +1612,7 @@ wakeupGroups(Oid skipGroupId)
 		if (delta <= 0)
 			continue;
 
-		wakeupSlots(group);
+		wakeupSlots(group, true);
 
 		if (!pResGroupControl->freeChunks)
 			break;
@@ -2291,7 +2291,7 @@ ResGroupWaitCancel(void)
 		 * Similar as ResGroupSlotRelease(), how many pending queries to
 		 * wake up depends on how many slots we can get.
 		 */
-		wakeupSlots(group);
+		wakeupSlots(group, true);
 	}
 	else
 	{
