@@ -56,6 +56,15 @@
 #define RESGROUP_MIN_MEMORY_SPILL_RATIO		(1)
 #define RESGROUP_MAX_MEMORY_SPILL_RATIO		(100)
 
+#define ResGroupLimitTypeIsValid(type) \
+	(((type) > RESGROUP_LIMIT_TYPE_UNKNOWN) && \
+	 ((type) < RESGROUP_LIMIT_TYPE_COUNT))
+
+#define foreach_resgroup_limit_type(type) \
+	for (type = RESGROUP_LIMIT_TYPE_UNKNOWN + 1; \
+		 type < RESGROUP_LIMIT_TYPE_COUNT; \
+		 type++)
+
 /*
  * The context to pass to callback in ALTER resource group
  */
@@ -503,8 +512,7 @@ AlterResourceGroup(AlterResourceGroupStmt *stmt)
 	limitType = getResgroupOptionType(defel->defname);
 
 	/* Verify the limit type and limit value */
-	if (limitType <= RESGROUP_LIMIT_TYPE_UNKNOWN ||
-		limitType >= RESGROUP_LIMIT_TYPE_COUNT)
+	if (!ResGroupLimitTypeIsValid(limitType))
 	{
 		value = -1;
 
@@ -741,8 +749,7 @@ GetResGroupCapabilities(Oid groupId, ResGroupCaps *resgroupCaps)
 								 relResGroupCapability->rd_att, &isNull);
 		type = (ResGroupLimitType) DatumGetInt16(typeDatum);
 
-		Assert(type > RESGROUP_LIMIT_TYPE_UNKNOWN);
-		Assert(type < RESGROUP_LIMIT_TYPE_COUNT);
+		Assert(ResGroupLimitTypeIsValid(type));
 		Assert(!(mask & (1 << type)));
 
 		mask |= 1 << type;
@@ -863,9 +870,7 @@ getResgroupOptionType(const char* defname)
 	ResGroupLimitType				type;
 	const ResGroupLimitTypeDesc		*desc;
 
-	for (type = RESGROUP_LIMIT_TYPE_UNKNOWN + 1;
-		 type < RESGROUP_LIMIT_TYPE_COUNT;
-		 type++)
+	foreach_resgroup_limit_type(type)
 	{
 		desc = &limitTypeDescs[type];
 
@@ -888,8 +893,7 @@ getResgroupOptionName(ResGroupLimitType type)
 {
 	const ResGroupLimitTypeDesc		*desc;
 
-	if (type <= RESGROUP_LIMIT_TYPE_UNKNOWN ||
-		type >= RESGROUP_LIMIT_TYPE_COUNT)
+	if (!ResGroupLimitTypeIsValid(type))
 		return "unknown";
 
 	desc = &limitTypeDescs[type];
@@ -917,8 +921,7 @@ parseStmtOptions(CreateResourceGroupStmt *stmt, ResGroupOpts *options)
 		DefElem *defel = (DefElem *) lfirst(cell);
 		type = getResgroupOptionType(defel->defname);
 
-		if (type <= RESGROUP_LIMIT_TYPE_UNKNOWN ||
-			type >= RESGROUP_LIMIT_TYPE_COUNT)
+		if (!ResGroupLimitTypeIsValid(type))
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 					 errmsg("option \"%s\" not recognized", defel->defname)));
@@ -958,9 +961,7 @@ parseStmtOptions(CreateResourceGroupStmt *stmt, ResGroupOpts *options)
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				errmsg("must specify both memory_limit and cpu_rate_limit")));
 
-	for (type = RESGROUP_LIMIT_TYPE_UNKNOWN + 1;
-		 type < RESGROUP_LIMIT_TYPE_COUNT;
-		 type++)
+	foreach_resgroup_limit_type(type)
 	{
 		if (types & (1 << type))
 			continue;
@@ -1166,8 +1167,7 @@ updateResgroupCapabilities(Oid groupid, const ResGroupCaps *resgroupCaps)
 								 resgroupCapabilityRel->rd_att, isnull);
 		type = (ResGroupLimitType) DatumGetInt16(typeDatum);
 
-		Assert(type > RESGROUP_LIMIT_TYPE_UNKNOWN);
-		Assert(type < RESGROUP_LIMIT_TYPE_COUNT);
+		Assert(ResGroupLimitTypeIsValid(type));
 		Assert(!(mask & (1 << type)));
 
 		mask |= 1 << type;
