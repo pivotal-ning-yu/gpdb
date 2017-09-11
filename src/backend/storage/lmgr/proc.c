@@ -385,6 +385,7 @@ InitProcess(void)
 	MyProc->resGroup = NULL;
 	MyProc->resSlot = NULL;
 	MyProc->resGroupId = InvalidOid;
+	MyProc->resWaiting = false;
 	MyProc->resSlotId = -1;
 	MyProc->resMemUsage = 0;
 	MyProc->resDoMemCheck = false;
