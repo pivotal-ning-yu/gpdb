@@ -1414,7 +1414,6 @@ retry:
 	}
 
 	/* add into group wait queue */
-	MyProc->resWaiting = true;
 	groupWaitQueuePush(group, MyProc);
 
 	if (!group->lockedForDrop)
@@ -1732,8 +1731,6 @@ wakeupSlots(ResGroupData *group, bool grant)
 
 		/* wake up one process in the wait queue */
 		waitProc = groupWaitQueuePop(group);
-		Assert(waitProc->resWaiting != false);
-		Assert(waitProc->resSlotId == InvalidSlotId);
 
 		if (slotId != InvalidSlotId)
 			initSlot(&pResGroupControl->slots[slotId], &group->caps,
@@ -1903,8 +1900,6 @@ ResGroupSlotRelease(void)
 
 		/* wake up one process in the wait queue */
 		waitProc = groupWaitQueuePop(group);
-		Assert(waitProc->resWaiting != false);
-		Assert(waitProc->resSlotId == InvalidSlotId);
 
 		initSlot(&pResGroupControl->slots[slotId], &group->caps,
 				group->groupId, waitProc->mppSessionId);
@@ -2389,7 +2384,6 @@ ResGroupWaitCancel(void)
 		/* Still waiting on the queue when get interrupted, remove myself from the queue */
 
 		Assert(!groupWaitQueueIsEmpty(group));
-		Assert(MyProc->resWaiting);
 		Assert(selfHasGroup());
 		Assert(!selfHasSlot());
 
@@ -2733,6 +2727,9 @@ procIsInWaitQueue(const PGPROC *proc)
 {
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 
+	AssertImply(proc->links.next != INVALID_OFFSET,
+				proc->resWaiting != false);
+
 	/* TODO: verify that proc is really in the queue in debug mode */
 
 	return proc->links.next != INVALID_OFFSET;
@@ -2744,9 +2741,8 @@ procIsInWaitQueue(const PGPROC *proc)
 static void
 procWakeup(PGPROC *proc)
 {
-	Assert(proc->resWaiting != false);
+	Assert(proc->resWaiting == false);
 
-	proc->resWaiting = false;
 	SetLatch(&proc->procLatch);
 }
 
@@ -2818,6 +2814,8 @@ groupWaitQueuePush(ResGroupData *group, PGPROC *proc)
 
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 	Assert(!procIsInWaitQueue(proc));
+	Assert(proc->resWaiting == false);
+	Assert(proc->resSlotId == InvalidSlotId);
 
 	groupWaitQueueValidate(group);
 
@@ -2825,6 +2823,7 @@ groupWaitQueuePush(ResGroupData *group, PGPROC *proc)
 	headProc = (PGPROC *) &waitQueue->links;
 
 	SHMQueueInsertBefore(&headProc->links, &proc->links);
+	proc->resWaiting = true;
 
 	waitQueue->size++;
 }
@@ -2847,8 +2846,12 @@ groupWaitQueuePop(ResGroupData *group)
 
 	proc = (PGPROC *) MAKE_PTR(waitQueue->links.next);
 	Assert(procIsInWaitQueue(proc));
+	Assert(proc->resWaiting != false);
+	Assert(proc->resSlotId == InvalidSlotId);
 
 	SHMQueueDelete(&proc->links);
+	proc->resWaiting = false;
+
 	Assert(!procIsInWaitQueue(proc));
 
 	waitQueue->size--;
@@ -2867,12 +2870,16 @@ groupWaitQueueErase(ResGroupData *group, PGPROC *proc)
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 	Assert(!groupWaitQueueIsEmpty(group));
 	Assert(procIsInWaitQueue(proc));
+	Assert(proc->resWaiting != false);
+	Assert(proc->resSlotId == InvalidSlotId);
 
 	groupWaitQueueValidate(group);
 
 	waitQueue = &group->waitProcs;
 
 	SHMQueueDelete(&proc->links);
+	proc->resWaiting = false;
+
 	Assert(!procIsInWaitQueue(proc));
 
 	waitQueue->size--;
