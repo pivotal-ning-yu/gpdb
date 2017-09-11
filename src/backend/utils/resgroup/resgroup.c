@@ -1729,6 +1729,7 @@ SerializeResGroupInfo(StringInfo str)
  */
 void
 DeserializeResGroupInfo(struct ResGroupCaps *capsOut,
+						Oid *groupId, int *slotId,
 						const char *buf, int len)
 {
 	int			i;
@@ -1738,15 +1739,13 @@ DeserializeResGroupInfo(struct ResGroupCaps *capsOut,
 
 	Assert(len > 0);
 
-	/* TODO: don't deserialize into MyProc directly */
+	memcpy(&tmp, ptr, sizeof(*groupId));
+	*groupId = ntohl(tmp);
+	ptr += sizeof(*groupId);
 
-	memcpy(&tmp, ptr, sizeof(MyProc->resGroupId));
-	MyProc->resGroupId = ntohl(tmp);
-	ptr += sizeof(MyProc->resGroupId);
-
-	memcpy(&tmp, ptr, sizeof(MyProc->resSlotId));
-	MyProc->resSlotId = ntohl(tmp);
-	ptr += sizeof(MyProc->resSlotId);
+	memcpy(&tmp, ptr, sizeof(*slotId));
+	*slotId = ntohl(tmp);
+	ptr += sizeof(*slotId);
 
 	for (i = 0; i < RESGROUP_LIMIT_TYPE_COUNT; i++)
 	{
@@ -1880,93 +1879,162 @@ UnassignResGroupOnMaster(void)
 void
 SwitchResGroupOnSegment(const char *buf, int len)
 {
-	Oid		prevGroupId;
-	int		prevSlotId;
+	Oid		groupId;
+	int		slotId;
 	ResGroupCaps		caps;
 	ResGroupData		*group;
 	ResGroupSlotData	*slot;
-	ResGroupData		*prevGroup = NULL;
-	ResGroupSlotData	*prevSlot = NULL;
 
 	procValidateResGroupInfo(MyProc);
-
-	prevGroupId = MyProc->resGroupId;
-	prevSlotId = MyProc->resSlotId;
-	prevGroup = MyProc->resGroup;
-	prevSlot = MyProc->resSlot;
 
 	/* Stop memory limit checking */
 	MyProc->resDoMemCheck = false;
 
-	DeserializeResGroupInfo(&caps, buf, len);
+	DeserializeResGroupInfo(&caps, &groupId, &slotId, buf, len);
 
-	AssertImply(MyProc->resGroupId != InvalidOid,
-				MyProc->resSlotId != InvalidSlotId);
-	AssertImply(prevGroupId != InvalidOid,
-				prevSlotId != InvalidSlotId);
+	AssertImply(groupId != InvalidOid,
+				slotId != InvalidSlotId);
 
 	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
 
-	if (MyProc->resGroupId == InvalidOid)
+	/*
+	 * action table when switching from left to top:
+	 *
+	 *         | invalid | dropped |  valid1 |  valid2 |
+	 * invalid |         |         |     A   |    -    |
+	 * dropped |    D    |    D    |    DA   |    -    |
+	 * valid1  |    U    |    U    |         |    UA   |
+	 *
+	 * - invalid: a none resgroup state;
+	 * - dropped: a dropped resgroup;
+	 * - valid{1,2}: a non-dropped resgroup;
+	 *
+	 * - U: should unassign from left as valid;
+	 * - D: should unassign from left as dropped;
+	 * - A: should assign to top;
+	 * - -: handled or nothing to do;
+	 */
+
+	if (procIsAssignedDroppedGroup(MyProc))
 	{
-		/* about to switch to a none resgroup state ... */
+		/*
+		 * switch from a dropped resgroup, behave like we are from
+		 * a none resgroup state by performing the D action.
+		 */
 
-		MyProc->resGroup = NULL;
+		procUnassignDroppedGroup(MyProc);
+	}
 
-		if (prevGroup)
-		{
-			/* from another resgroup, so detach from it */
+	/* now the action table is simplified */
 
-			Assert(prevGroup->groupId == prevGroupId);
+	/*
+	 *         | invalid | dropped |  valid1 |  valid2 |
+	 * invalid |         |         |     A   |    -    |
+	 * valid1  |    U    |    U    |         |    UA   |
+	 */
 
-			/* Sub proc memory accounting info from group and slot */
-			groupDecMemUsage(prevGroup, prevSlot, MyProc->resMemUsage);
+	if (procIsAssignedValidGroup(MyProc) && MyProc->resGroupId != groupId)
+	{
+		/*
+		 * switch out a valid resgroup or switch between different resgroups,
+		 * perform the U action.
+		 */
 
-			/* Update info in previous slot */
-			slotDecNProcs(prevSlot);
+		/* Sub proc memory accounting info from group and slot */
+		groupDecMemUsage(MyProc->resGroup, MyProc->resSlot, MyProc->resMemUsage);
 
-			groupReleaseMemQuota(prevGroup, prevSlot);
-		}
-		else
-		{
-			/* from a none resgroup state, so nothing to do */
-			Assert(prevGroupId == InvalidOid);
-			Assert(prevSlotId == InvalidSlotId);
-		}
+		/* Update info in previous slot */
+		slotDecNProcs(MyProc->resSlot);
+
+		groupReleaseMemQuota(MyProc->resGroup, MyProc->resSlot);
+
+		procUnsetSlot(MyProc);
+		procUnsetGroup(MyProc);
+
+		Assert(procIsUnassigned(MyProc));
+	}
+
+	/*
+	 *         | invalid | dropped |  valid1 |  valid2 |
+	 * invalid |         |         |    A    |    -    |
+	 * valid1  |         |         |         |    A    |
+	 */
+
+	if (groupId == InvalidOid)
+	{
+		/*
+		 * switch to a none resgroup state, nothing to do as we already
+		 * detached from previous one if that's a valid resgroup
+		 */
+
+		Assert(procIsUnassigned(MyProc));
 
 		LWLockRelease(ResGroupLock);
-		Assert(procIsUnassigned(MyProc));
 		return;
 	}
 
-	/* now we know we are about to switch to some resgroup ... */
+	/*
+	 *         | invalid | dropped |  valid1 |  valid2 |
+	 * invalid |    -    |         |    A    |    -    |
+	 * valid1  |    -    |         |         |    A    |
+	 */
 
-	if (prevGroup && prevGroup->groupId != prevGroupId)
+	if (MyProc->resGroupId == groupId)
 	{
-		/* from a dropped resgroup, so behave like we are from
-		 * a none resgroup state */
+		/*
+		 * stay in the same valid resgroup, enable memory check again
+		 */
 
-		prevGroup = NULL;
-		prevSlot = NULL;
-		prevGroupId = InvalidOid;
-		prevSlotId = InvalidSlotId;
+		Assert(procIsAssignedValidGroup(MyProc));
+
+		/* Start memory limit checking */
+		MyProc->resDoMemCheck = true;
+
+		LWLockRelease(ResGroupLock);
+		return;
 	}
 
-	/* now we are sure to switch to a valid resgroup */
+	/*
+	 *         | invalid | dropped |  valid1 |  valid2 |
+	 * invalid |    -    |         |    A    |    -    |
+	 * valid1  |    -    |         |    -    |    A    |
+	 */
 
-	group = ResGroupHashFind(MyProc->resGroupId, true);
+	/*
+	 * lookup the target resgroup,
+	 * if it's already dropped an exception will be thrown.
+	 */
+	group = ResGroupHashFind(groupId, true);
 	Assert(group != NULL);
-	/* we don't set this group to MyProc until end of this function */
 
-	LWLockRelease(ResGroupLock);
+	/*
+	 *         | invalid | dropped |  valid1 |  valid2 |
+	 * invalid |    -    |    -    |    A    |    -    |
+	 * valid1  |    -    |    -    |    -    |    A    |
+	 *
+	 * for the case valid1 => valid2, as we already unassigned from valid1,
+	 * it's now equal to the case invalid => valid1,
+	 * so the action table can be simplified again.
+	 *
+	 *         | invalid | dropped |  valid1 |  valid2 |
+	 * invalid |    -    |    -    |    A    |    -    |
+	 * valid1  |    -    |    -    |    -    |    -    |
+	 */
+
+	/*
+	 * now we are sure the target resgroup is valid,
+	 * and we should perform the A action on it.
+	 */
+
+	Assert(procIsUnassigned(MyProc));
+	procSetGroup(MyProc, group);
+	procSetSlot(MyProc, slotId);
+	Assert(procIsAssignedValidGroup(MyProc));
 
 	/* Init MyProc */
 	Assert(host_segments > 0);
 	Assert(caps.concurrency.proposed > 0);
-	Assert(MyProc->resSlotId != InvalidSlotId);
 	MyProc->resCaps = caps;
-	MyProc->resSlot = &group->slots[MyProc->resSlotId];
-	Assert(procHasSlot(MyProc));
 
 	/* Init slot */
 	slot = MyProc->resSlot;
@@ -1976,29 +2044,10 @@ SwitchResGroupOnSegment(const char *buf, int len)
 	ResGroupSetMemorySpillRatio(&caps);
 	Assert(slot->memQuota > 0);
 
-	if (prevGroup != group || prevSlot != slot)
 	{
-		/* we are switching between different resgroups */
-
-		LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
-		if (prevGroup)
-		{
-			/* the previous one is valid, so detach from it */
-			Assert(prevSlot != NULL);
-
-			/* Sub proc memory accounting info from group and slot */
-			groupDecMemUsage(prevGroup, prevSlot, MyProc->resMemUsage);
-
-			/* Update info in previous slot */
-			slotDecNProcs(prevSlot);
-
-			groupReleaseMemQuota(prevGroup, prevSlot);
-		}
-
-		/* now attach to the new one */
+		/* now attach to the target resgroup */
 
 		groupAcquireMemQuota(group, &slot->caps);
-		LWLockRelease(ResGroupLock);
 
 		/* Add proc memory accounting info into group and slot */
 		groupIncMemUsage(group, slot, MyProc->resMemUsage);
@@ -2007,16 +2056,13 @@ SwitchResGroupOnSegment(const char *buf, int len)
 		slotIncNProcs(slot);
 	}
 
-	MyProc->resGroup = group;
-
-	/* finally we can say we are in a valid resgroup */
-	Assert(procIsAssignedValidGroup(MyProc));
-
 	/* Start memory limit checking */
 	MyProc->resDoMemCheck = true;
 
 	/* Add into cgroup */
 	ResGroupOps_AssignGroup(MyProc->resGroupId, MyProcPid);
+
+	LWLockRelease(ResGroupLock);
 }
 
 /*

@@ -112,6 +112,7 @@ extern void FreeResGroupEntry(Oid groupId);
 
 extern void SerializeResGroupInfo(StringInfo str);
 extern void DeserializeResGroupInfo(struct ResGroupCaps *capsOut,
+									Oid *groupId, int *slotId,
 									const char *buf, int len);
 
 extern bool ShouldAssignResGroupOnMaster(void);
