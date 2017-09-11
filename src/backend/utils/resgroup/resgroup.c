@@ -1663,7 +1663,9 @@ slotGetMemSpill(const ResGroupCaps *caps)
 /*
  * Attempt to wake up pending slots in the group.
  *
- * grant indicates whether to grant the proc a slot.
+ * - grant indicates whether to grant the proc a slot;
+ * - release indicates whether to wake up the proc with the LWLock
+ *   temporarily released;
  *
  * When grant is true we'll give up once no slot can be get,
  * e.g. due to lack of free slot or enough memory quota.
@@ -1695,6 +1697,7 @@ wakeupSlots(ResGroupData *group, bool grant)
 					 group->groupId, waitProc->mppSessionId);
 
 		waitProc->resSlotId = slotId;
+
 		procWakeup(waitProc);
 	}
 }
@@ -1847,29 +1850,7 @@ ResGroupSlotRelease(void)
 	 * Maybe zero, maybe one, maybe more, depends on how the resgroup's
 	 * configuration were changed during our execution.
 	 */
-	while (!groupWaitQueueIsEmpty(group))
-	{
-		PGPROC		*waitProc;
-		int			slotId;
-
-		slotId = getSlot(group);
-		if (slotId == InvalidSlotId)
-			break;
-
-		/* wake up one process in the wait queue */
-		waitProc = groupWaitQueuePop(group);
-
-		initSlot(&pResGroupControl->slots[slotId], &group->caps,
-				group->groupId, waitProc->mppSessionId);
-		waitProc->resSlotId = slotId;	/* pass the slot to new query */
-
-		/* TODO: why we need to release the lock here? */
-		LWLockRelease(ResGroupLock);
-
-		procWakeup(waitProc);
-
-		LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
-	}
+	wakeupSlots(group, true);
 }
 
 /*
