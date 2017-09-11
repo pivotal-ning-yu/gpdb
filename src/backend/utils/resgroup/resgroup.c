@@ -242,6 +242,7 @@ static void selfUnsetGroup(void);
 static void selfSetSlot(int slotId);
 static void selfUnsetSlot(void);
 static bool procIsInWaitQueue(const PGPROC *proc);
+static bool procIsWaiting(const PGPROC *proc);
 static void procWakeup(PGPROC *proc);
 static bool slotIsInUse(const ResGroupSlotData *slot);
 static bool slotIdIsValid(int slotId);
@@ -2239,7 +2240,7 @@ ResGroupWait(ResGroupData *group)
 
 			CHECK_FOR_INTERRUPTS();
 
-			if (!proc->resWaiting)
+			if (!procIsWaiting(proc))
 				break;
 			WaitLatch(&proc->procLatch, WL_LATCH_SET | WL_POSTMASTER_DEATH, -1);
 		}
@@ -2384,6 +2385,7 @@ ResGroupWaitCancel(void)
 		/* Still waiting on the queue when get interrupted, remove myself from the queue */
 
 		Assert(!groupWaitQueueIsEmpty(group));
+		Assert(procIsWaiting(MyProc));
 		Assert(selfHasGroup());
 		Assert(!selfHasSlot());
 
@@ -2721,6 +2723,8 @@ selfUnsetSlot(void)
 
 /*
  * Check whether proc is in the resgroup wait queue.
+ *
+ * Unlike procIsWaiting() this function requires the LWLock.
  */
 static bool
 procIsInWaitQueue(const PGPROC *proc)
@@ -2736,12 +2740,28 @@ procIsInWaitQueue(const PGPROC *proc)
 }
 
 /*
+ * Check whether proc is waiting.
+ *
+ * Unlike procIsInWaitQueue() this function doesn't require the LWLock.
+ *
+ * FIXME: when asserts are enabled this function is not atomic.
+ */
+static bool
+procIsWaiting(const PGPROC *proc)
+{
+	AssertImply(proc->links.next != INVALID_OFFSET,
+				proc->resWaiting != false);
+
+	return proc->resWaiting;
+}
+
+/*
  * Notify a proc it's woken up.
  */
 static void
 procWakeup(PGPROC *proc)
 {
-	Assert(proc->resWaiting == false);
+	Assert(!procIsWaiting(proc));
 
 	SetLatch(&proc->procLatch);
 }
