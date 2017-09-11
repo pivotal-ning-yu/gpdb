@@ -1681,30 +1681,7 @@ ResGroupSlotRelease(void)
 	 * Maybe zero, maybe one, maybe more, depends on how the resgroup's
 	 * configuration were changed during our execution.
 	 */
-	while (!groupWaitQueueEmpty(group))
-	{
-		PGPROC		*waitProc;
-
-		waitProc = groupWaitQueueTop(group);
-		Assert(procHasGroup(waitProc));
-		Assert(!procHasSlot(waitProc));
-
-		/* try to get a slot for that proc */
-		getSlot(waitProc);
-		if (!procHasSlot(waitProc))
-			/* if can't get one then give up */
-			break;
-
-		/* wake up one process in the wait queue */
-		groupWaitQueuePop(group);
-
-		/* TODO: why we need to release the lock here? */
-		LWLockRelease(ResGroupLock);
-
-		procWakeup(waitProc);
-
-		LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
-	}
+	wakeupSlots(group, true);
 
 	LWLockRelease(ResGroupLock);
 }
