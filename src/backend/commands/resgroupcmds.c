@@ -1092,24 +1092,19 @@ insertResgroupCapabilities(Oid groupid,
 						   ResGroupOpts *options)
 {
 	char value[64];
+	ResGroupLimitType type;
+	int32 *opts = (int32 *) options;
 	Relation resgroup_capability_rel = heap_open(ResGroupCapabilityRelationId, RowExclusiveLock);
 
 	validateCapabilities(resgroup_capability_rel, groupid, options, true);
 
-	sprintf(value, "%d", options->concurrency);
-	insertResgroupCapabilityEntry(resgroup_capability_rel, groupid, RESGROUP_LIMIT_TYPE_CONCURRENCY, value);
+	foreach_resgroup_limit_type(type)
+	{
+		sprintf(value, "%d", opts[type]);
 
-	sprintf(value, "%d", options->cpuRateLimit);
-	insertResgroupCapabilityEntry(resgroup_capability_rel, groupid, RESGROUP_LIMIT_TYPE_CPU, value);
-
-	sprintf(value, "%d", options->memLimit);
-	insertResgroupCapabilityEntry(resgroup_capability_rel, groupid, RESGROUP_LIMIT_TYPE_MEMORY, value);
-
-	sprintf(value, "%d", options->memSharedQuota);
-	insertResgroupCapabilityEntry(resgroup_capability_rel, groupid, RESGROUP_LIMIT_TYPE_MEMORY_SHARED_QUOTA, value);
-
-	sprintf(value, "%d", options->memSpillRatio);
-	insertResgroupCapabilityEntry(resgroup_capability_rel, groupid, RESGROUP_LIMIT_TYPE_MEMORY_SPILL_RATIO, value);
+		insertResgroupCapabilityEntry(resgroup_capability_rel,
+									  groupid, type, value);
+	}
 
 	heap_close(resgroup_capability_rel, NoLock);
 }
