@@ -196,6 +196,7 @@ static void ResGroupSetMemorySpillRatio(const ResGroupCaps *caps);
 static void ResGroupCheckMemorySpillRatio(const ResGroupCaps *caps);
 static void procValidateResGroupInfo(const PGPROC *proc);
 static bool procIsInWaitQueue(const PGPROC *proc);
+static bool procIsWaiting(const PGPROC *proc);
 static bool procIsAssignedDroppedGroup(const PGPROC *proc);
 static bool procIsAssignedValidGroup(const PGPROC *proc);
 static bool procIsAssigned(const PGPROC *proc);
@@ -2120,7 +2121,7 @@ ResGroupWait(ResGroupData *group, bool isLocked)
 
 			CHECK_FOR_INTERRUPTS();
 
-			if (!proc->resWaiting)
+			if (!procIsWaiting(proc))
 				break;
 			WaitLatch(&proc->procLatch, WL_LATCH_SET | WL_POSTMASTER_DEATH, -1);
 		}
@@ -2265,7 +2266,7 @@ ResGroupWaitCancel(void)
 		/* Still waiting on the queue when get interrupted, remove myself from the queue */
 
 		Assert(!groupWaitQueueEmpty(group));
-		Assert(MyProc->resWaiting);
+		Assert(procIsWaiting(MyProc));
 		Assert(procHasGroup(MyProc));
 		Assert(!procHasSlot(MyProc));
 
@@ -2392,6 +2393,8 @@ procValidateResGroupInfo(const PGPROC *proc)
 
 /*
  * Check whether proc is in the resgroup wait queue.
+ *
+ * Unlike procIsWaiting() this function requires the LWLock.
  */
 static bool
 procIsInWaitQueue(const PGPROC *proc)
@@ -2404,6 +2407,24 @@ procIsInWaitQueue(const PGPROC *proc)
 	/* TODO: verify that proc is really in the queue in debug mode */
 
 	return proc->links.next != INVALID_OFFSET;
+}
+
+/*
+ * Check whether proc is waiting.
+ *
+ * Unlike procIsInWaitQueue() this function doesn't require the LWLock.
+ *
+ * FIXME: when asserts are enabled this function is not atomic.
+ */
+static bool
+procIsWaiting(const PGPROC *proc)
+{
+	Assert(procHasGroup(proc));
+
+	AssertImply(proc->links.next != INVALID_OFFSET,
+				proc->resWaiting != false);
+
+	return proc->resWaiting;
 }
 
 /*
@@ -2634,7 +2655,7 @@ static void
 procWakeup(PGPROC *proc)
 {
 	Assert(procHasGroup(proc));
-	Assert(proc->resWaiting == false);
+	Assert(!procIsWaiting(proc));
 
 	SetLatch(&proc->procLatch);
 }
