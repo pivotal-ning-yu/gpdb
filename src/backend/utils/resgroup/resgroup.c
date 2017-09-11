@@ -2097,8 +2097,6 @@ ResGroupWait(ResGroupData *group, bool isLocked)
 	Assert(procHasGroup(proc));
 	Assert(!procHasSlot(proc));
 
-	proc->resWaiting = true;
-
 	groupWaitQueuePush(group, proc);
 
 	if (!isLocked)
@@ -2400,6 +2398,9 @@ procIsInWaitQueue(const PGPROC *proc)
 {
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 
+	AssertImply(proc->links.next != INVALID_OFFSET,
+				proc->resWaiting != false);
+
 	/* TODO: verify that proc is really in the queue in debug mode */
 
 	return proc->links.next != INVALID_OFFSET;
@@ -2633,6 +2634,7 @@ static void
 procWakeup(PGPROC *proc)
 {
 	Assert(procHasGroup(proc));
+	Assert(proc->resWaiting == false);
 
 	SetLatch(&proc->procLatch);
 }
@@ -2685,6 +2687,7 @@ groupWaitQueuePush(ResGroupData *group, PGPROC *proc)
 
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 	Assert(!procIsInWaitQueue(proc));
+	Assert(proc->resWaiting == false);
 
 	groupWaitQueueValidate(group);
 
@@ -2692,6 +2695,7 @@ groupWaitQueuePush(ResGroupData *group, PGPROC *proc)
 	headProc = (PGPROC *) &waitQueue->links;
 
 	SHMQueueInsertBefore(&headProc->links, &proc->links);
+	proc->resWaiting = true;
 
 	waitQueue->size++;
 }
@@ -2716,6 +2720,7 @@ groupWaitQueueTop(ResGroupData *group)
 
 	proc = (PGPROC *) MAKE_PTR(waitQueue->links.next);
 	Assert(procIsInWaitQueue(proc));
+	Assert(proc->resWaiting != false);
 
 	return proc;
 }
@@ -2738,8 +2743,11 @@ groupWaitQueuePop(ResGroupData *group)
 
 	proc = (PGPROC *) MAKE_PTR(waitQueue->links.next);
 	Assert(procIsInWaitQueue(proc));
+	Assert(proc->resWaiting != false);
 
 	SHMQueueDelete(&proc->links);
+	proc->resWaiting = false;
+
 	Assert(!procIsInWaitQueue(proc));
 
 	waitQueue->size--;
@@ -2758,12 +2766,15 @@ groupWaitQueueErase(ResGroupData *group, PGPROC *proc)
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 	Assert(!groupWaitQueueEmpty(group));
 	Assert(procIsInWaitQueue(proc));
+	Assert(proc->resWaiting != false);
 
 	groupWaitQueueValidate(group);
 
 	waitQueue = &group->waitProcs;
 
 	SHMQueueDelete(&proc->links);
+	proc->resWaiting = false;
+
 	Assert(!procIsInWaitQueue(proc));
 
 	waitQueue->size--;
