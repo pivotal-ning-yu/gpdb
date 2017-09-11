@@ -206,6 +206,8 @@ static void procUnsetGroup(PGPROC *proc);
 static void procSetSlot(PGPROC *proc, int slotId);
 static void procUnsetSlot(PGPROC *proc);
 static void procWakeup(PGPROC *proc);
+static int slotIncNProcs(ResGroupSlotData *slot);
+static int slotDecNProcs(ResGroupSlotData *slot);
 static bool groupIsNotDropped(const ResGroupData *group);
 static void groupWaitQueueValidate(const ResGroupData *group);
 static void groupWaitQueuePush(ResGroupData *group, PGPROC *proc);
@@ -1800,7 +1802,7 @@ AssignResGroupOnMaster(void)
 		slot = MyProc->resSlot;
 		Assert(slot->memQuota > 0);
 		slot->sessionId = gp_session_id;
-		pg_atomic_add_fetch_u32((pg_atomic_uint32*)&slot->nProcs, 1);
+		slotIncNProcs(slot);
 
 		/* Init MyProc */
 		MyProc->resCaps = slot->caps;
@@ -1858,7 +1860,7 @@ UnassignResGroupOnMaster(void)
 		LOG_RESGROUP_DEBUG(LOG, "Idle proc memory usage: %d", MyProc->resMemUsage);
 
 	/* Cleanup slotInfo */
-	pg_atomic_sub_fetch_u32((pg_atomic_uint32*)&slot->nProcs, 1);
+	slotDecNProcs(slot);
 
 	/* Release the slot */
 	ResGroupSlotRelease();
@@ -1921,7 +1923,7 @@ SwitchResGroupOnSegment(const char *buf, int len)
 			groupDecMemUsage(prevGroup, prevSlot, MyProc->resMemUsage);
 
 			/* Update info in previous slot */
-			pg_atomic_sub_fetch_u32((pg_atomic_uint32*)&prevSlot->nProcs, 1);
+			slotDecNProcs(prevSlot);
 
 			groupReleaseMemQuota(prevGroup, prevSlot);
 		}
@@ -1988,7 +1990,7 @@ SwitchResGroupOnSegment(const char *buf, int len)
 			groupDecMemUsage(prevGroup, prevSlot, MyProc->resMemUsage);
 
 			/* Update info in previous slot */
-			pg_atomic_sub_fetch_u32((pg_atomic_uint32*)&prevSlot->nProcs, 1);
+			slotDecNProcs(prevSlot);
 
 			groupReleaseMemQuota(prevGroup, prevSlot);
 		}
@@ -2002,7 +2004,7 @@ SwitchResGroupOnSegment(const char *buf, int len)
 		groupIncMemUsage(group, slot, MyProc->resMemUsage);
 
 		/* Update info in new slot */
-		pg_atomic_add_fetch_u32((pg_atomic_uint32*)&slot->nProcs, 1);
+		slotIncNProcs(slot);
 	}
 
 	MyProc->resGroup = group;
@@ -2604,6 +2606,28 @@ procWakeup(PGPROC *proc)
 	Assert(!procIsWaiting(proc));
 
 	SetLatch(&proc->procLatch);
+}
+
+/*
+ * Increase nProcs in slot atomically.
+ *
+ * Return the increased value.
+ */
+static int
+slotIncNProcs(ResGroupSlotData *slot)
+{
+	return pg_atomic_add_fetch_u32((pg_atomic_uint32*) &slot->nProcs, 1);
+}
+
+/*
+ * Decrease nProcs in slot atomically.
+ *
+ * Return the decreased value.
+ */
+static int
+slotDecNProcs(ResGroupSlotData *slot)
+{
+	return pg_atomic_sub_fetch_u32((pg_atomic_uint32*) &slot->nProcs, 1);
 }
 
 /*
