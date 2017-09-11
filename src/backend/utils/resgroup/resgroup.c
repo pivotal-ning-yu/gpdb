@@ -185,7 +185,7 @@ static bool localResWaiting = false;
 static bool groupApplyMemCaps(ResGroupData *group, const ResGroupCaps *caps);
 static int32 getChunksFromPool(Oid groupId, int32 chunks);
 static void returnChunksToPool(Oid groupId, int32 chunks);
-static void groupAssginChunks(ResGroupData *group,
+static void groupAssignChunks(ResGroupData *group,
 							  int32 chunks,
 							  const ResGroupCaps *caps);
 static int32 getSegmentChunks(void);
@@ -1023,7 +1023,7 @@ ResGroupCreate(Oid groupId, const ResGroupCaps *caps)
 	group->memExpected = groupGetMemExpected(caps);
 
 	chunks = getChunksFromPool(groupId, group->memExpected);
-	groupAssginChunks(group, chunks, caps);
+	groupAssignChunks(group, chunks, caps);
 
 	return group;
 }
@@ -1570,7 +1570,7 @@ returnChunksToPool(Oid groupId, int32 chunks)
  * part of the group, the amount is calculated from caps.
  */
 static void
-groupAssginChunks(ResGroupData *group, int32 chunks, const ResGroupCaps *caps)
+groupAssignChunks(ResGroupData *group, int32 chunks, const ResGroupCaps *caps)
 {
 	int32 delta;
 	int32 memQuotaGranted = groupGetMemQuotaExpected(caps);
@@ -1811,7 +1811,7 @@ groupAcquireMemQuota(ResGroupData *group, const ResGroupCaps *caps)
 	if (neededMemStocks > 0)
 	{
 		int32 chunks = getChunksFromPool(group->groupId, neededMemStocks);
-		groupAssginChunks(group, chunks, caps);
+		groupAssignChunks(group, chunks, caps);
 	}
 }
 
