@@ -177,9 +177,6 @@ static void ResGroupWait(ResGroupData *group, bool isLocked);
 static ResGroupData *ResGroupCreate(Oid groupId, const ResGroupCaps *caps);
 static void AtProcExit_ResGroup(int code, Datum arg);
 static void ResGroupWaitCancel(void);
-static void groupAssginChunks(ResGroupData *group,
-							  int32 chunks,
-							  const ResGroupCaps *caps);
 static int32 groupIncMemUsage(ResGroupData *group,
 							  ResGroupSlotData *slot,
 							  int32 chunks);
@@ -1243,6 +1240,8 @@ retry:
 /*
  * Wake up the backends in the wait queue when 'concurrency' is increased.
  * This function is called in the callback function of ALTER RESOURCE GROUP.
+ *
+ * Return TRUE if any memory quota or shared quota is returned to syspool.
  */
 /*
  * XXX
@@ -1348,9 +1347,11 @@ groupApplyMemCaps(ResGroupData *group, const ResGroupCaps *caps)
 	 *
 	 * now we alter rg1 memory_limit to 40 in another session,
 	 * apparently both memory quota and shared quota are expected to increase,
-	 * our as our design is to let them increase on new queries,
+	 * however as our design is to let them increase on new queries,
 	 * then for session1 it won't see memory shared quota being increased
 	 * until new queries being executed in rg1.
+	 *
+	 * so we should try to acquire the new quota immediately.
 	 */
 	groupAcquireMemQuota(group, caps);
 #endif
