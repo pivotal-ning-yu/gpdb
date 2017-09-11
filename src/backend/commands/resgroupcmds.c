@@ -906,15 +906,19 @@ getResgroupOptionName(ResGroupLimitType type)
 static void
 parseStmtOptions(CreateResourceGroupStmt *stmt, ResGroupOpts *options)
 {
+	int								*opts = (int *) options;
+	const ResGroupLimitTypeDesc		*desc;
 	ListCell *cell;
 	int types = 0;
+	int type;
 
 	foreach(cell, stmt->options)
 	{
 		DefElem *defel = (DefElem *) lfirst(cell);
-		int type = getResgroupOptionType(defel->defname);
+		type = getResgroupOptionType(defel->defname);
 
-		if (type == RESGROUP_LIMIT_TYPE_UNKNOWN)
+		if (type <= RESGROUP_LIMIT_TYPE_UNKNOWN ||
+			type >= RESGROUP_LIMIT_TYPE_COUNT)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 					 errmsg("option \"%s\" not recognized", defel->defname)));
@@ -927,65 +931,25 @@ parseStmtOptions(CreateResourceGroupStmt *stmt, ResGroupOpts *options)
 		else
 			types |= 1 << type;
 
-		switch (type)
+		desc = &limitTypeDescs[type];
+
+		opts[type] = defGetInt64(defel);
+
+		if (type == RESGROUP_LIMIT_TYPE_CONCURRENCY)
 		{
-			case RESGROUP_LIMIT_TYPE_CONCURRENCY:
-				options->concurrency = defGetInt64(defel);
-				if (options->concurrency < RESGROUP_MIN_CONCURRENCY ||
-					options->concurrency > RESGROUP_MAX_CONCURRENCY)
-					ereport(ERROR,
-							(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-							errmsg("concurrency range is [%d, 'max_connections']",
-								   RESGROUP_MIN_CONCURRENCY)));
-				break;
-
-			case RESGROUP_LIMIT_TYPE_CPU:
-				options->cpuRateLimit = defGetInt64(defel);
-				if (options->cpuRateLimit < RESGROUP_MIN_CPU_RATE_LIMIT ||
-					options->cpuRateLimit > RESGROUP_MAX_CPU_RATE_LIMIT)
-					ereport(ERROR,
-							(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-							errmsg("cpu_rate_limit range is [%d, %d]",
-								   RESGROUP_MIN_CPU_RATE_LIMIT,
-								   RESGROUP_MAX_CPU_RATE_LIMIT)));
-				break;
-
-			case RESGROUP_LIMIT_TYPE_MEMORY:
-				options->memLimit = defGetInt64(defel);
-				if (options->memLimit < RESGROUP_MIN_MEMORY_LIMIT ||
-					options->memLimit > RESGROUP_MAX_MEMORY_LIMIT)
-					ereport(ERROR,
-							(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-							errmsg("memory_limit range is [%d, %d]",
-								   RESGROUP_MIN_MEMORY_LIMIT,
-								   RESGROUP_MAX_MEMORY_LIMIT)));
-				break;
-
-			case RESGROUP_LIMIT_TYPE_MEMORY_SHARED_QUOTA:
-				options->memSharedQuota = defGetInt64(defel);
-				if (options->memSharedQuota < RESGROUP_MIN_MEMORY_SHARED_QUOTA ||
-					options->memSharedQuota > RESGROUP_MAX_MEMORY_SHARED_QUOTA)
-					ereport(ERROR,
-							(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-							errmsg("memory_shared_quota range is [%d, %d]",
-								   RESGROUP_MIN_MEMORY_SHARED_QUOTA,
-								   RESGROUP_MAX_MEMORY_SHARED_QUOTA)));
-				break;
-
-			case RESGROUP_LIMIT_TYPE_MEMORY_SPILL_RATIO:
-				options->memSpillRatio = defGetInt64(defel);
-				if (options->memSpillRatio < RESGROUP_MIN_MEMORY_SPILL_RATIO ||
-					options->memSpillRatio > RESGROUP_MAX_MEMORY_SPILL_RATIO)
-					ereport(ERROR,
-							(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-							errmsg("memory_spill_ratio range is [%d, %d]",
-								   RESGROUP_MIN_MEMORY_SPILL_RATIO,
-								   RESGROUP_MAX_MEMORY_SPILL_RATIO)));
-				break;
-
-			default:
-				Assert(!"unexpected options");
-				break;
+			if (opts[type] < desc->min || opts[type] > RESGROUP_MAX_CONCURRENCY)
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+						 errmsg("%s range is [%d, 'max_connections']",
+								desc->name, desc->min)));
+		}
+		else
+		{
+			if (opts[type] < desc->min || opts[type] > desc->max)
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+						 errmsg("%s range is [%d, %d]",
+								desc->name, desc->min, desc->max)));
 		}
 	}
 
@@ -994,14 +958,18 @@ parseStmtOptions(CreateResourceGroupStmt *stmt, ResGroupOpts *options)
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				errmsg("must specify both memory_limit and cpu_rate_limit")));
 
-	if (!(types & (1 << RESGROUP_LIMIT_TYPE_CONCURRENCY)))
-		options->concurrency = RESGROUP_DEFAULT_CONCURRENCY;
+	for (type = RESGROUP_LIMIT_TYPE_UNKNOWN + 1;
+		 type < RESGROUP_LIMIT_TYPE_COUNT;
+		 type++)
+	{
+		if (types & (1 << type))
+			continue;
 
-	if (!(types & (1 << RESGROUP_LIMIT_TYPE_MEMORY_SHARED_QUOTA)))
-		options->memSharedQuota = RESGROUP_DEFAULT_MEMORY_SHARED_QUOTA;
+		desc = &limitTypeDescs[type];
+		Assert(desc->def >= desc->min && desc->def <= desc->max);
 
-	if (!(types & (1 << RESGROUP_LIMIT_TYPE_MEMORY_SPILL_RATIO)))
-		options->memSpillRatio = RESGROUP_DEFAULT_MEMORY_SPILL_RATIO;
+		opts[type] = desc->def;
+	}
 
 	if (options->memSpillRatio + options->memSharedQuota > RESGROUP_MAX_MEMORY_LIMIT)
 		ereport(ERROR,
