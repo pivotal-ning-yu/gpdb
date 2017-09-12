@@ -188,7 +188,7 @@ static void getSlot(PGPROC *proc);
 static void putSlot(PGPROC *proc);
 static void ResGroupSlotAcquire(void);
 static void addTotalQueueDuration(ResGroupData *group);
-static void ResGroupSlotRelease(void);
+static void ResGroupSlotRelease(PGPROC *proc);
 static void ResGroupSetMemorySpillRatio(const ResGroupCaps *caps);
 static void ResGroupCheckMemorySpillRatio(const ResGroupCaps *caps);
 static void procValidateResGroupInfo(const PGPROC *proc);
@@ -198,6 +198,11 @@ static bool procIsAssignedDroppedGroup(const PGPROC *proc);
 static bool procIsAssignedValidGroup(const PGPROC *proc);
 static bool procIsAssigned(const PGPROC *proc);
 static bool procIsUnassigned(const PGPROC *proc);
+static void procAssignValidGroup(PGPROC *proc,
+								 const ResGroupCaps *caps,
+								 ResGroupData *group,
+								 int slotId);
+static void procUnassignValidGroup(PGPROC *proc);
 static void procUnassignDroppedGroup(PGPROC *proc);
 static bool procHasSlot(const PGPROC *proc);
 static bool procHasGroup(const PGPROC *proc);
@@ -1667,25 +1672,37 @@ addTotalQueueDuration(ResGroupData *group)
  * Call this function at the end of the transaction.
  */
 static void
-ResGroupSlotRelease(void)
+ResGroupSlotRelease(PGPROC *proc)
 {
-	ResGroupData	*group = MyProc->resGroup;
+	Assert(procIsAssignedValidGroup(proc));
 
-	Assert(procIsAssignedValidGroup(MyProc));
+	if (Gp_role == GP_ROLE_DISPATCH)
+	{
+		/* On QD release the slot and the associated memory quota together */
 
-	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
+		LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
 
-	putSlot(MyProc);
-	Assert(!procHasSlot(MyProc));
+		/* Release the slot */
+		putSlot(proc);
+		Assert(!procHasSlot(proc));
 
-	/*
-	 * My slot is put back, then how many queuing queries should I wake up?
-	 * Maybe zero, maybe one, maybe more, depends on how the resgroup's
-	 * configuration were changed during our execution.
-	 */
-	wakeupSlots(group, true);
+		/* Wakeup pending slots in the same resgroup */
+		wakeupSlots(proc->resGroup, true);
 
-	LWLockRelease(ResGroupLock);
+		LWLockRelease(ResGroupLock);
+	}
+	else if (Gp_role == GP_ROLE_EXECUTE)
+	{
+		/* On QE release the memory quota and unset the slot separately */
+
+		Assert(LWLockHeldExclusiveByMe(ResGroupLock));
+
+		/* Release the resgroup's overused memory quota to syspool */
+		groupReleaseMemQuota(proc->resGroup, proc->resSlot);
+
+		/* Unset slot pointer in proc */
+		procUnsetSlot(proc);
+	}
 }
 
 /*
@@ -1782,46 +1799,18 @@ ShouldAssignResGroupOnMaster(void)
 void
 AssignResGroupOnMaster(void)
 {
-	ResGroupData		*group;
-	ResGroupSlotData	*slot;
-
 	Assert(Gp_role == GP_ROLE_DISPATCH);
+	Assert(pResGroupControl != NULL);
+	Assert(pResGroupControl->segmentsOnMaster > 0);
+	Assert(!MyProc->resDoMemCheck);
 
 	PG_TRY();
 	{
-		/* Acquire slot */
-		Assert(procIsUnassigned(MyProc));
-		ResGroupSlotAcquire();
-		Assert(procIsAssignedValidGroup(MyProc));
-		Assert(!MyProc->resDoMemCheck);
-
-		group = MyProc->resGroup;
-
-		/* Init slot */
-		slot = MyProc->resSlot;
-		Assert(slot->memQuota > 0);
-		slot->sessionId = gp_session_id;
-		slotIncNProcs(slot);
-
-		/* Init MyProc */
-		MyProc->resCaps = slot->caps;
-		Assert(pResGroupControl != NULL);
-		Assert(pResGroupControl->segmentsOnMaster > 0);
-
-		/* Add proc memory accounting info into group and slot */
-		groupIncMemUsage(group, slot, MyProc->resMemUsage);
-
-		/* Start memory limit checking */
-		MyProc->resDoMemCheck = true;
+		/* Assign the group & slot to proc */
+		procAssignValidGroup(MyProc, NULL, NULL, InvalidSlotId);
 
 		/* Don't error out before this line in this function */
 		SIMPLE_FAULT_INJECTOR(ResGroupAssignedOnMaster);
-
-		/* Add into cgroup */
-		ResGroupOps_AssignGroup(group->groupId, MyProcPid);
-
-		/* Set spill guc */
-		ResGroupSetMemorySpillRatio(&slot->caps);
 	}
 	PG_CATCH();
 	{
@@ -1837,9 +1826,6 @@ AssignResGroupOnMaster(void)
 void
 UnassignResGroupOnMaster(void)
 {
-	ResGroupData		*group = MyProc->resGroup;
-	ResGroupSlotData	*slot = MyProc->resSlot;
-
 	if (procIsUnassigned(MyProc))
 	{
 		Assert(MyProc->resDoMemCheck == false);
@@ -1847,26 +1833,13 @@ UnassignResGroupOnMaster(void)
 	}
 
 	Assert(procIsAssignedValidGroup(MyProc));
+	Assert(MyProc->resDoMemCheck != false);
 
-	/* Stop memory limit checking */
-	MyProc->resDoMemCheck = false;
-
-	/* Sub proc memory accounting info from group and slot */
-	groupDecMemUsage(group, slot, MyProc->resMemUsage);
+	procUnassignValidGroup(MyProc);
 
 	/* Cleanup resource group information in MyProc */
 	if (MyProc->resMemUsage > 10)
 		LOG_RESGROUP_DEBUG(LOG, "Idle proc memory usage: %d", MyProc->resMemUsage);
-
-	/* Cleanup slotInfo */
-	slotDecNProcs(slot);
-
-	/* Release the slot */
-	ResGroupSlotRelease();
-	Assert(!procHasSlot(MyProc));
-
-	/* Unset resource group pointer in MyProc */
-	procUnsetGroup(MyProc);
 
 	Assert(procIsUnassigned(MyProc));
 }
@@ -1883,7 +1856,6 @@ SwitchResGroupOnSegment(const char *buf, int len)
 	int		slotId;
 	ResGroupCaps		caps;
 	ResGroupData		*group;
-	ResGroupSlotData	*slot;
 
 	procValidateResGroupInfo(MyProc);
 
@@ -1940,17 +1912,7 @@ SwitchResGroupOnSegment(const char *buf, int len)
 		 * perform the U action.
 		 */
 
-		/* Sub proc memory accounting info from group and slot */
-		groupDecMemUsage(MyProc->resGroup, MyProc->resSlot, MyProc->resMemUsage);
-
-		/* Update info in previous slot */
-		slotDecNProcs(MyProc->resSlot);
-
-		groupReleaseMemQuota(MyProc->resGroup, MyProc->resSlot);
-
-		procUnsetSlot(MyProc);
-		procUnsetGroup(MyProc);
-
+		procUnassignValidGroup(MyProc);
 		Assert(procIsUnassigned(MyProc));
 	}
 
@@ -2026,41 +1988,11 @@ SwitchResGroupOnSegment(const char *buf, int len)
 	 * and we should perform the A action on it.
 	 */
 
-	Assert(procIsUnassigned(MyProc));
-	procSetGroup(MyProc, group);
-	procSetSlot(MyProc, slotId);
-	Assert(procIsAssignedValidGroup(MyProc));
-
-	/* Init MyProc */
 	Assert(host_segments > 0);
 	Assert(caps.concurrency.proposed > 0);
-	MyProc->resCaps = caps;
 
-	/* Init slot */
-	slot = MyProc->resSlot;
-	slot->sessionId = gp_session_id;
-	slot->caps = caps;
-	slot->memQuota = slotGetMemQuotaExpected(&caps);
-	ResGroupSetMemorySpillRatio(&caps);
-	Assert(slot->memQuota > 0);
-
-	{
-		/* now attach to the target resgroup */
-
-		groupAcquireMemQuota(group, &slot->caps);
-
-		/* Add proc memory accounting info into group and slot */
-		groupIncMemUsage(group, slot, MyProc->resMemUsage);
-
-		/* Update info in new slot */
-		slotIncNProcs(slot);
-	}
-
-	/* Start memory limit checking */
-	MyProc->resDoMemCheck = true;
-
-	/* Add into cgroup */
-	ResGroupOps_AssignGroup(MyProc->resGroupId, MyProcPid);
+	/* Assign the group & slot to proc */
+	procAssignValidGroup(MyProc, &caps, group, slotId);
 
 	LWLockRelease(ResGroupLock);
 }
@@ -2512,6 +2444,153 @@ procIsUnassigned(const PGPROC *proc)
 	procValidateResGroupInfo(proc);
 
 	return proc->resGroupId == InvalidOid;
+}
+
+/*
+ * Assign to a valid resgroup and slot.
+ *
+ * - the resgroup pointer will be set to the proc;
+ * - on QD a slot will be acquired with associated memory quota;
+ * - on QE the already acquired slot will be set to the proc;
+ * - the slot and its associated memory quota will be released;
+ * - memory and non-memory accounting info will be updated;
+ * - the proc will be put under cgroup's cpu controller;
+ * - memory limit checking will be turned on;
+ *
+ * To call this function:
+ * - the proc must be unassigned;
+ * - memory limit checking should already be turned off;
+ * - on QD:
+ *   - the LWLock should not be held, but might be held temporarily in the func;
+ * - on QE:
+ *   - the LWLock should already be held;
+ *
+ * On QD this function might have to pend to wake for a free slot and enough
+ * memory quota to be available. Function arguments are all ignored besides
+ * the proc pointer.
+ *
+ * On QE this caps, group and slotId information dispatched by QD should be
+ * passed as arguments.
+ */
+static void
+procAssignValidGroup(PGPROC *proc,
+					 const ResGroupCaps *caps,
+					 ResGroupData *group,
+					 int slotId)
+{
+	ResGroupSlotData		*slot;
+
+	AssertImply(Gp_role == GP_ROLE_EXECUTE,
+				LWLockHeldExclusiveByMe(ResGroupLock));
+
+	if (Gp_role == GP_ROLE_DISPATCH)
+	{
+		/* Acquire slot */
+		Assert(procIsUnassigned(proc));
+		ResGroupSlotAcquire();
+		Assert(procIsAssignedValidGroup(proc));
+
+		group = proc->resGroup;
+		slot = proc->resSlot;
+		caps = &slot->caps;
+	}
+	else if (Gp_role == GP_ROLE_EXECUTE)
+	{
+		Assert(LWLockHeldExclusiveByMe(ResGroupLock));
+
+		/* Set group and slot to proc */
+		Assert(procIsUnassigned(proc));
+		procSetGroup(proc, group);
+		procSetSlot(proc, slotId);
+		Assert(procIsAssignedValidGroup(proc));
+
+		slot = proc->resSlot;
+
+		/* Init slot, QE only part */
+		slot->caps = *caps;
+		slot->memQuota = slotGetMemQuotaExpected(caps);
+	}
+
+	/* Init proc */
+	proc->resCaps = *caps;
+
+	/* Init slot */
+	slot->sessionId = gp_session_id;
+	Assert(slot->memQuota > 0);
+
+	ResGroupSetMemorySpillRatio(caps);
+
+	if (Gp_role == GP_ROLE_EXECUTE)
+	{
+		Assert(LWLockHeldExclusiveByMe(ResGroupLock));
+
+		/* Acquire the resgroup's lacking memory quota from syspool */
+		groupAcquireMemQuota(group, &slot->caps);
+	}
+
+	/* Add proc memory accounting info into group and slot */
+	groupIncMemUsage(group, slot, proc->resMemUsage);
+
+	/* Update other accounting info in slot */
+	slotIncNProcs(slot);
+
+	/* Add proc into cgroup */
+	ResGroupOps_AssignGroup(proc->resGroupId, proc->pid);
+
+	/*
+	 * Turn on memory limit checking, after this proc should not be changed
+	 * besides the memory accounting infomation.
+	 */
+	Assert(proc->resDoMemCheck == false);
+	proc->resDoMemCheck = true;
+}
+
+/*
+ * Unassign from a valid resgroup.
+ *
+ * - memory limit checking will be turned off;
+ * - memory and non-memory accounting info will be updated;
+ * - the slot and its associated memory quota will be released;
+ * - the resgroup pointer will be unset from the proc;
+ *
+ * To call this function:
+ * - the proc must be assigned with a valid resgroup;
+ * - on QD:
+ *   - the LWLock should not be held, but might be held temporarily in the func;
+ *   - memory limit checking should not be turned off;
+ * - on QE:
+ *   - the LWLock should already be held;
+ *   - memory limit checking should already be turned off;
+ *
+ * On QD this will indirectly trigger the logic to wakeup pending queries
+ * in both other resgroups and its own resgroup after a quota rebalance.
+ */
+static void
+procUnassignValidGroup(PGPROC *proc)
+{
+	Assert(procIsAssignedValidGroup(proc));
+
+	AssertImply(Gp_role == GP_ROLE_EXECUTE,
+				proc->resDoMemCheck == false);
+	AssertImply(Gp_role == GP_ROLE_EXECUTE,
+				LWLockHeldExclusiveByMe(ResGroupLock));
+
+	/* Stop memory limit checking, this must happen before changes to proc */
+	proc->resDoMemCheck = false;
+
+	/* Sub proc memory accounting info from group and slot */
+	groupDecMemUsage(proc->resGroup, proc->resSlot, proc->resMemUsage);
+
+	/* Update other accounting info in slot */
+	slotDecNProcs(proc->resSlot);
+
+	/* Release the slot */
+	ResGroupSlotRelease(proc);
+
+	/* Unset resource group pointer in proc */
+	procUnsetGroup(proc);
+
+	Assert(procIsUnassigned(proc));
 }
 
 /*
