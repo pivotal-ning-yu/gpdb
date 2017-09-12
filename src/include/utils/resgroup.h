@@ -35,10 +35,19 @@ typedef struct ResGroupCap
  * for a resource group.
  *
  * The properties must be in the same order as ResGroupLimitType.
+ *
+ * This struct can also be converted to an array of ResGroupCap so the fields
+ * can be accessed via index and iterated with loop.
+ *
+ *     ResGroupCaps caps;
+ *     ResGroupCap *array = (ResGroupCap *) &caps;
+ *     caps.concurrency.value = 1;
+ *     array[RESGROUP_LIMIT_TYPE_CONCURRENCY] = 2;
+ *     Assert(caps.concurrency.value == 2);
  */
 typedef struct ResGroupCaps
 {
-	ResGroupCap		__unknown;
+	ResGroupCap		__unknown;			/* placeholder, do not use it */
 	ResGroupCap		concurrency;
 	ResGroupCap		cpuRateLimit;
 	ResGroupCap		memLimit;
@@ -53,10 +62,19 @@ typedef struct ResGroupCaps
  * or the new settings from ALTER RESOURCE GROUP syntax.
  *
  * The properties must be in the same order as ResGroupLimitType.
+ *
+ * This struct can also be converted to an array of int32 so the fields
+ * can be accessed via index and iterated with loop.
+ *
+ *     ResGroupOpts opts;
+ *     int32 *array = (int32 *) &opts;
+ *     opts.concurrency = 1;
+ *     array[RESGROUP_LIMIT_TYPE_CONCURRENCY] = 2;
+ *     Assert(opts.concurrency == 2);
  */
 typedef struct ResGroupOpts
 {
-	int32			__unknown;
+	int32			__unknown;			/* placeholder, do not use it */
 	int32			concurrency;
 	int32			cpuRateLimit;
 	int32			memLimit;
