@@ -185,9 +185,9 @@ static bool localResWaiting = false;
 static bool groupApplyMemCaps(ResGroupData *group, const ResGroupCaps *caps);
 static int32 getChunksFromPool(Oid groupId, int32 chunks);
 static void returnChunksToPool(Oid groupId, int32 chunks);
-static void groupAssignChunks(ResGroupData *group,
-							  int32 chunks,
-							  const ResGroupCaps *caps);
+static void groupRebalanceQuota(ResGroupData *group,
+								int32 chunks,
+								const ResGroupCaps *caps);
 static int32 getSegmentChunks(void);
 static int32 groupGetMemExpected(const ResGroupCaps *caps);
 static int32 groupGetMemQuotaExpected(const ResGroupCaps *caps);
@@ -1023,7 +1023,7 @@ ResGroupCreate(Oid groupId, const ResGroupCaps *caps)
 	group->memExpected = groupGetMemExpected(caps);
 
 	chunks = getChunksFromPool(groupId, group->memExpected);
-	groupAssignChunks(group, chunks, caps);
+	groupRebalanceQuota(group, chunks, caps);
 
 	return group;
 }
@@ -1566,11 +1566,12 @@ returnChunksToPool(Oid groupId, int32 chunks)
 }
 
 /*
- * Assign the chunks we get from the sys pool to the 'quota' and 'shared'
- * part of the group, the amount is calculated from caps.
+ * Assign the chunks we get from the syspool to group and rebalance
+ * them into the 'quota' and 'shared' part of the group, the amount
+ * is calculated from caps.
  */
 static void
-groupAssignChunks(ResGroupData *group, int32 chunks, const ResGroupCaps *caps)
+groupRebalanceQuota(ResGroupData *group, int32 chunks, const ResGroupCaps *caps)
 {
 	int32 delta;
 	int32 memQuotaGranted = groupGetMemQuotaExpected(caps);
@@ -1811,7 +1812,7 @@ groupAcquireMemQuota(ResGroupData *group, const ResGroupCaps *caps)
 	if (neededMemStocks > 0)
 	{
 		int32 chunks = getChunksFromPool(group->groupId, neededMemStocks);
-		groupAssignChunks(group, chunks, caps);
+		groupRebalanceQuota(group, chunks, caps);
 	}
 }
 
