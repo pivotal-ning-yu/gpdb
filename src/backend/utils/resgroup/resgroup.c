@@ -202,7 +202,7 @@ static bool groupReleaseMemQuota(ResGroupData *group,
 static void groupAcquireMemQuota(ResGroupData *group, const ResGroupCaps *caps);
 static ResGroupData *ResGroupHashNew(Oid groupId);
 static ResGroupData *ResGroupHashFind(Oid groupId, bool raise);
-static bool ResGroupHashRemove(Oid groupId);
+static void ResGroupHashRemove(Oid groupId);
 static void ResGroupWait(ResGroupData *group);
 static ResGroupData *ResGroupCreate(Oid groupId, const ResGroupCaps *caps);
 static void AtProcExit_ResGroup(int code, Datum arg);
@@ -372,14 +372,7 @@ AllocResGroupEntry(Oid groupId, const ResGroupOpts *opts)
 
 	ResGroupOptsToCaps(opts, &caps);
 	group = ResGroupCreate(groupId, &caps);
-	if (!group)
-	{
-		LWLockRelease(ResGroupLock);
-
-		ereport(PANIC,
-				(errcode(ERRCODE_OUT_OF_MEMORY),
-				errmsg("not enough shared memory for resource groups")));
-	}
+	Assert(group != InvalidOid);
 
 	LWLockRelease(ResGroupLock);
 }
@@ -392,11 +385,7 @@ FreeResGroupEntry(Oid groupId)
 {
 	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
 
-#ifdef USE_ASSERT_CHECKING
-	bool groupOK = 
-#endif
-		ResGroupHashRemove(groupId);
-	Assert(groupOK);
+	ResGroupHashRemove(groupId);
 
 	LWLockRelease(ResGroupLock);
 }
@@ -480,10 +469,7 @@ InitResGroups(void)
 		cpuRateLimit = caps.cpuRateLimit.value;
 
 		group = ResGroupCreate(groupId, &caps);
-		if (!group)
-			ereport(PANIC,
-					(errcode(ERRCODE_OUT_OF_MEMORY),
-					 errmsg("not enough shared memory for resource groups")));
+		Assert(group != InvalidOid);
 
 		ResGroupOps_CreateGroup(groupId);
 		ResGroupOps_SetCpuRateLimit(groupId, cpuRateLimit);
@@ -559,13 +545,7 @@ ResGroupDropCheckForWakeup(Oid groupId, bool isCommit)
 	Assert(groupWaitQueueIsEmpty(group));
 
 	if (isCommit)
-	{
-#ifdef USE_ASSERT_CHECKING
-		bool groupOK = 
-#endif
-			ResGroupHashRemove(groupId);
-		Assert(groupOK);
-	}
+		ResGroupHashRemove(groupId);
 
 	group->lockedForDrop = false;
 
@@ -1003,8 +983,7 @@ ResGroupCreate(Oid groupId, const ResGroupCaps *caps)
 	Assert(OidIsValid(groupId));
 
 	group = ResGroupHashNew(groupId);
-	if (group == NULL)
-		return NULL;
+	Assert(group != NULL);
 
 	group->groupId = groupId;
 	group->caps = *caps;
@@ -2211,16 +2190,20 @@ ResGroupHashNew(Oid groupId)
 	ResGroupHashEntry *entry;
 
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
-
-	if (groupId == InvalidOid)
-		return NULL;
+	Assert(groupId != InvalidOid);
 
 	for (i = 0; i < pResGroupControl->nGroups; i++)
-	{
 		if (pResGroupControl->groups[i].groupId == InvalidOid)
 			break;
+
+	if (i >= pResGroupControl->nGroups)
+	{
+		LWLockRelease(ResGroupLock);
+
+		ereport(PANIC,
+				(errcode(ERRCODE_OUT_OF_MEMORY),
+				 errmsg("not enough shared memory for resource groups")));
 	}
-	Assert(i < pResGroupControl->nGroups);
 
 	entry = (ResGroupHashEntry *)
 		hash_search(pResGroupControl->htbl, (void *) &groupId, HASH_ENTER_NULL, &found);
@@ -2278,7 +2261,7 @@ ResGroupHashFind(Oid groupId, bool raise)
  *	The resource group lightweight lock (ResGroupLock) *must* be held for
  *	this operation.
  */
-static bool
+static void
 ResGroupHashRemove(Oid groupId)
 {
 	bool		found;
@@ -2288,8 +2271,7 @@ ResGroupHashRemove(Oid groupId)
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 
 	entry = (ResGroupHashEntry*)hash_search(pResGroupControl->htbl, (void *) &groupId, HASH_FIND, &found);
-	if (!found)
-		return false;
+	Assert(found);
 
 	group = &pResGroupControl->groups[entry->index];
 	returnChunksToPool(groupId, group->memQuotaGranted + group->memSharedGranted);
@@ -2300,7 +2282,6 @@ ResGroupHashRemove(Oid groupId)
 	hash_search(pResGroupControl->htbl, (void *) &groupId, HASH_REMOVE, &found);
 
 	wakeupGroups(groupId);
-	return true;
 }
 
 /* Process exit without waiting for slot or received SIGTERM */
