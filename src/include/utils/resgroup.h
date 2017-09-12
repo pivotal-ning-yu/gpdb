@@ -95,8 +95,6 @@ extern int MaxResourceGroups;
 extern double gp_resource_group_cpu_limit;
 extern double gp_resource_group_memory_limit;
 
-struct ResGroupConfigSnapshot;
-
 /* Type of statistic infomation */
 typedef enum
 {
@@ -141,11 +139,6 @@ extern void SwitchResGroupOnSegment(const char *buf, int len);
 /* Retrieve statistic information of type from resource group */
 extern Datum ResGroupGetStat(Oid groupId, ResGroupStatType type);
 
-extern int32 ResGroupCalcMemStocksExpected(const ResGroupCaps *caps);
-extern int32 ResGroupCalcMemQuotaStocks(const ResGroupCaps *caps);
-extern int32 ResGroupCalcMemSharedStocks(const ResGroupCaps *caps);
-extern int32 ResGroupCalcMemSpillStocks(const ResGroupCaps *caps);
-
 extern void ResGroupOptsToCaps(const ResGroupOpts *optsIn, ResGroupCaps *capsOut);
 extern void ResGroupCapsToOpts(const ResGroupCaps *capsIn, ResGroupOpts *optsOut);
 extern void ResGroupDumpMemoryInfo(void);
@@ -160,8 +153,6 @@ extern void ResGroupAlterOnCommit(Oid groupId,
 								  const ResGroupCaps *caps);
 extern void ResGroupDropCheckForWakeup(Oid groupId, bool isCommit);
 extern void ResGroupCheckForDrop(Oid groupId, char *name);
-extern int32 ResGroupAllocStocks(Oid groupId, int32 stocks);
-extern void ResGroupFreeStocks(Oid groupId, int32 stocks);
 extern void ResGroupDecideMemoryCaps(int groupId,
 									 ResGroupCaps *caps,
 									 const ResGroupOpts *opts);
@@ -173,7 +164,6 @@ extern void ResGroupDecideConcurrencyCaps(Oid groupId,
 extern void ResGroupGetMemInfo(int *memLimit, int *slotQuota, int *sharedQuota);
 
 extern int64 ResourceGroupGetQueryMemoryLimit(void);
-extern int32 ResGroupGetMemStocks(Oid groupId);
 
 #define LOG_RESGROUP_DEBUG(...) \
 	do {if (Debug_resource_group) elog(__VA_ARGS__); } while(false);
