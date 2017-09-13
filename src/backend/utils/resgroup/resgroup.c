@@ -85,6 +85,7 @@ struct ResGroupProcData
 	int		slotId;
 
 	ResGroupData		*group;
+	ResGroupSlotData	*slot;
 
 	ResGroupCaps	caps;
 
@@ -211,12 +212,24 @@ static void attachToSlot(ResGroupData *group, ResGroupSlotData *slot);
 static void detachFromSlot(ResGroupData *group, ResGroupSlotData *slot);
 static int getFreeSlot(ResGroupData *group);
 static int getSlot(ResGroupData *group);
-static void putSlot(ResGroupData *group, int slotId);
-static int ResGroupSlotAcquire(void);
+static void putSlot(void);
+static void ResGroupSlotAcquire(void);
 static void addTotalQueueDuration(ResGroupData *group);
 static void ResGroupSlotRelease(void);
 static void ResGroupSetMemorySpillRatio(const ResGroupCaps *caps);
 static char* DumpResGroupMemUsage(ResGroupData *group);
+static void selfValidateResGroupInfo(void);
+static bool selfIsAssignedDroppedGroup(void);
+static bool selfIsAssignedValidGroup(void);
+static bool selfIsAssigned(void);
+static bool selfIsUnassigned(void);
+static bool selfHasSlot(void);
+static bool selfHasGroup(void);
+static void selfSetGroup(ResGroupData *group);
+static void selfUnsetGroup(void);
+static void selfSetSlot(void);
+static void selfUnsetSlot(void);
+static bool groupIsNotDropped(const ResGroupData *group);
 
 /*
  * Estimate size the resource group structures will need in
@@ -498,7 +511,6 @@ ResGroupCheckForDrop(Oid groupId, char *name)
 void
 ResGroupDropCheckForWakeup(Oid groupId, bool isCommit)
 {
-	int wakeNum;
 	PROC_QUEUE	*waitQueue;
 	ResGroupData	*group;
 
@@ -516,9 +528,8 @@ ResGroupDropCheckForWakeup(Oid groupId, bool isCommit)
 	Assert(group->lockedForDrop);
 
 	waitQueue = &(group->waitProcs);
-	wakeNum = waitQueue->size;
 
-	while (wakeNum > 0)
+	while (waitQueue->size > 0)
 	{
 		PGPROC *waitProc;
 
@@ -527,10 +538,12 @@ ResGroupDropCheckForWakeup(Oid groupId, bool isCommit)
 		SHMQueueDelete(&(waitProc->links));
 		waitQueue->size--;
 
+		Assert(waitProc->resWaiting != false);
+		Assert(waitProc->resSlotId == InvalidSlotId);
+
 		waitProc->resWaiting = false;
 		waitProc->resSlotId = InvalidSlotId;
 		SetLatch(&waitProc->procLatch);
-		wakeNum--;
 	}
 
 	if (isCommit)
@@ -700,14 +713,12 @@ DumpResGroupMemUsage(ResGroupData *group)
 void
 ResGroupDumpMemoryInfo(void)
 {
-	ResGroupSlotData	*slot;
+	ResGroupSlotData	*slot = self->slot;
 	ResGroupData		*group = self->group;
 
 	if (group)
 	{
-		Assert(self->slotId != InvalidSlotId);
-
-		slot = &group->slots[self->slotId];
+		Assert(selfIsAssignedValidGroup());
 
 		write_log("Resource group memory information: "
 				  "group memory limit is %d MB, "
@@ -725,6 +736,8 @@ ResGroupDumpMemoryInfo(void)
 	}
 	else
 	{
+		Assert(selfIsUnassigned());
+
 		write_log("Resource group memory information: "
 				  "memory usage in current proc is %d MB",
 				  VmemTracker_ConvertVmemChunksToMB(self->memUsage));
@@ -745,7 +758,7 @@ ResGroupReserveMemory(int32 memoryChunks, int32 overuseChunks, bool *waiverUsed)
 {
 	int32				slotMemUsage;
 	int32				slotMemSharedNeeded;
-	ResGroupSlotData	*slot;
+	ResGroupSlotData	*slot = self->slot;
 	ResGroupData		*group = self->group;
 
 	/*
@@ -766,26 +779,29 @@ ResGroupReserveMemory(int32 memoryChunks, int32 overuseChunks, bool *waiverUsed)
 	 */
 	self->memUsage += memoryChunks;
 	if (!self->doMemCheck)
+	{
+		Assert(selfIsUnassigned());
 		return true;
+	}
 
-	if (group->groupId != self->groupId)
+	Assert(selfIsAssigned());
+
+	if (selfIsAssignedDroppedGroup())
 	{
 		if (Debug_resource_group)
 			write_log("Resource group is concurrently dropped while reserving memory: "
 					  "dropped group=%d, my group=%d",
 					  group->groupId, self->groupId);
-		self->group = NULL;
+		selfUnsetGroup();
+		selfUnsetSlot();
+		Assert(selfIsUnassigned());
 		self->doMemCheck = false;
 		return true;
 	}
 
-	Assert(group != NULL);
-	Assert(group->groupId != InvalidOid);
-	Assert(self->slotId != InvalidSlotId);
+	Assert(selfIsAssignedValidGroup());
 	Assert(group->memUsage >= 0);
 	Assert(self->memUsage >= 0);
-
-	slot = &group->slots[self->slotId];
 
 	/* reserve from slot memory */
 	slotMemUsage = pg_atomic_add_fetch_u32((pg_atomic_uint32 *)&slot->memUsage, memoryChunks);
@@ -842,7 +858,7 @@ void
 ResGroupReleaseMemory(int32 memoryChunks)
 {
 	int32				sharedMemoryUsage;
-	ResGroupSlotData	*slot;
+	ResGroupSlotData	*slot = self->slot;
 	ResGroupData		*group = self->group;
 	int32				oldUsage;
 
@@ -854,24 +870,28 @@ ResGroupReleaseMemory(int32 memoryChunks)
 
 	self->memUsage -= memoryChunks;
 	if (!self->doMemCheck)
+	{
+		Assert(selfIsUnassigned());
 		return;
+	}
 
-	if (group->groupId != self->groupId)
+	Assert(selfIsAssigned());
+
+	if (selfIsAssignedDroppedGroup())
 	{
 		if (Debug_resource_group)
 			write_log("Resource group is concurrently dropped while releasing memory: "
 					  "dropped group=%d, my group=%d",
 					  group->groupId, self->groupId);
-		self->group = NULL;
+		selfUnsetGroup();
+		selfUnsetSlot();
+		Assert(selfIsUnassigned());
 		self->doMemCheck = false;
 		return;
 	}
 
-	Assert(group != NULL);
-	Assert(group->groupId != InvalidOid);
-	Assert(self->slotId != InvalidSlotId);
+	Assert(selfIsAssignedValidGroup());
 
-	slot = &group->slots[self->slotId];
 	sharedMemoryUsage = slot->memUsage - slot->memQuota;
 	if (sharedMemoryUsage > 0)
 	{
@@ -1005,13 +1025,10 @@ ResGroupDecideMemoryCaps(int groupId,
 int64
 ResourceGroupGetQueryMemoryLimit(void)
 {
-	ResGroupSlotData	*slot;
+	ResGroupSlotData	*slot = self->slot;
 	int64				memSpill;
 
-	Assert(self->group != NULL);
-	Assert(self->slotId != InvalidSlotId);
-
-	slot = &self->group->slots[self->slotId];
+	Assert(selfIsAssignedValidGroup());
 
 	if (IsResManagerMemoryPolicyNone())
 		return 0;
@@ -1181,9 +1198,7 @@ getSlot(ResGroupData *group)
 
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 	Assert(Gp_role == GP_ROLE_DISPATCH);
-
-	Assert(group != NULL);
-	Assert(group->groupId != InvalidOid);
+	Assert(groupIsNotDropped(group));
 
 	caps = &group->caps;
 
@@ -1235,15 +1250,16 @@ getSlot(ResGroupData *group)
 }
 
 /*
- * Put back a slot.
+ * Put back the slot assigned to self.
  *
  * This will release a slot, its memory quota will be freed and
  * nRunning will be decreased.
  */
 static void
-putSlot(ResGroupData *group, int slotId)
+putSlot(void)
 {
-	ResGroupSlotData	*slot;
+	ResGroupSlotData	*slot = self->slot;
+	ResGroupData		*group = self->group;
 	bool				shouldWakeUp;
 #ifdef USE_ASSERT_CHECKING
 	int32				memQuotaUsed;
@@ -1251,12 +1267,11 @@ putSlot(ResGroupData *group, int slotId)
 
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 	Assert(Gp_role == GP_ROLE_DISPATCH);
-	Assert(group != NULL);
+	Assert(selfIsAssignedValidGroup());
 	Assert(group->memQuotaUsed >= 0);
 	Assert(group->nRunning > 0);
-	Assert(slotId != InvalidSlotId);
 
-	slot = &group->slots[slotId];
+	selfUnsetSlot();
 
 	Assert(slot->inUse);
 	Assert(slot->memQuota > 0);
@@ -1287,20 +1302,17 @@ putSlot(ResGroupData *group, int slotId)
  * This function set current resource group in MyResGroupSharedInfo,
  * and current slot id in MyProc->resSlotId.
  */
-static int
+static void
 ResGroupSlotAcquire(void)
 {
 	ResGroupData	*group;
 	Oid				 groupId;
 	PROC_QUEUE		*waitQueue;
 	PGPROC			*headProc;
-	int				slotId;
-
-	Assert(self->groupId == InvalidOid);
-	Assert(self->group == NULL);
 
 retry:
-	self->group = NULL;
+	Assert(selfIsUnassigned());
+
 	/* always find out the up-to-date resgroup id */
 	groupId = GetResGroupIdForRole(GetUserId());
 	if (groupId == InvalidOid)
@@ -1311,30 +1323,40 @@ retry:
 	if (group == NULL)
 	{
 		LWLockRelease(ResGroupLock);
-		self->groupId = InvalidOid;
-		self->group = NULL;
+
+		selfUnsetGroup();
+		Assert(selfIsUnassigned());
 
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_CORRUPTED),
 				 errmsg("Cannot find resource group %d in shared memory", groupId)));
 	}
+
 	/*
-	 * it's neccessary to set MyResGroupSharedInfo before we
+	 * it's neccessary to set group to self before we
 	 * got signal and goes to ResGroupWaitCancel
 	 */
-	self->group = group;
+	selfSetGroup(group);
+
+	/* should not been granted a slot yet */
+	Assert(!selfHasSlot());
 
 	/* acquire a slot */
 	if (!group->lockedForDrop)
 	{
-		slotId = getSlot(group);
-		if (slotId != InvalidSlotId)
+		/* try to get a slot directly */
+		MyProc->resSlotId = getSlot(group);
+
+		if (MyProc->resSlotId != InvalidSlotId)
 		{
+			/* got one, lucky */
+			selfSetSlot();
+
 			group->totalExecuted++;
 			pgstat_report_resgroup(0, group->groupId);
-			MyProc->resSlotId = slotId;
 			LWLockRelease(ResGroupLock);
-			return slotId;
+			Assert(selfIsAssignedValidGroup());
+			return;
 		}
 	}
 
@@ -1358,19 +1380,23 @@ retry:
 	ResGroupWait(group);
 
 	if (MyProc->resSlotId == InvalidSlotId)
+	{
+		selfUnsetGroup();
 		goto retry;
+	}
 
 	/*
 	 * The waking process has granted us a valid slot.
 	 * Update the statistic information of the resource group.
 	 */
+	selfSetSlot();
 	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
 	addTotalQueueDuration(group);
 	group->totalExecuted++;
 	LWLockRelease(ResGroupLock);
 
 	pgstat_report_resgroup(0, group->groupId);
-	return MyProc->resSlotId;
+	Assert(selfIsAssignedValidGroup());
 }
 
 /* Update the total queued time of this group */
@@ -1653,6 +1679,9 @@ wakeupSlots(ResGroupData *group)
 		SHMQueueDelete(&waitProc->links);
 		waitQueue->size--;
 
+		Assert(waitProc->resWaiting != false);
+		Assert(waitProc->resSlotId == InvalidSlotId);
+
 		waitProc->resWaiting = false;
 		waitProc->resSlotId = slotId;
 		SetLatch(&waitProc->procLatch);
@@ -1794,20 +1823,18 @@ addTotalQueueDuration(ResGroupData *group)
 static void
 ResGroupSlotRelease(void)
 {
-	ResGroupData	*group;
+	ResGroupData	*group = self->group;
 	PROC_QUEUE	*waitQueue;
 	PGPROC		*waitProc;
 
-	group = self->group;
-	Assert(group != NULL);
+	Assert(selfIsAssignedValidGroup());
 
 	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
 
 	waitQueue = &group->waitProcs;
 
-	Assert(MyProc->resSlotId != InvalidSlotId);
-	putSlot(group, MyProc->resSlotId);
-	MyProc->resSlotId = InvalidSlotId;
+	putSlot();
+	Assert(!selfHasSlot());
 
 	/*
 	 * My slot is put back, then how many queuing queries should I wake up?
@@ -1826,6 +1853,10 @@ ResGroupSlotRelease(void)
 		waitProc = (PGPROC *) MAKE_PTR(waitQueue->links.next);
 		SHMQueueDelete(&waitProc->links);
 		waitQueue->size--;
+
+		Assert(waitProc->resWaiting != false);
+		Assert(waitProc->resSlotId == InvalidSlotId);
+
 		waitProc->resSlotId = slotId;	/* pass the slot to new query */
 		waitProc->resWaiting = false;
 		SetLatch(&waitProc->procLatch);
@@ -1849,10 +1880,11 @@ SerializeResGroupInfo(StringInfo str)
 	ResGroupCaps caps0;
 	ResGroupCap *caps;
 
-	if (self->groupId != InvalidOid)
+	if (selfIsAssignedValidGroup())
 		caps = (ResGroupCap *) &self->caps;
 	else
 	{
+		Assert(selfIsUnassigned());
 		MemSet(&caps0, 0, sizeof(caps0));
 		caps = (ResGroupCap *) &caps0;
 	}
@@ -1886,6 +1918,8 @@ DeserializeResGroupInfo(struct ResGroupCaps *capsOut,
 	ResGroupCap *caps = (ResGroupCap *) capsOut;
 
 	Assert(len > 0);
+
+	/* TODO: don't deserialize into self directly */
 
 	memcpy(&tmp, ptr, sizeof(self->groupId));
 	self->groupId = ntohl(tmp);
@@ -1932,31 +1966,26 @@ AssignResGroupOnMaster(void)
 {
 	ResGroupData		*group;
 	ResGroupSlotData	*slot;
-	int		slotId;
-	Oid		groupId;
 
 	Assert(Gp_role == GP_ROLE_DISPATCH);
 
 	PG_TRY();
 	{
 		/* Acquire slot */
-		slotId = ResGroupSlotAcquire();
-		Assert(slotId != InvalidSlotId);
-		Assert(self->group != NULL);
-		group = self->group;
-		groupId = group->groupId;
-		Assert(groupId != InvalidOid);
+		Assert(selfIsUnassigned());
+		ResGroupSlotAcquire();
+		Assert(selfIsAssignedValidGroup());
 		Assert(!self->doMemCheck);
 
+		group = self->group;
+
 		/* Init slot */
-		slot = &group->slots[slotId];
+		slot = self->slot;
 		Assert(slot->memQuota > 0);
 		slot->sessionId = gp_session_id;
 		pg_atomic_add_fetch_u32((pg_atomic_uint32*)&slot->nProcs, 1);
 
 		/* Init self */
-		self->groupId = groupId;
-		self->slotId = slotId;
 		self->caps = slot->caps;
 		Assert(pResGroupControl != NULL);
 		Assert(pResGroupControl->segmentsOnMaster > 0);
@@ -1964,8 +1993,6 @@ AssignResGroupOnMaster(void)
 		attachToSlot(group, slot);
 
 		/* Start memory limit checking */
-		Assert(self->groupId != InvalidOid);
-		Assert(self->slotId != InvalidSlotId);
 		self->doMemCheck = true;
 
 		/* Don't error out before this line in this function */
@@ -1991,42 +2018,37 @@ AssignResGroupOnMaster(void)
 void
 UnassignResGroupOnMaster(void)
 {
-	ResGroupData		*group;
-	ResGroupSlotData	*slot;
+	ResGroupData		*group = self->group;
+	ResGroupSlotData	*slot = self->slot;
 
-	if (self->group == NULL)
+	if (selfIsUnassigned())
 	{
 		Assert(self->doMemCheck == false);
 		return;
 	}
 
-	group = self->group;
-
-	Assert(group->groupId != InvalidOid);
-	Assert(self->groupId == group->groupId);
-	Assert(self->slotId != InvalidSlotId);
+	Assert(selfIsAssignedValidGroup());
 
 	/* Stop memory limit checking */
 	self->doMemCheck = false;
-
-	slot = &group->slots[self->slotId];
 
 	detachFromSlot(group, slot);
 
 	/* Cleanup self */
 	if (self->memUsage > 10)
 		LOG_RESGROUP_DEBUG(LOG, "Idle proc memory usage: %d", self->memUsage);
-	self->groupId = InvalidOid;
-	self->slotId = InvalidSlotId;
 
 	/* Cleanup slotInfo */
 	pg_atomic_sub_fetch_u32((pg_atomic_uint32*)&slot->nProcs, 1);
 
 	/* Release the slot */
 	ResGroupSlotRelease();
+	Assert(!selfHasSlot());
 
 	/* Cleanup group */
-	self->group = NULL;
+	selfUnsetGroup();
+
+	Assert(selfIsUnassigned());
 }
 
 /*
@@ -2042,11 +2064,15 @@ SwitchResGroupOnSegment(const char *buf, int len)
 	ResGroupCaps		caps;
 	ResGroupData		*group;
 	ResGroupSlotData	*slot;
-	ResGroupData		*prevSharedInfo = NULL;
+	ResGroupData		*prevGroup = NULL;
 	ResGroupSlotData	*prevSlot = NULL;
+
+	selfValidateResGroupInfo();
 
 	prevGroupId = self->groupId;
 	prevSlotId = self->slotId;
+	prevGroup = self->group;
+	prevSlot = self->slot;
 
 	/* Stop memory limit checking */
 	self->doMemCheck = false;
@@ -2062,48 +2088,49 @@ SwitchResGroupOnSegment(const char *buf, int len)
 
 	if (self->groupId == InvalidOid)
 	{
-		prevSharedInfo = self->group;
+		/* about to switch to a none resgroup state ... */
+
 		self->group = NULL;
 
-		if (prevSharedInfo)
+		if (prevGroup)
 		{
-			Assert(prevSharedInfo->groupId == prevGroupId);
-			prevSlot = &prevSharedInfo->slots[prevSlotId];
-			detachFromSlot(prevSharedInfo, prevSlot);
+			/* from another resgroup, so detach from it */
 
-			groupReleaseMemQuota(prevSharedInfo, prevSlot);
+			Assert(prevGroup->groupId == prevGroupId);
+			detachFromSlot(prevGroup, prevSlot);
+
+			groupReleaseMemQuota(prevGroup, prevSlot);
 		}
 		else
 		{
+			/* from a none resgroup state, so nothing to do */
 			Assert(prevGroupId == InvalidOid);
 			Assert(prevSlotId == InvalidSlotId);
-			Assert(self->group == NULL);
 		}
 
 		LWLockRelease(ResGroupLock);
+		Assert(selfIsUnassigned());
 		return;
 	}
 
-	if (self->group != NULL && self->group->groupId != InvalidOid)
+	/* now we know we are about to switch to some resgroup ... */
+
+	if (prevGroup && prevGroup->groupId != prevGroupId)
 	{
-		prevSharedInfo = self->group;
-		if (prevSharedInfo->groupId == prevGroupId)
-		{
-			/* previous resource group is valid and not dropped yet */
-			prevSlot = &prevSharedInfo->slots[prevSlotId];
-		}
-		else
-		{
-			/* previous resource group is already dropped */
-			prevSharedInfo = NULL;
-			prevSlot = NULL;
-			prevGroupId = InvalidOid;
-			prevSlotId = InvalidSlotId;
-		}
+		/* from a dropped resgroup, so behave like we are from
+		 * a none resgroup state */
+
+		prevGroup = NULL;
+		prevSlot = NULL;
+		prevGroupId = InvalidOid;
+		prevSlotId = InvalidSlotId;
 	}
+
+	/* now we are sure to switch to a valid resgroup */
 
 	group = ResGroupHashFind(self->groupId);
 	Assert(group != NULL);
+	/* we don't set this group to self until end of this function */
 
 	LWLockRelease(ResGroupLock);
 
@@ -2112,24 +2139,31 @@ SwitchResGroupOnSegment(const char *buf, int len)
 	Assert(caps.concurrency.proposed > 0);
 	Assert(self->slotId != InvalidSlotId);
 	self->caps = caps;
+	self->slot = &group->slots[self->slotId];
+	Assert(selfHasSlot());
 
 	/* Init slot */
-	slot = &group->slots[self->slotId];
+	slot = self->slot;
 	slot->sessionId = gp_session_id;
 	slot->caps = caps;
 	slot->memQuota = slotGetMemQuotaExpected(&caps);
 	ResGroupSetMemorySpillRatio(&caps);
 	Assert(slot->memQuota > 0);
 
-	if (prevSharedInfo != group || prevSlot != slot)
+	if (prevGroup != group || prevSlot != slot)
 	{
+		/* we are switching between different resgroups */
+
 		LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
-		if (prevSharedInfo)
+		if (prevGroup)
 		{
+			/* the previous one is valid, so detach from it */
 			Assert(prevSlot != NULL);
-			detachFromSlot(prevSharedInfo, prevSlot);
-			groupReleaseMemQuota(prevSharedInfo, prevSlot);
+			detachFromSlot(prevGroup, prevSlot);
+			groupReleaseMemQuota(prevGroup, prevSlot);
 		}
+
+		/* now attach to the new one */
 
 		groupAcquireMemQuota(group, &slot->caps);
 		LWLockRelease(ResGroupLock);
@@ -2139,9 +2173,10 @@ SwitchResGroupOnSegment(const char *buf, int len)
 
 	self->group = group;
 
+	/* finally we can say we are in a valid resgroup */
+	Assert(selfIsAssignedValidGroup());
+
 	/* Start memory limit checking */
-	Assert(self->groupId != InvalidOid);
-	Assert(self->slotId != InvalidSlotId);
 	self->doMemCheck = true;
 
 	/* Add into cgroup */
@@ -2155,6 +2190,10 @@ static void
 ResGroupWait(ResGroupData *group)
 {
 	PGPROC *proc = MyProc;
+
+	Assert(!LWLockHeldExclusiveByMe(ResGroupLock));
+	Assert(selfHasGroup());
+	Assert(!selfHasSlot());
 
 	pgstat_report_resgroup(GetCurrentTimestamp(), group->groupId);
 
@@ -2304,12 +2343,11 @@ AtProcExit_ResGroup(int code, Datum arg)
 static void
 ResGroupWaitCancel(void)
 {
-	ResGroupData	*group;
+	ResGroupData	*group = self->group;
 	PROC_QUEUE		*waitQueue;
 
 	/* Process exit without waiting for slot */
-	group = self->group;
-	if (group == NULL || !localResWaiting)
+	if (!selfHasGroup() || !localResWaiting)
 		return;
 
 	/* We are sure to be interrupted in the for loop of ResGroupWait now */
@@ -2323,20 +2361,21 @@ ResGroupWaitCancel(void)
 
 		Assert(waitQueue->size > 0);
 		Assert(MyProc->resWaiting);
-		Assert(MyProc->resSlotId == InvalidSlotId);
+		Assert(selfHasGroup());
+		Assert(!selfHasSlot());
 
 		addTotalQueueDuration(group);
 
 		SHMQueueDelete(&(MyProc->links));
 		waitQueue->size--;
 	}
-	else if (MyProc->links.next == INVALID_OFFSET && MyProc->resSlotId != InvalidSlotId)
+	else if (MyProc->links.next == INVALID_OFFSET && selfHasSlot())
 	{
 		/* Woken up by a slot holder */
 
-		Assert(MyProc->resSlotId != InvalidSlotId);
-		putSlot(group, MyProc->resSlotId);
-		MyProc->resSlotId = InvalidSlotId;
+		Assert(selfIsAssignedValidGroup());
+		putSlot();
+		Assert(!selfHasSlot());
 
 		group->totalExecuted++;
 		addTotalQueueDuration(group);
@@ -2362,7 +2401,7 @@ ResGroupWaitCancel(void)
 	LWLockRelease(ResGroupLock);
 	localResWaiting = false;
 	pgstat_report_waiting(PGBE_WAITING_NONE);
-	self->group = NULL;
+	selfUnsetGroup();
 }
 
 static void
@@ -2413,4 +2452,250 @@ ResGroupCapsToOpts(const ResGroupCaps *capsIn, ResGroupOpts *optsOut)
 
 	for (i = 0; i < RESGROUP_LIMIT_TYPE_COUNT; i++)
 		opts[i] = caps[i].proposed;
+}
+
+/*
+ * Validate the consistency of the resgroup information in self.
+ *
+ * This function requires the slot and group to be in
+ * a consistent status, they must both be set or unset,
+ * so calling this function during the assign/unassign/switch process
+ * might cause an error, use with caution.
+ */
+static void
+selfValidateResGroupInfo(void)
+{
+	Assert(self->memUsage >= 0);
+
+	AssertImply(self->groupId != InvalidOid,
+				self->slotId != InvalidSlotId);
+	AssertImply(self->groupId != InvalidOid,
+				self->group != NULL);
+	AssertImply(self->slotId != InvalidSlotId,
+				self->slot != NULL);
+}
+
+/*
+ * Check whether self is assigned and the assigned resgroup is dropped.
+ *
+ * The assigned resgroup is dropped if its groupId is invalid or
+ * different with the groupId recorded in self.
+ *
+ * This function requires the slot and group to be in
+ * a consistent status, they must both be set or unset,
+ * so calling this function during the assign/unassign/switch process
+ * might cause an error, use with caution.
+ *
+ * Even selfIsAssignedDroppedGroup() is true it doesn't mean the assign/switch
+ * process is completely done, for example the memory accounting
+ * information might not been updated yet.
+ */
+static bool
+selfIsAssignedDroppedGroup(void)
+{
+	selfValidateResGroupInfo();
+
+	return self->groupId != InvalidOid
+		&& self->groupId != self->group->groupId;
+}
+
+/*
+ * Check whether self is assigned and the assigned resgroup is valid.
+ *
+ * The assigned resgroup is valid if its groupId is valid and equal
+ * to the groupId recorded in self.
+ *
+ * This function requires the slot and group to be in
+ * a consistent status, they must both be set or unset,
+ * so calling this function during the assign/unassign/switch process
+ * might cause an error, use with caution.
+ *
+ * Even selfIsAssignedValidGroup() is true it doesn't mean the assign/switch
+ * process is completely done, for example the memory accounting
+ * information might not been updated yet.
+ */
+static bool
+selfIsAssignedValidGroup(void)
+{
+	selfValidateResGroupInfo();
+
+	return self->groupId != InvalidOid
+		&& self->groupId == self->group->groupId;
+}
+
+/*
+ * Check whether self is assigned.
+ *
+ * This is mostly equal to (selfHasSlot() && selfHasGroup()),
+ * however this function requires the slot and group to be in
+ * a consistent status, they must both be set or unset,
+ * so calling this function during the assign/unassign/switch process
+ * might cause an error, use with caution.
+ *
+ * Even selfIsAssigned() is true it doesn't mean the assign/switch
+ * process is completely done, for example the memory accounting
+ * information might not been updated yet.
+ *
+ * This function doesn't check whether the assigned resgroup
+ * is valid or dropped.
+ */
+static bool
+selfIsAssigned(void)
+{
+	selfValidateResGroupInfo();
+
+	return self->groupId != InvalidOid;
+}
+
+/*
+ * Check whether self is unassigned.
+ *
+ * This is mostly equal to (!selfHasSlot() && !selfHasGroup()),
+ * however this function requires the slot and group to be in
+ * a consistent status, they must both be set or unset,
+ * so calling this function during the assign/unassign/switch process
+ * might cause an error, use with caution.
+ *
+ * Even selfIsUnassigned() is true it doesn't mean the unassign/switch
+ * process is completely done, for example the memory accounting
+ * information might not been updated yet.
+ */
+static bool
+selfIsUnassigned(void)
+{
+	selfValidateResGroupInfo();
+
+	return self->groupId == InvalidOid;
+}
+
+/*
+ * Check whether self has been set a slot.
+ *
+ * Consistency will be checked on the slotId and slot pointer.
+ *
+ * We don't check whether a resgroup is set or not.
+ */
+static bool
+selfHasSlot(void)
+{
+	AssertImply(self->slotId != InvalidSlotId,
+				self->slot != NULL);
+
+	return self->slotId != InvalidSlotId;
+}
+
+/*
+ * Check whether self has been set a resgroup.
+ *
+ * Consistency will be checked on the groupId and group pointer.
+ *
+ * We don't check whether the resgroup is valid or dropped.
+ *
+ * We don't check whether a slot is set or not.
+ */
+static bool
+selfHasGroup(void)
+{
+	AssertImply(self->groupId != InvalidOid,
+				self->group != NULL);
+
+	return self->groupId != InvalidOid;
+}
+
+/*
+ * Set both the groupId and the group pointer in self.
+ *
+ * The group must not be dropped.
+ *
+ * Some over limitations are put to force the caller understand
+ * what it's doing and what it wants:
+ * - self must has not been set a resgroup;
+ */
+static void
+selfSetGroup(ResGroupData *group)
+{
+	Assert(selfIsUnassigned());
+	Assert(groupIsNotDropped(group));
+
+	self->group = group;
+	self->groupId = group->groupId;
+}
+
+/*
+ * Unset both the groupId and the resgroup pointer in self.
+ *
+ * Some over limitations are put to force the caller understand
+ * what it's doing and what it wants:
+ * - self must has been set a resgroup;
+ */
+static void
+selfUnsetGroup(void)
+{
+	Assert(selfHasGroup());
+
+	self->groupId = InvalidOid;
+	self->group = NULL;
+}
+
+/*
+ * Set both the slotId and the slot pointer in self.
+ *
+ * The passed slotId must be valid.
+ *
+ * Some over limitations are put to force the caller understand
+ * what it's doing and what it wants:
+ * - self must has been set a resgroup;
+ * - self must has not been set a slot before set;
+ */
+static void
+selfSetSlot(void)
+{
+	int			slotId = MyProc->resSlotId;
+
+	Assert(selfHasGroup());
+	Assert(!selfHasSlot());
+	Assert(slotId != InvalidSlotId);
+
+	MyProc->resSlotId = InvalidSlotId;
+
+	self->slotId = slotId;
+	self->slot = &self->group->slots[slotId];
+}
+
+/*
+ * Unset both the slotId and the slot pointer in self.
+ *
+ * Some over limitations are put to force the caller understand
+ * what it's doing and what it wants:
+ * - self must has been set a resgroup;
+ * - self must has been set a slot before unset;
+ */
+static void
+selfUnsetSlot(void)
+{
+	Assert(selfHasGroup());
+	Assert(selfHasSlot());
+
+	self->slotId = InvalidSlotId;
+	self->slot = NULL;
+}
+
+/*
+ * Check whether a resgroup is dropped.
+ *
+ * A dropped resgroup has groupId == InvalidOid,
+ * however there is also the case that the resgroup is first dropped
+ * then the shm struct is reused by another newly created resgroup,
+ * in such a case the groupId is not InvalidOid but the original
+ * resgroup does is dropped.
+ *
+ * So this function is not always reliable, use with caution.
+ *
+ * Consider use selfIsAssignedDroppedGroup() instead of this whenever possible.
+ */
+static bool
+groupIsNotDropped(const ResGroupData *group)
+{
+	return group
+		&& group->groupId != InvalidOid;
 }
