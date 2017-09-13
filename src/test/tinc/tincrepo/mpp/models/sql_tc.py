@@ -100,7 +100,7 @@ class SQLTestCase(MPPTestCase):
         if os.path.exists(setup_dir):
             TINCSystem.make_dirs(setup_out_dir, ignore_exists_error = True)
             tinctest.logger.info("Running the setup directory sqls for the test class: %s" %cls.__name__)
-            for setup_sql_file in os.listdir(setup_dir):
+            for setup_sql_file in sorted(os.listdir(setup_dir)):
                 if setup_sql_file.endswith('.sql'):
                     out_file = os.path.join(setup_out_dir, setup_sql_file.replace('.sql', '.out'))
                     setup_sql_file = os.path.join(setup_dir, setup_sql_file)
@@ -210,7 +210,7 @@ class SQLTestCase(MPPTestCase):
 
         tests = []
 
-        for filename in os.listdir(directory):
+        for filename in sorted(os.listdir(directory)):
             if not fnmatch(filename, "*.sql"):
                 continue
 
@@ -778,7 +778,7 @@ class SQLTestCase(MPPTestCase):
         sql_file_list = []
 
         # Look for additional parts to run
-        for f in os.listdir(sql_dir):
+        for f in sorted(os.listdir(sql_dir)):
             part_sql_file = os.path.join(sql_dir, f)
             if not fnmatch(f, file_pattern + "_part*.sql") and not fnmatch(f, file_pattern + ".sql"):
                 continue
