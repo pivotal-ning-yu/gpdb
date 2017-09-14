@@ -17,6 +17,7 @@ limitations under the License.
 
 import os
 import tinctest
+import mpp.lib.PgHba as PgHba
 from mpp.lib.PSQL import PSQL
 from mpp.lib.GPFDIST import GPFDISTError
 from tinctest.lib import local_path,run_shell_command
@@ -26,7 +27,7 @@ from mpp.lib.gppkg.gppkg import Gppkg
 
 mdt = MDT()
 class MDTSQLTestCase(SQLTestCase):
-    """ 
+    """
     @optimizer_mode off
     @tags gppkg
     """
@@ -53,10 +54,24 @@ class MDTSQLTestCase(SQLTestCase):
         gppkg.gppkg_install(product_version, 'plperl')
 
         setup_user = 'create role mdt_user superuser login;'
+        PSQL.run_sql_command(sql_cmd=setup_user, dbname=os.environ.get('PGDATABASE'))
+
+        DBNAME = 'gptest'
+        pg_hba_path = os.path.join(os.environ.get('MASTER_DATA_DIRECTORY'), 'pg_hba.conf')
+        print 'pg_hba_path', pg_hba_path
+        pghba_file = PgHba.PgHba(pg_hba_path)
+        new_ent = PgHba.Entry(entry_type='local',
+                              database = DBNAME,
+                              user = 'mdt_user',
+                              authmethod = 'trust')
+        pghba_file.add_entry(new_ent)
+        pghba_file.write()
+        reload_pg_hba = 'SELECT pg_reload_conf();'
+        PSQL.run_sql_command(sql_cmd=reload_pg_hba, dbname=os.environ.get('PGDATABASE'))
+
         setup_db = 'create database mdt_db;'
         setup_sql = local_path('sql/setup/setup.sql')
         setup_output = local_path('output/setup/setup.out')
-        PSQL.run_sql_command(sql_cmd=setup_user, dbname=os.environ.get('PGDATABASE'))
         PSQL.run_sql_command(sql_cmd=setup_db, dbname=os.environ.get('PGDATABASE'), username='mdt_user')
         PSQL.run_sql_file(sql_file = setup_sql, out_file=setup_output, dbname='mdt_db', username='mdt_user')
 
