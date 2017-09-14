@@ -61,8 +61,9 @@ typedef struct URL_EXECUTE_FILE
 	execute_handle_t *handle;	/* ResourceOwner-tracked stuff */
 } URL_EXECUTE_FILE;
 
-static int popen_with_stderr(int *rwepipe, const char *exe, bool forwrite);
-static int pclose_with_stderr(int pid, int *rwepipe, StringInfo sinfo);
+extern int popen_with_stderr(int *rwepipe, const char *exe, bool forwrite);
+extern int pclose_with_stderr(int pid, int *rwepipe, StringInfo sinfo);
+extern char *make_command(const char *cmd, extvar_t *ev);
 static void pclose_without_stderr(int *rwepipe);
 static char *interpretError(int exitCode, char *buf, size_t buflen, char *err, size_t errlen);
 static const char *getSignalNameFromCode(int signo);
@@ -192,7 +193,7 @@ make_export(char *name, const char *value, StringInfo buf)
 }
 
 
-static char *
+char *
 make_command(const char *cmd, extvar_t *ev)
 {
 	StringInfoData buf;
@@ -585,7 +586,7 @@ getSignalNameFromCode(int signo)
  * if 'forwrite' is set then we set the data pipe write side on the
  * parent. otherwise, we set the read side on the parent.
  */
-static int
+int
 popen_with_stderr(int *pipes, const char *exe, bool forwrite)
 {
 	int data[2];	/* pipe to send data child <--> parent */
@@ -753,7 +754,7 @@ read_err_msg(int fid, StringInfo sinfo)
  * termination status. if child terminated with error, 'buf' will
  * point to the error string retrieved from child's stderr.
  */
-static int
+int
 pclose_with_stderr(int pid, int *pipes, StringInfo sinfo)
 {
 	int status;

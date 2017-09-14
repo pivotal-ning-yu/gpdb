@@ -12,3 +12,5 @@ regression.out
 config.ini
 pgbouncer.log
 pgbouncer.pid
+stdin
+stdout

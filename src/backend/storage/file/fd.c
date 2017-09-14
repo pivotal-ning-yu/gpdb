@@ -171,7 +171,6 @@ static int	nfile = 0;
 typedef enum
 {
 	AllocateDescFile,
-	AllocateDescPipe,
 	AllocateDescDir
 } AllocateDescKind;
 
@@ -1517,61 +1516,6 @@ TryAgain:
 }
 
 /*
- * Routines that want to initiate a pipe stream should use OpenPipeStream
- * rather than plain popen().  This lets fd.c deal with freeing FDs if
- * necessary.  When done, call ClosePipeStream rather than pclose.
- */
-FILE *
-OpenPipeStream(const char *command, const char *mode)
-{
-	FILE	   *file;
-
-	DO_DB(elog(LOG, "OpenPipeStream: Allocated %d (%s)",
-			   numAllocatedDescs, command));
-
-	/*
-	 * The test against MAX_ALLOCATED_DESCS prevents us from overflowing
-	 * allocatedFiles[]; the test against max_safe_fds prevents AllocateFile
-	 * from hogging every one of the available FDs, which'd lead to infinite
-	 * looping.
-	 */
-	if (numAllocatedDescs >= MAX_ALLOCATED_DESCS ||
-		numAllocatedDescs >= max_safe_fds - 1)
-		elog(ERROR, "exceeded MAX_ALLOCATED_DESCS while trying to execute command \"%s\"",
-			 command);
-
-TryAgain:
-	fflush(stdout);
-	fflush(stderr);
-	errno = 0;
-	if ((file = popen(command, mode)) != NULL)
-	{
-		AllocateDesc *desc = &allocatedDescs[numAllocatedDescs];
-
-		desc->kind = AllocateDescPipe;
-		desc->desc.file = file;
-		desc->create_subid = GetCurrentSubTransactionId();
-		numAllocatedDescs++;
-		return desc->desc.file;
-	}
-
-	if (errno == EMFILE || errno == ENFILE)
-	{
-		int			save_errno = errno;
-
-		ereport(LOG,
-				(errcode(ERRCODE_INSUFFICIENT_RESOURCES),
-				 errmsg("out of file descriptors: %m; release and retry")));
-		errno = 0;
-		if (ReleaseLruFile())
-			goto TryAgain;
-		errno = save_errno;
-	}
-
-	return NULL;
-}
-
-/*
  * Free an AllocateDesc of either type.
  *
  * The argument *must* point into the allocatedDescs[] array.
@@ -1586,9 +1530,6 @@ FreeDesc(AllocateDesc *desc)
 	{
 		case AllocateDescFile:
 			result = fclose(desc->desc.file);
-			break;
-		case AllocateDescPipe:
-			result = pclose(desc->desc.file);
 			break;
 		case AllocateDescDir:
 			result = closedir(desc->desc.dir);
@@ -1772,30 +1713,6 @@ FreeDir(DIR *dir)
 	return closedir(dir);
 }
 
-/*
- * Close a pipe stream returned by OpenPipeStream.
- */
-int
-ClosePipeStream(FILE *file)
-{
-	int			i;
-
-	DO_DB(elog(LOG, "ClosePipeStream: Allocated %d", numAllocatedDescs));
-
-	/* Remove file from list of allocated files, if it's present */
-	for (i = numAllocatedDescs; --i >= 0;)
-	{
-		AllocateDesc *desc = &allocatedDescs[i];
-
-		if (desc->kind == AllocateDescPipe && desc->desc.file == file)
-			return FreeDesc(desc);
-	}
-
-	/* Only get here if someone passes us a file not in allocatedDescs */
-	elog(WARNING, "file passed to ClosePipeStream was not obtained from OpenPipeStream");
-
-	return pclose(file);
-}
 
 /*
  * closeAllVfds

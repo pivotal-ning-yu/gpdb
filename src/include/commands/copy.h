@@ -89,6 +89,12 @@ typedef enum CopyErrMode
 	SREH_LOG		/* Sreh - log errors in an error table */
 } CopyErrMode;
 
+typedef struct ProgramPipes
+{
+	char *shexec;
+	int pipes[2];
+	int pid;
+} ProgramPipes;
 
 /*
  * This struct contains all the state variables used throughout a COPY
@@ -245,6 +251,7 @@ typedef struct CopyStateData
 	bool		on_segment; /* QE save data files locally */
 	bool		ignore_extra_line; /* Don't count CSV header or binary trailer in
 									  "processed" line number for on_segment mode*/
+	ProgramPipes	*program_pipes; /* COPY PROGRAM pipes for data and stderr */
 	/* end Greenplum Database specific variables */
 } CopyStateData;
 

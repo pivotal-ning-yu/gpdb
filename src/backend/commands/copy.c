@@ -42,6 +42,7 @@
 #include "executor/execDML.h"
 #include "libpq/libpq.h"
 #include "libpq/pqformat.h"
+#include "libpq/pqsignal.h"
 #include "mb/pg_wchar.h"
 #include "miscadmin.h"
 #include "optimizer/planner.h"
@@ -70,6 +71,10 @@
 #include "utils/lsyscache.h"
 #include "nodes/makefuncs.h"
 #include "postmaster/autovacuum.h"
+
+extern int popen_with_stderr(int *rwepipe, const char *exe, bool forwrite);
+extern int pclose_with_stderr(int pid, int *rwepipe, StringInfo sinfo);
+extern char *make_command(const char *cmd, extvar_t *ev);
 
 /* DestReceiver for COPY (SELECT) TO */
 typedef struct
@@ -128,7 +133,9 @@ static bool CopyCheckIsLastLine(CopyState cstate);
 static char *extract_line_buf(CopyState cstate);
 uint64
 DoCopyInternal(const CopyStmt *stmt, const char *queryString, CopyState cstate);
-static void ClosePipeToProgram(CopyState cstate);
+
+static ProgramPipes *open_program_pipes(char *command, bool forwrite);
+static int close_program_pipes(CopyState cstate);
 
 /* ==========================================================================
  * The follwing macros aid in major refactoring of data processing code (in
@@ -455,10 +462,10 @@ CopySendEndOfRow(CopyState cstate)
 						 * error message from the subprocess' exit code than
 						 * just "Broken Pipe"
 						 */
-						ClosePipeToProgram(cstate);
+						close_program_pipes(cstate);
 
 						/*
-						 * If ClosePipeToProgram() didn't throw an error,
+						 * If close_program_pipes() didn't throw an error,
 						 * the program terminated normally, but closed the
 						 * pipe first. Restore errno, and throw an error.
 						 */
@@ -538,10 +545,10 @@ CopyToDispatchFlush(CopyState cstate)
 						 * error message from the subprocess' exit code than
 						 * just "Broken Pipe"
 						 */
-						ClosePipeToProgram(cstate);
+						close_program_pipes(cstate);
 
 						/*
-						 * If ClosePipeToProgram() didn't throw an error,
+						 * If close_program_pipes() didn't throw an error,
 						 * the program terminated normally, but closed the
 						 * pipe first. Restore errno, and throw an error.
 						 */
@@ -1301,9 +1308,15 @@ DoCopyInternal(const CopyStmt *stmt, const char *queryString, CopyState cstate)
 			if (cstate->is_program)
 			{
 				if (cstate->on_segment && Gp_role == GP_ROLE_DISPATCH)
-					cstate->copy_file = OpenPipeStream("cat > /dev/null", PG_BINARY_W);
+				{
+					cstate->program_pipes = open_program_pipes("cat > /dev/null", true);
+					cstate->copy_file = fdopen(cstate->program_pipes->pipes[0], PG_BINARY_W);
+				}
 				else
-					cstate->copy_file = OpenPipeStream(cstate->filename, PG_BINARY_W);
+				{
+					cstate->program_pipes = open_program_pipes(cstate->filename, true);
+					cstate->copy_file = fdopen(cstate->program_pipes->pipes[0], PG_BINARY_W);
+				}
 
 				if (cstate->copy_file == NULL)
 					ereport(ERROR,
@@ -1618,9 +1631,15 @@ DoCopyInternal(const CopyStmt *stmt, const char *queryString, CopyState cstate)
 			if (cstate->is_program)
 			{
 				if (cstate->on_segment && Gp_role == GP_ROLE_DISPATCH)
-					cstate->copy_file = OpenPipeStream("cat /dev/null", PG_BINARY_R);
+				{
+					cstate->program_pipes = open_program_pipes("cat /dev/null", false);
+					cstate->copy_file = fdopen(cstate->program_pipes->pipes[0], PG_BINARY_R);
+				}
 				else
-					cstate->copy_file = OpenPipeStream(cstate->filename, PG_BINARY_R);
+				{
+					cstate->program_pipes = open_program_pipes(cstate->filename, false);
+					cstate->copy_file = fdopen(cstate->program_pipes->pipes[0], PG_BINARY_R);
+				}
 
 				if (cstate->copy_file == NULL)
 					ereport(ERROR,
@@ -1743,7 +1762,7 @@ DoCopyInternal(const CopyStmt *stmt, const char *queryString, CopyState cstate)
 		{
 			if (cstate->is_program)
 			{
-				ClosePipeToProgram(cstate);
+				close_program_pipes(cstate);
 			}
 			else if (FreeFile(cstate->copy_file))
 			{
@@ -1832,26 +1851,6 @@ DoCopy(const CopyStmt *stmt, const char *queryString)
 	PG_END_TRY();
 	pfree(cstate);
 	return result;
-}
-
-/*
- * Closes the pipe to an external program, checking the pclose() return code.
- */
-static void
-ClosePipeToProgram(CopyState cstate)
-{
-	int pclose_rc;
-
-	Assert(cstate->is_program);
-
-	pclose_rc = ClosePipeStream(cstate->copy_file);
-	if (pclose_rc == -1)
-		ereport(ERROR,
-				(errmsg("could not close pipe to external command: %m")));
-	else if (pclose_rc != 0)
-		ereport(ERROR,
-				(errmsg("program \"%s\" failed: %s",
-						cstate->filename, wait_result_to_str(pclose_rc))));
 }
 
 /*
@@ -1968,6 +1967,9 @@ DoCopyTo(CopyState cstate)
 		 * okay to do this in all cases, since it does nothing if the mode is
 		 * not on.
 		 */
+		if (Gp_role == GP_ROLE_EXECUTE && cstate->on_segment)
+			cstate->copy_dest = COPY_NEW_FE;
+
 		pq_endcopyout(true);
 		PG_RE_THROW();
 	}
@@ -1977,7 +1979,7 @@ DoCopyTo(CopyState cstate)
 	{
 		if (cstate->is_program)
 		{
-			ClosePipeToProgram(cstate);
+			close_program_pipes(cstate);
 		}
 		else if (FreeFile(cstate->copy_file))
 		{
@@ -2140,6 +2142,82 @@ CopyToDispatch(CopyState cstate)
 	PG_TRY();
 	{
 		cdbCopyStart(cdbCopy, cdbcopy_cmd.data, NULL);
+
+		/* if a header has been requested send the line */
+		if (cstate->header_line)
+		{
+			ListCell   *cur;
+			bool		hdr_delim = false;
+
+			/*
+			 * For non-binary copy, we need to convert null_print to client
+			 * encoding, because it will be sent directly with CopySendString.
+			 *
+			 * MPP: in here we only care about this if we need to print the
+			 * header. We rely on the segdb server copy out to do the conversion
+			 * before sending the data rows out. We don't need to repeat it here
+			 */
+			if (cstate->need_transcoding)
+				cstate->null_print = (char *)
+					pg_server_to_custom(cstate->null_print,
+										strlen(cstate->null_print),
+										cstate->client_encoding,
+										cstate->enc_conversion_proc);
+
+			foreach(cur, cstate->attnumlist)
+			{
+				int			attnum = lfirst_int(cur);
+				char	   *colname;
+
+				if (hdr_delim)
+					CopySendChar(cstate, cstate->delim[0]);
+				hdr_delim = true;
+
+				colname = NameStr(attr[attnum - 1]->attname);
+
+				CopyAttributeOutCSV(cstate, colname, false,
+									list_length(cstate->attnumlist) == 1);
+			}
+
+			/* add a newline and flush the data */
+			CopySendEndOfRow(cstate);
+		}
+
+		/*
+		 * This is the main work-loop. In here we keep collecting data from the
+		 * COPY commands on the segdbs, until no more data is available. We
+		 * keep writing data out a chunk at a time.
+		 */
+		while(true)
+		{
+
+			bool done;
+			bool copy_cancel = (QueryCancelPending ? true : false);
+
+			/* get a chunk of data rows from the QE's */
+			done = cdbCopyGetData(cdbCopy, copy_cancel, &cstate->processed);
+
+			/* send the chunk of data rows to destination (file or stdout) */
+			if(cdbCopy->copy_out_buf.len > 0) /* conditional is important! */
+			{
+				/*
+				 * in the dispatcher we receive chunks of whole rows with row endings.
+				 * We don't want to use CopySendEndOfRow() b/c it adds row endings and
+				 * also b/c it's intended for a single row at a time. Therefore we need
+				 * to fill in the out buffer and just flush it instead.
+				 */
+				CopySendData(cstate, (void *) cdbCopy->copy_out_buf.data, cdbCopy->copy_out_buf.len);
+				CopyToDispatchFlush(cstate);
+			}
+
+			if(done)
+			{
+				if(cdbCopy->remote_data_err || cdbCopy->io_errors)
+					appendBinaryStringInfo(&cdbcopy_err, cdbCopy->err_msg.data, cdbCopy->err_msg.len);
+
+				break;
+			}
+		}
 	}
 	PG_CATCH();
 	{
@@ -2155,82 +2233,6 @@ CopyToDispatch(CopyState cstate)
 		PG_RE_THROW();
 	}
 	PG_END_TRY();
-
-	/* if a header has been requested send the line */
-	if (cstate->header_line)
-	{
-		ListCell   *cur;
-		bool		hdr_delim = false;
-
-		/*
-		 * For non-binary copy, we need to convert null_print to client
-		 * encoding, because it will be sent directly with CopySendString.
-		 *
-		 * MPP: in here we only care about this if we need to print the
-		 * header. We rely on the segdb server copy out to do the conversion
-		 * before sending the data rows out. We don't need to repeat it here
-		 */
-		if (cstate->need_transcoding)
-			cstate->null_print = (char *)
-				pg_server_to_custom(cstate->null_print,
-									strlen(cstate->null_print),
-									cstate->client_encoding,
-									cstate->enc_conversion_proc);
-
-		foreach(cur, cstate->attnumlist)
-		{
-			int			attnum = lfirst_int(cur);
-			char	   *colname;
-
-			if (hdr_delim)
-				CopySendChar(cstate, cstate->delim[0]);
-			hdr_delim = true;
-
-			colname = NameStr(attr[attnum - 1]->attname);
-
-			CopyAttributeOutCSV(cstate, colname, false,
-								list_length(cstate->attnumlist) == 1);
-		}
-
-		/* add a newline and flush the data */
-		CopySendEndOfRow(cstate);
-	}
-
-	/*
-	 * This is the main work-loop. In here we keep collecting data from the
-	 * COPY commands on the segdbs, until no more data is available. We
-	 * keep writing data out a chunk at a time.
-	 */
-	while(true)
-	{
-
-		bool done;
-		bool copy_cancel = (QueryCancelPending ? true : false);
-
-		/* get a chunk of data rows from the QE's */
-		done = cdbCopyGetData(cdbCopy, copy_cancel, &cstate->processed);
-
-		/* send the chunk of data rows to destination (file or stdout) */
-		if(cdbCopy->copy_out_buf.len > 0) /* conditional is important! */
-		{
-			/*
-			 * in the dispatcher we receive chunks of whole rows with row endings.
-			 * We don't want to use CopySendEndOfRow() b/c it adds row endings and
-			 * also b/c it's intended for a single row at a time. Therefore we need
-			 * to fill in the out buffer and just flush it instead.
-			 */
-			CopySendData(cstate, (void *) cdbCopy->copy_out_buf.data, cdbCopy->copy_out_buf.len);
-			CopyToDispatchFlush(cstate);
-		}
-
-		if(done)
-		{
-			if(cdbCopy->remote_data_err || cdbCopy->io_errors)
-				appendBinaryStringInfo(&cdbcopy_err, cdbCopy->err_msg.data, cdbCopy->err_msg.len);
-
-			break;
-		}
-	}
 
 	/* we can throw the error now if QueryCancelPending was set previously */
 	CHECK_FOR_INTERRUPTS();
@@ -4768,7 +4770,8 @@ PROCESS_SEGMENT_DATA:
 	{
 		if (cstate->is_program)
 		{
-			cstate->copy_file = OpenPipeStream(cstate->filename, PG_BINARY_R);
+			cstate->program_pipes = open_program_pipes(cstate->filename, false);
+			cstate->copy_file = fdopen(cstate->program_pipes->pipes[0], PG_BINARY_R);
 
 			if (cstate->copy_file == NULL)
 				ereport(ERROR,
@@ -4810,9 +4813,19 @@ PROCESS_SEGMENT_DATA:
 
 	elog(DEBUG1, "Segment %u, Copied %lu rows.", GpIdentity.segindex, cstate->processed);
 
-	/*
-	 * Done, clean up
-	 */
+	/* Done, clean up */
+	if (cstate->on_segment && cstate->is_program)
+	{
+		close_program_pipes(cstate);
+	}
+	else if (cstate->on_segment && FreeFile(cstate->copy_file))
+	{
+			ereport(ERROR,
+				(errcode_for_file_access(),
+				 errmsg("could not close file \"%s\": %m",
+						cstate->filename)));
+	}
+
 	error_context_stack = errcontext.previous;
 
 	MemoryContextSwitchTo(estate->es_query_cxt);
@@ -7365,4 +7378,84 @@ void CopyEolStrToType(CopyState cstate)
 				(errcode(ERRCODE_CDB_INTERNAL_ERROR),
 				 errmsg("internal error in CopySetEolType. Trying to set NEWLINE %s", 
 						 cstate->eol_str)));
+}
+
+static ProgramPipes*
+open_program_pipes(char *command, bool forwrite)
+{
+	int save_errno;
+	pqsigfunc save_SIGPIPE;
+	/* set up extvar */
+	extvar_t extvar;
+	memset(&extvar, 0, sizeof(extvar));
+
+	external_set_env_vars(&extvar, command, false, NULL, NULL, false, 0);
+
+	ProgramPipes *program_pipes = palloc(sizeof(ProgramPipes));
+	program_pipes->pid = -1;
+	program_pipes->pipes[0] = -1;
+	program_pipes->pipes[1] = -1;
+	program_pipes->shexec = make_command(command, &extvar);
+
+	/*
+	 * Preserve the SIGPIPE handler and set to default handling.  This
+	 * allows "normal" SIGPIPE handling in the command pipeline.  Normal
+	 * for PG is to *ignore* SIGPIPE.
+	 */
+	save_SIGPIPE = pqsignal(SIGPIPE, SIG_DFL);
+
+	program_pipes->pid = popen_with_stderr(program_pipes->pipes, program_pipes->shexec, forwrite);
+
+	save_errno = errno;
+
+	/* Restore the SIGPIPE handler */
+	pqsignal(SIGPIPE, save_SIGPIPE);
+
+	if (program_pipes->pid == -1)
+	{
+		errno = save_errno;
+		pfree(program_pipes);
+		ereport(ERROR,
+				(errcode(ERRCODE_INSUFFICIENT_RESOURCES),
+				 errmsg("can not start command: %s", command)));
+	}
+
+	return program_pipes;
+}
+
+static int
+close_program_pipes(CopyState cstate)
+{
+	Assert(cstate->is_program);
+
+	int ret = 0;
+	StringInfoData sinfo;
+	initStringInfo(&sinfo);
+
+	fclose(cstate->copy_file);
+	ret = pclose_with_stderr(cstate->program_pipes->pid, cstate->program_pipes->pipes, &sinfo);
+	if (ret == 0)
+	{
+		/* pclose() ended successfully; no errors to reflect */
+		;
+	}
+	else if (ret == -1)
+	{
+		/* pclose()/wait4() ended with an error; errno should be valid */
+		ereport(ERROR,
+				(errcode_for_file_access(),
+				 errmsg("can not close pipe: %m")));
+	}
+	else
+	{
+		/*
+		 * pclose() returned the process termination state.  The interpretExitCode() function
+		 * generates a descriptive message from the exit code.
+		 */
+		ereport(ERROR,
+				(errcode(ERRCODE_SQL_ROUTINE_EXCEPTION),
+				 errmsg("command error message: %s", sinfo.data)));
+	}
+
+	return ret;
 }
