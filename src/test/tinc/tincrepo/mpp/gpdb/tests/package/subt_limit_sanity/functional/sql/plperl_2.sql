@@ -34,3 +34,5 @@ DROP table if exists subt_plperl_t2;
 Create table subt_plperl_t2( i int);
 select subt_plperl_fn1(1,200);
 select count(*) from subt_plperl_t2;
+
+drop language plperl cascade;

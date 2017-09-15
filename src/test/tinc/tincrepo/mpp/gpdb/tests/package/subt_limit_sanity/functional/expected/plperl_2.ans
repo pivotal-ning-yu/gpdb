@@ -49,3 +49,5 @@ select count(*) from subt_plperl_t2;
      0
 (1 row)
 
+drop language plperl cascade;
+DROP LANGUAGE
