@@ -94,11 +94,19 @@ class languageTestCase(MPPTestCase):
 
     def checkAPPHOMEandLIB(self, libso, apphome = ''):
         if apphome == '':
-           """ check application library """
-           return os.path.isfile("%s/%s.so" % (LIBDIR, libso))
+            """ check application library """
+            return os.path.isfile("%s/%s.so" % (LIBDIR, libso))
         else:
-           """ check application home and library """
-           return os.environ.get(apphome) and os.path.isfile("%s/%s.so" % (LIBDIR, libso))
+            """ check application home and library """
+
+            # We want to make sure that the gppkg environment gets added into
+            # the greenplum path env file.
+            cmd = 'source %s/greenplum_path.sh; echo %s | wc -w' % (GPHOME, apphome)
+            run_shell_command(cmd, 'get from greenplum_path', res)
+            if res['rc'] != 0:
+                raise Exception('Found error when executing %s\nstdout:%sstderr:\n%s' % (cmd, res['stdout'], res['stderr']))
+
+            return res['stdout'].strip() == '1' and os.path.isfile("%s/%s.so" % (LIBDIR, libso))
 
     def setGPJAVACLASSPATH(self, classpath):
         """ set pljava_classpath in gpdb for pljava and pljavau """
@@ -174,7 +182,8 @@ class languageTestCase(MPPTestCase):
         if self.checkAPPHOMEandLIB("pljava","JAVA_HOME"):
             # If JDK is not 1.6 and up, then raise error
             res = {'rc': 0, 'stdout' : '', 'stderr': ''}
-            run_shell_command("java -version 2>&1", 'check java version', res)
+            run_shell_command("source %s && java -version 2>&1" % os.path.join(GPHOME, 'greenplum_path.sh'),
+                              'check java version', res)
             out = res['stdout'].split('\n')
             if out[0].find("1.6.")>0:
                 gp_procedural_languages().installPL('pljava')
@@ -195,7 +204,8 @@ class languageTestCase(MPPTestCase):
         if self.checkAPPHOMEandLIB("pljava", "JAVA_HOME"):
             # If JDK is not 1.6 and up, then raise error
             res = {'rc': 0, 'stdout' : '', 'stderr': ''}
-            run_shell_command("java -version 2>&1", 'check java version', res)
+            run_shell_command("source %s && java -version 2>&1" % os.path.join(GPHOME, 'greenplum_path.sh'),
+                              'check java version', res)
             if res['stdout'][0].find("1.6.")>0:
                 gp_procedural_languages().installPL('pljavau')
                 self.doTest(num, filename, default=default)
