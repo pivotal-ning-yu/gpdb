@@ -225,7 +225,9 @@ static char* DumpResGroupMemUsage(ResGroupData *group);
 static void selfValidateResGroupInfo(void);
 static bool selfIsAssignedDroppedGroup(void);
 static bool selfIsAssignedValidGroup(void);
+#ifdef USE_ASSERT_CHECKING
 static bool selfIsAssigned(void);
+#endif//USE_ASSERT_CHECKING
 static bool selfIsUnassigned(void);
 static void selfUnassignDroppedGroup(void);
 static bool selfHasSlot(void);
@@ -235,12 +237,14 @@ static void selfUnsetGroup(void);
 static void selfSetSlot(void);
 static void selfUnsetSlot(void);
 static bool procIsInWaitQueue(const PGPROC *proc);
+#ifdef USE_ASSERT_CHECKING
 static bool groupIsNotDropped(const ResGroupData *group);
+#endif//USE_ASSERT_CHECKING
 static void groupWaitQueueValidate(const ResGroupData *group);
 static void groupWaitQueuePush(ResGroupData *group, PGPROC *proc);
 static PGPROC * groupWaitQueuePop(ResGroupData *group);
 static void groupWaitQueueErase(ResGroupData *group, PGPROC *proc);
-static bool groupWaitQueueEmpty(const ResGroupData *group);
+static bool groupWaitQueueIsEmpty(const ResGroupData *group);
 
 /*
  * Estimate size the resource group structures will need in
@@ -537,7 +541,7 @@ ResGroupDropCheckForWakeup(Oid groupId, bool isCommit)
 
 	Assert(group->lockedForDrop);
 
-	while (!groupWaitQueueEmpty(group))
+	while (!groupWaitQueueIsEmpty(group))
 	{
 		PGPROC *waitProc;
 
@@ -788,10 +792,20 @@ ResGroupReserveMemory(int32 memoryChunks, int32 overuseChunks, bool *waiverUsed)
 		return true;
 	}
 
+	/* When doMemCheck is on, self must has been assigned to a resgroup. */
 	Assert(selfIsAssigned());
 
 	if (selfIsAssignedDroppedGroup())
 	{
+		/*
+		 * However it might already be dropped. For example QE will stay in
+		 * a resgroup even after a transaction, so if the resgroup is
+		 * concurrently dropped and there is a memory allocation we'll
+		 * reach here.
+		 *
+		 * We would unset the group and slot from self and turn off memory
+		 * limit check so we'll not reach here again and again.
+		 */
 		if (Debug_resource_group)
 			write_log("Resource group is concurrently dropped while reserving memory: "
 					  "dropped group=%d, my group=%d",
@@ -801,6 +815,7 @@ ResGroupReserveMemory(int32 memoryChunks, int32 overuseChunks, bool *waiverUsed)
 		return true;
 	}
 
+	/* Otherwise we are in a valid resgroup, perform the memory limit check */
 	Assert(selfIsAssignedValidGroup());
 	Assert(group->memUsage >= 0);
 	Assert(self->memUsage >= 0);
@@ -1622,7 +1637,7 @@ slotGetMemSpill(const ResGroupCaps *caps)
 static void
 wakeupSlots(ResGroupData *group)
 {
-	while (!groupWaitQueueEmpty(group))
+	while (!groupWaitQueueIsEmpty(group))
 	{
 		PGPROC		*waitProc;
 		int			slotId;
@@ -1672,7 +1687,7 @@ wakeupGroups(Oid skipGroupId)
 		if (group->lockedForDrop)
 			continue;
 
-		if (groupWaitQueueEmpty(group))
+		if (groupWaitQueueIsEmpty(group))
 			continue;
 
 		delta = group->memExpected - group->memQuotaGranted - group->memSharedGranted;
@@ -1793,7 +1808,7 @@ ResGroupSlotRelease(void)
 	 * Maybe zero, maybe one, maybe more, depends on how the resgroup's
 	 * configuration were changed during our execution.
 	 */
-	while (!groupWaitQueueEmpty(group))
+	while (!groupWaitQueueIsEmpty(group))
 	{
 		PGPROC		*waitProc;
 		int			slotId;
@@ -2319,7 +2334,7 @@ ResGroupWaitCancel(void)
 	{
 		/* Still waiting on the queue when get interrupted, remove myself from the queue */
 
-		Assert(!groupWaitQueueEmpty(group));
+		Assert(!groupWaitQueueIsEmpty(group));
 		Assert(MyProc->resWaiting);
 		Assert(selfHasGroup());
 		Assert(!selfHasSlot());
@@ -2478,6 +2493,7 @@ selfIsAssignedValidGroup(void)
 		&& self->groupId == self->group->groupId;
 }
 
+#ifdef USE_ASSERT_CHECKING
 /*
  * Check whether self is assigned.
  *
@@ -2501,6 +2517,7 @@ selfIsAssigned(void)
 
 	return self->groupId != InvalidOid;
 }
+#endif//USE_ASSERT_CHECKING
 
 /*
  * Check whether self is unassigned.
@@ -2666,6 +2683,7 @@ procIsInWaitQueue(const PGPROC *proc)
 	return proc->links.next != INVALID_OFFSET;
 }
 
+#ifdef USE_ASSERT_CHECKING
 /*
  * Check whether a resgroup is dropped.
  *
@@ -2685,6 +2703,7 @@ groupIsNotDropped(const ResGroupData *group)
 	return group
 		&& group->groupId != InvalidOid;
 }
+#endif//USE_ASSERT_CHECKING
 
 /*
  * Validate the consistency of the resgroup wait queue.
@@ -2735,7 +2754,7 @@ groupWaitQueuePop(ResGroupData *group)
 	PGPROC				*proc;
 
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
-	Assert(!groupWaitQueueEmpty(group));
+	Assert(!groupWaitQueueIsEmpty(group));
 
 	groupWaitQueueValidate(group);
 
@@ -2761,7 +2780,7 @@ groupWaitQueueErase(ResGroupData *group, PGPROC *proc)
 	PROC_QUEUE			*waitQueue;
 
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
-	Assert(!groupWaitQueueEmpty(group));
+	Assert(!groupWaitQueueIsEmpty(group));
 	Assert(procIsInWaitQueue(proc));
 
 	groupWaitQueueValidate(group);
@@ -2778,7 +2797,7 @@ groupWaitQueueErase(ResGroupData *group, PGPROC *proc)
  * Check whether the resgroup wait queue is empty.
  */
 static bool
-groupWaitQueueEmpty(const ResGroupData *group)
+groupWaitQueueIsEmpty(const ResGroupData *group)
 {
 	const PROC_QUEUE	*waitQueue;
 
