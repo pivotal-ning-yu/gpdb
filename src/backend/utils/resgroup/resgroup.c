@@ -126,6 +126,13 @@ struct ResGroupData
 	int			totalQueued;	/* total number of queued trans	*/
 	Interval	totalQueuedTime;/* total queue time */
 
+	/*
+	 * This spinlock is to prevent concurrent updates to
+	 * memSharedGranted and memSharedUsage to prevent potential
+	 * race condition issue.
+	 */
+	slock_t		lock;
+
 	bool		lockedForDrop;  /* true if resource group is dropped but not committed yet */
 
 	int32		memExpected;		/* expected memory chunks according to current caps */
@@ -208,12 +215,22 @@ static void ResGroupWaitCancel(void);
 static void groupAssginChunks(ResGroupData *group,
 							  int32 chunks,
 							  const ResGroupCaps *caps);
-static int32 groupIncMemUsage(ResGroupData *group,
-							  ResGroupSlotData *slot,
-							  int32 chunks);
+static void groupIncMemUsage(ResGroupData *group,
+							 ResGroupSlotData *slot,
+							 int32 chunks);
 static void groupDecMemUsage(ResGroupData *group,
 							 ResGroupSlotData *slot,
 							 int32 chunks);
+static int32 groupTryIncMemUsageUnlocked(ResGroupData *group,
+										 ResGroupSlotData *slot,
+										 int32 chunks,
+										 int32 threshold);
+static void groupIncMemUsageUnlocked(ResGroupData *group,
+									 ResGroupSlotData *slot,
+									 int32 chunks);
+static void groupDecMemUsageUnlocked(ResGroupData *group,
+									 ResGroupSlotData *slot,
+									 int32 chunks);
 static int getFreeSlot(ResGroupData *group);
 static int getSlot(ResGroupData *group);
 static void putSlot(void);
@@ -765,7 +782,6 @@ ResGroupDumpMemoryInfo(void)
 bool
 ResGroupReserveMemory(int32 memoryChunks, int32 overuseChunks, bool *waiverUsed)
 {
-	int32				overused;
 	ResGroupSlotData	*slot = self->slot;
 	ResGroupData		*group = self->group;
 
@@ -820,29 +836,51 @@ ResGroupReserveMemory(int32 memoryChunks, int32 overuseChunks, bool *waiverUsed)
 	Assert(group->memUsage >= 0);
 	Assert(self->memUsage >= 0);
 
-	/* add memoryChunks into group & slot memory usage */
-	overused = groupIncMemUsage(group, slot, memoryChunks);
+	S_LOCK(&group->lock);
 
-	/* then check whether there is over usage */
-	if (CritSectionCount == 0 && overused > overuseChunks)
+	if (CritSectionCount == 0)
 	{
-		/* if the over usage is larger than allowed then revert the change */
-		groupDecMemUsage(group, slot, memoryChunks);
+		/*
+		 * When CritSectionCount is 0 then memory limit must be checked.
+		 */
 
-		/* also revert in proc */
-		Assert(self->memUsage >= memoryChunks);
-		self->memUsage -= memoryChunks;
+		int32		overuse;
 
-		if (overuseChunks == 0)
-			ResGroupDumpMemoryInfo();
+		overuse = groupTryIncMemUsageUnlocked(group, slot, memoryChunks,
+											  overuseChunks);
 
-		return false;
+		/* then check whether there is overuse */
+		if (overuse > overuseChunks)
+		{
+			/* the overuse is larger than allowed range, give up */
+
+			S_UNLOCK(&group->lock);
+
+			/* also revert in proc */
+			Assert(self->memUsage >= memoryChunks);
+			self->memUsage -= memoryChunks;
+
+			if (overuseChunks == 0)
+				ResGroupDumpMemoryInfo();
+
+			return false;
+		}
+		else if (overuse > 0)
+		{
+			/* the over usage is within the allowed threshold */
+			*waiverUsed = true;
+		}
 	}
-	else if (CritSectionCount == 0 && overused > 0)
+	else
 	{
-		/* the over usage is within the allowed threshold */
-		*waiverUsed = true;
+		/*
+		 * Otherwise force the memory to be reserved.
+		 */
+
+		groupIncMemUsageUnlocked(group, slot, memoryChunks);
 	}
+
+	S_UNLOCK(&group->lock);
 
 	return true;
 }
@@ -1035,6 +1073,8 @@ ResGroupCreate(Oid groupId, const ResGroupCaps *caps)
 	if (group == NULL)
 		return NULL;
 
+	S_INIT_LOCK(&group->lock);
+
 	group->groupId = groupId;
 	group->caps = *caps;
 	group->nRunning = 0;
@@ -1061,75 +1101,174 @@ ResGroupCreate(Oid groupId, const ResGroupCaps *caps)
 /*
  * Add chunks into group and slot memory usage.
  *
- * Return the over used chunks.
+ * Please refer to groupIncMemUsageUnlocked() for details,
+ * it's the unlocked version of this function.
  */
-static int32
+static void
 groupIncMemUsage(ResGroupData *group, ResGroupSlotData *slot, int32 chunks)
 {
-	int32			slotMemUsage;
+	Assert(group != NULL);
+
+	S_LOCK(&group->lock);
+
+	groupIncMemUsageUnlocked(group, slot, chunks);
+
+	S_UNLOCK(&group->lock);
+}
+
+/*
+ * Sub chunks from group and slot memory usage.
+ *
+ * Please refer to groupDecMemUsageUnlocked() for details,
+ * it's the unlocked version of this function.
+ */
+static void
+groupDecMemUsage(ResGroupData *group, ResGroupSlotData *slot, int32 chunks)
+{
+	Assert(group != NULL);
+
+	S_LOCK(&group->lock);
+
+	groupDecMemUsageUnlocked(group, slot, chunks);
+
+	S_UNLOCK(&group->lock);
+}
+
+/*
+ * Try to add chunks into group and slot memory usage when possible.
+ *
+ * This function will check for the memory limit.
+ * Unless the operation is successfully made nothing will be changed
+ * in group and slot during the decision process.
+ *
+ * Please refer to groupIncMemUsageUnlocked() which does not
+ * check for memory limit.
+ *
+ * If threshold > 0 then an overuse is allowed as long as overuse <= threshold.
+ *
+ * Return the overuse in chunks.
+ * - overuse > threshold: the operation is not allowed as overuse is too large;
+ * - overuse > 0: although there is overuse the operation is still made;
+ * - overuse <= 0: there is no overuse, the operation is made;
+ *
+ * This function does not hold any lock but the spinlock must be held
+ * to call this function.
+ */
+static int32
+groupTryIncMemUsageUnlocked(ResGroupData *group, ResGroupSlotData *slot,
+							int32 chunks, int32 threshold)
+{
 	int32			sharedMemUsage;
-	int32			overused = 0;
+	int32			slotMemUsage = slot->memUsage;
+	int32			groupMemUsage = group->memUsage;
+	int32			groupMemSharedUsage = group->memSharedUsage;
+	int32			overuse = 0;
+
+	/* Add the chunks to memUsage in group */
+	groupMemUsage += chunks;
 
 	/* Add the chunks to memUsage in slot */
-	slotMemUsage = pg_atomic_add_fetch_u32((pg_atomic_uint32 *) &slot->memUsage,
-										   chunks);
+	slotMemUsage += chunks;
 
 	/* Check whether shared memory should be added */
 	sharedMemUsage = slotMemUsage - slot->memQuota;
 	if (sharedMemUsage > 0)
 	{
-		int32			total;
-
 		/* Decide how many chunks should be counted as shared memory */
 		sharedMemUsage = Min(sharedMemUsage, chunks);
 
 		/* Add these chunks to memSharedUsage in group */
-		total = pg_atomic_add_fetch_u32((pg_atomic_uint32 *) &group->memSharedUsage,
-										sharedMemUsage);
+		groupMemSharedUsage += sharedMemUsage;
 
 		/* Calculate the over used chunks */
-		overused = Max(0, total - group->memSharedGranted);
+		overuse = groupMemSharedUsage - group->memSharedGranted;
+
+		if (overuse > threshold)
+		{
+			/* The overuse is too large, give up */
+			return overuse;
+		}
 	}
 
-	/* Add the chunks to memUsage in group */
-	pg_atomic_add_fetch_u32((pg_atomic_uint32 *) &group->memUsage,
-							chunks);
+	/* Now we know the operation is allowed, actually apply the changes */
+	group->memSharedUsage = groupMemSharedUsage;
+	group->memUsage = groupMemUsage;
+	slot->memUsage = slotMemUsage;
 
-	return overused;
+	return overuse;
+}
+
+/*
+ * Add chunks into group and slot memory usage.
+ *
+ * This function does not check for the memory limit.
+ *
+ * Please refer to groupTryIncMemUsageUnlocked() which checks for memory limit.
+ *
+ * This function does not hold any lock but the spinlock must be held
+ * to call this function.
+ *
+ * Please refer to groupIncMemUsage() which is a locked version
+ * of this function.
+ */
+static void
+groupIncMemUsageUnlocked(ResGroupData *group, ResGroupSlotData *slot,
+						 int32 chunks)
+{
+	int32			sharedMemUsage;
+
+	/* Add the chunks to memUsage in group */
+	group->memUsage += chunks;
+
+	/* Add the chunks to memUsage in slot */
+	slot->memUsage += chunks;
+
+	/* Check whether shared memory should be added */
+	sharedMemUsage = slot->memUsage - slot->memQuota;
+	if (sharedMemUsage > 0)
+	{
+		/* Decide how many chunks should be counted as shared memory */
+		sharedMemUsage = Min(sharedMemUsage, chunks);
+
+		/* Add these chunks to memSharedUsage in group */
+		group->memSharedUsage += sharedMemUsage;
+	}
 }
 
 /*
  * Sub chunks from group and slot memory usage.
+ *
+ * This function does not hold any lock but the spinlock must be held
+ * to call this function.
+ *
+ * Please refer to groupDecMemUsage() which is a locked version
+ * of this function.
  */
 static void
-groupDecMemUsage(ResGroupData *group, ResGroupSlotData *slot, int32 chunks)
+groupDecMemUsageUnlocked(ResGroupData *group, ResGroupSlotData *slot,
+						 int32 chunks)
 {
-	int32			value;
-	int32			slotMemUsage;
 	int32			sharedMemUsage;
 
-	/* Sub chunks from memUsage in group */
-	value = pg_atomic_sub_fetch_u32((pg_atomic_uint32 *) &group->memUsage,
-									chunks);
-	Assert(value >= 0);
-
-	/* Sub chunks from memUsage in slot */
-	slotMemUsage = pg_atomic_fetch_sub_u32((pg_atomic_uint32 *) &slot->memUsage,
-										   chunks);
-	Assert(slotMemUsage >= chunks);
-
 	/* Check whether shared memory should be subed */
-	sharedMemUsage = slotMemUsage - slot->memQuota;
+	sharedMemUsage = slot->memUsage - slot->memQuota;
 	if (sharedMemUsage > 0)
 	{
 		/* Decide how many chunks should be counted as shared memory */
 		sharedMemUsage = Min(sharedMemUsage, chunks);
 
 		/* Sub chunks from memSharedUsage in group */
-		value = pg_atomic_sub_fetch_u32((pg_atomic_uint32 *) &group->memSharedUsage,
-										sharedMemUsage);
-		Assert(value >= 0);
+		group->memSharedUsage -= sharedMemUsage;
+		Assert(group->memSharedUsage >= 0);
 	}
+
+	/* Sub chunks from memUsage in slot */
+	slot->memUsage -= chunks;
+	Assert(slot->memUsage >= 0);
+
+	/* Sub chunks from memUsage in group */
+	group->memUsage -= chunks;
+	Assert(group->memUsage >= 0);
 }
 
 /*
@@ -1461,20 +1600,25 @@ groupApplyMemCaps(ResGroupData *group, const ResGroupCaps *caps)
 
 	/* TODO: optimize the free logic */
 	if (memStocksToFree > 0)
-	{
-		returnChunksToPool(group->groupId, memStocksToFree);
 		group->memQuotaGranted -= memStocksToFree;
-	}
+
+	S_LOCK(&group->lock);
 
 	memSharedNeeded = Max(group->memSharedUsage,
 						  groupGetMemSharedExpected(caps));
 	memSharedToFree = group->memSharedGranted - memSharedNeeded;
 
 	if (memSharedToFree > 0)
-	{
-		returnChunksToPool(group->groupId, memSharedToFree);
 		group->memSharedGranted -= memSharedToFree;
-	}
+
+	S_UNLOCK(&group->lock);
+
+	memStocksToFree = Max(memStocksToFree, 0);
+	memSharedToFree = Max(memSharedToFree, 0);
+
+	if (memStocksToFree + memSharedToFree > 0)
+		returnChunksToPool(group->groupId, memStocksToFree + memSharedToFree);
+
 #if 1
 	/*
 	 * FIXME: why we need this?
@@ -1547,6 +1691,8 @@ groupAssginChunks(ResGroupData *group, int32 chunks, const ResGroupCaps *caps)
 
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 
+	S_LOCK(&group->lock);
+
 	delta = memQuotaGranted - group->memQuotaGranted;
 	if (delta >= 0)
 	{
@@ -1557,6 +1703,8 @@ groupAssginChunks(ResGroupData *group, int32 chunks, const ResGroupCaps *caps)
 	}
 
 	group->memSharedGranted += chunks;
+
+	S_UNLOCK(&group->lock);
 }
 
 /*
@@ -1737,10 +1885,9 @@ groupReleaseMemQuota(ResGroupData *group, ResGroupSlotData *slot)
 	}
 
 	if (memQuotaToFree > 0)
-	{
-		returnChunksToPool(group->groupId, memQuotaToFree); 
 		group->memQuotaGranted -= memQuotaToFree; 
-	}
+
+	S_LOCK(&group->lock);
 
 	/* Return the over used shared quota to sys */
 	memSharedNeeded = Max(group->memSharedUsage,
@@ -1748,11 +1895,20 @@ groupReleaseMemQuota(ResGroupData *group, ResGroupSlotData *slot)
 	memSharedToFree = group->memSharedGranted - memSharedNeeded;
 	if (memSharedToFree > 0)
 	{
-		returnChunksToPool(group->groupId, memSharedToFree);
-		pg_atomic_sub_fetch_u32((pg_atomic_uint32 *) &group->memSharedGranted,
-								memSharedToFree);
+		group->memSharedGranted -= memSharedToFree;
+		Assert(group->memSharedGranted >= 0);
 	}
-	return (memQuotaToFree > 0 || memSharedToFree > 0);
+
+	S_UNLOCK(&group->lock);
+
+	memQuotaToFree = Max(memQuotaToFree, 0);
+	memSharedToFree = Max(memSharedToFree, 0);
+
+	if (memQuotaToFree + memSharedToFree <= 0)
+		return false;
+
+	returnChunksToPool(group->groupId, memQuotaToFree + memSharedToFree);
+	return true;
 }
 
 /*
@@ -2280,6 +2436,7 @@ ResGroupHashRemove(Oid groupId)
 	bool		found;
 	ResGroupHashEntry	*entry;
 	ResGroupData		*group;
+	int32		toFree;
 
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 
@@ -2288,9 +2445,16 @@ ResGroupHashRemove(Oid groupId)
 		return false;
 
 	group = &pResGroupControl->groups[entry->index];
-	returnChunksToPool(groupId, group->memQuotaGranted + group->memSharedGranted);
+
+	S_LOCK(&group->lock);
+	toFree = group->memQuotaGranted + group->memSharedGranted;
 	group->memQuotaGranted = 0;
 	group->memSharedGranted = 0;
+	S_UNLOCK(&group->lock);
+
+	if (toFree > 0)
+		returnChunksToPool(groupId, toFree);
+
 	group->groupId = InvalidOid;
 
 	hash_search(pResGroupControl->htbl, (void *) &groupId, HASH_REMOVE, &found);
