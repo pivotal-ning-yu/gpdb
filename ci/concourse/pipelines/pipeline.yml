@@ -725,6 +725,15 @@ resources:
     secret_access_key: {{bucket-secret-access-key}}
     versioned_file: deliverables/pljava-ossv1.4.0_pv1.3_gpdb4.3orca-rhel5-x86_64.gppkg
 
+- name: released_pljava_rhel5_gppkg
+  type: s3
+  source:
+    access_key_id: {{gpdb5-pipeline-bucket-access-key-id}}
+    bucket: {{procedural-languages-concourse-bucket}}
+    region_name: {{aws-region}}
+    secret_access_key: {{gpdb5-pipeline-bucket-secret-access-key}}
+    regexp: release/gpdb4/pljava/pljava-(.*)-gp4-rhel5-x86_64.gppkg
+
 - name: pljava_sles11_gppkg
   type: s3
   source:
@@ -742,6 +751,15 @@ resources:
     region_name: {{aws-region}}
     secret_access_key: {{bucket-secret-access-key}}
     versioned_file: deliverables/plr-ossv8.3.0.15_pv2.1_gpdb4.3orca-rhel5-x86_64.gppkg
+
+- name: released_plr_rhel5_gppkg
+  type: s3
+  source:
+    access_key_id: {{gpdb5-pipeline-bucket-access-key-id}}
+    bucket: {{procedural-languages-concourse-bucket}}
+    region_name: {{aws-region}}
+    secret_access_key: {{gpdb5-pipeline-bucket-secret-access-key}}
+    regexp: release/gpdb4/plr/plr-(.*)-GPDB4.3-rhel5-x86_64.gppkg
 
 - name: plr_sles11_gppkg
   type: s3
@@ -1521,9 +1539,9 @@ jobs:
     - get: plperl_gppkg
       resource: plperl_rhel6_gppkg
     - get: pljava_gppkg
-      resource: pljava_rhel5_gppkg
+      resource: released_pljava_rhel5_gppkg
     - get: plr_gppkg
-      resource: plr_rhel5_gppkg
+      resource: released_plr_rhel5_gppkg
     - get: libgppc_gppkg
       resource: libgppc_rhel5_gppkg
     - get: before_orca_plperl_gppkg
