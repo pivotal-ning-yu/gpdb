@@ -157,6 +157,11 @@ class Gppkg:
         if 'gpdbversion' in gppkg_config  and 'ossversion' in gppkg_config:
             gppkg_name = "%(pkg)s-ossv%(ossversion)s_pv%(version)s_gpdb%(gpdbversion)s%(orca)s-%(os)s-%(platform)s.%(type)s" % gppkg_config
 
+        gppkg_config['random_name'] = 'GPDB4.3' if 'plr' in gppkg else 'gp4'
+
+        if 'pljava' in gppkg or 'plr' in gppkg:
+            gppkg_name = "{pkg}-{version}-{random_name}-{os}-{platform}.{type}".format(**gppkg_config)
+
         return 0, gppkg_name
 
     def getconfig(self, product_version='4.2', gppkg=None):
