@@ -37,8 +37,12 @@ groups:
   - DPM_backup-restore_filename_compatibility
   - pulse_DPM_BehaveNetBackup77
   - pulse_DPM_BehaveNetBackup77_filename_compatibility
-  - pulse_DPM_BehaveDDBoost
-  - pulse_DPM_BehaveDDBoost_filename_compatibility
+  - DPM_backup-restore_ddboost_part1
+  - DPM_backup-restore_ddboost_part2
+  - DPM_backup-restore_ddboost_part3
+  - DPM_ddboost_filename_compatibility_part1
+  - DPM_ddboost_filename_compatibility_part2
+  - DPM_ddboost_filename_compatibility_part3
   - pulse_DPM_BehaveGptransfer43xTo43x
   - pulse_MM_Gpexpand
   - pulse_Kerberos-jdbc-no-scm
@@ -98,8 +102,6 @@ groups:
   - pulse_DPM_BehaveGptransfer43xTo43x
   - pulse_DPM_BehaveNetBackup77
   - pulse_DPM_BehaveNetBackup77_filename_compatibility
-  - pulse_DPM_BehaveDDBoost
-  - pulse_DPM_BehaveDDBoost_filename_compatibility
   - pulse_MM_Gpexpand
   - pulse_Kerberos-jdbc-no-scm
   - pulse_Kerberos-smoke
@@ -139,20 +141,35 @@ groups:
   - MM_gprecoverseg
   - DPM_backup-restore
   - DPM_backup-restore_filename_compatibility
+  - DPM_backup-restore_ddboost_part1
+  - DPM_backup-restore_ddboost_part2
+  - DPM_backup-restore_ddboost_part3
+  - DPM_ddboost_filename_compatibility_part1
+  - DPM_ddboost_filename_compatibility_part2
+  - DPM_ddboost_filename_compatibility_part3
 - name: MM
   jobs:
   - MM_gpcheckcat
   - MM_gppkg
   - MM_gprecoverseg
-- name: Pulse_MU
+- name: DPM
   jobs:
   - DPM_backup-restore
   - DPM_backup-restore_filename_compatibility
+  - DPM_backup-restore_ddboost_part1
+  - DPM_backup-restore_ddboost_part2
+  - DPM_backup-restore_ddboost_part3
+  - DPM_ddboost_filename_compatibility_part1
+  - DPM_ddboost_filename_compatibility_part2
+  - DPM_ddboost_filename_compatibility_part3
+  - pulse_DPM_BehaveNetBackup77
+  - pulse_DPM_BehaveNetBackup77_filename_compatibility
+  - pulse_DPM_BehaveGptransfer43xTo43x
+- name: Pulse_MU
+  jobs:
   - pulse_DPM_BehaveGptransfer43xTo43x
   - pulse_DPM_BehaveNetBackup77
   - pulse_DPM_BehaveNetBackup77_filename_compatibility
-  - pulse_DPM_BehaveDDBoost
-  - pulse_DPM_BehaveDDBoost_filename_compatibility
   - pulse_MM_Gpexpand
   - pulse_Kerberos-jdbc-no-scm
   - pulse_Kerberos-smoke
@@ -252,6 +269,7 @@ resources:
     tag_filter: 1.0.0-beta.2
     private_key: {{ccp-git-key}}
     uri: {{ccp-git-remote}}
+    tag_filter: 1.0.0-beta.2
 
 - name: terraform
   type: terraform
@@ -1786,31 +1804,8 @@ jobs:
     on_failure:
       <<: *debug_sleep
   - task: setup_new_gpdb4
-    config:
-      platform: linux
-      image_resource:
-        type: docker-image
-        source:
-          repository: centos
-          tag: "7"
-      inputs:
-      - name: terraform
-      - name: bin_gpdb
-      - name: ccp_src
-      - name: gpdb_src
-      - name: cluster_env_files
-      run:
-        path: bash
-        args:
-        - -c
-        - |
-          set -ex
-          ccp_src/aws/setup_ssh_to_cluster.sh
-          scp cluster_env_files/hostfile_all mdw:/home/gpadmin/hostfile_all
-          ssh -t mdw "source /home/gpadmin/gpdb_src/ci/concourse/scripts/backup_utils.sh; copy_backup_files"
-          ssh -t mdw "source /home/gpadmin/gpdb_src/ci/concourse/scripts/backup_utils.sh; destroy_gpdb"
-          ccp_src/aws/install_gpdb.sh bin_gpdb
-          ssh -t mdw "source /home/gpadmin/gpdb_src/ci/concourse/scripts/backup_utils.sh; restore_backup_files"
+    file: gpdb_src/ci/concourse/setup_new_gpdb_for_backup_restore.yml
+    image: centos-gpdb-dev-6
     on_failure:
       <<: *debug_sleep
   - task: run_restore_tests
@@ -1818,6 +1813,123 @@ jobs:
     image: centos-gpdb-dev-6
     params:
       BEHAVE_FLAGS: --tags=backup_and_restore_restores --tags=-nbuonly --tags=-ddonly --tags=-skip_filename_compatibility
+    on_failure:
+      <<: *debug_sleep
+  - *ccp_destroy
+
+- name: DPM_backup-restore_ddboost_part1
+  plan:
+  - get: weekly-trigger-pulse
+    trigger: true
+  - aggregate:
+    - get: ccp_src
+    - get: gpdb_src
+      passed: [compile_gpdb_centos]
+    - get: sync_tools_gpdb
+      resource: sync_tools_gpdb_centos
+      passed: [compile_gpdb_centos]
+    - get: bin_gpdb
+      resource: bin_gpdb_centos
+      passed: [compile_gpdb_centos]
+    - get: centos-gpdb-dev-6
+  - put: terraform
+    params:
+        <<: *ccp_create_params
+  - task: gen_cluster
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    input_mapping:
+      gpdb_binary: bin_gpdb
+    params:
+      AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
+      AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
+      AWS_DEFAULT_REGION: {{aws-region}}
+    on_failure:
+      <<: *ccp_destroy
+  - task: run_tests
+    file: gpdb_src/ci/concourse/terraform_run_behave.yml
+    image: centos-gpdb-dev-6
+    params:
+      BEHAVE_FLAGS: --tags=ddboostsetup,ddpartI
+      CUSTOM_ENV: export DD_SOURCE_HOST={{datadomain_source_host}}; export DD_DEST_HOST={{datadomain_dest_host}}; export DD_USER={{datadomain_user}}; export DD_PASSWORD={{datadomain_password}};
+      PRE_TEST_SCRIPT: "source /home/gpadmin/gpdb_src/ci/concourse/scripts/backup_utils.sh; setup_ddboost"
+    on_failure:
+      <<: *debug_sleep
+  - *ccp_destroy
+
+- name: DPM_backup-restore_ddboost_part2
+  plan:
+  - get: weekly-trigger-pulse
+    trigger: true
+  - aggregate:
+    - get: ccp_src
+    - get: gpdb_src
+      passed: [compile_gpdb_centos]
+    - get: sync_tools_gpdb
+      resource: sync_tools_gpdb_centos
+      passed: [compile_gpdb_centos]
+    - get: bin_gpdb
+      resource: bin_gpdb_centos
+      passed: [compile_gpdb_centos]
+    - get: centos-gpdb-dev-6
+  - put: terraform
+    params:
+        <<: *ccp_create_params
+  - task: gen_cluster
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    input_mapping:
+      gpdb_binary: bin_gpdb
+    params:
+      AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
+      AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
+      AWS_DEFAULT_REGION: {{aws-region}}
+    on_failure:
+      <<: *ccp_destroy
+  - task: run_tests
+    file: gpdb_src/ci/concourse/terraform_run_behave.yml
+    image: centos-gpdb-dev-6
+    params:
+      BEHAVE_FLAGS: --tags=ddboostsetup,ddpartII
+      CUSTOM_ENV: export DD_SOURCE_HOST={{datadomain_source_host}}; export DD_DEST_HOST={{datadomain_dest_host}}; export DD_USER={{datadomain_user}}; export DD_PASSWORD={{datadomain_password}};
+      PRE_TEST_SCRIPT: "source /home/gpadmin/gpdb_src/ci/concourse/scripts/backup_utils.sh; setup_ddboost"
+    on_failure:
+      <<: *debug_sleep
+  - *ccp_destroy
+
+- name: DPM_backup-restore_ddboost_part3
+  plan:
+  - get: weekly-trigger-pulse
+    trigger: true
+  - aggregate:
+    - get: ccp_src
+    - get: gpdb_src
+      passed: [compile_gpdb_centos]
+    - get: sync_tools_gpdb
+      resource: sync_tools_gpdb_centos
+      passed: [compile_gpdb_centos]
+    - get: bin_gpdb
+      resource: bin_gpdb_centos
+      passed: [compile_gpdb_centos]
+    - get: centos-gpdb-dev-6
+  - put: terraform
+    params:
+        <<: *ccp_create_params
+  - task: gen_cluster
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    input_mapping:
+      gpdb_binary: bin_gpdb
+    params:
+      AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
+      AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
+      AWS_DEFAULT_REGION: {{aws-region}}
+    on_failure:
+      <<: *ccp_destroy
+  - task: run_tests
+    file: gpdb_src/ci/concourse/terraform_run_behave.yml
+    image: centos-gpdb-dev-6
+    params:
+      BEHAVE_FLAGS: --tags=ddboostsetup,ddpartIII
+      CUSTOM_ENV: export DD_SOURCE_HOST={{datadomain_source_host}}; export DD_DEST_HOST={{datadomain_dest_host}}; export DD_USER={{datadomain_user}}; export DD_PASSWORD={{datadomain_password}};
+      PRE_TEST_SCRIPT: "source /home/gpadmin/gpdb_src/ci/concourse/scripts/backup_utils.sh; setup_ddboost"
     on_failure:
       <<: *debug_sleep
   - *ccp_destroy
@@ -1942,53 +2054,158 @@ jobs:
       PULSE_USERNAME: {{pulse_username}}
       PULSE_PASSWORD: {{pulse_password}}
 
-- name: pulse_DPM_BehaveDDBoost
+- name: DPM_ddboost_filename_compatibility_part1
   plan:
-  - get: pulse-api-image
   - get: weekly-trigger-pulse
     trigger: true
-  - aggregate: *rhel_artifacts_for_pulse_release-add-trigger
-  - task: trigger_pulse
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/trigger_pulse.yml
+  - aggregate:
+    - get: gpdb_src
+      passed: [compile_gpdb_centos]
+    - get: bin_gpdb
+      resource: bin_gpdb_centos
+      passed: [compile_gpdb_centos]
+    - get: bin_gpdb4-3-11-3
+      resource: bin_gpdb4-3-11-3_centos
+    - get: ccp_src
+    - get: centos-gpdb-dev-6
+  - put: terraform
     params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: GPDB-43_STABLE-BehaveDDBoost
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
-  - task: monitor_pulse
-    attempts: 2
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/monitor_pulse.yml
+      <<: *ccp_create_params
+  - task: setup_gpdb4-3-11-3
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    input_mapping:
+      gpdb_binary: bin_gpdb4-3-11-3
     params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: GPDB-43_STABLE-BehaveDDBoost
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
+      AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
+      AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
+      AWS_DEFAULT_REGION: {{aws-region}}
+    on_failure:
+      <<: *ccp_destroy
+  - task: run_backup_tests
+    file: gpdb_src/ci/concourse/terraform_run_behave.yml
+    image: centos-gpdb-dev-6
+    params:
+      BEHAVE_FLAGS: --tags=backup_and_restore_backups --tags=ddboostsetup,ddpartI --tags=-skip_filename_compatibility
+      CUSTOM_ENV: export DD_SOURCE_HOST={{datadomain_source_host}}; export DD_DEST_HOST={{datadomain_dest_host}}; export DD_USER={{datadomain_user}}; export DD_PASSWORD={{datadomain_password}};
+      PRE_TEST_SCRIPT: "source /home/gpadmin/gpdb_src/ci/concourse/scripts/backup_utils.sh; setup_ddboost"
+    on_failure:
+      <<: *debug_sleep
+  - task: setup_new_gpdb4
+    file: gpdb_src/ci/concourse/setup_new_gpdb_for_backup_restore.yml
+    image: centos-gpdb-dev-6
+    on_failure:
+      <<: *debug_sleep
+  - task: run_restore_tests
+    file: gpdb_src/ci/concourse/terraform_run_behave.yml
+    image: centos-gpdb-dev-6
+    params:
+      BEHAVE_FLAGS: --tags=backup_and_restore_restores --tags=ddboostsetup,ddpartI --tags=-skip_filename_compatibility
+      CUSTOM_ENV: export DD_SOURCE_HOST={{datadomain_source_host}}; export DD_DEST_HOST={{datadomain_dest_host}}; export DD_USER={{datadomain_user}}; export DD_PASSWORD={{datadomain_password}};
+    on_failure:
+      <<: *debug_sleep
+  - *ccp_destroy
 
-- name: pulse_DPM_BehaveDDBoost_filename_compatibility
+- name: DPM_ddboost_filename_compatibility_part2
   plan:
-  - get: pulse-api-image
   - get: weekly-trigger-pulse
     trigger: true
-  - aggregate: *rhel_artifacts_for_pulse_release-add-trigger
-  - task: trigger_pulse
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/trigger_pulse.yml
+  - aggregate:
+    - get: gpdb_src
+      passed: [compile_gpdb_centos]
+    - get: bin_gpdb
+      resource: bin_gpdb_centos
+      passed: [compile_gpdb_centos]
+    - get: bin_gpdb4-3-11-3
+      resource: bin_gpdb4-3-11-3_centos
+    - get: ccp_src
+    - get: centos-gpdb-dev-6
+  - put: terraform
     params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: GPDB-43_STABLE-BehaveDDBoost_filename_compatibility
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
-  - task: monitor_pulse
-    attempts: 2
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/monitor_pulse.yml
+      <<: *ccp_create_params
+  - task: setup_gpdb4-3-11-3
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    input_mapping:
+      gpdb_binary: bin_gpdb4-3-11-3
     params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: GPDB-43_STABLE-BehaveDDBoost_filename_compatibility
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
+      AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
+      AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
+      AWS_DEFAULT_REGION: {{aws-region}}
+    on_failure:
+      <<: *ccp_destroy
+  - task: run_backup_tests
+    file: gpdb_src/ci/concourse/terraform_run_behave.yml
+    image: centos-gpdb-dev-6
+    params:
+      BEHAVE_FLAGS: --tags=backup_and_restore_backups --tags=ddboostsetup,ddpartII --tags=-skip_filename_compatibility
+      CUSTOM_ENV: export DD_SOURCE_HOST={{datadomain_source_host}}; export DD_DEST_HOST={{datadomain_dest_host}}; export DD_USER={{datadomain_user}}; export DD_PASSWORD={{datadomain_password}};
+      PRE_TEST_SCRIPT: "source /home/gpadmin/gpdb_src/ci/concourse/scripts/backup_utils.sh; setup_ddboost"
+    on_failure:
+      <<: *debug_sleep
+  - task: setup_new_gpdb4
+    file: gpdb_src/ci/concourse/setup_new_gpdb_for_backup_restore.yml
+    image: centos-gpdb-dev-6
+    on_failure:
+      <<: *debug_sleep
+  - task: run_restore_tests
+    file: gpdb_src/ci/concourse/terraform_run_behave.yml
+    image: centos-gpdb-dev-6
+    params:
+      BEHAVE_FLAGS: --tags=backup_and_restore_restores --tags=ddboostsetup,ddpartII --tags=-skip_filename_compatibility
+      CUSTOM_ENV: export DD_SOURCE_HOST={{datadomain_source_host}}; export DD_DEST_HOST={{datadomain_dest_host}}; export DD_USER={{datadomain_user}}; export DD_PASSWORD={{datadomain_password}};
+    on_failure:
+      <<: *debug_sleep
+  - *ccp_destroy
+
+- name: DPM_ddboost_filename_compatibility_part3
+  plan:
+  - get: weekly-trigger-pulse
+    trigger: true
+  - aggregate:
+    - get: gpdb_src
+      passed: [compile_gpdb_centos]
+    - get: bin_gpdb
+      resource: bin_gpdb_centos
+      passed: [compile_gpdb_centos]
+    - get: bin_gpdb4-3-11-3
+      resource: bin_gpdb4-3-11-3_centos
+    - get: ccp_src
+    - get: centos-gpdb-dev-6
+  - put: terraform
+    params:
+      <<: *ccp_create_params
+  - task: setup_gpdb4-3-11-3
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    input_mapping:
+      gpdb_binary: bin_gpdb4-3-11-3
+    params:
+      AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
+      AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
+      AWS_DEFAULT_REGION: {{aws-region}}
+    on_failure:
+      <<: *ccp_destroy
+  - task: run_backup_tests
+    file: gpdb_src/ci/concourse/terraform_run_behave.yml
+    image: centos-gpdb-dev-6
+    params:
+      BEHAVE_FLAGS: --tags=backup_and_restore_backups --tags=ddboostsetup,ddpartIII --tags=-skip_filename_compatibility
+      CUSTOM_ENV: export DD_SOURCE_HOST={{datadomain_source_host}}; export DD_DEST_HOST={{datadomain_dest_host}}; export DD_USER={{datadomain_user}}; export DD_PASSWORD={{datadomain_password}};
+      PRE_TEST_SCRIPT: "source /home/gpadmin/gpdb_src/ci/concourse/scripts/backup_utils.sh; setup_ddboost"
+    on_failure:
+      <<: *debug_sleep
+  - task: setup_new_gpdb4
+    file: gpdb_src/ci/concourse/setup_new_gpdb_for_backup_restore.yml
+    image: centos-gpdb-dev-6
+    on_failure:
+      <<: *debug_sleep
+  - task: run_restore_tests
+    file: gpdb_src/ci/concourse/terraform_run_behave.yml
+    image: centos-gpdb-dev-6
+    params:
+      BEHAVE_FLAGS: --tags=backup_and_restore_restores --tags=ddboostsetup,ddpartIII --tags=-skip_filename_compatibility
+      CUSTOM_ENV: export DD_SOURCE_HOST={{datadomain_source_host}}; export DD_DEST_HOST={{datadomain_dest_host}}; export DD_USER={{datadomain_user}}; export DD_PASSWORD={{datadomain_password}};
+    on_failure:
+      <<: *debug_sleep
+  - *ccp_destroy
 
 - name: pulse_MM_Gpexpand
   plan:
