@@ -836,7 +836,7 @@ ResGroupReserveMemory(int32 memoryChunks, int32 overuseChunks, bool *waiverUsed)
 	Assert(group->memUsage >= 0);
 	Assert(self->memUsage >= 0);
 
-	S_LOCK(&group->lock);
+	SpinLockAcquire(&group->lock);
 
 	if (CritSectionCount == 0)
 	{
@@ -854,7 +854,7 @@ ResGroupReserveMemory(int32 memoryChunks, int32 overuseChunks, bool *waiverUsed)
 		{
 			/* the overuse is larger than allowed range, give up */
 
-			S_UNLOCK(&group->lock);
+			SpinLockRelease(&group->lock);
 
 			/* also revert in proc */
 			Assert(self->memUsage >= memoryChunks);
@@ -880,7 +880,7 @@ ResGroupReserveMemory(int32 memoryChunks, int32 overuseChunks, bool *waiverUsed)
 		groupIncMemUsageUnlocked(group, slot, memoryChunks);
 	}
 
-	S_UNLOCK(&group->lock);
+	SpinLockRelease(&group->lock);
 
 	return true;
 }
@@ -1073,7 +1073,7 @@ ResGroupCreate(Oid groupId, const ResGroupCaps *caps)
 	if (group == NULL)
 		return NULL;
 
-	S_INIT_LOCK(&group->lock);
+	SpinLockInit(&group->lock);
 
 	group->groupId = groupId;
 	group->caps = *caps;
@@ -1109,11 +1109,11 @@ groupIncMemUsage(ResGroupData *group, ResGroupSlotData *slot, int32 chunks)
 {
 	Assert(group != NULL);
 
-	S_LOCK(&group->lock);
+	SpinLockAcquire(&group->lock);
 
 	groupIncMemUsageUnlocked(group, slot, chunks);
 
-	S_UNLOCK(&group->lock);
+	SpinLockRelease(&group->lock);
 }
 
 /*
@@ -1127,11 +1127,11 @@ groupDecMemUsage(ResGroupData *group, ResGroupSlotData *slot, int32 chunks)
 {
 	Assert(group != NULL);
 
-	S_LOCK(&group->lock);
+	SpinLockAcquire(&group->lock);
 
 	groupDecMemUsageUnlocked(group, slot, chunks);
 
-	S_UNLOCK(&group->lock);
+	SpinLockRelease(&group->lock);
 }
 
 /*
@@ -1602,7 +1602,7 @@ groupApplyMemCaps(ResGroupData *group, const ResGroupCaps *caps)
 	if (memStocksToFree > 0)
 		group->memQuotaGranted -= memStocksToFree;
 
-	S_LOCK(&group->lock);
+	SpinLockAcquire(&group->lock);
 
 	memSharedNeeded = Max(group->memSharedUsage,
 						  groupGetMemSharedExpected(caps));
@@ -1611,7 +1611,7 @@ groupApplyMemCaps(ResGroupData *group, const ResGroupCaps *caps)
 	if (memSharedToFree > 0)
 		group->memSharedGranted -= memSharedToFree;
 
-	S_UNLOCK(&group->lock);
+	SpinLockRelease(&group->lock);
 
 	memStocksToFree = Max(memStocksToFree, 0);
 	memSharedToFree = Max(memSharedToFree, 0);
@@ -1691,7 +1691,7 @@ groupAssginChunks(ResGroupData *group, int32 chunks, const ResGroupCaps *caps)
 
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 
-	S_LOCK(&group->lock);
+	SpinLockAcquire(&group->lock);
 
 	delta = memQuotaGranted - group->memQuotaGranted;
 	if (delta >= 0)
@@ -1704,7 +1704,7 @@ groupAssginChunks(ResGroupData *group, int32 chunks, const ResGroupCaps *caps)
 
 	group->memSharedGranted += chunks;
 
-	S_UNLOCK(&group->lock);
+	SpinLockRelease(&group->lock);
 }
 
 /*
@@ -1887,7 +1887,7 @@ groupReleaseMemQuota(ResGroupData *group, ResGroupSlotData *slot)
 	if (memQuotaToFree > 0)
 		group->memQuotaGranted -= memQuotaToFree; 
 
-	S_LOCK(&group->lock);
+	SpinLockAcquire(&group->lock);
 
 	/* Return the over used shared quota to sys */
 	memSharedNeeded = Max(group->memSharedUsage,
@@ -1899,7 +1899,7 @@ groupReleaseMemQuota(ResGroupData *group, ResGroupSlotData *slot)
 		Assert(group->memSharedGranted >= 0);
 	}
 
-	S_UNLOCK(&group->lock);
+	SpinLockRelease(&group->lock);
 
 	memQuotaToFree = Max(memQuotaToFree, 0);
 	memSharedToFree = Max(memSharedToFree, 0);
@@ -2446,11 +2446,11 @@ ResGroupHashRemove(Oid groupId)
 
 	group = &pResGroupControl->groups[entry->index];
 
-	S_LOCK(&group->lock);
+	SpinLockAcquire(&group->lock);
 	toFree = group->memQuotaGranted + group->memSharedGranted;
 	group->memQuotaGranted = 0;
 	group->memSharedGranted = 0;
-	S_UNLOCK(&group->lock);
+	SpinLockRelease(&group->lock);
 
 	if (toFree > 0)
 		returnChunksToPool(groupId, toFree);
