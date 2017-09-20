@@ -3793,17 +3793,10 @@ def impl(context, num):
     except:
         raise Exception("gptransfer sub batch size should be %d, is at least %d" % (num, num+1))
 
-# Read in a full map file, remove the first host, print it to a new file
 @given('an incomplete map file is created')
 def impl(context):
-    map_file = os.environ['GPTRANSFER_MAP_FILE']
-    contents = []
-    with open(map_file, 'r') as fd:
-        contents = fd.readlines()
-
     with open('/tmp/incomplete_map_file', 'w') as fd:
-        for line in contents[1:]:
-            fd.write(line)
+        fd.write('nonexistent_host,nonexistent_host')
 
 @given('there is a table "{table_name}" dependent on function "{func_name}" in database "{dbname}" on the source system')
 def impl(context, table_name, func_name, dbname):

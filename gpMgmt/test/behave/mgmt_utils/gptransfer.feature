@@ -1104,20 +1104,7 @@ Feature: gptransfer tests
         Then gptransfer should return a return code of 0
         And verify that there is a "heap" table "public.t0" in "gptransfer_testdb1"
 
-    @T339876
-    Scenario: gptransfer with invalid dest user
-        Given the database is running
-        And the database "gptest" does not exist
-        And the database "gptransfer_destdb" does not exist
-        And the database "gptransfer_testdb1" does not exist
-        And the database "gptransfer_testdb3" does not exist
-        And the database "gptransfer_testdb4" does not exist
-        And the database "gptransfer_testdb5" does not exist
-        And the user runs "gptransfer --full --source-port $GPTRANSFER_SOURCE_PORT --source-host $GPTRANSFER_SOURCE_HOST --source-user $GPTRANSFER_SOURCE_USER --dest-user non_existent_user --dest-port $GPTRANSFER_DEST_PORT --dest-host $GPTRANSFER_DEST_HOST --source-map-file $GPTRANSFER_MAP_FILE --batch-size=10"
-        Then gptransfer should return a return code of 2
-        And gptransfer should print "FATAL:  role "non_existent_user" does not exist" to stdout
-
-    @T339878
+   @T339878
     Scenario: gptransfer with parallelism 25
         Given the database is running
         And the database "gptransfer_destdb" does not exist
@@ -1302,35 +1289,6 @@ Feature: gptransfer tests
         And run post verifying workload under "test/behave/mgmt_utils/steps/data/gptransfer/post/filespace"
         And the user runs "psql -p $GPTRANSFER_SOURCE_PORT -h $GPTRANSFER_SOURCE_HOST -U $GPTRANSFER_SOURCE_USER -f test/behave/mgmt_utils/steps/data/gptransfer/teardown.sql -d template1"
         And the user runs "psql -p $GPTRANSFER_DEST_PORT -h $GPTRANSFER_DEST_HOST -U $GPTRANSFER_DEST_USER -f test/behave/mgmt_utils/steps/data/gptransfer/teardown.sql -d template1"
-
-    @T339824
-    @v_42_to_43
-    Scenario: gptransfer full with all ddl, dml and filespace from version 4.2 to 4.3
-        Given the database is running
-        And the database "gptest" does not exist
-        And the database "gptransfer_destdb" does not exist
-        And the database "gptransfer_testdb1" does not exist
-        And the database "gptransfer_testdb3" does not exist
-        And the database "gptransfer_testdb4" does not exist
-        And the database "gptransfer_testdb5" does not exist
-        And the database "gptest" does not exist
-        And the user runs "psql -p $GPTRANSFER_SOURCE_PORT -h $GPTRANSFER_SOURCE_HOST -U $GPTRANSFER_SOURCE_USER -f gppylib/test/behave/mgmt_utils/steps/data/gptransfer/setup.sql -d template1"
-        And the user "GPTRANSFER_SOURCE_USER" creates filespace_config file for "fs" on host "GPTRANSFER_SOURCE_HOST" with gpdb port "GPTRANSFER_SOURCE_PORT" and config "gpfilespace_config_src" in "HOME" directory
-        And the user "GPTRANSFER_DEST_USER" creates filespace_config file for "fs" on host "GPTRANSFER_DEST_HOST" with gpdb port "GPTRANSFER_DEST_PORT" and config "gpfilespace_config_dest" in "HOME" directory
-        And the user "GPTRANSFER_SOURCE_USER" creates filespace on host "GPTRANSFER_SOURCE_HOST" with gpdb port "GPTRANSFER_SOURCE_PORT" and config "gpfilespace_config_src" in "HOME" directory
-        And the user "GPTRANSFER_DEST_USER" creates filespace on host "GPTRANSFER_DEST_HOST" with gpdb port "GPTRANSFER_DEST_PORT" and config "gpfilespace_config_dest" in "HOME" directory
-        And the user runs workload under "gppylib/test/behave/mgmt_utils/steps/data/gptransfer/pre/ddl" with connection "psql -p $GPTRANSFER_SOURCE_PORT -h $GPTRANSFER_SOURCE_HOST -U $GPTRANSFER_SOURCE_USER -d template1"
-        And the user runs workload under "gppylib/test/behave/mgmt_utils/steps/data/gptransfer/pre/dml" with connection "psql -p $GPTRANSFER_SOURCE_PORT -h $GPTRANSFER_SOURCE_HOST -U $GPTRANSFER_SOURCE_USER -d template1"
-        And the user runs workload under "gppylib/test/behave/mgmt_utils/steps/data/gptransfer/pre/filespace" with connection "psql -p $GPTRANSFER_SOURCE_PORT -h $GPTRANSFER_SOURCE_HOST -U $GPTRANSFER_SOURCE_USER -d template1"
-        When the user runs "gptransfer --full --source-port $GPTRANSFER_SOURCE_PORT --source-host $GPTRANSFER_SOURCE_HOST --source-user $GPTRANSFER_SOURCE_USER --dest-user $GPTRANSFER_DEST_USER --dest-port $GPTRANSFER_DEST_PORT --dest-host $GPTRANSFER_DEST_HOST --source-map-file $GPTRANSFER_MAP_FILE --batch-size=10"
-        Then gptransfer should return a return code of 0
-        And run post verifying workload under "gppylib/test/behave/mgmt_utils/steps/data/gptransfer/post/ddl"
-        And run post verifying workload under "gppylib/test/behave/mgmt_utils/steps/data/gptransfer/post/ddl_42to43"
-        And run post verifying workload under "gppylib/test/behave/mgmt_utils/steps/data/gptransfer/post/dml"
-        And the user runs "psql -d template1 -f gppylib/test/behave/mgmt_utils/steps/data/gptransfer/pull_pg_stats.sql > gppylib/test/behave/mgmt_utils/steps/data/gptransfer/pull_pg_stats.out"
-        And run post verifying workload under "gppylib/test/behave/mgmt_utils/steps/data/gptransfer/post/filespace"
-        And the user runs "psql -p $GPTRANSFER_SOURCE_PORT -h $GPTRANSFER_SOURCE_HOST -U $GPTRANSFER_SOURCE_USER -f gppylib/test/behave/mgmt_utils/steps/data/gptransfer/teardown.sql -d template1"
-        And the user runs "psql -p $GPTRANSFER_DEST_PORT -h $GPTRANSFER_DEST_HOST -U $GPTRANSFER_DEST_USER -f gppylib/test/behave/mgmt_utils/steps/data/gptransfer/teardown.sql -d template1"
 
     @T339821
     Scenario: gptransfer full in change tracking
