@@ -130,6 +130,26 @@ struct ResGroupData
 	 * This spinlock is to prevent concurrent updates to
 	 * memSharedGranted and memSharedUsage to prevent potential
 	 * race condition issue.
+	 *
+	 * In details, any concurrent updates to below attributes should be
+	 * protected by this spinlock:
+	 * - group->groupId;
+	 * - group->memSharedUsage;
+	 * - group->memSharedGranted;
+	 * - group->memUsage;
+	 * - slot->memUsage;
+	 *
+	 * Concurrent checks on below attributes should also be protected
+	 * by this spinlock:
+	 * - group->memSharedUsage;
+	 * - group->memUsage;
+	 * - slot->memUsage;
+	 *
+	 * Some attributes are considered immutable during lifecycle so
+	 * there should not be concurrent updates:
+	 * - slot->memQuota;
+	 *
+	 * Attributes in self will not be concurrently updated.
 	 */
 	slock_t		lock;
 
@@ -808,6 +828,10 @@ ResGroupReserveMemory(int32 memoryChunks, int32 overuseChunks, bool *waiverUsed)
 		return true;
 	}
 
+	Assert(group != NULL);
+
+	SpinLockAcquire(&group->lock);
+
 	/* When doMemCheck is on, self must has been assigned to a resgroup. */
 	Assert(selfIsAssigned());
 
@@ -822,10 +846,15 @@ ResGroupReserveMemory(int32 memoryChunks, int32 overuseChunks, bool *waiverUsed)
 		 * We would unset the group and slot from self and turn off memory
 		 * limit check so we'll not reach here again and again.
 		 */
+
+		Oid		groupId = group->groupId;
+
+		SpinLockRelease(&group->lock);
+
 		if (Debug_resource_group)
 			write_log("Resource group is concurrently dropped while reserving memory: "
 					  "dropped group=%d, my group=%d",
-					  group->groupId, self->groupId);
+					  groupId, self->groupId);
 		selfUnassignDroppedGroup();
 		self->doMemCheck = false;
 		return true;
@@ -835,8 +864,6 @@ ResGroupReserveMemory(int32 memoryChunks, int32 overuseChunks, bool *waiverUsed)
 	Assert(selfIsAssignedValidGroup());
 	Assert(group->memUsage >= 0);
 	Assert(self->memUsage >= 0);
-
-	SpinLockAcquire(&group->lock);
 
 	if (CritSectionCount == 0)
 	{
@@ -907,14 +934,22 @@ ResGroupReleaseMemory(int32 memoryChunks)
 		return;
 	}
 
+	Assert(group != NULL);
+
+	SpinLockAcquire(&group->lock);
+
 	Assert(selfIsAssigned());
 
 	if (selfIsAssignedDroppedGroup())
 	{
+		Oid		groupId = group->groupId;
+
+		SpinLockRelease(&group->lock);
+
 		if (Debug_resource_group)
 			write_log("Resource group is concurrently dropped while releasing memory: "
 					  "dropped group=%d, my group=%d",
-					  group->groupId, self->groupId);
+					  groupId, self->groupId);
 		selfUnassignDroppedGroup();
 		self->doMemCheck = false;
 		return;
@@ -922,7 +957,9 @@ ResGroupReleaseMemory(int32 memoryChunks)
 
 	Assert(selfIsAssignedValidGroup());
 
-	groupDecMemUsage(group, slot, memoryChunks);
+	groupDecMemUsageUnlocked(group, slot, memoryChunks);
+
+	SpinLockRelease(&group->lock);
 }
 
 /*
@@ -2447,15 +2484,26 @@ ResGroupHashRemove(Oid groupId)
 	group = &pResGroupControl->groups[entry->index];
 
 	SpinLockAcquire(&group->lock);
+
+	/*
+	 * Once groupId is set to InvalidOid this resgroup is considered
+	 * as dropped, in palloc() & pfree() no check/update is performed
+	 * on dropped resgroup.
+	 *
+	 * We should make this happen before touching the memory quota
+	 * otherwise the quota information might be updated concurrently
+	 * in palloc() / pfree().
+	 */
+	group->groupId = InvalidOid;
+
 	toFree = group->memQuotaGranted + group->memSharedGranted;
 	group->memQuotaGranted = 0;
 	group->memSharedGranted = 0;
+
 	SpinLockRelease(&group->lock);
 
 	if (toFree > 0)
 		returnChunksToPool(groupId, toFree);
-
-	group->groupId = InvalidOid;
 
 	hash_search(pResGroupControl->htbl, (void *) &groupId, HASH_REMOVE, &found);
 
