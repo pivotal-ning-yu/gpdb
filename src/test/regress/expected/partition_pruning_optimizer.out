@@ -484,4 +484,43 @@ select get_selected_parts('explain analyze select * from bar where j is distinct
  [8, 8]
 (1 row)
 
+--
+-- MPP-29060: Exclude dummy rels from join after partition elimination
+--
+DROP TABLE IF EXISTS foo;
+DROP TABLE IF EXISTS bar;
+CREATE TABLE foo(dt date, m character varying(5), dk character varying(32)) DISTRIBUTED BY (dk);
+CREATE TABLE bar( dt date, m character varying(5), dk character varying(32))
+DISTRIBUTED BY (dk)
+PARTITION BY LIST(dt)
+(PARTITION p1 VALUES('2017-09-17'), PARTITION p2 VALUES('2017-09-03'), PARTITION p3 VALUES('2017-09-04'));
+NOTICE:  CREATE TABLE will create partition "bar_1_prt_p1" for table "bar"
+NOTICE:  CREATE TABLE will create partition "bar_1_prt_p2" for table "bar"
+NOTICE:  CREATE TABLE will create partition "bar_1_prt_p3" for table "bar"
+EXPLAIN DELETE FROM bar b
+WHERE b.dt = DATE '20170917'
+AND EXISTS ( SELECT 1 FROM foo f WHERE f.dt = DATE '20170904' -1 AND b.m = f.m);
+                                                     QUERY PLAN
+---------------------------------------------------------------------------------------------------------------------
+ Delete  (cost=0.00..862.04 rows=1 width=1)
+   ->  Result  (cost=0.00..862.00 rows=1 width=34)
+         ->  Partition Selector for bar  (cost=0.00..862.00 rows=1 width=30)
+               ->  Hash EXISTS Join  (cost=0.00..862.00 rows=1 width=30)
+                     Hash Cond: public.bar.m::text = foo.m::text
+                     ->  Sequence  (cost=0.00..431.00 rows=1 width=30)
+                           ->  Partition Selector for bar (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                 Filter: public.bar.dt = '2017-09-17'::date
+                                 Partitions selected:  1 (out of 3)
+                           ->  Dynamic Table Scan on bar (dynamic scan id: 1)  (cost=0.00..431.00 rows=1 width=30)
+                                 Filter: dt = '2017-09-17'::date
+                     ->  Hash  (cost=431.00..431.00 rows=1 width=8)
+                           ->  Broadcast Motion 3:3  (slice1; segments: 3)  (cost=0.00..431.00 rows=1 width=8)
+                                 ->  Result  (cost=0.00..431.00 rows=1 width=8)
+                                       ->  Result  (cost=0.00..431.00 rows=1 width=8)
+                                             ->  Table Scan on foo  (cost=0.00..431.00 rows=1 width=8)
+                                                   Filter: dt = '2017-09-03'::date
+ Settings:  optimizer=on
+ Optimizer status: PQO version 2.46.1
+(19 rows)
+
 RESET ALL;

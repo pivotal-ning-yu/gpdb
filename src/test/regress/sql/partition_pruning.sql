@@ -224,4 +224,20 @@ select get_selected_parts('explain analyze select * from bar where j is distinct
 -- 8 parts: NULL is shared with others on p1. So, all 8 parts.
 select get_selected_parts('explain analyze select * from bar where j is distinct from NULL;');
 
+--
+-- MPP-29060: Exclude dummy rels from join after partition elimination
+--
+DROP TABLE IF EXISTS foo;
+DROP TABLE IF EXISTS bar;
+
+CREATE TABLE foo(dt date, m character varying(5), dk character varying(32)) DISTRIBUTED BY (dk);
+CREATE TABLE bar( dt date, m character varying(5), dk character varying(32))
+DISTRIBUTED BY (dk)
+PARTITION BY LIST(dt)
+(PARTITION p1 VALUES('2017-09-17'), PARTITION p2 VALUES('2017-09-03'), PARTITION p3 VALUES('2017-09-04'));
+
+EXPLAIN DELETE FROM bar b
+WHERE b.dt = DATE '20170917'
+AND EXISTS ( SELECT 1 FROM foo f WHERE f.dt = DATE '20170904' -1 AND b.m = f.m);
+
 RESET ALL;

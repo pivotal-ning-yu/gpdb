@@ -39,6 +39,8 @@ cdb_add_subquery_join_paths(PlannerInfo    *root,
 					        List           *restrictlist);
 static bool has_join_restriction(PlannerInfo *root, RelOptInfo *rel);
 static bool has_legal_joinclause(PlannerInfo *root, RelOptInfo *rel);
+static bool is_dummy_rel(RelOptInfo *rel);
+static void mark_dummy_join(PlannerInfo *root, RelOptInfo *rel);
 
 
 /*
@@ -521,6 +523,16 @@ make_join_rel(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2)
 	joinrel = build_join_rel(root, joinrelids, rel1, rel2, jointype,
 							 &restrictlist);
 
+	/*
+	 * If we've already proven this join is empty, we needn't consider
+	 * any more paths for it.
+	 */
+	if (is_dummy_rel(joinrel))
+	{
+		bms_free(joinrelids);
+		return joinrel;
+	}
+
     /* Reversed jointype is useful when rel2 becomes outer and rel1 is inner. */
     swapjointype = (jointype == JOIN_LEFT)  ? JOIN_RIGHT
                  : (jointype == JOIN_RIGHT) ? JOIN_LEFT
@@ -534,6 +546,7 @@ make_join_rel(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2)
      */
     if ((rel1->dedup_info && rel1->dedup_info->later_dedup_pathlist) ||
         (rel2->dedup_info && rel2->dedup_info->later_dedup_pathlist))
+	{
         cdb_add_subquery_join_paths(root,
                                     joinrel,
                                     rel1,
@@ -541,22 +554,69 @@ make_join_rel(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2)
                                     jointype,
                                     swapjointype,
                                     restrictlist);
-
-    /*
-	 * For antijoins, the outer and inner rel are fixed.
-	 */
-	else if (jointype == JOIN_LASJ || jointype == JOIN_LASJ_NOTIN)
-	{
-        add_paths_to_joinrel(root, joinrel, rel1, rel2, jointype, restrictlist);
+		bms_free(joinrelids);
+		return joinrel;
 	}
-    /*
-	 * Consider paths using each rel as both outer and inner.
-	 */
-    else
-    {
-        add_paths_to_joinrel(root, joinrel, rel1, rel2, jointype, restrictlist);
-        add_paths_to_joinrel(root, joinrel, rel2, rel1, swapjointype, restrictlist);
-    }
+
+	switch (jointype)
+	{
+		case JOIN_LASJ:
+		case JOIN_LASJ_NOTIN:
+			/*
+			 * For antijoins, the outer and inner rel are fixed.
+			 * If left rel is empty, the result set will be empty
+			 */
+			if (is_dummy_rel(rel1))
+			{
+				mark_dummy_join(root, joinrel);
+				break;
+			}
+
+			add_paths_to_joinrel(root, joinrel, rel1, rel2, jointype, restrictlist);
+			break;
+
+		case JOIN_LEFT:
+			if (is_dummy_rel(rel1))
+			{
+				mark_dummy_join(root, joinrel);
+				break;
+			}
+
+			add_paths_to_joinrel(root, joinrel, rel1, rel2, jointype, restrictlist);
+			add_paths_to_joinrel(root, joinrel, rel2, rel1, swapjointype, restrictlist);
+			break;
+
+		case JOIN_RIGHT:
+			if (is_dummy_rel(rel2))
+			{
+				mark_dummy_join(root, joinrel);
+				break;
+			}
+
+			add_paths_to_joinrel(root, joinrel, rel1, rel2, jointype, restrictlist);
+			add_paths_to_joinrel(root, joinrel, rel2, rel1, swapjointype, restrictlist);
+			break;
+
+		case JOIN_INNER:
+		case JOIN_FULL:
+		case JOIN_IN:
+		case JOIN_REVERSE_IN:
+		case JOIN_UNIQUE_OUTER:
+		case JOIN_UNIQUE_INNER:
+			if (is_dummy_rel(rel1) || is_dummy_rel(rel2))
+			{
+				mark_dummy_join(root, joinrel);
+				break;
+			}
+			add_paths_to_joinrel(root, joinrel, rel1, rel2, jointype, restrictlist);
+			add_paths_to_joinrel(root, joinrel, rel2, rel1, swapjointype, restrictlist);
+			break;
+
+		default:
+			elog(ERROR, "unrecognized join type: %d",
+				 (int) jointype);
+			break;
+	}
 
 	bms_free(joinrelids);
 	return joinrel;
@@ -884,4 +944,42 @@ has_legal_joinclause(PlannerInfo *root, RelOptInfo *rel)
 	}
 
 	return false;
+}
+
+/*
+ * is_dummy_rel --- has relation been proven empty?
+ *
+ * If so, it will have a single path that is dummy.
+ */
+static bool
+is_dummy_rel(RelOptInfo *rel)
+{
+	return (rel->cheapest_total_path != NULL &&
+			IS_DUMMY_PATH(rel->cheapest_total_path));
+}
+
+/*
+ * Mark a joinrel as proven empty.
+ */
+static void
+mark_dummy_join(PlannerInfo *root, RelOptInfo *rel)
+{
+	/* Set dummy size estimate */
+	rel->rows = 0;
+
+	/* Evict any previously chosen paths */
+	rel->pathlist = NIL;
+
+	/* Set up the dummy path */
+	add_path(root, rel, (Path *) create_append_path(root, rel, NIL));
+
+	/* The dummy path doesn't need deduplication */
+	rel->dedup_info = NULL;
+
+	/*
+	 * Although set_cheapest will be done again later, we do it immediately
+	 * in order to keep is_dummy_rel as cheap as possible (ie, not have
+	 * to examine the pathlist).
+	 */
+	set_cheapest(root, rel);
 }

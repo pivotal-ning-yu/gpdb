@@ -891,6 +891,9 @@ typedef struct AppendPath
 	List	   *subpaths;		/* list of component Paths */
 } AppendPath;
 
+#define IS_DUMMY_PATH(p) \
+	(IsA((p), AppendPath) && ((AppendPath *) (p))->subpaths == NIL)
+
 /*
  * ResultPath represents use of a Result plan node to compute a variable-free
  * targetlist with no underlying tables (a "SELECT expressions" query).

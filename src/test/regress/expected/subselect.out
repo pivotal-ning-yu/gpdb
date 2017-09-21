@@ -1441,15 +1441,13 @@ select * from t1 where a=1 and a=2 and a > (select t2.b from t2);
 explain select * from t1,
 (select * from t1 where a=1 and a=2 and a > (select t2.b from t2)) foo
 where t1.a = foo.a;
-                   QUERY PLAN                   
-------------------------------------------------
- Nested Loop  (cost=0.00..0.00 rows=2 width=8)
-   ->  Result  (cost=0.00..0.01 rows=1 width=0)
-         One-Time Filter: false
-   ->  Result  (cost=0.00..0.01 rows=1 width=0)
-         One-Time Filter: false
- Settings:  optimizer_segments=3
-(6 rows)
+                          QUERY PLAN                          
+--------------------------------------------------------------
+ Result  (cost=1063.00..1063.01 rows=1 width=0)
+   One-Time Filter: false
+ Settings:  optimizer_nestloop_factor=1; optimizer_segments=3
+ Optimizer status: legacy query optimizer
+(4 rows)
 
 select * from t1,
 (select * from t1 where a=1 and a=2 and a > (select t2.b from t2)) foo
