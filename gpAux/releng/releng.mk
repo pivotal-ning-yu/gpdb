@@ -152,7 +152,9 @@ sync_tools: opt_write_test /opt/releng/apache-ant
 	-Divyrepo.user="$(IVYREPO_USER)" -Divyrepo.passwd="$(IVYREPO_PASSWD)" resolve);
 	@echo "Resolve finished";
 
-	$(BLD_WHERE_THE_LIBRARY_THINGS_ARE)="" wget -O - https://github.com/greenplum-db/gporca/releases/download/v2.46.0/bin_orca_centos5_release.tar.gz | tar zxf - -C $(BLD_TOP)/ext/$(BLD_ARCH)
+ifeq "$(findstring aix,$(BLD_ARCH))" ""
+	LD_LIBRARY_PATH='' wget -O - https://github.com/greenplum-db/gporca/releases/download/v2.46.2/bin_orca_centos5_release.tar.gz | tar zxf - -C $(BLD_TOP)/ext/$(BLD_ARCH)
+endif
 
 clean_tools: opt_write_test
 	@cd releng/make/dependencies; \
