@@ -20,12 +20,13 @@ logger = gplog.get_default_logger()
 
 class Context(Values, object):
     filename_dict = {
-        "ao": ("dump", "_ao_state_file"), "cdatabase": ("cdatabase_%d_%s", ""), "co": ("dump", "_co_state_file"), "dirty_table": ("dump", "_dirty_list"),
-        "dump": ("dump_%d_%s", ""), "files": ("dump", "_regular_files"), "filter": ("dump", "_filter"), "global": ("global_%d_%s", ""),
+        "ao": ("dump", "_ao_state_file"), "cdatabase": ("cdatabase_%(content)d_%(dbid)s", ""), "co": ("dump", "_co_state_file"), "dirty_table": ("dump", "_dirty_list"),
+        "dump": ("dump_%(content)d_%(dbid)s", ""), "files": ("dump", "_regular_files"), "filter": ("dump", "_filter"), "global": ("global_%(content)d_%(dbid)s", ""),
         "increments": ("dump", "_increments"), "last_operation": ("dump", "_last_operation"), "master_config": ("master_config_files", ".tar"),
-        "metadata": ("dump_%d_%s", ""), "partition_list": ("dump", "_table_list"), "pipes": ("dump", "_pipes"), "plan": ("restore", "_plan"),
-        "postdata": ("dump_%d_%s", "_post_data"), "report": ("dump", ".rpt"), "schema": ("dump", "_schema"), "segment_config": ("segment_config_files_%d_%s", ".tar"),
-        "stats": ("statistics_%d_%s", ""), "table": ("dump", "_table"), "status": ("dump_status_%d_%s", ""),
+        "metadata": ("dump_%(content)d_%(dbid)s", ""), "partition_list": ("dump", "_table_list"), "pipes": ("dump", "_pipes"), "plan": ("restore", "_plan"),
+        "postdata": ("dump_%(content)d_%(dbid)s", "_post_data"), "report": ("dump", ".rpt"), "schema": ("dump", "_schema"),
+        "segment_config": ("segment_config_files_%(content)d_%(dbid)s", ".tar"), "stats": ("statistics_%(content)d_%(dbid)s", ""), "table": ("dump", "_table"),
+        "status": ("dump_status_%(content)d_%(dbid)s", ""),
     }
     defaults = {
         "backup_dir": None, "batch_default": 64, "change_schema": None, "cleanup_date": None, "cleanup_total": None, "clear_catalog_dumps": False,
@@ -98,21 +99,19 @@ class Context(Values, object):
 
         format_str =  "%s/%sgp_%s_%s%s" % (use_dir, self.dump_prefix, "%s", timestamp, "%s")
         filename = format_str % (self.filename_dict[filetype][0], self.filename_dict[filetype][1])
-        if "%d_%s" in filename:
-            if use_old_format:
-                if content is not None: # Doesn't use "if not content" because 0 is a valid content id
-                    dbids = ["%d" % id for id in self.content_map if self.content_map[id] == content]
-                    filename = filename % (1 if content == -1 else 0, "[%s]" % ("|".join(dbids)))
-                elif dbid == 1:
-                    filename = filename % (1, 1)
-                else:
-                    filename = filename % (0, dbid)
+        if "%(content)d_%(dbid)s" in filename:
+            content_num = -2
+            dbid_str = ""
+            if content is not None: # Doesn't use "if not content" because 0 is a valid content id
+                content_num = content
+                dbids = ["%d" % id for id in self.content_map if self.content_map[id] == content]
+                dbid_str = "(%s)" % ("|".join(dbids))
             else:
-                if content is not None:
-                    filename = filename % (content, "*")
-                else:
-                    content = self.content_map[dbid]
-                    filename = filename % (content, dbid)
+                content_num = self.content_map[dbid]
+                dbid_str = dbid
+            if use_old_format:
+                content_num = 1 if content_num == -1 else 0
+            filename = filename % {"content": content_num, "dbid": dbid_str}
         if self.compress and filetype in ["metadata", "dump", "postdata"] and use_compress:
             filename += ".gz"
         return filename
@@ -291,16 +290,18 @@ def get_filename_for_content(context, filetype, content, remote_directory=None, 
         if not host:
             raise Exception("Must supply name of remote host to check for %s file" % filetype)
         cmd = Command(name = "Find file of type %s for content %d on host %s" % (filetype, content, host),
-                cmdStr = 'python -c "import glob; print glob.glob(\'%s\')[0]"' % filetype_glob, ctxt = REMOTE, remoteHost = host)
+                cmdStr = 'echo "import glob, re\nfor f in glob.glob(\'%s/*\'):\n    if re.match(\'%s\', f):\n        print f\n        break" | python'
+                            % (remote_directory, filetype_glob), ctxt = REMOTE, remoteHost = host)
         cmd.run()
 
         if cmd.get_results().rc == 0 and cmd.get_results().stdout:
             return cmd.get_results().stdout
         return None
     else:
-        filenames = glob.glob(filetype_glob)
-        if filenames and len(filenames) > 0:
-            return filenames[0]
+        filenames = glob.glob("%s/*" % context.get_backup_dir())
+        for filename in filenames:
+            if re.match(filetype_glob, filename):
+                return filename
         return None
 
 def expand_partitions_and_populate_filter_file(dbname, partition_list, file_prefix):
