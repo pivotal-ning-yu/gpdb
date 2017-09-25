@@ -1,6 +1,6 @@
 #!/bin/bash
 
-TINC_TARGET=$@
+TINC_TARGET="$@"
 TINC_DIR=/home/gpadmin/gpdb_src/src/test/tinc
 
 cat > ~/gpdb-env.sh << EOF
@@ -18,4 +18,4 @@ createdb gptest
 createdb gpadmin
 cd ${TINC_DIR}
 source tinc_env.sh
-make $@
+make ${TINC_TARGET}
