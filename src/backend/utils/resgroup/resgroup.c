@@ -241,22 +241,19 @@ static void ResGroupWaitCancel(void);
 static void groupAssginChunks(ResGroupData *group,
 							  int32 chunks,
 							  const ResGroupCaps *caps);
+static int32 groupTryIncMemUsage(ResGroupData *group,
+								 ResGroupSlotData *slot,
+								 int32 chunks,
+								 int32 threshold,
+								 bool lock);
 static void groupIncMemUsage(ResGroupData *group,
 							 ResGroupSlotData *slot,
-							 int32 chunks);
+							 int32 chunks,
+							 bool lock);
 static void groupDecMemUsage(ResGroupData *group,
 							 ResGroupSlotData *slot,
-							 int32 chunks);
-static int32 groupTryIncMemUsageUnlocked(ResGroupData *group,
-										 ResGroupSlotData *slot,
-										 int32 chunks,
-										 int32 threshold);
-static void groupIncMemUsageUnlocked(ResGroupData *group,
-									 ResGroupSlotData *slot,
-									 int32 chunks);
-static void groupDecMemUsageUnlocked(ResGroupData *group,
-									 ResGroupSlotData *slot,
-									 int32 chunks);
+							 int32 chunks,
+							 bool lock);
 static int getFreeSlot(ResGroupData *group);
 static int getSlot(ResGroupData *group);
 static void putSlot(void);
@@ -883,8 +880,8 @@ ResGroupReserveMemory(int32 memoryChunks, int32 overuseChunks, bool *waiverUsed)
 
 		int32		overuse;
 
-		overuse = groupTryIncMemUsageUnlocked(group, slot, memoryChunks,
-											  overuseChunks);
+		overuse = groupTryIncMemUsage(group, slot, memoryChunks,
+									  overuseChunks, false);
 
 		/* then check whether there is overuse */
 		if (overuse > overuseChunks)
@@ -914,7 +911,7 @@ ResGroupReserveMemory(int32 memoryChunks, int32 overuseChunks, bool *waiverUsed)
 		 * Otherwise force the memory to be reserved.
 		 */
 
-		groupIncMemUsageUnlocked(group, slot, memoryChunks);
+		groupIncMemUsage(group, slot, memoryChunks, false);
 	}
 
 	groupSpinLockRelease(group);
@@ -965,7 +962,7 @@ ResGroupReleaseMemory(int32 memoryChunks)
 
 	Assert(selfIsAssignedValidGroup());
 
-	groupDecMemUsageUnlocked(group, slot, memoryChunks);
+	groupDecMemUsage(group, slot, memoryChunks, false);
 
 	groupSpinLockRelease(group);
 }
@@ -1144,46 +1141,13 @@ ResGroupCreate(Oid groupId, const ResGroupCaps *caps)
 }
 
 /*
- * Add chunks into group and slot memory usage.
- *
- * Please refer to groupIncMemUsageUnlocked() for details,
- * it's the unlocked version of this function.
- */
-static void
-groupIncMemUsage(ResGroupData *group, ResGroupSlotData *slot, int32 chunks)
-{
-	groupSpinLockAcquire(group);
-
-	groupIncMemUsageUnlocked(group, slot, chunks);
-
-	groupSpinLockRelease(group);
-}
-
-/*
- * Sub chunks from group and slot memory usage.
- *
- * Please refer to groupDecMemUsageUnlocked() for details,
- * it's the unlocked version of this function.
- */
-static void
-groupDecMemUsage(ResGroupData *group, ResGroupSlotData *slot, int32 chunks)
-{
-	groupSpinLockAcquire(group);
-
-	groupDecMemUsageUnlocked(group, slot, chunks);
-
-	groupSpinLockRelease(group);
-}
-
-/*
  * Try to add chunks into group and slot memory usage when possible.
  *
  * This function will check for the memory limit.
  * Unless the operation is successfully made nothing will be changed
  * in group and slot during the decision process.
  *
- * Please refer to groupIncMemUsageUnlocked() which does not
- * check for memory limit.
+ * Please refer to groupIncMemUsage() which does not check for memory limit.
  *
  * If threshold > 0 then an overuse is allowed as long as overuse <= threshold.
  *
@@ -1192,18 +1156,23 @@ groupDecMemUsage(ResGroupData *group, ResGroupSlotData *slot, int32 chunks)
  * - overuse > 0: although there is overuse the operation is still made;
  * - overuse <= 0: there is no overuse, the operation is made;
  *
- * This function does not hold any lock but the spinlock must be held
- * to call this function.
+ * If lock is true then the spinlock will temporarily held during the call;
+ * otherwise the spinlock must already be held to call this function.
  */
 static int32
-groupTryIncMemUsageUnlocked(ResGroupData *group, ResGroupSlotData *slot,
-							int32 chunks, int32 threshold)
+groupTryIncMemUsage(ResGroupData *group, ResGroupSlotData *slot,
+					int32 chunks, int32 threshold, bool lock)
 {
 	int32			sharedMemUsage;
 	int32			slotMemUsage = slot->memUsage;
 	int32			groupMemUsage = group->memUsage;
 	int32			groupMemSharedUsage = group->memSharedUsage;
 	int32			overuse = 0;
+
+	if (lock)
+		groupSpinLockAcquire(group);
+
+	Assert(groupSpinLockHeldByMe(group));
 
 	/* Add the chunks to memUsage in group */
 	groupMemUsage += chunks;
@@ -1236,6 +1205,9 @@ groupTryIncMemUsageUnlocked(ResGroupData *group, ResGroupSlotData *slot,
 	group->memUsage = groupMemUsage;
 	slot->memUsage = slotMemUsage;
 
+	if (lock)
+		groupSpinLockRelease(group);
+
 	return overuse;
 }
 
@@ -1244,19 +1216,21 @@ groupTryIncMemUsageUnlocked(ResGroupData *group, ResGroupSlotData *slot,
  *
  * This function does not check for the memory limit.
  *
- * Please refer to groupTryIncMemUsageUnlocked() which checks for memory limit.
+ * Please refer to groupTryIncMemUsage() which checks for memory limit.
  *
- * This function does not hold any lock but the spinlock must be held
- * to call this function.
- *
- * Please refer to groupIncMemUsage() which is a locked version
- * of this function.
+ * If lock is true then the spinlock will temporarily held during the call;
+ * otherwise the spinlock must already be held to call this function.
  */
 static void
-groupIncMemUsageUnlocked(ResGroupData *group, ResGroupSlotData *slot,
-						 int32 chunks)
+groupIncMemUsage(ResGroupData *group, ResGroupSlotData *slot,
+				 int32 chunks, bool lock)
 {
 	int32			sharedMemUsage;
+
+	if (lock)
+		groupSpinLockAcquire(group);
+
+	Assert(groupSpinLockHeldByMe(group));
 
 	/* Add the chunks to memUsage in group */
 	group->memUsage += chunks;
@@ -1274,22 +1248,27 @@ groupIncMemUsageUnlocked(ResGroupData *group, ResGroupSlotData *slot,
 		/* Add these chunks to memSharedUsage in group */
 		group->memSharedUsage += sharedMemUsage;
 	}
+
+	if (lock)
+		groupSpinLockRelease(group);
 }
 
 /*
  * Sub chunks from group and slot memory usage.
  *
- * This function does not hold any lock but the spinlock must be held
- * to call this function.
- *
- * Please refer to groupDecMemUsage() which is a locked version
- * of this function.
+ * If lock is true then the spinlock will temporarily held during the call;
+ * otherwise the spinlock must already be held to call this function.
  */
 static void
-groupDecMemUsageUnlocked(ResGroupData *group, ResGroupSlotData *slot,
-						 int32 chunks)
+groupDecMemUsage(ResGroupData *group, ResGroupSlotData *slot,
+				 int32 chunks, bool lock)
 {
 	int32			sharedMemUsage;
+
+	if (lock)
+		groupSpinLockAcquire(group);
+
+	Assert(groupSpinLockHeldByMe(group));
 
 	/* Check whether shared memory should be subed */
 	sharedMemUsage = slot->memUsage - slot->memQuota;
@@ -1310,6 +1289,9 @@ groupDecMemUsageUnlocked(ResGroupData *group, ResGroupSlotData *slot,
 	/* Sub chunks from memUsage in group */
 	group->memUsage -= chunks;
 	Assert(group->memUsage >= 0);
+
+	if (lock)
+		groupSpinLockRelease(group);
 }
 
 /*
@@ -2149,7 +2131,7 @@ AssignResGroupOnMaster(void)
 		Assert(pResGroupControl->segmentsOnMaster > 0);
 
 		/* Add proc memory accounting info into group and slot */
-		groupIncMemUsage(group, slot, self->memUsage);
+		groupIncMemUsage(group, slot, self->memUsage, true);
 
 		/* Start memory limit checking */
 		self->doMemCheck = true;
@@ -2192,7 +2174,7 @@ UnassignResGroupOnMaster(void)
 	self->doMemCheck = false;
 
 	/* Sub proc memory accounting info from group and slot */
-	groupDecMemUsage(group, slot, self->memUsage);
+	groupDecMemUsage(group, slot, self->memUsage, true);
 
 	/* Cleanup self */
 	if (self->memUsage > 10)
@@ -2259,7 +2241,7 @@ SwitchResGroupOnSegment(const char *buf, int len)
 			Assert(prevGroup->groupId == prevGroupId);
 
 			/* Sub proc memory accounting info from group and slot */
-			groupDecMemUsage(prevGroup, prevSlot, self->memUsage);
+			groupDecMemUsage(prevGroup, prevSlot, self->memUsage, true);
 
 			/* Update info in previous slot */
 			pg_atomic_sub_fetch_u32((pg_atomic_uint32*)&prevSlot->nProcs, 1);
@@ -2326,7 +2308,7 @@ SwitchResGroupOnSegment(const char *buf, int len)
 			Assert(prevSlot != NULL);
 
 			/* Sub proc memory accounting info from group and slot */
-			groupDecMemUsage(prevGroup, prevSlot, self->memUsage);
+			groupDecMemUsage(prevGroup, prevSlot, self->memUsage, true);
 
 			/* Update info in previous slot */
 			pg_atomic_sub_fetch_u32((pg_atomic_uint32*)&prevSlot->nProcs, 1);
@@ -2340,7 +2322,7 @@ SwitchResGroupOnSegment(const char *buf, int len)
 		LWLockRelease(ResGroupLock);
 
 		/* Add proc memory accounting info into group and slot */
-		groupIncMemUsage(group, slot, self->memUsage);
+		groupIncMemUsage(group, slot, self->memUsage, true);
 
 		/* Update info in new slot */
 		pg_atomic_add_fetch_u32((pg_atomic_uint32*)&slot->nProcs, 1);
