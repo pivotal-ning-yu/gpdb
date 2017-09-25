@@ -531,6 +531,7 @@ void
 ResGroupCheckForDrop(Oid groupId, char *name)
 {
 	ResGroupData	*group;
+	int				nRunning;
 
 	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
 
@@ -544,9 +545,10 @@ ResGroupCheckForDrop(Oid groupId, char *name)
 				 errmsg("Cannot find resource group with Oid %d in shared memory", groupId)));
 	}
 
-	if (group->nRunning > 0)
+	nRunning = group->nRunning;
+	if (nRunning > 0)
 	{
-		int nQuery = group->nRunning + group->waitProcs.size;
+		int nQuery = nRunning + group->waitProcs.size;
 		LWLockRelease(ResGroupLock);
 
 		Assert(name != NULL);
@@ -1006,6 +1008,8 @@ ResGroupDecideConcurrencyCaps(Oid groupId,
 	/*
 	 * If the runtime usage information doesn't exceed the new setting
 	 * then we can pick this setting as the new 'value'.
+	 *
+	 * FIXME: will nRunning be increased after we released the LWLock?
 	 */
 	if (group->nRunning <= opts->concurrency)
 		caps->concurrency.value = opts->concurrency;
@@ -1396,7 +1400,7 @@ getSlot(ResGroupData *group)
 	slot->caps = *caps;
 
 	/* And finally increase nRunning */
-	pg_atomic_add_fetch_u32((pg_atomic_uint32*)&group->nRunning, 1);
+	group->nRunning += 1;
 
 	groupSpinLockRelease(group);
 
@@ -1445,7 +1449,7 @@ putSlot(void)
 	slot->inUse = false;
 
 	/* And finally decrease nRunning */
-	pg_atomic_sub_fetch_u32((pg_atomic_uint32*)&group->nRunning, 1);
+	group->nRunning -= 1;
 
 	groupSpinLockRelease(group);
 }
