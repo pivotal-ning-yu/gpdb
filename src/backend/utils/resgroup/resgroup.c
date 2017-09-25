@@ -201,7 +201,7 @@ static bool groupReleaseMemQuota(ResGroupData *group,
 								ResGroupSlotData *slot);
 static void groupAcquireMemQuota(ResGroupData *group, const ResGroupCaps *caps);
 static ResGroupData *ResGroupHashNew(Oid groupId);
-static ResGroupData *ResGroupHashFind(Oid groupId, bool raise);
+static ResGroupData *ResGroupHashFind(Oid groupId);
 static void ResGroupHashRemove(Oid groupId);
 static void ResGroupWait(ResGroupData *group);
 static ResGroupData *ResGroupCreate(Oid groupId, const ResGroupCaps *caps);
@@ -372,7 +372,7 @@ AllocResGroupEntry(Oid groupId, const ResGroupOpts *opts)
 
 	ResGroupOptsToCaps(opts, &caps);
 	group = ResGroupCreate(groupId, &caps);
-	Assert(group != InvalidOid);
+	Assert(group != NULL);
 
 	LWLockRelease(ResGroupLock);
 }
@@ -469,7 +469,7 @@ InitResGroups(void)
 		cpuRateLimit = caps.cpuRateLimit.value;
 
 		group = ResGroupCreate(groupId, &caps);
-		Assert(group != InvalidOid);
+		Assert(group != NULL);
 
 		ResGroupOps_CreateGroup(groupId);
 		ResGroupOps_SetCpuRateLimit(groupId, cpuRateLimit);
@@ -503,12 +503,11 @@ ResGroupCheckForDrop(Oid groupId, char *name)
 
 	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
 
-	group = ResGroupHashFind(groupId, true);
+	group = ResGroupHashFind(groupId);
 
 	if (group->nRunning > 0)
 	{
 		int nQuery = group->nRunning + group->waitProcs.size;
-		LWLockRelease(ResGroupLock);
 
 		Assert(name != NULL);
 		ereport(ERROR,
@@ -537,7 +536,7 @@ ResGroupDropCheckForWakeup(Oid groupId, bool isCommit)
 
 	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
 
-	group = ResGroupHashFind(groupId, true);
+	group = ResGroupHashFind(groupId);
 
 	Assert(group->lockedForDrop);
 
@@ -565,7 +564,7 @@ ResGroupAlterOnCommit(Oid groupId,
 
 	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
 
-	group = ResGroupHashFind(groupId, true);
+	group = ResGroupHashFind(groupId);
 
 	group->caps = *caps;
 
@@ -611,7 +610,7 @@ ResGroupGetStat(Oid groupId, ResGroupStatType type)
 
 	LWLockAcquire(ResGroupLock, LW_SHARED);
 
-	group = ResGroupHashFind(groupId, true);
+	group = ResGroupHashFind(groupId);
 
 	switch (type)
 	{
@@ -881,7 +880,7 @@ ResGroupDecideConcurrencyCaps(Oid groupId,
 
 	LWLockAcquire(ResGroupLock, LW_SHARED);
 
-	group = ResGroupHashFind(groupId, true);
+	group = ResGroupHashFind(groupId);
 
 	/*
 	 * If the runtime usage information doesn't exceed the new setting
@@ -928,7 +927,7 @@ ResGroupDecideMemoryCaps(int groupId,
 
 	LWLockAcquire(ResGroupLock, LW_SHARED);
 
-	group = ResGroupHashFind(groupId, true);
+	group = ResGroupHashFind(groupId);
 
 	ResGroupOptsToCaps(opts, &capsNew);
 	/*
@@ -1304,18 +1303,7 @@ retry:
 		groupId = superuser() ? ADMINRESGROUP_OID : DEFAULTRESGROUP_OID;
 
 	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
-	group = ResGroupHashFind(groupId, false);
-	if (group == NULL)
-	{
-		LWLockRelease(ResGroupLock);
-
-		selfUnsetGroup();
-		Assert(selfIsUnassigned());
-
-		ereport(ERROR,
-				(errcode(ERRCODE_DATA_CORRUPTED),
-				 errmsg("Cannot find resource group %d in shared memory", groupId)));
-	}
+	group = ResGroupHashFind(groupId);
 
 	/*
 	 * it's neccessary to set group to self before we
@@ -2089,7 +2077,7 @@ SwitchResGroupOnSegment(const char *buf, int len)
 	}
 
 	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
-	group = ResGroupHashFind(newGroupId, true);
+	group = ResGroupHashFind(newGroupId);
 	Assert(group != NULL);
 
 	/* Init self */
@@ -2193,17 +2181,11 @@ ResGroupHashNew(Oid groupId)
 	Assert(groupId != InvalidOid);
 
 	for (i = 0; i < pResGroupControl->nGroups; i++)
+	{
 		if (pResGroupControl->groups[i].groupId == InvalidOid)
 			break;
-
-	if (i >= pResGroupControl->nGroups)
-	{
-		LWLockRelease(ResGroupLock);
-
-		ereport(PANIC,
-				(errcode(ERRCODE_OUT_OF_MEMORY),
-				 errmsg("not enough shared memory for resource groups")));
 	}
+	Assert(i < pResGroupControl->nGroups);
 
 	entry = (ResGroupHashEntry *)
 		hash_search(pResGroupControl->htbl, (void *) &groupId, HASH_ENTER_NULL, &found);
@@ -2225,7 +2207,7 @@ ResGroupHashNew(Oid groupId)
  *	this operation.
  */
 static ResGroupData *
-ResGroupHashFind(Oid groupId, bool raise)
+ResGroupHashFind(Oid groupId)
 {
 	bool				found;
 	ResGroupHashEntry	*entry;
@@ -2235,22 +2217,17 @@ ResGroupHashFind(Oid groupId, bool raise)
 	entry = (ResGroupHashEntry *)
 		hash_search(pResGroupControl->htbl, (void *) &groupId, HASH_FIND, &found);
 
-	if (found)
+	if (!found)
 	{
-		Assert(entry->index < pResGroupControl->nGroups);
-		return &pResGroupControl->groups[entry->index];
-	}
-
-	if (raise)
-	{
-		LWLockRelease(ResGroupLock);
-
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_CORRUPTED),
 				 errmsg("Cannot find resource group with Oid %d in shared memory",
 						groupId)));
+		return NULL;
 	}
-	return NULL;
+
+	Assert(entry->index < pResGroupControl->nGroups);
+	return &pResGroupControl->groups[entry->index];
 }
 
 
@@ -2271,7 +2248,13 @@ ResGroupHashRemove(Oid groupId)
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 
 	entry = (ResGroupHashEntry*)hash_search(pResGroupControl->htbl, (void *) &groupId, HASH_FIND, &found);
-	Assert(found);
+	if (!found)
+	{
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_CORRUPTED),
+				 errmsg("Cannot find resource group with Oid %d in shared memory to remove",
+						groupId)));
+	}
 
 	group = &pResGroupControl->groups[entry->index];
 	returnChunksToPool(groupId, group->memQuotaGranted + group->memSharedGranted);
