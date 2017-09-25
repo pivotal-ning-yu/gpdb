@@ -150,8 +150,14 @@ struct ResGroupData
 	 * - slot->memQuota;
 	 *
 	 * Attributes in self will not be concurrently updated.
+	 *
+	 * If both the LWLock and the spinlock shall be held then the LWLock
+	 * must be held before the spinlock otherwise there might be deadlock.
 	 */
 	slock_t		lock;
+#ifdef USE_ASSERT_CHECKING
+	int			lockOwnerPid;		/* pid of the lock owner, only for debug */
+#endif//USE_ASSERT_CHECKING
 
 	bool		lockedForDrop;  /* true if resource group is dropped but not committed yet */
 
@@ -282,6 +288,12 @@ static void groupWaitQueuePush(ResGroupData *group, PGPROC *proc);
 static PGPROC * groupWaitQueuePop(ResGroupData *group);
 static void groupWaitQueueErase(ResGroupData *group, PGPROC *proc);
 static bool groupWaitQueueIsEmpty(const ResGroupData *group);
+static void groupSpinLockInit(ResGroupData *group);
+static void groupSpinLockAcquire(ResGroupData *group);
+static void groupSpinLockRelease(ResGroupData *group);
+#ifdef USE_ASSERT_CHECKING
+static bool groupSpinLockHeldByMe(const ResGroupData *group);
+#endif//USE_ASSERT_CHECKING
 
 /*
  * Estimate size the resource group structures will need in
@@ -828,9 +840,7 @@ ResGroupReserveMemory(int32 memoryChunks, int32 overuseChunks, bool *waiverUsed)
 		return true;
 	}
 
-	Assert(group != NULL);
-
-	SpinLockAcquire(&group->lock);
+	groupSpinLockAcquire(group);
 
 	/* When doMemCheck is on, self must has been assigned to a resgroup. */
 	Assert(selfIsAssigned());
@@ -849,7 +859,7 @@ ResGroupReserveMemory(int32 memoryChunks, int32 overuseChunks, bool *waiverUsed)
 
 		Oid		groupId = group->groupId;
 
-		SpinLockRelease(&group->lock);
+		groupSpinLockRelease(group);
 
 		if (Debug_resource_group)
 			write_log("Resource group is concurrently dropped while reserving memory: "
@@ -881,7 +891,7 @@ ResGroupReserveMemory(int32 memoryChunks, int32 overuseChunks, bool *waiverUsed)
 		{
 			/* the overuse is larger than allowed range, give up */
 
-			SpinLockRelease(&group->lock);
+			groupSpinLockRelease(group);
 
 			/* also revert in proc */
 			Assert(self->memUsage >= memoryChunks);
@@ -907,7 +917,7 @@ ResGroupReserveMemory(int32 memoryChunks, int32 overuseChunks, bool *waiverUsed)
 		groupIncMemUsageUnlocked(group, slot, memoryChunks);
 	}
 
-	SpinLockRelease(&group->lock);
+	groupSpinLockRelease(group);
 
 	return true;
 }
@@ -934,9 +944,7 @@ ResGroupReleaseMemory(int32 memoryChunks)
 		return;
 	}
 
-	Assert(group != NULL);
-
-	SpinLockAcquire(&group->lock);
+	groupSpinLockAcquire(group);
 
 	Assert(selfIsAssigned());
 
@@ -944,7 +952,7 @@ ResGroupReleaseMemory(int32 memoryChunks)
 	{
 		Oid		groupId = group->groupId;
 
-		SpinLockRelease(&group->lock);
+		groupSpinLockRelease(group);
 
 		if (Debug_resource_group)
 			write_log("Resource group is concurrently dropped while releasing memory: "
@@ -959,7 +967,7 @@ ResGroupReleaseMemory(int32 memoryChunks)
 
 	groupDecMemUsageUnlocked(group, slot, memoryChunks);
 
-	SpinLockRelease(&group->lock);
+	groupSpinLockRelease(group);
 }
 
 /*
@@ -1110,7 +1118,7 @@ ResGroupCreate(Oid groupId, const ResGroupCaps *caps)
 	if (group == NULL)
 		return NULL;
 
-	SpinLockInit(&group->lock);
+	groupSpinLockInit(group);
 
 	group->groupId = groupId;
 	group->caps = *caps;
@@ -1144,13 +1152,11 @@ ResGroupCreate(Oid groupId, const ResGroupCaps *caps)
 static void
 groupIncMemUsage(ResGroupData *group, ResGroupSlotData *slot, int32 chunks)
 {
-	Assert(group != NULL);
-
-	SpinLockAcquire(&group->lock);
+	groupSpinLockAcquire(group);
 
 	groupIncMemUsageUnlocked(group, slot, chunks);
 
-	SpinLockRelease(&group->lock);
+	groupSpinLockRelease(group);
 }
 
 /*
@@ -1162,13 +1168,11 @@ groupIncMemUsage(ResGroupData *group, ResGroupSlotData *slot, int32 chunks)
 static void
 groupDecMemUsage(ResGroupData *group, ResGroupSlotData *slot, int32 chunks)
 {
-	Assert(group != NULL);
-
-	SpinLockAcquire(&group->lock);
+	groupSpinLockAcquire(group);
 
 	groupDecMemUsageUnlocked(group, slot, chunks);
 
-	SpinLockRelease(&group->lock);
+	groupSpinLockRelease(group);
 }
 
 /*
@@ -1639,7 +1643,7 @@ groupApplyMemCaps(ResGroupData *group, const ResGroupCaps *caps)
 	if (memStocksToFree > 0)
 		group->memQuotaGranted -= memStocksToFree;
 
-	SpinLockAcquire(&group->lock);
+	groupSpinLockAcquire(group);
 
 	memSharedNeeded = Max(group->memSharedUsage,
 						  groupGetMemSharedExpected(caps));
@@ -1648,7 +1652,7 @@ groupApplyMemCaps(ResGroupData *group, const ResGroupCaps *caps)
 	if (memSharedToFree > 0)
 		group->memSharedGranted -= memSharedToFree;
 
-	SpinLockRelease(&group->lock);
+	groupSpinLockRelease(group);
 
 	memStocksToFree = Max(memStocksToFree, 0);
 	memSharedToFree = Max(memSharedToFree, 0);
@@ -1728,7 +1732,7 @@ groupAssginChunks(ResGroupData *group, int32 chunks, const ResGroupCaps *caps)
 
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 
-	SpinLockAcquire(&group->lock);
+	groupSpinLockAcquire(group);
 
 	delta = memQuotaGranted - group->memQuotaGranted;
 	if (delta >= 0)
@@ -1741,7 +1745,7 @@ groupAssginChunks(ResGroupData *group, int32 chunks, const ResGroupCaps *caps)
 
 	group->memSharedGranted += chunks;
 
-	SpinLockRelease(&group->lock);
+	groupSpinLockRelease(group);
 }
 
 /*
@@ -1924,7 +1928,7 @@ groupReleaseMemQuota(ResGroupData *group, ResGroupSlotData *slot)
 	if (memQuotaToFree > 0)
 		group->memQuotaGranted -= memQuotaToFree; 
 
-	SpinLockAcquire(&group->lock);
+	groupSpinLockAcquire(group);
 
 	/* Return the over used shared quota to sys */
 	memSharedNeeded = Max(group->memSharedUsage,
@@ -1936,7 +1940,7 @@ groupReleaseMemQuota(ResGroupData *group, ResGroupSlotData *slot)
 		Assert(group->memSharedGranted >= 0);
 	}
 
-	SpinLockRelease(&group->lock);
+	groupSpinLockRelease(group);
 
 	memQuotaToFree = Max(memQuotaToFree, 0);
 	memSharedToFree = Max(memSharedToFree, 0);
@@ -2483,7 +2487,7 @@ ResGroupHashRemove(Oid groupId)
 
 	group = &pResGroupControl->groups[entry->index];
 
-	SpinLockAcquire(&group->lock);
+	groupSpinLockAcquire(group);
 
 	/*
 	 * Once groupId is set to InvalidOid this resgroup is considered
@@ -2500,7 +2504,7 @@ ResGroupHashRemove(Oid groupId)
 	group->memQuotaGranted = 0;
 	group->memSharedGranted = 0;
 
-	SpinLockRelease(&group->lock);
+	groupSpinLockRelease(group);
 
 	if (toFree > 0)
 		returnChunksToPool(groupId, toFree);
@@ -3021,3 +3025,54 @@ groupWaitQueueIsEmpty(const ResGroupData *group)
 
 	return waitQueue->size == 0;
 }
+
+static void
+groupSpinLockInit(ResGroupData *group)
+{
+	Assert(group != NULL);
+
+	SpinLockInit(&group->lock);
+
+#ifdef USE_ASSERT_CHECKING
+	group->lockOwnerPid = 0;
+#endif//USE_ASSERT_CHECKING
+}
+
+static void
+groupSpinLockAcquire(ResGroupData *group)
+{
+	Assert(group != NULL);
+	Assert(!groupSpinLockHeldByMe(group));
+
+	SpinLockAcquire(&group->lock);
+
+#ifdef USE_ASSERT_CHECKING
+	Assert(group->lockOwnerPid == 0);
+	group->lockOwnerPid = MyProcPid;
+#endif//USE_ASSERT_CHECKING
+}
+
+static void
+groupSpinLockRelease(ResGroupData *group)
+{
+	Assert(group != NULL);
+	Assert(groupSpinLockHeldByMe(group));
+
+#ifdef USE_ASSERT_CHECKING
+	group->lockOwnerPid = 0;
+#endif//USE_ASSERT_CHECKING
+
+	SpinLockRelease(&group->lock);
+}
+
+#ifdef USE_ASSERT_CHECKING
+/*
+ * This function should only be used in assert().
+ */
+static bool
+groupSpinLockHeldByMe(const ResGroupData *group)
+{
+	Assert(group != NULL);
+	return group->lockOwnerPid == MyProcPid;
+}
+#endif//USE_ASSERT_CHECKING
