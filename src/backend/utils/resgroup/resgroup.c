@@ -89,7 +89,7 @@ struct ResGroupProcData
 
 	ResGroupCaps	caps;
 
-	uint32	memUsage;			/* memory usage of current proc */
+	int32	memUsage;			/* memory usage of current proc */
 	bool	doMemCheck;			/* whether to do memory limit check */
 };
 
@@ -797,8 +797,8 @@ ResGroupReserveMemory(int32 memoryChunks, int32 overuseChunks, bool *waiverUsed)
 		groupDecMemUsage(group, slot, memoryChunks);
 
 		/* also revert in proc */
-		Assert(self->memUsage >= memoryChunks);
 		self->memUsage -= memoryChunks;
+		Assert(self->memUsage >= 0);
 
 		if (overuseChunks == 0)
 			ResGroupDumpMemoryInfo();
