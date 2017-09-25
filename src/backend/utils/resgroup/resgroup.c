@@ -214,8 +214,8 @@ static bool localResWaiting = false;
 /* static functions */
 
 static bool groupApplyMemCaps(ResGroupData *group, const ResGroupCaps *caps);
-static int32 getChunksFromPool(Oid groupId, int32 chunks);
-static void returnChunksToPool(Oid groupId, int32 chunks);
+static int32 getChunksFromPool(ResGroupData *group, int32 chunks);
+static void returnChunksToPool(ResGroupData *group, int32 chunks);
 static void groupAssginChunks(ResGroupData *group,
 							  int32 chunks,
 							  const ResGroupCaps *caps);
@@ -1134,7 +1134,7 @@ ResGroupCreate(Oid groupId, const ResGroupCaps *caps)
 	group->memSharedGranted = 0;
 	group->memExpected = groupGetMemExpected(caps);
 
-	chunks = getChunksFromPool(groupId, group->memExpected);
+	chunks = getChunksFromPool(group, group->memExpected);
 	groupAssginChunks(group, chunks, caps);
 
 	return group;
@@ -1640,7 +1640,7 @@ groupApplyMemCaps(ResGroupData *group, const ResGroupCaps *caps)
 	memSharedToFree = Max(memSharedToFree, 0);
 
 	if (memStocksToFree + memSharedToFree > 0)
-		returnChunksToPool(group->groupId, memStocksToFree + memSharedToFree);
+		returnChunksToPool(group, memStocksToFree + memSharedToFree);
 
 #if 1
 	/*
@@ -1668,12 +1668,12 @@ groupApplyMemCaps(ResGroupData *group, const ResGroupCaps *caps)
  * return the actual got chunks, might be smaller than expectation.
  */
 static int32
-getChunksFromPool(Oid groupId, int32 chunks)
+getChunksFromPool(ResGroupData *group, int32 chunks)
 {
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 
 	LOG_RESGROUP_DEBUG(LOG, "Allocate %u out of %u chunks to group %d",
-					   chunks, pResGroupControl->freeChunks, groupId);
+					   chunks, pResGroupControl->freeChunks, group->groupId);
 
 	chunks = Min(pResGroupControl->freeChunks, chunks);
 	pResGroupControl->freeChunks -= chunks;
@@ -1688,10 +1688,10 @@ getChunksFromPool(Oid groupId, int32 chunks)
  * Return chunks to sys pool.
  */
 static void
-returnChunksToPool(Oid groupId, int32 chunks)
+returnChunksToPool(ResGroupData *group, int32 chunks)
 {
 	LOG_RESGROUP_DEBUG(LOG, "Free %u to pool(%u) chunks from group %d",
-					   chunks, pResGroupControl->freeChunks, groupId);
+					   chunks, pResGroupControl->freeChunks, group->groupId);
 
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 	Assert(chunks > 0);
@@ -1930,7 +1930,7 @@ groupReleaseMemQuota(ResGroupData *group, ResGroupSlotData *slot)
 	if (memQuotaToFree + memSharedToFree <= 0)
 		return false;
 
-	returnChunksToPool(group->groupId, memQuotaToFree + memSharedToFree);
+	returnChunksToPool(group, memQuotaToFree + memSharedToFree);
 	return true;
 }
 
@@ -1946,7 +1946,7 @@ groupAcquireMemQuota(ResGroupData *group, const ResGroupCaps *caps)
 
 	if (neededMemStocks > 0)
 	{
-		int32 chunks = getChunksFromPool(group->groupId, neededMemStocks);
+		int32 chunks = getChunksFromPool(group, neededMemStocks);
 		groupAssginChunks(group, chunks, caps);
 	}
 }
@@ -2489,7 +2489,17 @@ ResGroupHashRemove(Oid groupId)
 	groupSpinLockRelease(group);
 
 	if (toFree > 0)
-		returnChunksToPool(groupId, toFree);
+	{
+		ResGroupData	group0 = *group;
+
+		/*
+		 * The group passed to returnChunksToPool() is only for debug purpose,
+		 * here we construct a faked group with groupId still set to meet
+		 * returnChunksToPool()'s expectation.
+		 */
+		group0.groupId = groupId;
+		returnChunksToPool(&group0, toFree);
+	}
 
 	hash_search(pResGroupControl->htbl, (void *) &groupId, HASH_REMOVE, &found);
 
