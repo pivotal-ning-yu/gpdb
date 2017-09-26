@@ -1550,18 +1550,44 @@ groupApplyMemCaps(ResGroupData *group, const ResGroupCaps *caps)
 static int32
 getChunksFromPool(ResGroupData *group, int32 chunks)
 {
+	int32		freeChunks;
+	int32		gotChunks;
+
 	Assert(groupSpinLockHeldByMe(group));
 
-	LOG_RESGROUP_DEBUG(LOG, "Allocate %u out of %u chunks to group %d",
-					   chunks, pResGroupControl->freeChunks, group->groupId);
+	for (;;)
+	{
+		freeChunks = pg_atomic_read_u32((pg_atomic_uint32 *)
+										&pResGroupControl->freeChunks);
 
-	chunks = Min(pResGroupControl->freeChunks, chunks);
-	pResGroupControl->freeChunks -= chunks;
+		/* decide how many chunks to get */
+		gotChunks = Min(freeChunks, chunks);
+		Assert(gotChunks >= 0);
 
-	Assert(pResGroupControl->freeChunks >= 0);
-	Assert(pResGroupControl->freeChunks <= pResGroupControl->totalChunks);
+		if (gotChunks == 0)
+			break;	/* no free chunks, give up */
 
-	return chunks;
+		/* try to set the new value */
+		if (pg_atomic_compare_exchange_u32((pg_atomic_uint32 *)
+										   &pResGroupControl->freeChunks,
+										   (uint32 *) &freeChunks,
+										   freeChunks - gotChunks))
+			break;	/* done */
+
+		/* retry if concurrently updated */
+	}
+
+	LOG_RESGROUP_DEBUG(LOG, "%d chunks required by group %d, "
+					   "%d actually allocated, syspool: %d -> %d",
+					   chunks, group->groupId, gotChunks,
+					   freeChunks, freeChunks - gotChunks);
+
+	freeChunks -= gotChunks;
+
+	Assert(freeChunks >= 0);
+	Assert(freeChunks <= pResGroupControl->totalChunks);
+
+	return gotChunks;
 }
 
 /*
@@ -1570,16 +1596,20 @@ getChunksFromPool(ResGroupData *group, int32 chunks)
 static void
 returnChunksToPool(ResGroupData *group, int32 chunks)
 {
+	int32		freeChunks;
+
 	Assert(groupSpinLockHeldByMe(group));
 	Assert(chunks > 0);
 
-	LOG_RESGROUP_DEBUG(LOG, "Free %u to pool(%u) chunks from group %d",
-					   chunks, pResGroupControl->freeChunks, group->groupId);
+	freeChunks = pg_atomic_add_fetch_u32((pg_atomic_uint32 *)
+										 &pResGroupControl->freeChunks,
+										 chunks);
 
-	pResGroupControl->freeChunks += chunks;
+	LOG_RESGROUP_DEBUG(LOG, "%d chunks returned by group %d, syspool: %d -> %d",
+					   chunks, group->groupId, freeChunks - chunks, freeChunks);
 
-	Assert(pResGroupControl->freeChunks >= 0);
-	Assert(pResGroupControl->freeChunks <= pResGroupControl->totalChunks);
+	Assert(freeChunks >= 0);
+	Assert(freeChunks <= pResGroupControl->totalChunks);
 }
 
 /*
