@@ -2311,12 +2311,17 @@ ResGroupWaitCancel(void)
 
 		groupWaitQueueErase(group, MyProc);
 	}
-	else if (selfHasSlot())
+	else if (MyProc->resSlotId)
 	{
 		/* Woken up by a slot holder */
 
 		Assert(!procIsInWaitQueue(MyProc));
+
+		/* First complete the slot's transfer from MyProc to self */
+		selfSetSlot(MyProc->resSlotId);
 		Assert(selfIsAssignedValidGroup());
+
+		/* Then run the normal cleanup process */
 		putSlot();
 		Assert(!selfHasSlot());
 
