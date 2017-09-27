@@ -13,5 +13,7 @@ EOF
 source ~/gpdb-env.sh
 
 createdb gptest
+gpconfig --skipvalidation -c fsync -v off
+gpstop -u
 cd /home/gpadmin/gpdb_src/gpMgmt
 make -f Makefile.behave behave flags="$BEHAVE_FLAGS"
