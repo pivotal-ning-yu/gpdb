@@ -7,7 +7,6 @@ from mock import *
 
 from gp_unittest import *
 from gppylib.gparray import GpArray, GpDB, FAULT_STRATEGY_FILE_REPLICATION
-from gppylib.heapchecksum import HeapChecksum
 from gppylib.operations.buildMirrorSegments import GpMirrorToBuild, GpMirrorListToBuild
 from gppylib.pgconf import gucdict, setting
 from gppylib.system import faultProberInterface
@@ -85,8 +84,6 @@ class GpRecoversegTestCase(GpTestCase):
             patch.object(GpMirrorListToBuild, "buildMirrors"),
             patch.object(GpMirrorListToBuild, "getAdditionalWarnings"),
             patch.object(GpMirrorListToBuild, "getMirrorsToBuild"),
-            patch.object(HeapChecksum, "check_segment_consistency"),
-            patch.object(HeapChecksum, "get_segments_checksum_settings"),
         ])
 
         self.call_count = 0
@@ -94,9 +91,6 @@ class GpRecoversegTestCase(GpTestCase):
 
         self.mock_build_mirrors = self.get_mock_from_apply_patch("buildMirrors")
         self.mock_get_mirrors_to_build = self.get_mock_from_apply_patch('getMirrorsToBuild')
-        self.mock_heap_checksum_init = self.get_mock_from_apply_patch("__init__")
-        self.mock_check_segment_consistency = self.get_mock_from_apply_patch('check_segment_consistency')
-        self.mock_get_segments_checksum_settings = self.get_mock_from_apply_patch('get_segments_checksum_settings')
 
         sys.argv = ["gprecoverseg"]  # reset to relatively empty args list
 
@@ -126,35 +120,6 @@ class GpRecoversegTestCase(GpTestCase):
         shutil.rmtree(self.temp_dir)
         super(GpRecoversegTestCase, self).tearDown()
 
-    def test_when_checksums_mismatch_it_raises(self):
-        self.primary0.heap_checksum = 0
-        self.mock_check_segment_consistency.return_value = ([], [self.primary0], 1)
-        self.mock_get_segments_checksum_settings.return_value = ([self.mirror0], [])
-        self.return_one = True
-        self.mock_get_mirrors_to_build.side_effect = self._get_test_mirrors
-        self.assertTrue(self.gparray.master.isSegmentMaster(True))
-
-        with self.assertRaisesRegexp(Exception, "Heap checksum setting differences reported on segments"):
-            self.subject.run()
-
-        self.mock_get_segments_checksum_settings.assert_called_with([self.primary0])
-        self.subject.logger.fatal.assert_any_call('Heap checksum setting differences reported on segments')
-        self.subject.logger.fatal.assert_any_call('Failed checksum consistency validation:')
-        self.subject.logger.fatal.assert_any_call('sdw1 checksum set to 0 differs from master checksum set to 1')
-
-    @patch.object(HeapChecksum, "__init__", return_value=None)
-    def test_when_cannot_determine_checksums_it_raises(self, mock_heap_checksum_init):
-        self.mock_check_segment_consistency.return_value = ([], [1], True)
-        self.mock_get_segments_checksum_settings.return_value = ([], [])
-        self.mock_get_mirrors_to_build.side_effect = self._get_test_mirrors
-        self.return_one = True
-        self.assertTrue(self.gparray.master.isSegmentMaster(True))
-        with self.assertRaisesRegexp(Exception, "No segments responded to ssh query for heap checksum validation."):
-            self.subject.run()
-
-        self.mock_get_segments_checksum_settings.assert_called_with([self.primary0])
-        mock_heap_checksum_init.assert_called_with(self.gpArrayMock, logger=self.subject.logger, num_workers=1)
-
     @patch("os._exit")
     def test_when_no_segments_to_recover_validation_succeeds(self, _):
         self.mock_get_mirrors_to_build.side_effect = self._get_test_mirrors
@@ -162,9 +127,6 @@ class GpRecoversegTestCase(GpTestCase):
 
         with self.assertRaises(SystemExit):
             self.subject.run()
-
-        self.subject.logger.info.assert_any_call('No checksum validation necessary when '
-                                                 'there are no segments to recover.')
 
     @patch.object(TableLogger, "info")
     @patch.object(GpSegmentRebalanceOperation, "rebalance", return_value=True)
@@ -202,7 +164,7 @@ class GpRecoversegTestCase(GpTestCase):
         with self.assertRaises(SystemExit) as cm:
                 self.subject.run()
 
-        self.assertEqual(cm.exception.code, 0)
+        self.assertEqual(cm.exception, 0)
         self.subject.logger.info.assert_any_call('The rebalance operation has completed with WARNINGS. '
                                                  'Please review the output in the gprecoverseg log.')
 
@@ -217,16 +179,13 @@ class GpRecoversegTestCase(GpTestCase):
         self.subject = GpRecoverSegmentProgram(options)
         self.subject.logger = Mock(spec=['log', 'warn', 'info', 'debug', 'error', 'warning', 'fatal'])
         self.mock_get_mirrors_to_build.side_effect = self._get_test_mirrors
-        self.primary0.heap_checksum = 1
-        self.mock_check_segment_consistency.return_value = ([self.primary0], [], 1)
-        self.mock_get_segments_checksum_settings.return_value = ([self.mirror0], [])
         self.return_one = True
         self.mock_build_mirrors.return_value = False
 
         with self.assertRaises(SystemExit) as cm:
             self.subject.run()
 
-        self.assertEqual(cm.exception.code, 1)
+        self.assertEqual(cm.exception, 1)
 
     @patch.object(TableLogger, "info")
     def test_successful_recover(self, _):
@@ -239,16 +198,13 @@ class GpRecoversegTestCase(GpTestCase):
         self.subject = GpRecoverSegmentProgram(options)
         self.subject.logger = Mock(spec=['log', 'warn', 'info', 'debug', 'error', 'warning', 'fatal'])
         self.mock_get_mirrors_to_build.side_effect = self._get_test_mirrors
-        self.primary0.heap_checksum = 1
-        self.mock_check_segment_consistency.return_value = ([self.primary0], [], 1)
-        self.mock_get_segments_checksum_settings.return_value = ([self.mirror0], [])
         self.return_one = True
         self.mock_build_mirrors.return_value = True
 
         with self.assertRaises(SystemExit) as cm:
             self.subject.run()
 
-        self.assertEqual(cm.exception.code, 0)
+        self.assertEqual(cm.exception, 0)
 
     def _create_gparray_with_2_primary_2_mirrors(self):
         master = GpDB.initFromString(

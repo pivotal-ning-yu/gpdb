@@ -3,7 +3,7 @@
 # Copyright (c) Greenplum Inc 2008. All Rights Reserved. 
 #
 from gppylib.gparray import GpDB
-from gppylib.test.unit.gp_unittest import *
+from test.unit.gp_unittest import *
 import tempfile, os, shutil
 from gppylib.commands.base import CommandResult
 from mock import patch, MagicMock, Mock

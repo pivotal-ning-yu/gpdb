@@ -440,7 +440,8 @@ class GpMirrorListToBuild:
         finally:
             # Reenable Ctrl-C
             signal.signal(signal.SIGINT, signal.default_int_handler)
-return start_all_successful
+        return start_all_successful
+
     def __verifyGpArrayContents(self, gpArray):
         """
         Run some simple assertions against gpArray contents
