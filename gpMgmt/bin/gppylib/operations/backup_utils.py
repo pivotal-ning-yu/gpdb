@@ -119,17 +119,18 @@ class Context(Values, object):
     def generate_prefix(self, filetype, dbid=1, content=None, use_old_format=None):
         format_str =  "%sgp_%s_" % (self.dump_prefix, "%s")
         filename = format_str % (self.filename_dict[filetype][0])
-        if "%d" in filename:
+        if "%(content)d_%(dbid)s" in filename:
             if use_old_format:
                 if dbid == 1:
-                    filename = filename % (1, 1)
+                    filename = filename % {"content": 1, "dbid": 1}
                 else:
-                    filename = filename % (0, dbid)
+                    filename = filename % {"content": 0, "dbid": dbid}
             else:
                 if content is None:
                     content = self.content_map[dbid]
-                filename = filename % (content, dbid)
+                filename = filename % {"content": content, "dbid": dbid}
         return filename
+
 
     def get_datadir_for_dbid(self, dbid):
         for seg in self.gparray.getDbList():
