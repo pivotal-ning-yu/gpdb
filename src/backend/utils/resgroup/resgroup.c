@@ -201,8 +201,8 @@ static bool groupReleaseMemQuota(ResGroupData *group,
 								ResGroupSlotData *slot);
 static void groupAcquireMemQuota(ResGroupData *group, const ResGroupCaps *caps);
 static ResGroupData *ResGroupHashNew(Oid groupId);
-static ResGroupData *ResGroupHashFind(Oid groupId);
-static void ResGroupHashRemove(Oid groupId);
+static ResGroupData *ResGroupHashFind(Oid groupId, bool raise);
+static void ResGroupHashRemove(Oid groupId, bool raise);
 static void ResGroupWait(ResGroupData *group);
 static ResGroupData *ResGroupCreate(Oid groupId, const ResGroupCaps *caps);
 static void AtProcExit_ResGroup(int code, Datum arg);
@@ -385,7 +385,7 @@ FreeResGroupEntry(Oid groupId)
 {
 	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
 
-	ResGroupHashRemove(groupId);
+	ResGroupHashRemove(groupId, false);
 
 	LWLockRelease(ResGroupLock);
 }
@@ -503,7 +503,7 @@ ResGroupCheckForDrop(Oid groupId, char *name)
 
 	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
 
-	group = ResGroupHashFind(groupId);
+	group = ResGroupHashFind(groupId, true);
 
 	if (group->nRunning > 0)
 	{
@@ -533,18 +533,35 @@ void
 ResGroupDropCheckForWakeup(Oid groupId, bool isCommit)
 {
 	ResGroupData	*group;
+	volatile int	savedInterruptHoldoffCount;
 
 	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
 
-	group = ResGroupHashFind(groupId);
+	group = ResGroupHashFind(groupId, false);
+	if (!group)
+	{
+		LWLockRelease(ResGroupLock);
+		return;
+	}
 
 	Assert(group->lockedForDrop);
 
-	wakeupSlots(group, false);
-	Assert(groupWaitQueueIsEmpty(group));
+	PG_TRY();
+	{
+		savedInterruptHoldoffCount = InterruptHoldoffCount;
+
+		wakeupSlots(group, false);
+		Assert(groupWaitQueueIsEmpty(group));
+	}
+	PG_CATCH();
+	{
+		InterruptHoldoffCount = savedInterruptHoldoffCount;
+		elog(LOG, "Cannot cleanup pending queries in resource group %d", groupId);
+	}
+	PG_END_TRY();
 
 	if (isCommit)
-		ResGroupHashRemove(groupId);
+		ResGroupHashRemove(groupId, false);
 
 	group->lockedForDrop = false;
 
@@ -561,17 +578,23 @@ ResGroupAlterOnCommit(Oid groupId,
 {
 	ResGroupData	*group;
 	bool			shouldWakeUp;
+	volatile int	savedInterruptHoldoffCount;
+
+	Assert(caps != NULL);
 
 	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
 
-	group = ResGroupHashFind(groupId);
+	group = ResGroupHashFind(groupId, false);
+	if (!group)
+	{
+		LWLockRelease(ResGroupLock);
+		return;
+	}
 
 	group->caps = *caps;
 
 	if (limittype == RESGROUP_LIMIT_TYPE_CPU)
 	{
-		volatile int savedInterruptHoldoffCount;
-
 		PG_TRY();
 		{
 			savedInterruptHoldoffCount = InterruptHoldoffCount;
@@ -583,16 +606,26 @@ ResGroupAlterOnCommit(Oid groupId,
 			elog(LOG, "Fail to set cpu_rate_limit for resource group %d", groupId);
 		}
 		PG_END_TRY();
-
-		LWLockRelease(ResGroupLock);
-		return;
 	}
+	else
+	{
+		PG_TRY();
+		{
+			savedInterruptHoldoffCount = InterruptHoldoffCount;
 
-	shouldWakeUp = groupApplyMemCaps(group, caps);
+			shouldWakeUp = groupApplyMemCaps(group, caps);
 
-	wakeupSlots(group, true);
-	if (shouldWakeUp)
-		wakeupGroups(groupId);
+			wakeupSlots(group, true);
+			if (shouldWakeUp)
+				wakeupGroups(groupId);
+		}
+		PG_CATCH();
+		{
+			InterruptHoldoffCount = savedInterruptHoldoffCount;
+			elog(LOG, "Fail to apply new caps for resource group %d", groupId);
+		}
+		PG_END_TRY();
+	}
 
 	LWLockRelease(ResGroupLock);
 }
@@ -610,7 +643,7 @@ ResGroupGetStat(Oid groupId, ResGroupStatType type)
 
 	LWLockAcquire(ResGroupLock, LW_SHARED);
 
-	group = ResGroupHashFind(groupId);
+	group = ResGroupHashFind(groupId, true);
 
 	switch (type)
 	{
@@ -880,7 +913,7 @@ ResGroupDecideConcurrencyCaps(Oid groupId,
 
 	LWLockAcquire(ResGroupLock, LW_SHARED);
 
-	group = ResGroupHashFind(groupId);
+	group = ResGroupHashFind(groupId, true);
 
 	/*
 	 * If the runtime usage information doesn't exceed the new setting
@@ -927,7 +960,7 @@ ResGroupDecideMemoryCaps(int groupId,
 
 	LWLockAcquire(ResGroupLock, LW_SHARED);
 
-	group = ResGroupHashFind(groupId);
+	group = ResGroupHashFind(groupId, true);
 
 	ResGroupOptsToCaps(opts, &capsNew);
 	/*
@@ -1303,7 +1336,18 @@ retry:
 		groupId = superuser() ? ADMINRESGROUP_OID : DEFAULTRESGROUP_OID;
 
 	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
-	group = ResGroupHashFind(groupId);
+	group = ResGroupHashFind(groupId, false);
+	if (!group)
+	{
+		/*
+		 * this function is called before the transaction is started,
+		 * so we have to explicitly release the LWLock before error out.
+		 */
+		LWLockRelease(ResGroupLock);
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_CORRUPTED),
+				 errmsg("Can not find a valid resource group for current role")));
+	}
 
 	/*
 	 * it's neccessary to set group to self before we
@@ -2077,7 +2121,7 @@ SwitchResGroupOnSegment(const char *buf, int len)
 	}
 
 	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
-	group = ResGroupHashFind(newGroupId);
+	group = ResGroupHashFind(newGroupId, true);
 	Assert(group != NULL);
 
 	/* Init self */
@@ -2207,7 +2251,7 @@ ResGroupHashNew(Oid groupId)
  *	this operation.
  */
 static ResGroupData *
-ResGroupHashFind(Oid groupId)
+ResGroupHashFind(Oid groupId, bool raise)
 {
 	bool				found;
 	ResGroupHashEntry	*entry;
@@ -2219,7 +2263,7 @@ ResGroupHashFind(Oid groupId)
 
 	if (!found)
 	{
-		ereport(ERROR,
+		ereport(raise ? ERROR : LOG,
 				(errcode(ERRCODE_DATA_CORRUPTED),
 				 errmsg("Cannot find resource group with Oid %d in shared memory",
 						groupId)));
@@ -2234,12 +2278,15 @@ ResGroupHashFind(Oid groupId)
 /*
  * ResGroupHashRemove -- remove the group for a given oid.
  *
+ * If the group cannot be found, then an exception is thrown unless
+ * 'raise' is false.
+ *
  * Notes
  *	The resource group lightweight lock (ResGroupLock) *must* be held for
  *	this operation.
  */
 static void
-ResGroupHashRemove(Oid groupId)
+ResGroupHashRemove(Oid groupId, bool raise)
 {
 	bool		found;
 	ResGroupHashEntry	*entry;
@@ -2250,10 +2297,11 @@ ResGroupHashRemove(Oid groupId)
 	entry = (ResGroupHashEntry*)hash_search(pResGroupControl->htbl, (void *) &groupId, HASH_FIND, &found);
 	if (!found)
 	{
-		ereport(ERROR,
+		ereport(raise ? ERROR : LOG,
 				(errcode(ERRCODE_DATA_CORRUPTED),
 				 errmsg("Cannot find resource group with Oid %d in shared memory to remove",
 						groupId)));
+		return;
 	}
 
 	group = &pResGroupControl->groups[entry->index];
