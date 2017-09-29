@@ -123,8 +123,19 @@ PARTITION BY LIST (gender)
   DEFAULT PARTITION other );
 
 -- General filter
--- TODO #141916623. Expecting 6 parts, but optimizer plan selects 8 parts. The 6 parts breakdown is: gender = 'F': 1 part, gender < 'M': 2 parts (including default), gender in ('F', F'M'): 2 parts, gender is null => 1 part
+-- TODO #141916623. Expecting 6 parts, but optimizer plan selects 7 parts. The 6 parts breakdown is: gender = 'F': 1 part, gender < 'M': 2 parts (including default), gender in ('F', F'M'): 2 parts, gender is null => 1 part
 select get_selected_parts('explain analyze select * from pt where gender = ''F'' union all select * from pt where gender < ''M'' union all select * from pt where gender in (''F'', ''FM'') union all select * from pt where gender is null;');
+
+-- Test with IN() lists
+-- Number of elements <= threshold, partition elimination is performed
+set optimizer_array_expansion_threshold = 3;
+select get_selected_parts($$explain select * from pt where gender in ('F','FM','X');$$);
+
+-- Number of elements > threshold, partition elimination is not performed
+set optimizer_array_expansion_threshold = 2;
+select get_selected_parts($$explain select * from pt where gender in ('F','FM','X');$$);
+
+reset optimizer_array_expansion_threshold;
 
 -- DML
 -- Non-default part

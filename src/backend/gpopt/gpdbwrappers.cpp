@@ -2799,6 +2799,20 @@ gpdb::SzDefGetString
 	return NULL;
 }
 
+Expr *
+gpdb::PexprTransformArrayConstToArrayExpr
+	(
+	Const *c
+	)
+{
+	GP_WRAP_START;
+	{
+		return transform_array_Const_to_ArrayExpr(c);
+	}
+	GP_WRAP_END;
+	return NULL;
+}
+
 Node *
 gpdb::PnodeFoldArrayexprConstants
 	(

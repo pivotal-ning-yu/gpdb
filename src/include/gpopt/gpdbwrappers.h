@@ -615,6 +615,9 @@ gpdb::GpdbEreportImpl(xerrcode, severitylevel, xerrmsg, xerrhint , __FILE__, __L
 	// extract string value from defelem's value
 	char *SzDefGetString(DefElem *pdefelem, bool *fNeedFree);
 
+	// transform array Const to an ArrayExpr
+	Expr *PexprTransformArrayConstToArrayExpr(Const *pConst);
+
 	// fold array expression constant values
 	Node *PnodeFoldArrayexprConstants(ArrayExpr *parrayexpr);
 
