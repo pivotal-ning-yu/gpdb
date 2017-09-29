@@ -21,6 +21,7 @@
 #include "nodes/primnodes.h"
 #include "nodes/makefuncs.h"
 #include "utils/datum.h"
+#include "catalog/pg_proc.h"
 
 #include "gpos/base.h"
 
@@ -109,6 +110,7 @@ CTranslatorDXLToScalar::PexprFromDXLNodeScalar
 		{EdxlopScalarWindowRef, &CTranslatorDXLToScalar::PwindowrefFromDXLNodeScWindowRef},
 		{EdxlopScalarCast, &CTranslatorDXLToScalar::PrelabeltypeFromDXLNodeScCast},
 		{EdxlopScalarCoerceToDomain, &CTranslatorDXLToScalar::PcoerceFromDXLNodeScCoerce},
+		{EdxlopScalarArrayCoerceExpr, &CTranslatorDXLToScalar::PcoerceFromDXLNodeScArrayCoerceExpr},
 		{EdxlopScalarSubPlan, &CTranslatorDXLToScalar::PsubplanFromDXLNodeScSubPlan},
 		{EdxlopScalarArray, &CTranslatorDXLToScalar::PexprArray},
 		{EdxlopScalarArrayRef, &CTranslatorDXLToScalar::PexprArrayRef},
@@ -381,6 +383,42 @@ CTranslatorDXLToScalar::PstrarrayopexprFromDXLNodeScArrayComp
 	parrayopexpr->args = ListMake2(pexprLeft, pexprRight);
 
 	return (Expr *)parrayopexpr;
+}
+
+//---------------------------------------------------------------------------
+//      @function:
+//              CTranslatorDXLToScalar::PcoerceFromDXLNodeScArrayCoerceExpr
+//
+//      @doc:
+//              Translates a DXL scalar array coerce expr into a GPDB array_coerce FuncExpr
+//
+//---------------------------------------------------------------------------
+Expr *
+CTranslatorDXLToScalar::PcoerceFromDXLNodeScArrayCoerceExpr
+		(
+		const CDXLNode *pdxlnCoerce,
+		CMappingColIdVar *pmapcidvar
+		)
+{
+	GPOS_ASSERT(NULL != pdxlnCoerce);
+	CDXLScalarArrayCoerceExpr *pdxlop = CDXLScalarArrayCoerceExpr::PdxlopConvert(pdxlnCoerce->Pdxlop());
+
+	GPOS_ASSERT(1 == pdxlnCoerce->UlArity());
+	CDXLNode *pdxlnChild = (*pdxlnCoerce)[0];
+
+	Expr *pexprChild = PexprFromDXLNodeScalar(pdxlnChild, pmapcidvar);
+
+	FuncExpr *pcoerce = MakeNode(FuncExpr);
+
+	pcoerce->funcid = ARRAY_COERCE_FUNCOID;
+	pcoerce->funcresulttype = CMDIdGPDB::PmdidConvert(pdxlop->PmdidResultType())->OidObjectId();
+	pcoerce->funcretset = false;
+	pcoerce->funcformat = (CoercionForm)  pdxlop->Edxlcf();
+	pcoerce->args = PlistTranslateScalarChildren(NULL, pdxlnCoerce, pmapcidvar);
+	pcoerce->location = pdxlop->ILoc();
+	pcoerce->is_tablefunc = false;
+
+	return (Expr *) pcoerce;
 }
 
 //---------------------------------------------------------------------------

@@ -121,6 +121,12 @@ namespace gpdxl
 				CMappingColIdVar *pmapcidvar
 				);
 
+			Expr *PcoerceFromDXLNodeScArrayCoerceExpr
+				(
+				const CDXLNode *pdxlnCoerce,
+				CMappingColIdVar *pmapcidvar
+				);
+
 			Expr *PopexprFromDXLNodeScOpExpr
 				(
 				const CDXLNode *pdxlnScOpExpr,

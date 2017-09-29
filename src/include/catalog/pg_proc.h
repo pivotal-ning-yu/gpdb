@@ -1933,6 +1933,7 @@ DESCR("prepend element onto front of array");
 DATA(insert OID = 383 ( array_cat  PGNSP PGUID 12 f f f f i 2 2277 f "2277 2277" _null_ _null_ _null_ array_cat - _null_ n ));
 DESCR("concatenate two arrays");
 
+#define ARRAY_COERCE_FUNCOID 384
 /* array_coerce(anyarray) => anyarray */ 
 DATA(insert OID = 384 ( array_coerce  PGNSP PGUID 12 f f t f s 1 2277 f "2277" _null_ _null_ _null_ array_type_coerce - _null_ n ));
 DESCR("coerce array to another array type");
