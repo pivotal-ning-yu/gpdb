@@ -223,6 +223,7 @@ static int slotPoolAlloc(void);
 static void slotPoolFree(int slotId);
 static void slotPoolPush(ResGroupSlotData *slot);
 static ResGroupSlotData * slotPoolPop(void);
+static ResGroupSlotData *slotPoolErase(ResGroupSlotData *slot);
 static int getSlot(ResGroupData *group);
 static void putSlot(void);
 static void ResGroupSlotAcquire(void);
@@ -1189,8 +1190,7 @@ uninitSlot(ResGroupSlotData *slot)
 {
 	slotValidate(slot);
 
-	if (Gp_role == GP_ROLE_DISPATCH)
-		Assert(!slotIsFreed(slot));
+	Assert(!slotIsFreed(slot));
 
 	Assert(slot->nProcs == 0);
 
@@ -1237,8 +1237,7 @@ slotPoolFree(int slotId)
 
 	slotPoolPush(slot);
 
-	if (Gp_role == GP_ROLE_DISPATCH)
-		Assert(slotIsFreed(slot));
+	Assert(slotIsFreed(slot));
 }
 
 /*
@@ -1272,8 +1271,22 @@ slotPoolPop(void)
 	 * the slot pool size is bigger than max connection,
 	 * so the pool should never be empty.
 	 */
+
+	return slotPoolErase(slot);
+}
+
+/*
+ * Erase a slot from the free list.
+ */
+static ResGroupSlotData *
+slotPoolErase(ResGroupSlotData *slot)
+{
+	ResGroupSlotData	*root = &pResGroupControl->freeSlot;
+
 	Assert(slot != root);
 	Assert(slot != NULL);
+	Assert(slot->next != NULL);
+	Assert(slot->prev != NULL);
 
 	slot->prev->next = slot->next;
 	slot->next->prev = slot->prev;
@@ -2147,6 +2160,9 @@ UnassignResGroup(void)
 			/* Uninit the slot */
 			uninitSlot(slot);
 
+			/* Put it back to the free list */
+			slotPoolPush(slot);
+
 			/* And finally decrease nRunning */
 			group->nRunning--;
 		}
@@ -2225,7 +2241,10 @@ SwitchResGroupOnSegment(const char *buf, int len)
 	}
 	else
 	{
+		/* Touch the slot for the first time, erase it from the free list */
+		slotPoolErase(slot);
 		Assert(slotIsIdle(slot));
+
 		initSlot(slot, &caps, newGroupId, gp_session_id);
 		group->nRunning++;
 	}
@@ -2859,8 +2878,6 @@ slotIsFreed(const ResGroupSlotData *slot)
 {
 	slotValidate(slot);
 
-	Assert(Gp_role == GP_ROLE_DISPATCH);
-
 	return slot->next != NULL;
 }
 
@@ -2874,8 +2891,7 @@ slotIsInUse(const ResGroupSlotData *slot)
 {
 	slotValidate(slot);
 
-	if (Gp_role == GP_ROLE_DISPATCH)
-		Assert(!slotIsFreed(slot));
+	Assert(!slotIsFreed(slot));
 
 	return slot->groupId != InvalidOid;
 }
@@ -2890,8 +2906,7 @@ slotIsIdle(const ResGroupSlotData *slot)
 {
 	slotValidate(slot);
 
-	if (Gp_role == GP_ROLE_DISPATCH)
-		Assert(!slotIsFreed(slot));
+	Assert(!slotIsFreed(slot));
 
 	return slot->groupId == InvalidOid;
 }
