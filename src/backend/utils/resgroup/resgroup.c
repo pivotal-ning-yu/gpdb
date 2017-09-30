@@ -405,33 +405,6 @@ AllocResGroupEntry(Oid groupId, const ResGroupOpts *opts)
 }
 
 /*
- * Remove the resource group entry in shared memory if the transaction is aborted.
- *
- * This function is called in the callback function of CREATE RESOURCE GROUP.
- */
-void
-ResGroupCreateOnAbort(Oid groupId)
-{
-	volatile int savedInterruptHoldoffCount;
-
-	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
-	PG_TRY();
-	{
-		savedInterruptHoldoffCount = InterruptHoldoffCount;
-		ResGroupHashRemove(groupId, false);
-		/* remove the os dependent part for this resource group */
-		ResGroupOps_DestroyGroup(groupId);
-	}
-	PG_CATCH();
-	{
-		InterruptHoldoffCount = savedInterruptHoldoffCount;
-		elog(LOG, "Fail to cleanup resource group %d", groupId);
-	}
-	PG_END_TRY();
-	LWLockRelease(ResGroupLock);
-}
-
-/*
  * Load the resource groups in shared memory. Note this
  * can only be done after enough setup has been done. This uses
  * heap_open etc which in turn requires shared memory to be set up.
@@ -604,6 +577,33 @@ ResGroupDropFinish(Oid groupId, bool isCommit)
 	}
 	PG_END_TRY();
 
+	LWLockRelease(ResGroupLock);
+}
+
+/*
+ * Remove the resource group entry in shared memory if the transaction is aborted.
+ *
+ * This function is called in the callback function of CREATE RESOURCE GROUP.
+ */
+void
+ResGroupCreateOnAbort(Oid groupId)
+{
+	volatile int savedInterruptHoldoffCount;
+
+	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
+	PG_TRY();
+	{
+		savedInterruptHoldoffCount = InterruptHoldoffCount;
+		ResGroupHashRemove(groupId, false);
+		/* remove the os dependent part for this resource group */
+		ResGroupOps_DestroyGroup(groupId);
+	}
+	PG_CATCH();
+	{
+		InterruptHoldoffCount = savedInterruptHoldoffCount;
+		elog(LOG, "Fail to cleanup resource group %d", groupId);
+	}
+	PG_END_TRY();
 	LWLockRelease(ResGroupLock);
 }
 
