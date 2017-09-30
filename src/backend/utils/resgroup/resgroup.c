@@ -410,10 +410,20 @@ AllocResGroupEntry(Oid groupId, const ResGroupOpts *opts)
 void
 FreeResGroupEntry(Oid groupId)
 {
+	volatile int savedInterruptHoldoffCount;
+
 	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
-
-	ResGroupHashRemove(groupId, false);
-
+	PG_TRY();
+	{
+		savedInterruptHoldoffCount = InterruptHoldoffCount;
+		ResGroupHashRemove(groupId, false);
+	}
+	PG_CATCH();
+	{
+		InterruptHoldoffCount = savedInterruptHoldoffCount;
+		elog(LOG, "Fail to cleanup resource group %d", groupId);
+	}
+	PG_END_TRY();
 	LWLockRelease(ResGroupLock);
 }
 
@@ -564,33 +574,26 @@ ResGroupDropCheckForWakeup(Oid groupId, bool isCommit)
 
 	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
 
-	group = ResGroupHashFind(groupId, false);
-	if (!group)
-	{
-		LWLockRelease(ResGroupLock);
-		return;
-	}
-
-	Assert(group->lockedForDrop);
-
 	PG_TRY();
 	{
 		savedInterruptHoldoffCount = InterruptHoldoffCount;
 
-		wakeupSlots(group, false);
-		Assert(groupWaitQueueIsEmpty(group));
+		if (Gp_role == GP_ROLE_DISPATCH)
+		{
+			group = ResGroupHashFind(groupId, true);
+			wakeupSlots(group, false);
+			group->lockedForDrop = false;
+		}
+
+		if (isCommit)
+			ResGroupHashRemove(groupId, false);
 	}
 	PG_CATCH();
 	{
 		InterruptHoldoffCount = savedInterruptHoldoffCount;
-		elog(LOG, "Cannot cleanup pending queries in resource group %d", groupId);
+		elog(LOG, "Error happend while cleanup resource group %d", groupId);
 	}
 	PG_END_TRY();
-
-	if (isCommit)
-		ResGroupHashRemove(groupId, false);
-
-	group->lockedForDrop = false;
 
 	LWLockRelease(ResGroupLock);
 }
@@ -611,48 +614,32 @@ ResGroupAlterOnCommit(Oid groupId,
 
 	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
 
-	group = ResGroupHashFind(groupId, false);
-	if (!group)
+	PG_TRY();
 	{
-		LWLockRelease(ResGroupLock);
-		return;
-	}
+		savedInterruptHoldoffCount = InterruptHoldoffCount;
+		group = ResGroupHashFind(groupId, true);
 
-	group->caps = *caps;
+		group->caps = *caps;
 
-	if (limittype == RESGROUP_LIMIT_TYPE_CPU)
-	{
-		PG_TRY();
+		if (limittype == RESGROUP_LIMIT_TYPE_CPU)
 		{
-			savedInterruptHoldoffCount = InterruptHoldoffCount;
 			ResGroupOps_SetCpuRateLimit(groupId, caps->cpuRateLimit.proposed);
 		}
-		PG_CATCH();
+		else
 		{
-			InterruptHoldoffCount = savedInterruptHoldoffCount;
-			elog(LOG, "Fail to set cpu_rate_limit for resource group %d", groupId);
-		}
-		PG_END_TRY();
-	}
-	else
-	{
-		PG_TRY();
-		{
-			savedInterruptHoldoffCount = InterruptHoldoffCount;
-
 			shouldWakeUp = groupApplyMemCaps(group, caps);
 
 			wakeupSlots(group, true);
 			if (shouldWakeUp)
 				wakeupGroups(groupId);
 		}
-		PG_CATCH();
-		{
-			InterruptHoldoffCount = savedInterruptHoldoffCount;
-			elog(LOG, "Fail to apply new caps for resource group %d", groupId);
-		}
-		PG_END_TRY();
 	}
+	PG_CATCH();
+	{
+		InterruptHoldoffCount = savedInterruptHoldoffCount;
+		elog(LOG, "Fail to apply new caps for resource group %d", groupId);
+	}
+	PG_END_TRY();
 
 	LWLockRelease(ResGroupLock);
 }
