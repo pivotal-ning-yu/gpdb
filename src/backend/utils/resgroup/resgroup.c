@@ -219,11 +219,11 @@ static void initSlot(ResGroupSlotData *slot, ResGroupCaps *caps,
 static void uninitSlot(ResGroupSlotData *slot);
 static void selfAttachToSlot(ResGroupData *group, ResGroupSlotData *slot);
 static void selfDetachSlot(ResGroupData *group, ResGroupSlotData *slot);
-static int slotPoolAlloc(void);
-static void slotPoolFree(int slotId);
-static void slotPoolPush(ResGroupSlotData *slot);
-static ResGroupSlotData * slotPoolPop(void);
-static ResGroupSlotData *slotPoolErase(ResGroupSlotData *slot);
+static int slotpoolAllocSlot(void);
+static void slotpoolFreeSlot(int slotId);
+static void slotpoolPushSlot(ResGroupSlotData *slot);
+static ResGroupSlotData *slotpoolPopSlot(void);
+static ResGroupSlotData *slotpoolEraseSlot(ResGroupSlotData *slot);
 static int getSlot(ResGroupData *group);
 static void putSlot(void);
 static void ResGroupSlotAcquire(void);
@@ -376,7 +376,7 @@ ResGroupControlInit(void)
 		slot->memQuota = -1;
 		slot->memUsage = 0;
 
-		slotPoolPush(slot);
+		slotpoolPushSlot(slot);
 	}
 
     return;
@@ -1204,13 +1204,13 @@ uninitSlot(ResGroupSlotData *slot)
  * Alloc a slot from shared slot pool
  */
 static int
-slotPoolAlloc(void)
+slotpoolAllocSlot(void)
 {
 	ResGroupSlotData *slot;
 
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 
-	slot = slotPoolPop();
+	slot = slotpoolPopSlot();
 
 	Assert(slotIsIdle(slot));
 
@@ -1221,7 +1221,7 @@ slotPoolAlloc(void)
  * Free a slot back to shared slot pool
  */
 static void
-slotPoolFree(int slotId)
+slotpoolFreeSlot(int slotId)
 {
 	ResGroupSlotData *slot;
 
@@ -1233,7 +1233,7 @@ slotPoolFree(int slotId)
 
 	Assert(slotIsIdle(slot));
 
-	slotPoolPush(slot);
+	slotpoolPushSlot(slot);
 
 	Assert(slotIsFreed(slot));
 }
@@ -1242,7 +1242,7 @@ slotPoolFree(int slotId)
  * Push to tail of the free list.
  */
 static void
-slotPoolPush(ResGroupSlotData *slot)
+slotpoolPushSlot(ResGroupSlotData *slot)
 {
 	ResGroupSlotData	*root = &pResGroupControl->freeSlot;
 
@@ -1260,7 +1260,7 @@ slotPoolPush(ResGroupSlotData *slot)
  * Pop from head of the free list.
  */
 static ResGroupSlotData *
-slotPoolPop(void)
+slotpoolPopSlot(void)
 {
 	ResGroupSlotData	*root = &pResGroupControl->freeSlot;
 	ResGroupSlotData	*slot = root->next;
@@ -1270,14 +1270,14 @@ slotPoolPop(void)
 	 * so the pool should never be empty.
 	 */
 
-	return slotPoolErase(slot);
+	return slotpoolEraseSlot(slot);
 }
 
 /*
  * Erase a slot from the free list.
  */
 static ResGroupSlotData *
-slotPoolErase(ResGroupSlotData *slot)
+slotpoolEraseSlot(ResGroupSlotData *slot)
 {
 	ResGroupSlotData	*root = &pResGroupControl->freeSlot;
 
@@ -1348,7 +1348,7 @@ getSlot(ResGroupData *group)
 	}
 
 	/* Now actually get a free slot */
-	slotId = slotPoolAlloc();
+	slotId = slotpoolAllocSlot();
 	Assert(slotId != InvalidSlotId);
 
 	group->nRunning++;
@@ -1394,7 +1394,7 @@ putSlot(void)
 		wakeupGroups(group->groupId);
 
 	/* Return the slot back to free list */
-	slotPoolFree(slotId);
+	slotpoolFreeSlot(slotId);
 
 	/* And finally decrease nRunning */
 	group->nRunning--;
@@ -2159,7 +2159,7 @@ UnassignResGroup(void)
 			uninitSlot(slot);
 
 			/* Put it back to the free list */
-			slotPoolPush(slot);
+			slotpoolPushSlot(slot);
 
 			/* And finally decrease nRunning */
 			group->nRunning--;
@@ -2240,7 +2240,7 @@ SwitchResGroupOnSegment(const char *buf, int len)
 	else
 	{
 		/* Touch the slot for the first time, erase it from the free list */
-		slotPoolErase(slot);
+		slotpoolEraseSlot(slot);
 		Assert(slotIsIdle(slot));
 
 		initSlot(slot, &caps, newGroupId, gp_session_id);
