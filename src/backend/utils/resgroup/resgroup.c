@@ -219,6 +219,7 @@ static void initSlot(ResGroupSlotData *slot, ResGroupCaps *caps,
 static void uninitSlot(ResGroupSlotData *slot);
 static void selfAttachToSlot(ResGroupData *group, ResGroupSlotData *slot);
 static void selfDetachSlot(ResGroupData *group, ResGroupSlotData *slot);
+static bool slotpoolInit(void);
 static int slotpoolAllocSlot(void);
 static void slotpoolFreeSlot(int slotId);
 static void slotpoolPushSlot(ResGroupSlotData *slot);
@@ -305,7 +306,6 @@ ResGroupControlInit(void)
     HASHCTL     info;
     int         hash_flags;
 	int			size;
-	Size		slots_size;
 
 	size = sizeof(*pResGroupControl) - sizeof(ResGroupData);
 	size += mul_size(MaxResourceGroups, sizeof(ResGroupData));
@@ -347,37 +347,8 @@ ResGroupControlInit(void)
 	for (i = 0; i < MaxResourceGroups; i++)
 		pResGroupControl->groups[i].groupId = InvalidOid;
 
-	slots_size = mul_size(RESGROUP_MAX_SLOTS, sizeof(ResGroupSlotData));
-
-	/*
-	 * Alloc and initialize slot pool
-	 */
-	pResGroupControl->slots = ShmemAlloc(slots_size);
-	if (!pResGroupControl->slots)
+	if (!slotpoolInit())
 		goto error_out;
-
-	MemSet(pResGroupControl->slots, 0, slots_size);
-
-	/* make an empty double linked list */
-	{
-		ResGroupSlotData	*root = &pResGroupControl->freeSlot;
-
-		root->next = root;
-		root->prev = root;
-	}
-
-	/* push all the slots into the list */
-	for (i = 0; i < RESGROUP_MAX_SLOTS; i++)
-	{
-		ResGroupSlotData	*slot = &pResGroupControl->slots[i];
-
-		slot->sessionId = InvalidSessionId;
-		slot->groupId = InvalidOid;
-		slot->memQuota = -1;
-		slot->memUsage = 0;
-
-		slotpoolPushSlot(slot);
-	}
 
     return;
 
@@ -1198,6 +1169,47 @@ uninitSlot(ResGroupSlotData *slot)
 	slot->memUsage = 0;
 
 	Assert(slotIsIdle(slot));
+}
+
+/*
+ * Alloc and initialize slot pool
+ */
+static bool
+slotpoolInit(void)
+{
+	ResGroupSlotData *root = &pResGroupControl->freeSlot;
+	ResGroupSlotData *slot;
+	int numSlots;
+	int memSize;
+	int i;
+
+	numSlots = RESGROUP_MAX_SLOTS;
+	memSize = mul_size(numSlots, sizeof(ResGroupSlotData));
+
+	pResGroupControl->slots = ShmemAlloc(memSize);
+	if (!pResGroupControl->slots)
+		return false;
+
+	MemSet(pResGroupControl->slots, 0, memSize);
+
+	/* make an empty double linked list */
+	root->next = root;
+	root->prev = root;
+
+	/* push all the slots into the list */
+	for (i = 0; i < numSlots; i++)
+	{
+		slot = &pResGroupControl->slots[i];
+
+		slot->sessionId = InvalidSessionId;
+		slot->groupId = InvalidOid;
+		slot->memQuota = -1;
+		slot->memUsage = 0;
+
+		slotpoolPushSlot(slot);
+	}
+
+	return true;
 }
 
 /*
