@@ -98,9 +98,9 @@ static void insertResgroupCapabilityEntry(Relation rel, Oid groupid, uint16 type
 static void updateResgroupCapabilities(Oid groupid, const ResGroupCaps *resgroupCaps);
 static void insertResgroupCapabilities(Oid groupid, ResGroupOpts *options);
 static void deleteResgroupCapabilities(Oid groupid);
-static void createResGroupAbortCallback(bool isCommit, void *arg);
-static void dropResGroupAbortCallback(bool isCommit, void *arg);
-static void alterResGroupCommitCallback(bool isCommit, void *arg);
+static void createResGroupCallback(bool isCommit, void *arg);
+static void dropResGroupCallback(bool isCommit, void *arg);
+static void alterResGroupCallback(bool isCommit, void *arg);
 static void registerResourceGroupCallback(ResourceGroupCallback callback, void *arg);
 
 /*
@@ -279,7 +279,7 @@ CreateResourceGroup(CreateResourceGroupStmt *stmt)
 		/* Argument of callback function should be allocated in heap region */
 		callbackArg = (Oid *)MemoryContextAlloc(TopMemoryContext, sizeof(Oid));
 		*callbackArg = groupid;
-		registerResourceGroupCallback(createResGroupAbortCallback, (void *)callbackArg);
+		registerResourceGroupCallback(createResGroupCallback, (void *)callbackArg);
 
 		/* Create os dependent part for this resource group */
 		ResGroupOps_CreateGroup(groupid);
@@ -405,7 +405,7 @@ DropResourceGroup(DropResourceGroupStmt *stmt)
 		/* Argument of callback function should be allocated in heap region */
 		callbackArg = (Oid *)MemoryContextAlloc(TopMemoryContext, sizeof(Oid));
 		*callbackArg = groupid;
-		registerResourceGroupCallback(dropResGroupAbortCallback, (void *)callbackArg);
+		registerResourceGroupCallback(dropResGroupCallback, (void *)callbackArg);
 	}
 }
 
@@ -643,7 +643,7 @@ AlterResourceGroup(AlterResourceGroupStmt *stmt)
 	if (IsResGroupActivated())
 	{
 		callbackCtx->caps = caps;
-		registerResourceGroupCallback(alterResGroupCommitCallback, (void *)callbackCtx);
+		registerResourceGroupCallback(alterResGroupCallback, (void *)callbackCtx);
 	}
 }
 
@@ -979,7 +979,7 @@ parseStmtOptions(CreateResourceGroupStmt *stmt, ResGroupOpts *options)
  * creates resource groups
  */
 static void
-createResGroupAbortCallback(bool isCommit, void *arg)
+createResGroupCallback(bool isCommit, void *arg)
 {
 	Oid groupId;
 
@@ -999,7 +999,7 @@ createResGroupAbortCallback(bool isCommit, void *arg)
  * the queued transactions and cleanup shared menory entry.
  */
 static void
-dropResGroupAbortCallback(bool isCommit, void *arg)
+dropResGroupCallback(bool isCommit, void *arg)
 {
 	Oid groupId;
 
@@ -1016,7 +1016,7 @@ dropResGroupAbortCallback(bool isCommit, void *arg)
  * transaction of this resource group may need to be woke up.
  */
 static void
-alterResGroupCommitCallback(bool isCommit, void *arg)
+alterResGroupCallback(bool isCommit, void *arg)
 {
 	ResourceGroupAlterCallbackContext *ctx =
 		(ResourceGroupAlterCallbackContext *) arg;
