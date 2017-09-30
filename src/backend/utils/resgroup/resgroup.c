@@ -203,7 +203,7 @@ static bool groupReleaseMemQuota(ResGroupData *group,
 static void groupAcquireMemQuota(ResGroupData *group, const ResGroupCaps *caps);
 static ResGroupData *ResGroupHashNew(Oid groupId);
 static ResGroupData *ResGroupHashFind(Oid groupId, bool raise);
-static void ResGroupHashRemove(Oid groupId, bool raise);
+static void ResGroupHashRemove(Oid groupId);
 static void ResGroupWait(ResGroupData *group);
 static ResGroupData *ResGroupCreate(Oid groupId, const ResGroupCaps *caps);
 static void AtProcExit_ResGroup(int code, Datum arg);
@@ -566,7 +566,7 @@ ResGroupDropFinish(Oid groupId, bool isCommit)
 
 		if (isCommit)
 		{
-			ResGroupHashRemove(groupId, false);
+			ResGroupHashRemove(groupId);
 			ResGroupOps_DestroyGroup(groupId);
 		}
 	}
@@ -594,7 +594,7 @@ ResGroupCreateOnAbort(Oid groupId)
 	PG_TRY();
 	{
 		savedInterruptHoldoffCount = InterruptHoldoffCount;
-		ResGroupHashRemove(groupId, false);
+		ResGroupHashRemove(groupId);
 		/* remove the os dependent part for this resource group */
 		ResGroupOps_DestroyGroup(groupId);
 	}
@@ -2378,15 +2378,14 @@ ResGroupHashFind(Oid groupId, bool raise)
 /*
  * ResGroupHashRemove -- remove the group for a given oid.
  *
- * If the group cannot be found, then an exception is thrown unless
- * 'raise' is false.
+ * If the group cannot be found then an exception is thrown.
  *
  * Notes
  *	The resource group lightweight lock (ResGroupLock) *must* be held for
  *	this operation.
  */
 static void
-ResGroupHashRemove(Oid groupId, bool raise)
+ResGroupHashRemove(Oid groupId)
 {
 	bool		found;
 	ResGroupHashEntry	*entry;
@@ -2396,13 +2395,10 @@ ResGroupHashRemove(Oid groupId, bool raise)
 
 	entry = (ResGroupHashEntry*)hash_search(pResGroupControl->htbl, (void *) &groupId, HASH_FIND, &found);
 	if (!found)
-	{
-		ereport(raise ? ERROR : LOG,
+		ereport(ERROR,
 				(errcode(ERRCODE_DATA_CORRUPTED),
 				 errmsg("Cannot find resource group with Oid %d in shared memory to remove",
 						groupId)));
-		return;
-	}
 
 	group = &pResGroupControl->groups[entry->index];
 	returnChunksToPool(groupId, group->memQuotaGranted + group->memSharedGranted);
