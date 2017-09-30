@@ -264,7 +264,8 @@ static PGPROC * groupWaitQueuePop(ResGroupData *group);
 static void groupWaitQueueErase(ResGroupData *group, PGPROC *proc);
 static bool groupWaitQueueIsEmpty(const ResGroupData *group);
 static bool shouldBypassQuery(const char* query_string);
-
+static void lockResGroupForDrop(ResGroupData *group);
+static void unlockResGroupForDrop(ResGroupData *group);
 
 /*
  * Estimate size the resource group structures will need in
@@ -531,7 +532,8 @@ ResGroupCheckForDrop(Oid groupId, char *name)
 						 "\tTerminate the queries first or try dropping the group later.\n"
 						 "\tThe view pg_stat_activity tracks the queries managed by resource groups.", nQuery)));
 	}
-	group->lockedForDrop = true;
+
+	lockResGroupForDrop(group);
 
 	LWLockRelease(ResGroupLock);
 }
@@ -561,7 +563,7 @@ ResGroupDropFinish(Oid groupId, bool isCommit)
 		{
 			group = ResGroupHashFind(groupId, true);
 			wakeupSlots(group, false);
-			group->lockedForDrop = false;
+			unlockResGroupForDrop(group);
 		}
 
 		if (isCommit)
@@ -2946,6 +2948,24 @@ static bool
 slotIdIsValid(int slotId)
 {
 	return (slotId >= 0 && slotId < RESGROUP_MAX_SLOTS);
+}
+
+static void
+lockResGroupForDrop(ResGroupData *group)
+{
+	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
+	Assert(Gp_role == GP_ROLE_DISPATCH);
+	Assert(group->nRunning == 0);
+	group->lockedForDrop = true;
+}
+
+static void
+unlockResGroupForDrop(ResGroupData *group)
+{
+	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
+	Assert(Gp_role == GP_ROLE_DISPATCH);
+	Assert(group->nRunning == 0);
+	group->lockedForDrop = false;
 }
 
 #ifdef USE_ASSERT_CHECKING
