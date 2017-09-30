@@ -405,10 +405,12 @@ AllocResGroupEntry(Oid groupId, const ResGroupOpts *opts)
 }
 
 /*
- * Remove a resource group entry from the hash table
+ * Remove the resource group entry in shared memory if the transaction is aborted.
+ *
+ * This function is called in the callback function of CREATE RESOURCE GROUP.
  */
 void
-FreeResGroupEntry(Oid groupId)
+ResGroupCreateOnAbort(Oid groupId)
 {
 	volatile int savedInterruptHoldoffCount;
 
@@ -417,6 +419,8 @@ FreeResGroupEntry(Oid groupId)
 	{
 		savedInterruptHoldoffCount = InterruptHoldoffCount;
 		ResGroupHashRemove(groupId, false);
+		/* remove the os dependent part for this resource group */
+		ResGroupOps_DestroyGroup(groupId);
 	}
 	PG_CATCH();
 	{
@@ -560,6 +564,8 @@ ResGroupCheckForDrop(Oid groupId, char *name)
 }
 
 /*
+ * Drop resource group call back function
+ *
  * Wake up the backends in the wait queue when DROP RESOURCE GROUP finishes.
  * Unlock the resource group if the transaction is aborted.
  * Remove the resource group entry in shared memory if the transaction is committed.
@@ -567,7 +573,7 @@ ResGroupCheckForDrop(Oid groupId, char *name)
  * This function is called in the callback function of DROP RESOURCE GROUP.
  */
 void
-ResGroupDropCheckForWakeup(Oid groupId, bool isCommit)
+ResGroupDropFinish(Oid groupId, bool isCommit)
 {
 	ResGroupData	*group;
 	volatile int	savedInterruptHoldoffCount;
@@ -586,7 +592,10 @@ ResGroupDropCheckForWakeup(Oid groupId, bool isCommit)
 		}
 
 		if (isCommit)
+		{
 			ResGroupHashRemove(groupId, false);
+			ResGroupOps_DestroyGroup(groupId);
+		}
 	}
 	PG_CATCH();
 	{

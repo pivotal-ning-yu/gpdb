@@ -981,33 +981,13 @@ parseStmtOptions(CreateResourceGroupStmt *stmt, ResGroupOpts *options)
 static void
 createResGroupAbortCallback(bool isCommit, void *arg)
 {
-	volatile int savedInterruptHoldoffCount;
 	Oid groupId;
 
-	if (!isCommit)
-	{
-		groupId = *(Oid *)arg;
+	if (isCommit)
+		return;
 
-		/*
-		 * FreeResGroupEntry would acquire LWLock, since this callback is called
-		 * after LWLockReleaseAll in AbortTransaction, it is safe here
-		 */
-		/* FIXME: don't attempt to lock/unlock */
-		FreeResGroupEntry(groupId);
-
-		/* remove the os dependent part for this resource group */
-		PG_TRY();
-		{
-			savedInterruptHoldoffCount = InterruptHoldoffCount;
-			ResGroupOps_DestroyGroup(groupId);
-		}
-		PG_CATCH();
-		{
-			InterruptHoldoffCount = savedInterruptHoldoffCount;
-			elog(LOG, "Fail to remove cgroup dir for resource group %d", groupId);
-		}
-		PG_END_TRY();
-	}
+	groupId = *(Oid *)arg;
+	ResGroupCreateOnAbort(groupId);
 
 	pfree(arg);
 }
@@ -1015,33 +995,16 @@ createResGroupAbortCallback(bool isCommit, void *arg)
 /*
  * Resource group call back function
  *
- * Remove resource group entry in shared memory when commit transaction which
- * drops resource groups
+ * When DROP RESOURCE GROUP transaction ends, need wake up
+ * the queued transactions and cleanup shared menory entry.
  */
 static void
 dropResGroupAbortCallback(bool isCommit, void *arg)
 {
-	volatile int savedInterruptHoldoffCount;
 	Oid groupId;
 
 	groupId = *(Oid *)arg;
-	ResGroupDropCheckForWakeup(groupId, isCommit);
-
-	if (isCommit)
-	{
-		/* remove the os dependent part for this resource group */
-		PG_TRY();
-		{
-			savedInterruptHoldoffCount = InterruptHoldoffCount;
-			ResGroupOps_DestroyGroup(groupId);
-		}
-		PG_CATCH();
-		{
-			InterruptHoldoffCount = savedInterruptHoldoffCount;
-			elog(LOG, "Fail to remove cgroup dir for resource group %d", groupId);
-		}
-		PG_END_TRY();
-	}
+	ResGroupDropFinish(groupId, isCommit);
 
 	pfree(arg);
 }
@@ -1051,7 +1014,6 @@ dropResGroupAbortCallback(bool isCommit, void *arg)
  *
  * When ALTER RESOURCE GROUP SET CONCURRENCY commits, some queuing
  * transaction of this resource group may need to be woke up.
- *
  */
 static void
 alterResGroupCommitCallback(bool isCommit, void *arg)
@@ -1059,8 +1021,10 @@ alterResGroupCommitCallback(bool isCommit, void *arg)
 	ResourceGroupAlterCallbackContext *ctx =
 		(ResourceGroupAlterCallbackContext *) arg;
 
-	if (isCommit)
-		ResGroupAlterOnCommit(ctx->groupid, ctx->limittype, &ctx->caps);
+	if (!isCommit)
+		return;
+
+	ResGroupAlterOnCommit(ctx->groupid, ctx->limittype, &ctx->caps);
 
 	pfree(arg);
 }
