@@ -105,6 +105,7 @@ struct ResGroupProcData
  */
 struct ResGroupSlotData
 {
+	int				slotId;
 	int				sessionId;
 	Oid				groupId;
 
@@ -1204,6 +1205,7 @@ slotpoolInit(void)
 	{
 		slot = &pResGroupControl->slots[i];
 
+		slot->slotId = i;
 		slot->sessionId = InvalidSessionId;
 		slot->groupId = InvalidOid;
 		slot->memQuota = -1;
@@ -2868,6 +2870,7 @@ slotValidate(const ResGroupSlotData *slot)
 {
 	Assert(slot != NULL);
 	Assert(slot != &pResGroupControl->freeSlot);
+	Assert(slot->slotId == slotGetId(slot));
 
 	if (Gp_role == GP_ROLE_DISPATCH)
 	{
@@ -2956,12 +2959,11 @@ slotGetId(const ResGroupSlotData *slot)
 {
 	int			slotId;
 
-	slotValidate(slot);
-
 	slotId = slot - pResGroupControl->slots;
 
 	Assert(slotId >= 0);
 	Assert(slotId < RESGROUP_MAX_SLOTS);
+	Assert(slotId == slot->slotId);
 
 	return slotId;
 }
