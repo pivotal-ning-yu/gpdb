@@ -2184,24 +2184,21 @@ UnassignResGroup(void)
 		groupReleaseSlot();
 		Assert(!selfHasSlot());
 	}
-	else
+	else if (slot->nProcs == 0)
 	{
 		Assert(Gp_role == GP_ROLE_EXECUTE);
 
-		if (slot->nProcs == 0)
-		{
-			/* Release the slot memory */
-			groupReleaseMemQuota(group, slot);
+		/* Release the slot memory */
+		groupReleaseMemQuota(group, slot);
 
-			/* Uninit the slot */
-			uninitSlot(slot);
+		/* Uninit the slot */
+		uninitSlot(slot);
 
-			/* Put it back to the free list */
-			slotpoolPushSlot(slot);
+		/* Put it back to the free list */
+		slotpoolPushSlot(slot);
 
-			/* And finally decrease nRunning */
-			group->nRunning--;
-		}
+		/* And finally decrease nRunning */
+		group->nRunning--;
 	}
 
 	/* Cleanup group */
