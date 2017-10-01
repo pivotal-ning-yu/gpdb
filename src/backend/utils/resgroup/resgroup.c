@@ -228,9 +228,9 @@ static ResGroupSlotData *slotpoolPopSlot(void);
 static ResGroupSlotData *slotpoolEraseSlot(ResGroupSlotData *slot);
 static int groupGetSlot(ResGroupData *group);
 static void groupPutSlot(void);
-static void ResGroupSlotAcquire(void);
+static void groupAcquireSlot(void);
+static void groupReleaseSlot(void);
 static void addTotalQueueDuration(ResGroupData *group);
-static void ResGroupSlotRelease(void);
 static void ResGroupSetMemorySpillRatio(const ResGroupCaps *caps);
 static char* DumpResGroupMemUsage(ResGroupData *group);
 static void selfValidateResGroupInfo(void);
@@ -1434,7 +1434,7 @@ groupPutSlot(void)
  * and current slot id in MyProc->resSlotId.
  */
 static void
-ResGroupSlotAcquire(void)
+groupAcquireSlot(void)
 {
 	ResGroupData	*group;
 	Oid				 groupId;
@@ -1959,7 +1959,7 @@ addTotalQueueDuration(ResGroupData *group)
  * Call this function at the end of the transaction.
  */
 static void
-ResGroupSlotRelease(void)
+groupReleaseSlot(void)
 {
 	ResGroupData	*group = self->group;
 
@@ -2103,7 +2103,7 @@ AssignResGroupOnMaster(void)
 		Assert(pResGroupControl != NULL);
 		Assert(pResGroupControl->segmentsOnMaster > 0);
 		Assert(selfIsUnassigned());
-		ResGroupSlotAcquire();
+		groupAcquireSlot();
 		Assert(selfIsAssignedValidGroup());
 		Assert(selfHasSlot());
 		Assert(!self->doMemCheck);
@@ -2168,7 +2168,7 @@ UnassignResGroup(void)
 	if (Gp_role == GP_ROLE_DISPATCH)
 	{
 		/* Release the slot */
-		ResGroupSlotRelease();
+		groupReleaseSlot();
 		Assert(!selfHasSlot());
 	}
 	else
@@ -2501,7 +2501,7 @@ ResGroupWaitCancel(void)
 		addTotalQueueDuration(group);
 
 		/*
-		 * Similar as ResGroupSlotRelease(), how many pending queries to
+		 * Similar as groupReleaseSlot(), how many pending queries to
 		 * wake up depends on how many slots we can get.
 		 */
 		wakeupSlots(group, true);
@@ -2510,7 +2510,7 @@ ResGroupWaitCancel(void)
 	{
 		/*
 		 * The transaction of DROP RESOURCE GROUP is finished,
-		 * ResGroupSlotAcquire will do the retry.
+		 * groupAcquireSlot will do the retry.
 		 */
 		Assert(!procIsInWaitQueue(MyProc));
 		Assert(!selfHasSlot());
