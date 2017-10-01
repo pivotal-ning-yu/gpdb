@@ -230,7 +230,7 @@ static ResGroupSlotData *groupGetSlot(ResGroupData *group);
 static void groupPutSlot(ResGroupData *group, ResGroupSlotData *slot);
 static ResGroupData *decideResGroup(void);
 static ResGroupSlotData *groupAcquireSlot(ResGroupData *group);
-static void groupReleaseSlot(void);
+static void groupReleaseSlot(ResGroupData *group, ResGroupSlotData *slot);
 static void addTotalQueueDuration(ResGroupData *group);
 static void ResGroupSetMemorySpillRatio(const ResGroupCaps *caps);
 static char* DumpResGroupMemUsage(ResGroupData *group);
@@ -1966,15 +1966,12 @@ addTotalQueueDuration(ResGroupData *group)
  * Call this function at the end of the transaction.
  */
 static void
-groupReleaseSlot(void)
+groupReleaseSlot(ResGroupData *group, ResGroupSlotData *slot)
 {
-	ResGroupData	*group = self->group;
-
-	Assert(selfIsAssignedValidGroup());
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
-
-	groupPutSlot(group, self->slot);
 	Assert(!selfHasSlot());
+
+	groupPutSlot(group, slot);
 
 	/*
 	 * My slot is put back, then how many queuing queries should I wake up?
@@ -2179,7 +2176,7 @@ UnassignResGroup(void)
 	if (Gp_role == GP_ROLE_DISPATCH)
 	{
 		/* Release the slot */
-		groupReleaseSlot();
+		groupReleaseSlot(group, slot);
 		Assert(!selfHasSlot());
 	}
 	else if (slot->nProcs == 0)
@@ -2469,6 +2466,7 @@ static void
 ResGroupWaitCancel(void)
 {
 	ResGroupData	*group = self->group;
+	ResGroupSlotData	*slot;
 
 	/* Process exit without waiting for slot */
 	if (!selfHasGroup() || !localResWaiting)
@@ -2495,17 +2493,18 @@ ResGroupWaitCancel(void)
 		/* Woken up by a slot holder */
 
 		Assert(!procIsInWaitQueue(MyProc));
+		Assert(selfIsAssignedValidGroup());
+		Assert(!selfHasSlot());
 
 		/* First complete the slot's transfer from MyProc to self */
-		selfSetSlot(MyProc->resSlot);
+		slot = MyProc->resSlot;
 		MyProc->resSlot = NULL;
-		Assert(selfIsAssignedValidGroup());
 
 		/*
 		 * Similar as groupReleaseSlot(), how many pending queries to
 		 * wake up depends on how many slots we can get.
 		 */
-		groupReleaseSlot();
+		groupReleaseSlot(group, slot);
 
 		group->totalExecuted++;
 		addTotalQueueDuration(group);
