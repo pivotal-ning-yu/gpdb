@@ -226,7 +226,7 @@ static void slotpoolFreeSlot(ResGroupSlotData *slot);
 static void slotpoolPushSlot(ResGroupSlotData *slot);
 static ResGroupSlotData *slotpoolPopSlot(void);
 static ResGroupSlotData *slotpoolEraseSlot(ResGroupSlotData *slot);
-static int groupGetSlot(ResGroupData *group);
+static ResGroupSlotData *groupGetSlot(ResGroupData *group);
 static void groupPutSlot(void);
 static void groupAcquireSlot(void);
 static void groupReleaseSlot(void);
@@ -1315,7 +1315,7 @@ slotpoolEraseSlot(ResGroupSlotData *slot)
  *
  * On failure nothing is changed and InvalidSlotId is returned.
  */
-static int
+static ResGroupSlotData *
 groupGetSlot(ResGroupData *group)
 {
 	ResGroupSlotData	*slot;
@@ -1329,17 +1329,17 @@ groupGetSlot(ResGroupData *group)
 
 	/* First check if the concurrency limit is reached */
 	if (group->nRunning >= caps->concurrency.proposed)
-		return InvalidSlotId;
+		return NULL;
 
 	if (!groupReserveMemQuota(group))
-		return InvalidSlotId;
+		return NULL;
 
 	/* Now actually get a free slot */
 	slot = slotpoolAllocSlot();
 
 	group->nRunning++;
 
-	return slotGetId(slot);
+	return slot;
 }
 
 static bool
@@ -1430,6 +1430,7 @@ groupPutSlot(void)
 static void
 groupAcquireSlot(void)
 {
+	ResGroupSlotData *slot;
 	ResGroupData	*group;
 	Oid				 groupId;
 
@@ -1468,14 +1469,13 @@ retry:
 	if (!group->lockedForDrop)
 	{
 		/* try to get a slot directly */
-		int slotId = groupGetSlot(group);
+		slot = groupGetSlot(group);
 
-		if (slotId != InvalidSlotId)
+		if (slot != NULL)
 		{
 			/* got one, lucky */
-			initSlot(slotById(slotId), &group->caps,
-					group->groupId, gp_session_id);
-			selfSetSlot(slotId);
+			initSlot(slot, &group->caps, group->groupId, gp_session_id);
+			selfSetSlot(slotGetId(slot));
 
 			group->totalExecuted++;
 			pgstat_report_resgroup(0, group->groupId);
@@ -1796,13 +1796,13 @@ wakeupSlots(ResGroupData *group, bool grant)
 	while (!groupWaitQueueIsEmpty(group))
 	{
 		PGPROC		*waitProc;
-		int			slotId = InvalidSlotId;
+		ResGroupSlotData *slot = NULL;
 
 		if (grant)
 		{
 			/* try to get a slot for that proc */
-			slotId = groupGetSlot(group);
-			if (slotId == InvalidSlotId)
+			slot = groupGetSlot(group);
+			if (slot == NULL)
 				/* if can't get one then give up */
 				break;
 		}
@@ -1810,11 +1810,11 @@ wakeupSlots(ResGroupData *group, bool grant)
 		/* wake up one process in the wait queue */
 		waitProc = groupWaitQueuePop(group);
 
-		if (slotId != InvalidSlotId)
-			initSlot(slotById(slotId), &group->caps,
+		if (slot != NULL)
+			initSlot(slot, &group->caps,
 					 group->groupId, waitProc->mppSessionId);
 
-		waitProc->resSlotId = slotId;
+		waitProc->resSlotId = slotGetId(slot);
 
 		procWakeup(waitProc);
 	}
