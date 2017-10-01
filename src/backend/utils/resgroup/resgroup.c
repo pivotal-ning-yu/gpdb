@@ -490,6 +490,9 @@ ResGroupCheckForDrop(Oid groupId, char *name)
 {
 	ResGroupData	*group;
 
+	if (Gp_role != GP_ROLE_DISPATCH)
+		return;
+
 	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
 
 	group = ResGroupHashFind(groupId, true);
@@ -555,6 +558,7 @@ ResGroupDropFinish(Oid groupId, bool isCommit)
 
 	LWLockRelease(ResGroupLock);
 }
+
 
 /*
  * Remove the resource group entry in shared memory if the transaction is aborted.
@@ -1226,9 +1230,11 @@ slotpoolAllocSlot(void)
 	ResGroupSlotData *slot;
 
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
+	Assert(Gp_role == GP_ROLE_DISPATCH);
 
 	slot = slotpoolPopSlot();
 
+	Assert(slotIdIsValid(slot->slotId));
 	Assert(slotIsIdle(slot));
 
 	return slot;
@@ -1241,6 +1247,9 @@ static void
 slotpoolFreeSlot(ResGroupSlotData *slot)
 {
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
+	Assert(Gp_role == GP_ROLE_DISPATCH);
+	Assert(slotIsInUse(slot));
+	Assert(slot->nProcs == 0);
 
 	uninitSlot(slot);
 
@@ -1349,9 +1358,9 @@ groupGetSlot(ResGroupData *group)
 static bool
 groupReserveMemQuota(ResGroupData *group)
 {
-	ResGroupCaps		*caps;
-	int32				slotMemQuota;
-	int32				memQuotaUsed;
+	ResGroupCaps	*caps;
+	int32			slotMemQuota;
+	int32			memQuotaUsed;
 
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 	Assert(Gp_role == GP_ROLE_DISPATCH);
@@ -1398,7 +1407,7 @@ groupPutSlot(ResGroupData *group, ResGroupSlotData *slot)
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 	Assert(Gp_role == GP_ROLE_DISPATCH);
 	Assert(group->memQuotaUsed >= 0);
-	Assert(group->nRunning > 0);
+	Assert(slotIsInUse(slot));
 
 	/* Return the memory quota granted to this slot */
 #ifdef USE_ASSERT_CHECKING
@@ -1414,8 +1423,6 @@ groupPutSlot(ResGroupData *group, ResGroupSlotData *slot)
 
 	/* Return the slot back to free list */
 	slotpoolFreeSlot(slot);
-
-	/* And finally decrease nRunning */
 	group->nRunning--;
 }
 
@@ -1980,6 +1987,7 @@ groupReleaseSlot(ResGroupData *group, ResGroupSlotData *slot)
 	 * Maybe zero, maybe one, maybe more, depends on how the resgroup's
 	 * configuration were changed during our execution.
 	 */
+	Assert(slotIsFreed(slot));
 	wakeupSlots(group, true);
 }
 
@@ -2282,7 +2290,7 @@ SwitchResGroupOnSegment(const char *buf, int len)
 
 	ResGroupSetMemorySpillRatio(&caps);
 
-	groupAcquireMemQuota(group, &slot->caps);
+	groupAcquireMemQuota(group, &caps);
 	LWLockRelease(ResGroupLock);
 
 	/* finally we can say we are in a valid resgroup */
