@@ -229,7 +229,7 @@ static ResGroupSlotData *slotpoolEraseSlot(ResGroupSlotData *slot);
 static ResGroupSlotData *groupGetSlot(ResGroupData *group);
 static void groupPutSlot(void);
 static ResGroupData *decideResGroup(void);
-static void groupAcquireSlot(void);
+static ResGroupSlotData *groupAcquireSlot(ResGroupData *group);
 static void groupReleaseSlot(void);
 static void addTotalQueueDuration(ResGroupData *group);
 static void ResGroupSetMemorySpillRatio(const ResGroupCaps *caps);
@@ -1465,20 +1465,25 @@ decideResGroup(void)
  * This function set current resource group in MyResGroupSharedInfo,
  * and current slot in MyProc->resSlot.
  */
-static void
-groupAcquireSlot(void)
+static ResGroupSlotData *
+groupAcquireSlot(ResGroupData *group)
 {
 	ResGroupSlotData *slot;
-	ResGroupData	*group;
-
-retry:
-	Assert(selfIsUnassigned());
-
-	group = decideResGroup();
 
 	/* should not been granted a slot yet */
 	Assert(selfIsAssigned());
 	Assert(!selfHasSlot());
+
+	if (selfIsAssignedDroppedGroup())
+		return NULL;
+
+	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
+
+	if (selfIsAssignedDroppedGroup())
+	{
+		LWLockRelease(ResGroupLock);
+		return NULL;
+	}
 
 	/* acquire a slot */
 	if (!group->lockedForDrop)
@@ -1490,12 +1495,10 @@ retry:
 		{
 			/* got one, lucky */
 			initSlot(slot, &group->caps, group->groupId, gp_session_id);
-			selfSetSlot(slot);
-
 			group->totalExecuted++;
 			pgstat_report_resgroup(0, group->groupId);
 			LWLockRelease(ResGroupLock);
-			return;
+			return slot;
 		}
 	}
 
@@ -1515,22 +1518,21 @@ retry:
 	ResGroupWait(group);
 
 	if (MyProc->resSlot == NULL)
-	{
-		selfUnsetGroup();
-		goto retry;
-	}
+		return NULL;
 
 	/*
 	 * The waking process has granted us a valid slot.
 	 * Update the statistic information of the resource group.
 	 */
-	selfSetSlot(MyProc->resSlot);
+	slot = (ResGroupSlotData *) MyProc->resSlot;
+	MyProc->resSlot = NULL;
 	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
 	addTotalQueueDuration(group);
 	group->totalExecuted++;
 	LWLockRelease(ResGroupLock);
 
 	pgstat_report_resgroup(0, group->groupId);
+	return slot;
 }
 
 /* Update the total queued time of this group */
@@ -2108,17 +2110,21 @@ AssignResGroupOnMaster(void)
 
 	PG_TRY();
 	{
-		/* Acquire slot */
-		Assert(pResGroupControl != NULL);
-		Assert(pResGroupControl->segmentsOnMaster > 0);
-		Assert(selfIsUnassigned());
-		groupAcquireSlot();
+retry:
+		group = decideResGroup();
 		Assert(selfIsAssignedValidGroup());
-		Assert(selfHasSlot());
+
+		/* Acquire slot */
+		slot = groupAcquireSlot(group);
+		if (slot == NULL)
+		{
+			selfUnsetGroup();
+			goto retry;
+		}
+
+		selfSetSlot(slot);
 		Assert(!self->doMemCheck);
 
-		group = self->group;
-		slot = self->slot;
 		/* Add proc memory accounting info into group and slot */
 		selfAttachToSlot(group, slot);
 
