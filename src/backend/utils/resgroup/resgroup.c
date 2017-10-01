@@ -2500,6 +2500,7 @@ ResGroupWaitCancel(void)
 
 		/* First complete the slot's transfer from MyProc to self */
 		selfSetSlot(MyProc->resSlot);
+		MyProc->resSlot = NULL;
 		Assert(selfIsAssignedValidGroup());
 
 		/*
@@ -2794,8 +2795,6 @@ selfSetSlot(ResGroupSlotData *slot)
 	Assert(selfHasGroup());
 	Assert(!selfHasSlot());
 	Assert(slot != NULL);
-
-	MyProc->resSlot = NULL;
 
 	self->slot = slot;
 	self->slotId = slotGetId(slot);
