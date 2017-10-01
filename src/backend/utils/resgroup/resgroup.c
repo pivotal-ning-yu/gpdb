@@ -2502,18 +2502,14 @@ ResGroupWaitCancel(void)
 		selfSetSlot(MyProc->resSlot);
 		Assert(selfIsAssignedValidGroup());
 
-		/* Then run the normal cleanup process */
-		groupPutSlot();
-		Assert(!selfHasSlot());
-
-		group->totalExecuted++;
-		addTotalQueueDuration(group);
-
 		/*
 		 * Similar as groupReleaseSlot(), how many pending queries to
 		 * wake up depends on how many slots we can get.
 		 */
-		wakeupSlots(group, true);
+		groupReleaseSlot();
+
+		group->totalExecuted++;
+		addTotalQueueDuration(group);
 	}
 	else
 	{
