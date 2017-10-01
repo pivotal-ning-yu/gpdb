@@ -228,6 +228,7 @@ static ResGroupSlotData *slotpoolPopSlot(void);
 static ResGroupSlotData *slotpoolEraseSlot(ResGroupSlotData *slot);
 static ResGroupSlotData *groupGetSlot(ResGroupData *group);
 static void groupPutSlot(void);
+static ResGroupData *decideResGroup(void);
 static void groupAcquireSlot(void);
 static void groupReleaseSlot(void);
 static void addTotalQueueDuration(ResGroupData *group);
@@ -1420,22 +1421,16 @@ groupPutSlot(void)
 	group->nRunning--;
 }
 
-/*
- * Acquire a resource group slot
- *
- * Call this function at the start of the transaction.
- * This function set current resource group in MyResGroupSharedInfo,
- * and current slot in MyProc->resSlot.
- */
-static void
-groupAcquireSlot(void)
+static ResGroupData *
+decideResGroup(void)
 {
-	ResGroupSlotData *slot;
 	ResGroupData	*group;
 	Oid				 groupId;
 
-retry:
-	Assert(selfIsUnassigned());
+	Assert(pResGroupControl != NULL);
+	Assert(pResGroupControl->segmentsOnMaster > 0);
+	Assert(Gp_role == GP_ROLE_DISPATCH);
+	Assert(!selfIsAssigned());
 
 	/* always find out the up-to-date resgroup id */
 	groupId = GetResGroupIdForRole(GetUserId());
@@ -1451,16 +1446,36 @@ retry:
 		 * so we have to explicitly release the LWLock before error out.
 		 */
 		LWLockRelease(ResGroupLock);
+		Assert(selfIsUnassigned());
+
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_CORRUPTED),
 				 errmsg("Can not find a valid resource group for current role")));
 	}
 
-	/*
-	 * it's neccessary to set group to self before we
-	 * got signal and goes to ResGroupWaitCancel
-	 */
 	selfSetGroup(group);
+	LWLockRelease(ResGroupLock);
+	return group;
+}
+
+/*
+ * Acquire a resource group slot
+ *
+ * Call this function at the start of the transaction.
+ * This function set current resource group in MyResGroupSharedInfo,
+ * and current slot in MyProc->resSlot.
+ */
+static void
+groupAcquireSlot(void)
+{
+	ResGroupSlotData *slot;
+	ResGroupData	*group;
+
+retry:
+	Assert(selfIsUnassigned());
+
+	group = decideResGroup();
+	Assert(selfHasGroup());
 
 	/* should not been granted a slot yet */
 	Assert(!selfHasSlot());
