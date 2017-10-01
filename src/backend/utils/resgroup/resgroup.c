@@ -2475,7 +2475,7 @@ AtProcExit_ResGroup(int code, Datum arg)
 static void
 ResGroupWaitCancel(void)
 {
-	ResGroupData	*group = self->group;
+	ResGroupData		*group;
 	ResGroupSlotData	*slot;
 
 	/* Process exit without waiting for slot */
@@ -2489,6 +2489,7 @@ ResGroupWaitCancel(void)
 	{
 		/* Still waiting on the queue when get interrupted, remove myself from the queue */
 
+		group = self->group;
 		Assert(!groupWaitQueueIsEmpty(group));
 		Assert(procIsWaiting(MyProc));
 		Assert(selfHasGroup());
@@ -2514,6 +2515,7 @@ ResGroupWaitCancel(void)
 		 * Similar as groupReleaseSlot(), how many pending queries to
 		 * wake up depends on how many slots we can get.
 		 */
+		group = self->group;
 		groupReleaseSlot(group, slot);
 
 		group->totalExecuted++;
