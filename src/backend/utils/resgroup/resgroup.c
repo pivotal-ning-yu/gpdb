@@ -221,8 +221,8 @@ static void uninitSlot(ResGroupSlotData *slot);
 static void selfAttachToSlot(ResGroupData *group, ResGroupSlotData *slot);
 static void selfDetachSlot(ResGroupData *group, ResGroupSlotData *slot);
 static bool slotpoolInit(void);
-static int slotpoolAllocSlot(void);
-static void slotpoolFreeSlot(int slotId);
+static ResGroupSlotData *slotpoolAllocSlot(void);
+static void slotpoolFreeSlot(ResGroupSlotData *slot);
 static void slotpoolPushSlot(ResGroupSlotData *slot);
 static ResGroupSlotData *slotpoolPopSlot(void);
 static ResGroupSlotData *slotpoolEraseSlot(ResGroupSlotData *slot);
@@ -1216,7 +1216,7 @@ slotpoolInit(void)
 /*
  * Alloc a slot from shared slot pool
  */
-static int
+static ResGroupSlotData *
 slotpoolAllocSlot(void)
 {
 	ResGroupSlotData *slot;
@@ -1227,20 +1227,16 @@ slotpoolAllocSlot(void)
 
 	Assert(slotIsIdle(slot));
 
-	return slotGetId(slot);
+	return slot;
 }
 
 /*
  * Free a slot back to shared slot pool
  */
 static void
-slotpoolFreeSlot(int slotId)
+slotpoolFreeSlot(ResGroupSlotData *slot)
 {
-	ResGroupSlotData *slot;
-
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
-
-	slot = slotById(slotId);
 
 	uninitSlot(slot);
 
@@ -1322,7 +1318,7 @@ slotpoolEraseSlot(ResGroupSlotData *slot)
 static int
 groupGetSlot(ResGroupData *group)
 {
-	int					slotId;
+	ResGroupSlotData	*slot;
 	ResGroupCaps		*caps;
 
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
@@ -1339,12 +1335,11 @@ groupGetSlot(ResGroupData *group)
 		return InvalidSlotId;
 
 	/* Now actually get a free slot */
-	slotId = slotpoolAllocSlot();
-	Assert(slotId != InvalidSlotId);
+	slot = slotpoolAllocSlot();
 
 	group->nRunning++;
 
-	return slotId;
+	return slotGetId(slot);
 }
 
 static bool
@@ -1391,7 +1386,6 @@ groupReserveMemQuota(ResGroupData *group)
 static void
 groupPutSlot(void)
 {
-	int					slotId = self->slotId;
 	ResGroupSlotData	*slot = self->slot;
 	ResGroupData		*group = self->group;
 	bool				shouldWakeUp;
@@ -1420,7 +1414,7 @@ groupPutSlot(void)
 		wakeupGroups(group->groupId);
 
 	/* Return the slot back to free list */
-	slotpoolFreeSlot(slotId);
+	slotpoolFreeSlot(slot);
 
 	/* And finally decrease nRunning */
 	group->nRunning--;
