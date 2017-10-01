@@ -227,7 +227,7 @@ static void slotpoolPushSlot(ResGroupSlotData *slot);
 static ResGroupSlotData *slotpoolPopSlot(void);
 static ResGroupSlotData *slotpoolEraseSlot(ResGroupSlotData *slot);
 static ResGroupSlotData *groupGetSlot(ResGroupData *group);
-static void groupPutSlot(void);
+static void groupPutSlot(ResGroupData *group, ResGroupSlotData *slot);
 static ResGroupData *decideResGroup(void);
 static ResGroupSlotData *groupAcquireSlot(ResGroupData *group);
 static void groupReleaseSlot(void);
@@ -1386,10 +1386,8 @@ groupReserveMemQuota(ResGroupData *group)
  * nRunning will be decreased.
  */
 static void
-groupPutSlot(void)
+groupPutSlot(ResGroupData *group, ResGroupSlotData *slot)
 {
-	ResGroupSlotData	*slot = self->slot;
-	ResGroupData		*group = self->group;
 	bool				shouldWakeUp;
 #ifdef USE_ASSERT_CHECKING
 	int32				memQuotaUsed;
@@ -1975,7 +1973,7 @@ groupReleaseSlot(void)
 	Assert(selfIsAssignedValidGroup());
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 
-	groupPutSlot();
+	groupPutSlot(group, self->slot);
 	Assert(!selfHasSlot());
 
 	/*
