@@ -208,6 +208,7 @@ static void ResGroupWait(ResGroupData *group);
 static ResGroupData *ResGroupCreate(Oid groupId, const ResGroupCaps *caps);
 static void AtProcExit_ResGroup(int code, Datum arg);
 static void ResGroupWaitCancel(void);
+static bool groupReserveMemQuota(ResGroupData *group);
 static int32 groupIncMemUsage(ResGroupData *group,
 							  ResGroupSlotData *slot,
 							  int32 chunks);
@@ -1321,8 +1322,6 @@ slotpoolEraseSlot(ResGroupSlotData *slot)
 static int
 getSlot(ResGroupData *group)
 {
-	int32				slotMemQuota;
-	int32				memQuotaUsed;
 	int					slotId;
 	ResGroupCaps		*caps;
 
@@ -1336,10 +1335,31 @@ getSlot(ResGroupData *group)
 	if (group->nRunning >= caps->concurrency.proposed)
 		return InvalidSlotId;
 
-	groupAcquireMemQuota(group, caps);
+	if (!groupReserveMemQuota(group))
+		return InvalidSlotId;
 
-	/* Then check for memory stocks */
+	/* Now actually get a free slot */
+	slotId = slotpoolAllocSlot();
+	Assert(slotId != InvalidSlotId);
+
+	group->nRunning++;
+
+	return slotId;
+}
+
+static bool
+groupReserveMemQuota(ResGroupData *group)
+{
+	ResGroupCaps		*caps;
+	int32				slotMemQuota;
+	int32				memQuotaUsed;
+
+	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
+	Assert(Gp_role == GP_ROLE_DISPATCH);
 	Assert(pResGroupControl->segmentsOnMaster > 0);
+
+	caps = &group->caps;
+	groupAcquireMemQuota(group, caps);
 
 	/* Calculate the expected per slot quota */
 	slotMemQuota = slotGetMemQuotaExpected(caps);
@@ -1356,16 +1376,10 @@ getSlot(ResGroupData *group)
 		memQuotaUsed = pg_atomic_sub_fetch_u32((pg_atomic_uint32*)&group->memQuotaUsed,
 											   slotMemQuota);
 		Assert(memQuotaUsed >= 0);
-		return InvalidSlotId;
+		return false;
 	}
 
-	/* Now actually get a free slot */
-	slotId = slotpoolAllocSlot();
-	Assert(slotId != InvalidSlotId);
-
-	group->nRunning++;
-
-	return slotId;
+	return true;
 }
 
 /*
