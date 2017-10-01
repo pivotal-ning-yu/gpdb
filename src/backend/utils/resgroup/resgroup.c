@@ -1475,9 +1475,9 @@ retry:
 	Assert(selfIsUnassigned());
 
 	group = decideResGroup();
-	Assert(selfHasGroup());
 
 	/* should not been granted a slot yet */
+	Assert(selfIsAssigned());
 	Assert(!selfHasSlot());
 
 	/* acquire a slot */
@@ -2594,8 +2594,6 @@ selfValidateResGroupInfo(void)
 {
 	Assert(self->memUsage >= 0);
 
-	AssertImply(self->groupId != InvalidOid,
-				self->slotId != InvalidSlotId);
 	AssertImply(self->groupId != InvalidOid,
 				self->group != NULL);
 	AssertImply(self->slotId != InvalidSlotId,
