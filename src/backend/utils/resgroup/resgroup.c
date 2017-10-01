@@ -1425,7 +1425,7 @@ groupPutSlot(void)
  *
  * Call this function at the start of the transaction.
  * This function set current resource group in MyResGroupSharedInfo,
- * and current slot id in MyProc->resSlotId.
+ * and current slot in MyProc->resSlot.
  */
 static void
 groupAcquireSlot(void)
@@ -1495,11 +1495,11 @@ retry:
 	 * wait on the queue
 	 * slot will be assigned by the proc wakes me up
 	 * if i am waken up by DROP RESOURCE GROUP statement, the
-	 * resSlotId will be InvalidSlotId.
+	 * resSlot will be NULL.
 	 */
 	ResGroupWait(group);
 
-	if (MyProc->resSlotId == InvalidSlotId)
+	if (MyProc->resSlot == NULL)
 	{
 		selfUnsetGroup();
 		goto retry;
@@ -1509,7 +1509,7 @@ retry:
 	 * The waking process has granted us a valid slot.
 	 * Update the statistic information of the resource group.
 	 */
-	selfSetSlot(slotById(MyProc->resSlotId));
+	selfSetSlot(MyProc->resSlot);
 	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
 	addTotalQueueDuration(group);
 	group->totalExecuted++;
@@ -1814,7 +1814,7 @@ wakeupSlots(ResGroupData *group, bool grant)
 			initSlot(slot, &group->caps,
 					 group->groupId, waitProc->mppSessionId);
 
-		waitProc->resSlotId = slotGetId(slot);
+		waitProc->resSlot = slot;
 
 		procWakeup(waitProc);
 	}
@@ -2477,14 +2477,14 @@ ResGroupWaitCancel(void)
 
 		groupWaitQueueErase(group, MyProc);
 	}
-	else if (MyProc->resSlotId)
+	else if (MyProc->resSlot != NULL)
 	{
 		/* Woken up by a slot holder */
 
 		Assert(!procIsInWaitQueue(MyProc));
 
 		/* First complete the slot's transfer from MyProc to self */
-		selfSetSlot(slotById(MyProc->resSlotId));
+		selfSetSlot(MyProc->resSlot);
 		Assert(selfIsAssignedValidGroup());
 
 		/* Then run the normal cleanup process */
@@ -2786,7 +2786,7 @@ selfSetSlot(ResGroupSlotData *slot)
 	Assert(!selfHasSlot());
 	Assert(slot != NULL);
 
-	MyProc->resSlotId = InvalidSlotId;
+	MyProc->resSlot = NULL;
 
 	self->slot = slot;
 	self->slotId = slotGetId(slot);
@@ -3039,7 +3039,7 @@ groupWaitQueuePush(ResGroupData *group, PGPROC *proc)
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 	Assert(!procIsInWaitQueue(proc));
 	Assert(proc->resWaiting == false);
-	Assert(proc->resSlotId == InvalidSlotId);
+	Assert(proc->resSlot == NULL);
 
 	groupWaitQueueValidate(group);
 
@@ -3071,7 +3071,7 @@ groupWaitQueuePop(ResGroupData *group)
 	proc = (PGPROC *) MAKE_PTR(waitQueue->links.next);
 	Assert(procIsInWaitQueue(proc));
 	Assert(proc->resWaiting != false);
-	Assert(proc->resSlotId == InvalidSlotId);
+	Assert(proc->resSlot == NULL);
 
 	SHMQueueDelete(&proc->links);
 	proc->resWaiting = false;
@@ -3095,7 +3095,7 @@ groupWaitQueueErase(ResGroupData *group, PGPROC *proc)
 	Assert(!groupWaitQueueIsEmpty(group));
 	Assert(procIsInWaitQueue(proc));
 	Assert(proc->resWaiting != false);
-	Assert(proc->resSlotId == InvalidSlotId);
+	Assert(proc->resSlot == NULL);
 
 	groupWaitQueueValidate(group);
 
