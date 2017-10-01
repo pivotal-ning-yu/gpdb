@@ -226,8 +226,8 @@ static void slotpoolFreeSlot(int slotId);
 static void slotpoolPushSlot(ResGroupSlotData *slot);
 static ResGroupSlotData *slotpoolPopSlot(void);
 static ResGroupSlotData *slotpoolEraseSlot(ResGroupSlotData *slot);
-static int getSlot(ResGroupData *group);
-static void putSlot(void);
+static int groupGetSlot(ResGroupData *group);
+static void groupPutSlot(void);
 static void ResGroupSlotAcquire(void);
 static void addTotalQueueDuration(ResGroupData *group);
 static void ResGroupSlotRelease(void);
@@ -1320,7 +1320,7 @@ slotpoolEraseSlot(ResGroupSlotData *slot)
  * On failure nothing is changed and InvalidSlotId is returned.
  */
 static int
-getSlot(ResGroupData *group)
+groupGetSlot(ResGroupData *group)
 {
 	int					slotId;
 	ResGroupCaps		*caps;
@@ -1389,7 +1389,7 @@ groupReserveMemQuota(ResGroupData *group)
  * nRunning will be decreased.
  */
 static void
-putSlot(void)
+groupPutSlot(void)
 {
 	int					slotId = self->slotId;
 	ResGroupSlotData	*slot = self->slot;
@@ -1474,7 +1474,7 @@ retry:
 	if (!group->lockedForDrop)
 	{
 		/* try to get a slot directly */
-		int slotId = getSlot(group);
+		int slotId = groupGetSlot(group);
 
 		if (slotId != InvalidSlotId)
 		{
@@ -1807,7 +1807,7 @@ wakeupSlots(ResGroupData *group, bool grant)
 		if (grant)
 		{
 			/* try to get a slot for that proc */
-			slotId = getSlot(group);
+			slotId = groupGetSlot(group);
 			if (slotId == InvalidSlotId)
 				/* if can't get one then give up */
 				break;
@@ -1966,7 +1966,7 @@ ResGroupSlotRelease(void)
 	Assert(selfIsAssignedValidGroup());
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 
-	putSlot();
+	groupPutSlot();
 	Assert(!selfHasSlot());
 
 	/*
@@ -2494,7 +2494,7 @@ ResGroupWaitCancel(void)
 		Assert(selfIsAssignedValidGroup());
 
 		/* Then run the normal cleanup process */
-		putSlot();
+		groupPutSlot();
 		Assert(!selfHasSlot());
 
 		group->totalExecuted++;
