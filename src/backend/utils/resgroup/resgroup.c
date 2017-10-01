@@ -1131,6 +1131,7 @@ selfDetachSlot(ResGroupData *group, ResGroupSlotData *slot)
 	groupDecMemUsage(group, slot, self->memUsage);
 	pg_atomic_sub_fetch_u32((pg_atomic_uint32*) &slot->nProcs, 1);
 	AssertImply(slot->nProcs == 0, slot->memUsage == 0);
+	selfUnsetSlot();
 }
 
 /*
@@ -1396,11 +1397,8 @@ groupPutSlot(void)
 
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 	Assert(Gp_role == GP_ROLE_DISPATCH);
-	Assert(selfIsAssignedValidGroup());
 	Assert(group->memQuotaUsed >= 0);
 	Assert(group->nRunning > 0);
-
-	selfUnsetSlot();
 
 	/* Return the memory quota granted to this slot */
 #ifdef USE_ASSERT_CHECKING
@@ -2189,7 +2187,6 @@ UnassignResGroup(void)
 	else
 	{
 		Assert(Gp_role == GP_ROLE_EXECUTE);
-		selfUnsetSlot();
 
 		if (slot->nProcs == 0)
 		{
