@@ -245,7 +245,7 @@ static bool selfHasSlot(void);
 static bool selfHasGroup(void);
 static void selfSetGroup(ResGroupData *group);
 static void selfUnsetGroup(void);
-static void selfSetSlot(int slotId);
+static void selfSetSlot(ResGroupSlotData *slot);
 static void selfUnsetSlot(void);
 static bool procIsInWaitQueue(const PGPROC *proc);
 static bool procIsWaiting(const PGPROC *proc);
@@ -1475,7 +1475,7 @@ retry:
 		{
 			/* got one, lucky */
 			initSlot(slot, &group->caps, group->groupId, gp_session_id);
-			selfSetSlot(slotGetId(slot));
+			selfSetSlot(slot);
 
 			group->totalExecuted++;
 			pgstat_report_resgroup(0, group->groupId);
@@ -1509,7 +1509,7 @@ retry:
 	 * The waking process has granted us a valid slot.
 	 * Update the statistic information of the resource group.
 	 */
-	selfSetSlot(MyProc->resSlotId);
+	selfSetSlot(slotById(MyProc->resSlotId));
 	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
 	addTotalQueueDuration(group);
 	group->totalExecuted++;
@@ -2244,7 +2244,7 @@ SwitchResGroupOnSegment(const char *buf, int len)
 	Assert(host_segments > 0);
 	Assert(caps.concurrency.proposed > 0);
 	selfSetGroup(group);
-	selfSetSlot(newSlotId);
+	selfSetSlot(slotById(newSlotId));
 	self->caps = caps;
 	Assert(selfHasSlot());
 
@@ -2484,7 +2484,7 @@ ResGroupWaitCancel(void)
 		Assert(!procIsInWaitQueue(MyProc));
 
 		/* First complete the slot's transfer from MyProc to self */
-		selfSetSlot(MyProc->resSlotId);
+		selfSetSlot(slotById(MyProc->resSlotId));
 		Assert(selfIsAssignedValidGroup());
 
 		/* Then run the normal cleanup process */
@@ -2780,16 +2780,16 @@ selfUnsetGroup(void)
  * - self must has not been set a slot before set;
  */
 static void
-selfSetSlot(int slotId)
+selfSetSlot(ResGroupSlotData *slot)
 {
 	Assert(selfHasGroup());
 	Assert(!selfHasSlot());
-	Assert(slotId != InvalidSlotId);
+	Assert(slot != NULL);
 
 	MyProc->resSlotId = InvalidSlotId;
 
-	self->slotId = slotId;
-	self->slot = slotById(slotId);
+	self->slot = slot;
+	self->slotId = slotGetId(slot);
 }
 
 /*
