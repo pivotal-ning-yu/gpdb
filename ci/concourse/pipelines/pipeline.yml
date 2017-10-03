@@ -203,6 +203,13 @@ ccp_destroy_anchor: &ccp_destroy
   get_params:
     action: destroy
 
+ccp_gen_cluster_default_params_anchor: &ccp_gen_cluster_default_params
+  AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
+  AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
+  AWS_DEFAULT_REGION: {{aws-region}}
+  BUCKET_PATH: {{tf-bucket-path}}
+  BUCKET_NAME: {{tf-bucket-name}}
+
 debug_sleep_anchor: &debug_sleep
   do:
   - task: debug_sleep
@@ -266,10 +273,9 @@ resources:
   type: git
   source:
     branch: {{ccp-git-branch}}
-    tag_filter: 1.0.0-beta.2
+    tag_filter: 1.0.0
     private_key: {{ccp-git-key}}
     uri: {{ccp-git-remote}}
-    tag_filter: 1.0.0-beta.2
 
 - name: terraform
   type: terraform
@@ -1491,6 +1497,8 @@ jobs:
         <<: *ccp_create_params
   - task: gen_cluster
     file: ccp_src/ci/tasks/gen_cluster.yml
+    params:
+      <<: *ccp_gen_cluster_default_params
     input_mapping:
       gpdb_binary: bin_gpdb
     on_failure:
@@ -1523,6 +1531,8 @@ jobs:
         <<: *ccp_create_params
   - task: gen_cluster
     file: ccp_src/ci/tasks/gen_cluster.yml
+    params:
+      <<: *ccp_gen_cluster_default_params
     input_mapping:
       gpdb_binary: bin_gpdb
     on_failure:
@@ -1569,6 +1579,8 @@ jobs:
         <<: *ccp_create_params
   - task: gen_cluster
     file: ccp_src/ci/tasks/gen_cluster.yml
+    params:
+      <<: *ccp_gen_cluster_default_params
     input_mapping:
       gpdb_binary: bin_gpdb
     on_failure:
@@ -1752,12 +1764,10 @@ jobs:
         <<: *ccp_create_params
   - task: gen_cluster
     file: ccp_src/ci/tasks/gen_cluster.yml
+    params:
+      <<: *ccp_gen_cluster_default_params
     input_mapping:
       gpdb_binary: bin_gpdb
-    params:
-      AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
-      AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
-      AWS_DEFAULT_REGION: {{aws-region}}
     on_failure:
       <<: *ccp_destroy
   - task: run_tests
@@ -1788,12 +1798,10 @@ jobs:
       <<: *ccp_create_params
   - task: setup_gpdb4-3-11-3
     file: ccp_src/ci/tasks/gen_cluster.yml
+    params:
+      <<: *ccp_gen_cluster_default_params
     input_mapping:
       gpdb_binary: bin_gpdb4-3-11-3
-    params:
-      AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
-      AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
-      AWS_DEFAULT_REGION: {{aws-region}}
     on_failure:
       <<: *ccp_destroy
   - task: run_backup_tests
@@ -1805,6 +1813,8 @@ jobs:
       <<: *debug_sleep
   - task: setup_new_gpdb4
     file: gpdb_src/ci/concourse/setup_new_gpdb_for_backup_restore.yml
+    params:
+      <<: *ccp_gen_cluster_default_params
     image: centos-gpdb-dev-6
     on_failure:
       <<: *debug_sleep
@@ -1837,12 +1847,10 @@ jobs:
         <<: *ccp_create_params
   - task: gen_cluster
     file: ccp_src/ci/tasks/gen_cluster.yml
+    params:
+      <<: *ccp_gen_cluster_default_params
     input_mapping:
       gpdb_binary: bin_gpdb
-    params:
-      AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
-      AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
-      AWS_DEFAULT_REGION: {{aws-region}}
     on_failure:
       <<: *ccp_destroy
   - task: run_tests
@@ -1876,12 +1884,10 @@ jobs:
         <<: *ccp_create_params
   - task: gen_cluster
     file: ccp_src/ci/tasks/gen_cluster.yml
+    params:
+      <<: *ccp_gen_cluster_default_params
     input_mapping:
       gpdb_binary: bin_gpdb
-    params:
-      AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
-      AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
-      AWS_DEFAULT_REGION: {{aws-region}}
     on_failure:
       <<: *ccp_destroy
   - task: run_tests
@@ -1915,12 +1921,10 @@ jobs:
         <<: *ccp_create_params
   - task: gen_cluster
     file: ccp_src/ci/tasks/gen_cluster.yml
+    params:
+      <<: *ccp_gen_cluster_default_params
     input_mapping:
       gpdb_binary: bin_gpdb
-    params:
-      AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
-      AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
-      AWS_DEFAULT_REGION: {{aws-region}}
     on_failure:
       <<: *ccp_destroy
   - task: run_tests
@@ -2073,12 +2077,10 @@ jobs:
       <<: *ccp_create_params
   - task: setup_gpdb4-3-11-3
     file: ccp_src/ci/tasks/gen_cluster.yml
+    params:
+      <<: *ccp_gen_cluster_default_params
     input_mapping:
       gpdb_binary: bin_gpdb4-3-11-3
-    params:
-      AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
-      AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
-      AWS_DEFAULT_REGION: {{aws-region}}
     on_failure:
       <<: *ccp_destroy
   - task: run_backup_tests
@@ -2092,6 +2094,8 @@ jobs:
       <<: *debug_sleep
   - task: setup_new_gpdb4
     file: gpdb_src/ci/concourse/setup_new_gpdb_for_backup_restore.yml
+    params:
+      <<: *ccp_gen_cluster_default_params
     image: centos-gpdb-dev-6
     on_failure:
       <<: *debug_sleep
@@ -2124,12 +2128,10 @@ jobs:
       <<: *ccp_create_params
   - task: setup_gpdb4-3-11-3
     file: ccp_src/ci/tasks/gen_cluster.yml
+    params:
+      <<: *ccp_gen_cluster_default_params
     input_mapping:
       gpdb_binary: bin_gpdb4-3-11-3
-    params:
-      AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
-      AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
-      AWS_DEFAULT_REGION: {{aws-region}}
     on_failure:
       <<: *ccp_destroy
   - task: run_backup_tests
@@ -2143,6 +2145,8 @@ jobs:
       <<: *debug_sleep
   - task: setup_new_gpdb4
     file: gpdb_src/ci/concourse/setup_new_gpdb_for_backup_restore.yml
+    params:
+      <<: *ccp_gen_cluster_default_params
     image: centos-gpdb-dev-6
     on_failure:
       <<: *debug_sleep
@@ -2175,12 +2179,10 @@ jobs:
       <<: *ccp_create_params
   - task: setup_gpdb4-3-11-3
     file: ccp_src/ci/tasks/gen_cluster.yml
+    params:
+      <<: *ccp_gen_cluster_default_params
     input_mapping:
       gpdb_binary: bin_gpdb4-3-11-3
-    params:
-      AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
-      AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
-      AWS_DEFAULT_REGION: {{aws-region}}
     on_failure:
       <<: *ccp_destroy
   - task: run_backup_tests
@@ -2194,6 +2196,8 @@ jobs:
       <<: *debug_sleep
   - task: setup_new_gpdb4
     file: gpdb_src/ci/concourse/setup_new_gpdb_for_backup_restore.yml
+    params:
+      <<: *ccp_gen_cluster_default_params
     image: centos-gpdb-dev-6
     on_failure:
       <<: *debug_sleep
