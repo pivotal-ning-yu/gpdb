@@ -1445,6 +1445,11 @@ groupReleaseMemQuota(ResGroupData *group, ResGroupSlotData *slot)
 	Assert(memQuotaUsed >= 0);
 }
 
+/*
+ * Decide the proper resource group for current role.
+ *
+ * An exception is thrown if current role is invalid.
+ */
 static ResGroupData *
 decideResGroup(void)
 {
