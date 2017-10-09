@@ -211,6 +211,7 @@ static ResGroupData *ResGroupCreate(Oid groupId, const ResGroupCaps *caps);
 static void AtProcExit_ResGroup(int code, Datum arg);
 static void ResGroupWaitCancel(void);
 static bool groupReserveMemQuota(ResGroupData *group);
+static void groupReleaseMemQuota(ResGroupData *group, ResGroupSlotData *slot);
 static int32 groupIncMemUsage(ResGroupData *group,
 							  ResGroupSlotData *slot,
 							  int32 chunks);
@@ -1409,9 +1410,6 @@ static void
 groupPutSlot(ResGroupData *group, ResGroupSlotData *slot)
 {
 	bool				shouldWakeUp;
-#ifdef USE_ASSERT_CHECKING
-	int32				memQuotaUsed;
-#endif
 
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 	Assert(Gp_role == GP_ROLE_DISPATCH);
@@ -1419,12 +1417,7 @@ groupPutSlot(ResGroupData *group, ResGroupSlotData *slot)
 	Assert(slotIsInUse(slot));
 
 	/* Return the memory quota granted to this slot */
-#ifdef USE_ASSERT_CHECKING
-	memQuotaUsed =
-#endif
-		pg_atomic_sub_fetch_u32((pg_atomic_uint32*)&group->memQuotaUsed,
-								slot->memQuota);
-	Assert(memQuotaUsed >= 0);
+	groupReleaseMemQuota(group, slot);
 
 	shouldWakeUp = mempoolReleaseMemQuota(group, slot);
 	if (shouldWakeUp)
@@ -1433,6 +1426,23 @@ groupPutSlot(ResGroupData *group, ResGroupSlotData *slot)
 	/* Return the slot back to free list */
 	slotpoolFreeSlot(slot);
 	group->nRunning--;
+}
+
+/*
+ * Release a slot's memory quota to group.
+ */
+static void
+groupReleaseMemQuota(ResGroupData *group, ResGroupSlotData *slot)
+{
+#ifdef USE_ASSERT_CHECKING
+	int32				memQuotaUsed;
+
+	memQuotaUsed =
+#endif
+		pg_atomic_sub_fetch_u32((pg_atomic_uint32 *) &group->memQuotaUsed,
+								slot->memQuota);
+
+	Assert(memQuotaUsed >= 0);
 }
 
 static ResGroupData *
