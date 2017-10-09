@@ -1350,6 +1350,7 @@ groupGetSlot(ResGroupData *group)
 
 	/* Now actually get a free slot */
 	slot = slotpoolAllocSlot();
+	Assert(slot != NULL);
 
 	group->nRunning++;
 
