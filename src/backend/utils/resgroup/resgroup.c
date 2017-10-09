@@ -2611,10 +2611,9 @@ ResGroupCapsToOpts(const ResGroupCaps *capsIn, ResGroupOpts *optsOut)
 /*
  * Validate the consistency of the resgroup information in self.
  *
- * This function requires the slot and group to be in
- * a consistent status, they must both be set or unset,
- * so calling this function during the assign/unassign/switch process
- * might cause an error, use with caution.
+ * This function checks the consistency of (slot & slotId) and
+ * (group & groupId), but it does not require slot and group to be
+ * both set or unset.
  */
 static void
 selfValidateResGroupInfo(void)
