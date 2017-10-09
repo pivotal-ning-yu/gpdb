@@ -1358,6 +1358,12 @@ groupGetSlot(ResGroupData *group)
 	return slot;
 }
 
+/*
+ * Reserve memory quota for a slot in group.
+ *
+ * If there is not enough free memory quota then return false and nothing
+ * is changed; otherwise return true and the quota is reserved.
+ */
 static bool
 groupReserveMemQuota(ResGroupData *group)
 {
