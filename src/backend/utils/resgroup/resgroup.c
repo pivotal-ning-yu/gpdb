@@ -4,6 +4,26 @@
  *	  GPDB resource group management code.
  *
  *
+ * TERMS:
+ *
+ * - FIXED QUOTA: the minimal memory quota reserved for a slot. This quota
+ *   is promised to be available during the lifecycle of the slot.
+ *
+ * - SHARED QUOTA: the preemptive memory quota shared by all the slots
+ *   in a resource group. When a slot want to use more memory than its
+ *   FIXED QUOTA it can attempt to allocate from this SHARED QUOTA, however
+ *   this allocation is possible to fail depending on the actual usage.
+ *
+ * - MEM POOL: the global memory quota pool shared by all the resource groups.
+ *   Overuse in this pool is strictly forbidden. A resource group must
+ *   acquire from this pool to have enough memory quota for its slots'
+ *   FIXED QUOTA and SHARED QUOTA, and should release overused quota to
+ *   this pool as soon as possible.
+ *
+ * - SLOT POOL: the global slot pool shared by all the resource groups.
+ *   A resource group must acquire a free slot in this pool for a new
+ *   transaction to run in it.
+ *
  * Portions Copyright (c) 2006-2010, Greenplum inc.
  * Portions Copyright (c) 2012-Present Pivotal Software, Inc.
  *
@@ -1564,7 +1584,7 @@ groupAcquireSlot(ResGroupData *group)
  * Wake up the backends in the wait queue when 'concurrency' is increased.
  * This function is called in the callback function of ALTER RESOURCE GROUP.
  *
- * Return TRUE if any memory quota or shared quota is returned to syspool.
+ * Return TRUE if any memory quota or shared quota is returned to MEM POOL.
  */
 /*
  * XXX
@@ -1682,7 +1702,7 @@ groupApplyMemCaps(ResGroupData *group, const ResGroupCaps *caps)
 }
 
 /*
- * Get quota from sys pool.
+ * Get quota from MEM POOL.
  *
  * chunks is the expected amount to get.
  *
@@ -1706,7 +1726,7 @@ mempoolReserve(Oid groupId, int32 chunks)
 }
 
 /*
- * Return chunks to sys pool.
+ * Return chunks to MEM POOL.
  */
 static void
 mempoolRelease(Oid groupId, int32 chunks)
@@ -1724,7 +1744,7 @@ mempoolRelease(Oid groupId, int32 chunks)
 }
 
 /*
- * Assign the chunks we get from the syspool to group and rebalance
+ * Assign the chunks we get from the MEM POOL to group and rebalance
  * them into the 'quota' and 'shared' part of the group, the amount
  * is calculated from caps.
  */
@@ -1862,7 +1882,7 @@ wakeupSlots(ResGroupData *group, bool grant)
 }
 
 /*
- * When a group returns chunks to sys pool, we need to wake up
+ * When a group returns chunks to MEM POOL, we need to wake up
  * the transactions waiting on other groups for memory quota.
  */
 static void
@@ -1931,7 +1951,7 @@ mempoolAutoRelease(ResGroupData *group, ResGroupSlotData *slot)
 		 * Under this situation, when this slot is released,
 		 * others will not be blocked by concurrency limit if
 		 * they come to acquire this slot. So we could decide
-		 * not to give all the memory to syspool even if we could.
+		 * not to give all the memory to MEM POOL even if we could.
 		 */
 		memQuotaExpected = slotGetMemQuotaExpected(caps);
 		if (memQuotaToFree > memQuotaExpected)
