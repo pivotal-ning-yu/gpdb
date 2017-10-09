@@ -199,9 +199,10 @@ static int32 slotGetMemQuotaExpected(const ResGroupCaps *caps);
 static int32 slotGetMemSpill(const ResGroupCaps *caps);
 static void wakeupSlots(ResGroupData *group, bool grant);
 static void wakeupGroups(Oid skipGroupId);
-static bool groupReleaseMemQuota(ResGroupData *group,
-								ResGroupSlotData *slot);
-static void groupAcquireMemQuota(ResGroupData *group, const ResGroupCaps *caps);
+static bool mempoolReleaseMemQuota(ResGroupData *group,
+								   ResGroupSlotData *slot);
+static void mempoolReserveMemQuota(ResGroupData *group,
+								   const ResGroupCaps *caps);
 static ResGroupData *ResGroupHashNew(Oid groupId);
 static ResGroupData *ResGroupHashFind(Oid groupId, bool raise);
 static void ResGroupHashRemove(Oid groupId);
@@ -1369,7 +1370,7 @@ groupReserveMemQuota(ResGroupData *group)
 	Assert(pResGroupControl->segmentsOnMaster > 0);
 
 	caps = &group->caps;
-	groupAcquireMemQuota(group, caps);
+	mempoolReserveMemQuota(group, caps);
 
 	/* Calculate the expected per slot quota */
 	slotMemQuota = slotGetMemQuotaExpected(caps);
@@ -1419,7 +1420,7 @@ groupPutSlot(ResGroupData *group, ResGroupSlotData *slot)
 								slot->memQuota);
 	Assert(memQuotaUsed >= 0);
 
-	shouldWakeUp = groupReleaseMemQuota(group, slot);
+	shouldWakeUp = mempoolReleaseMemQuota(group, slot);
 	if (shouldWakeUp)
 		wakeupGroups(group->groupId);
 
@@ -1659,7 +1660,7 @@ groupApplyMemCaps(ResGroupData *group, const ResGroupCaps *caps)
 	 *
 	 * so we should try to acquire the new quota immediately.
 	 */
-	groupAcquireMemQuota(group, caps);
+	mempoolReserveMemQuota(group, caps);
 #endif
 	return (memStocksToFree > 0 || memSharedToFree > 0);
 }
@@ -1887,13 +1888,13 @@ wakeupGroups(Oid skipGroupId)
 }
 
 /*
- * Release memory quota when a slot gets freed and the caps has been changed,
- * the released memory quota includes:
- * * the slot over-used quota
- * * the group over-used shared quota
+ * Release overused memory quota to MEM POOL when a slot gets freed and
+ * the caps has been changed, the released memory quota includes:
+ * - the slot overused quota
+ * - the group overused shared quota
  */
 static bool 
-groupReleaseMemQuota(ResGroupData *group, ResGroupSlotData *slot)
+mempoolReleaseMemQuota(ResGroupData *group, ResGroupSlotData *slot)
 {
 	int32		memQuotaNeedFree;
 	int32		memSharedNeeded;
@@ -1941,11 +1942,11 @@ groupReleaseMemQuota(ResGroupData *group, ResGroupSlotData *slot)
 }
 
 /*
- * Try to acquire enough quota & shared quota for current group,
+ * Try to acquire enough quota & shared quota for current group from MEM POOL,
  * the actual acquired quota depends on system loads.
  */
 static void
-groupAcquireMemQuota(ResGroupData *group, const ResGroupCaps *caps)
+mempoolReserveMemQuota(ResGroupData *group, const ResGroupCaps *caps)
 {
 	int32 currentMemStocks = group->memSharedGranted + group->memQuotaGranted;
 	int32 neededMemStocks = group->memExpected - currentMemStocks;
@@ -2195,7 +2196,7 @@ UnassignResGroup(void)
 		Assert(Gp_role == GP_ROLE_EXECUTE);
 
 		/* Release the slot memory */
-		groupReleaseMemQuota(group, slot);
+		mempoolReleaseMemQuota(group, slot);
 
 		/* Uninit the slot */
 		uninitSlot(slot);
@@ -2292,7 +2293,7 @@ SwitchResGroupOnSegment(const char *buf, int len)
 
 	ResGroupSetMemorySpillRatio(&caps);
 
-	groupAcquireMemQuota(group, &caps);
+	mempoolReserveMemQuota(group, &caps);
 	LWLockRelease(ResGroupLock);
 
 	/* finally we can say we are in a valid resgroup */
