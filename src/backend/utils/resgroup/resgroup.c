@@ -1503,9 +1503,6 @@ groupAcquireSlot(ResGroupData *group)
 	Assert(selfIsAssigned());
 	Assert(!selfHasSlot());
 
-	if (selfIsAssignedDroppedGroup())
-		return NULL;
-
 	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
 
 	if (selfIsAssignedDroppedGroup())
