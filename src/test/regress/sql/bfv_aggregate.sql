@@ -249,14 +249,17 @@ select '1' || string_agg(b) over (partition by a+1 order by a+1) from foo;
 
 -- MPP-29042 Multistage aggregation plans should have consistent targetlists in
 -- case of same column aliases and grouping on them.
+set optimizer_force_multistage_agg = on;
 DROP TABLE IF EXISTS t1;
-CREATE TABLE t1 (a varchar) DISTRIBUTED RANDOMLY;
-INSERT INTO t1 VALUES ('aaaaaaa');
-INSERT INTO t1 VALUES ('aaaaaaa');
-INSERT INTO t1 VALUES ('bbbbbbb');
-INSERT INTO t1 VALUES ('bbbbbbb');
-INSERT INTO t1 VALUES ('bbbbb');
+CREATE TABLE t1 (a varchar, b character varying) DISTRIBUTED RANDOMLY;
+INSERT INTO t1 VALUES ('aaaaaaa', 'cccccccccc');
+INSERT INTO t1 VALUES ('aaaaaaa', 'ddddd');
+INSERT INTO t1 VALUES ('bbbbbbb', 'eeee');
+INSERT INTO t1 VALUES ('bbbbbbb', 'eeef');
+INSERT INTO t1 VALUES ('bbbbb', 'dfafa');
 SELECT substr(a, 1) as a FROM (SELECT ('-'||a)::varchar as a FROM (SELECT a FROM t1) t2) t3 GROUP BY a ORDER BY a;
+SELECT array_agg(f)  FROM (SELECT b::text as f FROM t1 WHERE b='cccccccccc' GROUP BY b ORDER BY b) q;
+reset optimizer_force_multistage_agg;
 
 -- CLEANUP
 -- start_ignore
