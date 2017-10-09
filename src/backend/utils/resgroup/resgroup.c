@@ -185,8 +185,8 @@ static bool localResWaiting = false;
 /* static functions */
 
 static bool groupApplyMemCaps(ResGroupData *group, const ResGroupCaps *caps);
-static int32 getChunksFromPool(Oid groupId, int32 chunks);
-static void returnChunksToPool(Oid groupId, int32 chunks);
+static int32 mempoolReserve(Oid groupId, int32 chunks);
+static void mempoolRelease(Oid groupId, int32 chunks);
 static void groupRebalanceQuota(ResGroupData *group,
 								int32 chunks,
 								const ResGroupCaps *caps);
@@ -1036,7 +1036,7 @@ ResGroupCreate(Oid groupId, const ResGroupCaps *caps)
 	group->memSharedGranted = 0;
 	group->memExpected = groupGetMemExpected(caps);
 
-	chunks = getChunksFromPool(groupId, group->memExpected);
+	chunks = mempoolReserve(groupId, group->memExpected);
 	groupRebalanceQuota(group, chunks, caps);
 
 	return group;
@@ -1648,7 +1648,7 @@ groupApplyMemCaps(ResGroupData *group, const ResGroupCaps *caps)
 	/* TODO: optimize the free logic */
 	if (memStocksToFree > 0)
 	{
-		returnChunksToPool(group->groupId, memStocksToFree);
+		mempoolRelease(group->groupId, memStocksToFree);
 		group->memQuotaGranted -= memStocksToFree;
 	}
 
@@ -1658,7 +1658,7 @@ groupApplyMemCaps(ResGroupData *group, const ResGroupCaps *caps)
 
 	if (memSharedToFree > 0)
 	{
-		returnChunksToPool(group->groupId, memSharedToFree);
+		mempoolRelease(group->groupId, memSharedToFree);
 		group->memSharedGranted -= memSharedToFree;
 	}
 #if 1
@@ -1689,7 +1689,7 @@ groupApplyMemCaps(ResGroupData *group, const ResGroupCaps *caps)
  * return the actual got chunks, might be smaller than expectation.
  */
 static int32
-getChunksFromPool(Oid groupId, int32 chunks)
+mempoolReserve(Oid groupId, int32 chunks)
 {
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 
@@ -1709,7 +1709,7 @@ getChunksFromPool(Oid groupId, int32 chunks)
  * Return chunks to sys pool.
  */
 static void
-returnChunksToPool(Oid groupId, int32 chunks)
+mempoolRelease(Oid groupId, int32 chunks)
 {
 	LOG_RESGROUP_DEBUG(LOG, "Free %u to pool(%u) chunks from group %d",
 					   chunks, pResGroupControl->freeChunks, groupId);
@@ -1940,7 +1940,7 @@ mempoolAutoRelease(ResGroupData *group, ResGroupSlotData *slot)
 
 	if (memQuotaToFree > 0)
 	{
-		returnChunksToPool(group->groupId, memQuotaToFree); 
+		mempoolRelease(group->groupId, memQuotaToFree); 
 		group->memQuotaGranted -= memQuotaToFree; 
 	}
 
@@ -1950,7 +1950,7 @@ mempoolAutoRelease(ResGroupData *group, ResGroupSlotData *slot)
 	memSharedToFree = group->memSharedGranted - memSharedNeeded;
 	if (memSharedToFree > 0)
 	{
-		returnChunksToPool(group->groupId, memSharedToFree);
+		mempoolRelease(group->groupId, memSharedToFree);
 		pg_atomic_sub_fetch_u32((pg_atomic_uint32 *) &group->memSharedGranted,
 								memSharedToFree);
 	}
@@ -1969,7 +1969,7 @@ mempoolAutoReserve(ResGroupData *group, const ResGroupCaps *caps)
 
 	if (neededMemStocks > 0)
 	{
-		int32 chunks = getChunksFromPool(group->groupId, neededMemStocks);
+		int32 chunks = mempoolReserve(group->groupId, neededMemStocks);
 		groupRebalanceQuota(group, chunks, caps);
 	}
 }
@@ -2462,7 +2462,7 @@ ResGroupHashRemove(Oid groupId)
 						groupId)));
 
 	group = &pResGroupControl->groups[entry->index];
-	returnChunksToPool(groupId, group->memQuotaGranted + group->memSharedGranted);
+	mempoolRelease(groupId, group->memQuotaGranted + group->memSharedGranted);
 	group->memQuotaGranted = 0;
 	group->memSharedGranted = 0;
 	group->groupId = InvalidOid;
