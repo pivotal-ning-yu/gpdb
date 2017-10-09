@@ -1122,6 +1122,7 @@ groupDecMemUsage(ResGroupData *group, ResGroupSlotData *slot, int32 chunks)
 static void
 selfAttachToSlot(ResGroupData *group, ResGroupSlotData *slot)
 {
+	selfSetSlot(slot);
 	AssertImply(slot->nProcs == 0, slot->memUsage == 0);
 	groupIncMemUsage(group, slot, self->memUsage);
 	pg_atomic_add_fetch_u32((pg_atomic_uint32*) &slot->nProcs, 1);
@@ -2125,7 +2126,6 @@ retry:
 			goto retry;
 		}
 
-		selfSetSlot(slot);
 		Assert(!self->doMemCheck);
 
 		/* Add proc memory accounting info into group and slot */
@@ -2264,12 +2264,10 @@ SwitchResGroupOnSegment(const char *buf, int len)
 	Assert(host_segments > 0);
 	Assert(caps.concurrency.proposed > 0);
 	selfSetGroup(group);
-	selfSetSlot(slotById(newSlotId));
 	self->caps = caps;
-	Assert(selfHasSlot());
 
 	/* Init slot */
-	slot = self->slot;
+	slot = slotById(newSlotId);
 	if (slot->nProcs != 0)
 	{
 		Assert(slotIsInUse(slot));
@@ -2286,7 +2284,10 @@ SwitchResGroupOnSegment(const char *buf, int len)
 		initSlot(slot, &caps, newGroupId, gp_session_id);
 		group->nRunning++;
 	}
+
 	selfAttachToSlot(group, slot);
+	Assert(selfHasSlot());
+	Assert(slot == self->slot);
 
 	ResGroupSetMemorySpillRatio(&caps);
 
