@@ -199,10 +199,8 @@ static int32 slotGetMemQuotaExpected(const ResGroupCaps *caps);
 static int32 slotGetMemSpill(const ResGroupCaps *caps);
 static void wakeupSlots(ResGroupData *group, bool grant);
 static void wakeupGroups(Oid skipGroupId);
-static bool mempoolReleaseMemQuota(ResGroupData *group,
-								   ResGroupSlotData *slot);
-static void mempoolReserveMemQuota(ResGroupData *group,
-								   const ResGroupCaps *caps);
+static bool mempoolAutoRelease(ResGroupData *group, ResGroupSlotData *slot);
+static void mempoolAutoReserve(ResGroupData *group, const ResGroupCaps *caps);
 static ResGroupData *ResGroupHashNew(Oid groupId);
 static ResGroupData *ResGroupHashFind(Oid groupId, bool raise);
 static void ResGroupHashRemove(Oid groupId);
@@ -1377,7 +1375,7 @@ groupReserveMemQuota(ResGroupData *group)
 	Assert(pResGroupControl->segmentsOnMaster > 0);
 
 	caps = &group->caps;
-	mempoolReserveMemQuota(group, caps);
+	mempoolAutoReserve(group, caps);
 
 	/* Calculate the expected per slot quota */
 	slotMemQuota = slotGetMemQuotaExpected(caps);
@@ -1419,7 +1417,7 @@ groupPutSlot(ResGroupData *group, ResGroupSlotData *slot)
 	/* Return the memory quota granted to this slot */
 	groupReleaseMemQuota(group, slot);
 
-	shouldWakeUp = mempoolReleaseMemQuota(group, slot);
+	shouldWakeUp = mempoolAutoRelease(group, slot);
 	if (shouldWakeUp)
 		wakeupGroups(group->groupId);
 
@@ -1678,7 +1676,7 @@ groupApplyMemCaps(ResGroupData *group, const ResGroupCaps *caps)
 	 *
 	 * so we should try to acquire the new quota immediately.
 	 */
-	mempoolReserveMemQuota(group, caps);
+	mempoolAutoReserve(group, caps);
 #endif
 	return (memStocksToFree > 0 || memSharedToFree > 0);
 }
@@ -1912,7 +1910,7 @@ wakeupGroups(Oid skipGroupId)
  * - the group overused shared quota
  */
 static bool 
-mempoolReleaseMemQuota(ResGroupData *group, ResGroupSlotData *slot)
+mempoolAutoRelease(ResGroupData *group, ResGroupSlotData *slot)
 {
 	int32		memQuotaNeedFree;
 	int32		memSharedNeeded;
@@ -1964,7 +1962,7 @@ mempoolReleaseMemQuota(ResGroupData *group, ResGroupSlotData *slot)
  * the actual acquired quota depends on system loads.
  */
 static void
-mempoolReserveMemQuota(ResGroupData *group, const ResGroupCaps *caps)
+mempoolAutoReserve(ResGroupData *group, const ResGroupCaps *caps)
 {
 	int32 currentMemStocks = group->memSharedGranted + group->memQuotaGranted;
 	int32 neededMemStocks = group->memExpected - currentMemStocks;
@@ -2214,7 +2212,7 @@ UnassignResGroup(void)
 		Assert(Gp_role == GP_ROLE_EXECUTE);
 
 		/* Release the slot memory */
-		mempoolReleaseMemQuota(group, slot);
+		mempoolAutoRelease(group, slot);
 
 		/* Uninit the slot */
 		uninitSlot(slot);
@@ -2311,7 +2309,7 @@ SwitchResGroupOnSegment(const char *buf, int len)
 
 	ResGroupSetMemorySpillRatio(&caps);
 
-	mempoolReserveMemQuota(group, &caps);
+	mempoolAutoReserve(group, &caps);
 	LWLockRelease(ResGroupLock);
 
 	/* finally we can say we are in a valid resgroup */
