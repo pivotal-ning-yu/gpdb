@@ -40,3 +40,7 @@ cte_b AS
 )
 SELECT *
 FROM cte_b as first, cte_b as second;
+
+SELECT
+(SELECT 1 FROM (SELECT ARRAY(SELECT UNNEST(X))) AS SX)
+FROM ( SELECT ARRAY[0,1] AS X )A;

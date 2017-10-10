@@ -41,3 +41,11 @@ FROM cte_b as first, cte_b as second;
      10 |     20 |     10 |     20
 (1 row)
 
+SELECT
+(SELECT 1 FROM (SELECT ARRAY(SELECT UNNEST(X))) AS SX)
+FROM ( SELECT ARRAY[0,1] AS X )A;
+ ?column?
+----------
+        1
+(1 row)
+
