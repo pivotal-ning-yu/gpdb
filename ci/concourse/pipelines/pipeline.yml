@@ -254,7 +254,6 @@ debug_sleep_anchor: &debug_sleep
 
 rhel_artifacts_for_pulse_anchor: &rhel_artifacts_for_pulse_release-add-trigger
   - get: gpdb_src
-    gpdb_release: add_trigger
     params: {submodules: none}
     passed:
     - gpdb_src_packaging
