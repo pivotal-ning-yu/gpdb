@@ -13,6 +13,21 @@ groups:
   - cs-storage_centos
   - cs-subtransaction_centos
   - cs-uao_centos
+  - cs_walrep_1
+  - cs_walrep_2
+  - cs_pg_twophase_01_10
+  - cs_pg_twophase_11_20
+  - cs_pg_twophase_21_30
+  - cs_pg_twophase_31_40
+  - cs_pg_twophase_41_49
+  - cs_pg_twophase_switch_01_12
+  - cs_pg_twophase_switch_13_24
+  - cs_pg_twophase_switch_25_33
+  - cs_crash_recovery_schema_topology
+  - cs_crash_recovery_04_10
+  - cs_crash_recovery_11_20
+  - cs_crash_recovery_21_30
+  - cs_crash_recovery_31_42
   - icb_orca_centos
   - icb_planner_centos
   - icg_orca_centos
@@ -49,10 +64,7 @@ groups:
   - pulse_Kerberos-smoke
   - pulse_cs-aoco-compression
   - pulse_cs-bin-swap
-  - pulse_cs-filerep-schema-topology-crashrecov
   - pulse_cs-filerep-end-to-end
-  - pulse_cs-pg-two-phase
-  - pulse_cs-walrepl-multinode
   - pulse_QP_memory-accounting
   - QP_runaway-query
   - QP_optimizer-functional
@@ -107,10 +119,7 @@ groups:
   - pulse_Kerberos-smoke
   - pulse_cs-aoco-compression
   - pulse_cs-bin-swap
-  - pulse_cs-filerep-schema-topology-crashrecov
   - pulse_cs-filerep-end-to-end
-  - pulse_cs-pg-two-phase
-  - pulse_cs-walrepl-multinode
   - pulse_QP_memory-accounting
   - pulse_CCLE
   - pulse_CCLE-sles11sp4
@@ -122,13 +131,25 @@ groups:
   - cs-storage_centos
   - cs-subtransaction_centos
   - cs-uao_centos
+  - cs_walrep_1
+  - cs_walrep_2
+  - cs_pg_twophase_01_10
+  - cs_pg_twophase_11_20
+  - cs_pg_twophase_21_30
+  - cs_pg_twophase_31_40
+  - cs_pg_twophase_41_49
+  - cs_pg_twophase_switch_01_12
+  - cs_pg_twophase_switch_13_24
+  - cs_pg_twophase_switch_25_33
+  - cs_crash_recovery_schema_topology
+  - cs_crash_recovery_04_10
+  - cs_crash_recovery_11_20
+  - cs_crash_recovery_21_30
+  - cs_crash_recovery_31_42
   - gpdb_rc_packaging_centos
   - pulse_cs-aoco-compression
   - pulse_cs-bin-swap
-  - pulse_cs-filerep-schema-topology-crashrecov
   - pulse_cs-filerep-end-to-end
-  - pulse_cs-pg-two-phase
-  - pulse_cs-walrepl-multinode
 - name: QP
   jobs:
   - pulse_QP_memory-accounting
@@ -231,7 +252,7 @@ debug_sleep_anchor: &debug_sleep
     ensure:
       <<: *ccp_destroy
 
-rhel_artifacts_for_pulse_anchor : &rhel_artifacts_for_pulse_release-add-trigger
+rhel_artifacts_for_pulse_anchor: &rhel_artifacts_for_pulse_release-add-trigger
   - get: gpdb_src
     gpdb_release: add_trigger
     params: {submodules: none}
@@ -246,6 +267,44 @@ rhel_artifacts_for_pulse_anchor : &rhel_artifacts_for_pulse_release-add-trigger
   - get: qautils_tarball
     resource: qautils_rhel5_tarball
     passed: [gpdb_rc_packaging_centos]
+
+cs_ccp_aggregate_anchor: &cs_ccp_aggregate
+  - get: gpdb_src
+    params: {submodules: none}
+    passed: [compile_gpdb_centos]
+  - get: sync_tools_gpdb
+    resource: sync_tools_gpdb_centos
+    passed: [compile_gpdb_centos]
+  - get: gpdb_binary
+    resource: bin_gpdb_centos
+    passed: [compile_gpdb_centos]
+    trigger: true
+  - get: ccp_src
+  - get: centos-gpdb-dev-6
+
+cs_ccp_terraform_vars_anchor: &cs_ccp_terraform_vars
+  aws_instance-node-instance_type: m4.large
+  aws_ebs_volume_type: gp2
+
+cs_ccp_terraform_params_anchor: &cs_ccp_terraform_params
+  params:
+    <<: *ccp_default_params
+    vars:
+      <<: *ccp_default_vars
+      <<: *cs_ccp_terraform_vars
+
+cs_ccp_gen_cluster_params_anchor: &cs_ccp_gen_cluster_params
+  file: ccp_src/ci/tasks/gen_cluster.yml
+  params:
+    <<: *ccp_gen_cluster_default_params
+  on_failure:
+    <<: *ccp_destroy
+
+cs_ccp_run_tests_params_anchor: &cs_ccp_run_tests_params
+  file: gpdb_src/ci/concourse/run_tinc.yml
+  image: centos-gpdb-dev-6
+  on_failure:
+    <<: *debug_sleep
 
 ## ======================================================================
 ## resource types
@@ -1604,6 +1663,279 @@ jobs:
       <<: *debug_sleep
   - *ccp_destroy
 
+- name: cs_walrep_1
+  plan:
+  - aggregate: *cs_ccp_aggregate
+  - put: terraform
+    <<: *cs_ccp_terraform_params
+  - task: gen_cluster
+    <<: *cs_ccp_gen_cluster_params
+  - task: run_tests
+    <<: *cs_ccp_run_tests_params
+    params:
+      TINC_TARGET: walrep_1
+  - *ccp_destroy
+
+- name: cs_walrep_2
+  plan:
+  - aggregate: *cs_ccp_aggregate
+  - put: terraform
+    <<: *cs_ccp_terraform_params
+  - task: gen_cluster
+    <<: *cs_ccp_gen_cluster_params
+  - task: run_tests
+    <<: *cs_ccp_run_tests_params
+    params:
+      TINC_TARGET: walrep_2
+  - *ccp_destroy
+
+- name: cs_pg_twophase_01_10
+  plan:
+  - aggregate: *cs_ccp_aggregate
+  - put: terraform
+    <<: *cs_ccp_terraform_params
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+        <<: *cs_ccp_terraform_vars
+        number_of_nodes: 1
+  - task: gen_cluster
+    <<: *cs_ccp_gen_cluster_params
+  - task: run_tests
+    <<: *cs_ccp_run_tests_params
+    params:
+      TINC_TARGET: test_pg_twophase_01_10
+  - *ccp_destroy
+
+- name: cs_pg_twophase_11_20
+  plan:
+  - aggregate: *cs_ccp_aggregate
+  - put: terraform
+    <<: *cs_ccp_terraform_params
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+        <<: *cs_ccp_terraform_vars
+        number_of_nodes: 1
+  - task: gen_cluster
+    <<: *cs_ccp_gen_cluster_params
+  - task: run_tests
+    <<: *cs_ccp_run_tests_params
+    params:
+      TINC_TARGET: test_pg_twophase_11_20
+  - *ccp_destroy
+
+- name: cs_pg_twophase_21_30
+  plan:
+  - aggregate: *cs_ccp_aggregate
+  - put: terraform
+    <<: *cs_ccp_terraform_params
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+        <<: *cs_ccp_terraform_vars
+        number_of_nodes: 1
+  - task: gen_cluster
+    <<: *cs_ccp_gen_cluster_params
+  - task: run_tests
+    <<: *cs_ccp_run_tests_params
+    params:
+      TINC_TARGET: test_pg_twophase_21_30
+  - *ccp_destroy
+
+- name: cs_pg_twophase_31_40
+  plan:
+  - aggregate: *cs_ccp_aggregate
+  - put: terraform
+    <<: *cs_ccp_terraform_params
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+        <<: *cs_ccp_terraform_vars
+        number_of_nodes: 1
+  - task: gen_cluster
+    <<: *cs_ccp_gen_cluster_params
+  - task: run_tests
+    <<: *cs_ccp_run_tests_params
+    params:
+      TINC_TARGET: test_pg_twophase_31_40
+  - *ccp_destroy
+
+- name: cs_pg_twophase_41_49
+  plan:
+  - aggregate: *cs_ccp_aggregate
+  - put: terraform
+    <<: *cs_ccp_terraform_params
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+        <<: *cs_ccp_terraform_vars
+        number_of_nodes: 1
+  - task: gen_cluster
+    <<: *cs_ccp_gen_cluster_params
+  - task: run_tests
+    <<: *cs_ccp_run_tests_params
+    params:
+      TINC_TARGET: test_pg_twophase_41_49
+  - *ccp_destroy
+
+- name: cs_pg_twophase_switch_01_12
+  plan:
+  - aggregate: *cs_ccp_aggregate
+  - put: terraform
+    <<: *cs_ccp_terraform_params
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+        <<: *cs_ccp_terraform_vars
+        number_of_nodes: 1
+  - task: gen_cluster
+    <<: *cs_ccp_gen_cluster_params
+  - task: run_tests
+    <<: *cs_ccp_run_tests_params
+    params:
+      TINC_TARGET: test_switch_01_12
+  - *ccp_destroy
+
+- name: cs_pg_twophase_switch_13_24
+  plan:
+  - aggregate: *cs_ccp_aggregate
+  - put: terraform
+    <<: *cs_ccp_terraform_params
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+        <<: *cs_ccp_terraform_vars
+        number_of_nodes: 1
+  - task: gen_cluster
+    <<: *cs_ccp_gen_cluster_params
+  - task: run_tests
+    <<: *cs_ccp_run_tests_params
+    params:
+      TINC_TARGET: test_switch_13_24
+  - *ccp_destroy
+
+- name: cs_pg_twophase_switch_25_33
+  plan:
+  - aggregate: *cs_ccp_aggregate
+  - put: terraform
+    <<: *cs_ccp_terraform_params
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+        <<: *cs_ccp_terraform_vars
+        number_of_nodes: 1
+  - task: gen_cluster
+    <<: *cs_ccp_gen_cluster_params
+  - task: run_tests
+    <<: *cs_ccp_run_tests_params
+    params:
+      TINC_TARGET: test_switch_25_33
+  - *ccp_destroy
+
+- name: cs_crash_recovery_schema_topology
+  plan:
+  - aggregate: *cs_ccp_aggregate
+  - put: terraform
+    <<: *cs_ccp_terraform_params
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+        <<: *cs_ccp_terraform_vars
+        number_of_nodes: 1
+  - task: gen_cluster
+    <<: *cs_ccp_gen_cluster_params
+  - task: run_tests
+    <<: *cs_ccp_run_tests_params
+    params:
+      TINC_TARGET: crash_recovery_schema_topology
+  - *ccp_destroy
+
+- name: cs_crash_recovery_04_10
+  plan:
+  - aggregate: *cs_ccp_aggregate
+  - put: terraform
+    <<: *cs_ccp_terraform_params
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+        <<: *cs_ccp_terraform_vars
+        number_of_nodes: 1
+  - task: gen_cluster
+    <<: *cs_ccp_gen_cluster_params
+  - task: run_tests
+    <<: *cs_ccp_run_tests_params
+    params:
+      TINC_TARGET: crash_recovery_04_10
+  - *ccp_destroy
+
+- name: cs_crash_recovery_11_20
+  plan:
+  - aggregate: *cs_ccp_aggregate
+  - put: terraform
+    <<: *cs_ccp_terraform_params
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+        <<: *cs_ccp_terraform_vars
+        number_of_nodes: 1
+  - task: gen_cluster
+    <<: *cs_ccp_gen_cluster_params
+  - task: run_tests
+    <<: *cs_ccp_run_tests_params
+    params:
+      TINC_TARGET: crash_recovery_11_20
+  - *ccp_destroy
+
+- name: cs_crash_recovery_21_30
+  plan:
+  - aggregate: *cs_ccp_aggregate
+  - put: terraform
+    <<: *cs_ccp_terraform_params
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+        <<: *cs_ccp_terraform_vars
+        number_of_nodes: 1
+  - task: gen_cluster
+    <<: *cs_ccp_gen_cluster_params
+  - task: run_tests
+    <<: *cs_ccp_run_tests_params
+    params:
+      TINC_TARGET: crash_recovery_21_30
+  - *ccp_destroy
+
+- name: cs_crash_recovery_31_42
+  plan:
+  - aggregate: *cs_ccp_aggregate
+  - put: terraform
+    <<: *cs_ccp_terraform_params
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+        <<: *cs_ccp_terraform_vars
+        number_of_nodes: 1
+  - task: gen_cluster
+    <<: *cs_ccp_gen_cluster_params
+  - task: run_tests
+    <<: *cs_ccp_run_tests_params
+    params:
+      TINC_TARGET: crash_recovery_31_42
+  - *ccp_destroy
+
 # Stage 3: Packaging of installer file
 # Stage 3a: Packaging the Release Candidate (rc)
 
@@ -2288,30 +2620,6 @@ jobs:
       PULSE_USERNAME: {{pulse_username}}
       PULSE_PASSWORD: {{pulse_password}}
 
-- name: pulse_cs-filerep-schema-topology-crashrecov
-  plan:
-  - get: pulse-api-image
-  - get: nightly-trigger-pulse
-    trigger: true
-  - aggregate: *rhel_artifacts_for_pulse_release-add-trigger
-  - task: trigger_pulse
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/trigger_pulse.yml
-    params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: cs-filerep-schema-topology-crashrecov
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
-  - task: monitor_pulse
-    attempts: 2
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/monitor_pulse.yml
-    params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: cs-filerep-schema-topology-crashrecov
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
-
 - name: pulse_cs-filerep-end-to-end
   plan:
   - get: pulse-api-image
@@ -2333,54 +2641,6 @@ jobs:
     params:
       PULSE_URL: {{pulse_url}}
       PULSE_PROJECT_NAME: cs-filerep-end-to-end
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
-
-- name: pulse_cs-pg-two-phase
-  plan:
-  - get: pulse-api-image
-  - get: nightly-trigger-pulse
-    trigger: true
-  - aggregate: *rhel_artifacts_for_pulse_release-add-trigger
-  - task: trigger_pulse
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/trigger_pulse.yml
-    params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: cs-pg-two-phase
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
-  - task: monitor_pulse
-    attempts: 2
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/monitor_pulse.yml
-    params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: cs-pg-two-phase
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
-
-- name: pulse_cs-walrepl-multinode
-  plan:
-  - get: pulse-api-image
-  - get: nightly-trigger-pulse
-    trigger: true
-  - aggregate: *rhel_artifacts_for_pulse_release-add-trigger
-  - task: trigger_pulse
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/trigger_pulse.yml
-    params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: cs-walrepl-multinode
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
-  - task: monitor_pulse
-    attempts: 2
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/monitor_pulse.yml
-    params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: cs-walrepl-multinode
       PULSE_USERNAME: {{pulse_username}}
       PULSE_PASSWORD: {{pulse_password}}
 
