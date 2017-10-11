@@ -641,11 +641,15 @@ jobs:
   plan:
   - aggregate:
     - get: gpdb_src
+      tags: ["gpdb4_wix_external_worker"]
       trigger: true
     - get: centos-mingw
+      tags: ["gpdb4_wix_external_worker"]
     - get: ccache_snapshot
+      tags: ["gpdb4_wix_external_worker"]
       resource: ccache_empty
   - task: compile_gpdb
+    tags: ["gpdb4_wix_external_worker"]
     file: gpdb_src/ci/concourse/compile_gpdb.yml
     image: centos-mingw
     params:
@@ -658,12 +662,15 @@ jobs:
       IVYREPO_PASSWD: {{ivyrepo_passwd}}
   - aggregate:
     - put: bin_gpdb_windows_clients
+      tags: ["gpdb4_wix_external_worker"]
       params:
         file: gpdb_artifacts/greenplum-clients-*-WinXP-x86_32.msi
     - put: bin_gpdb_windows_connectivity
+      tags: ["gpdb4_wix_external_worker"]
       params:
         file: gpdb_artifacts/greenplum-connectivity-*-WinXP-x86_32.msi
     - put: bin_gpdb_windows_loaders
+      tags: ["gpdb4_wix_external_worker"]
       params:
         file: gpdb_artifacts/greenplum-loaders-*-WinXP-x86_32.msi
 
