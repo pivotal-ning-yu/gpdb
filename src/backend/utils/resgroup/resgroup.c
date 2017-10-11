@@ -48,7 +48,7 @@
 
 #define InvalidSlotId	(-1)
 #define InvalidSessionId	(0)
-#define RESGROUP_MAX_SLOTS	(MaxConnections * 2)
+#define RESGROUP_MAX_SLOTS	(MaxConnections * 1)
 
 /*
  * GUC variables.
@@ -231,6 +231,8 @@ static void ResGroupSlotRelease(void);
 static void ResGroupSetMemorySpillRatio(const ResGroupCaps *caps);
 static char* DumpResGroupMemUsage(ResGroupData *group);
 static void selfValidateResGroupInfo(void);
+static bool selfOwnsSlot(const ResGroupSlotData *slot);
+static bool selfShouldOwnSlot(const ResGroupSlotData *slot);
 static bool selfIsAssignedDroppedGroup(void);
 static bool selfIsAssignedValidGroup(void);
 #ifdef USE_ASSERT_CHECKING
@@ -820,6 +822,8 @@ ResGroupReserveMemory(int32 memoryChunks, int32 overuseChunks, bool *waiverUsed)
 
 	/* When doMemCheck is on, self must has been assigned to a resgroup. */
 	Assert(selfIsAssigned());
+	Assert(slotIsInUse(slot));
+	Assert(Gp_role == GP_ROLE_DISPATCH || selfOwnsSlot(slot));
 
 	if (selfIsAssignedDroppedGroup())
 	{
@@ -896,6 +900,8 @@ ResGroupReleaseMemory(int32 memoryChunks)
 	}
 
 	Assert(selfIsAssigned());
+	Assert(slotIsInUse(slot));
+	Assert(Gp_role == GP_ROLE_DISPATCH || selfOwnsSlot(slot));
 
 	if (selfIsAssignedDroppedGroup())
 	{
@@ -1145,6 +1151,9 @@ groupDecMemUsage(ResGroupData *group, ResGroupSlotData *slot, int32 chunks)
 static void
 selfAttachToSlot(ResGroupData *group, ResGroupSlotData *slot)
 {
+	if (Gp_role != GP_ROLE_DISPATCH && !selfOwnsSlot(slot))
+		return;
+
 	AssertImply(slot->nProcs == 0, slot->memUsage == 0);
 	groupIncMemUsage(group, slot, self->memUsage);
 	slot->nProcs++;
@@ -1156,6 +1165,9 @@ selfAttachToSlot(ResGroupData *group, ResGroupSlotData *slot)
 static void
 selfDetachSlot(ResGroupData *group, ResGroupSlotData *slot)
 {
+	if (Gp_role != GP_ROLE_DISPATCH && !selfOwnsSlot(slot))
+		return;
+
 	groupDecMemUsage(group, slot, self->memUsage);
 	slot->nProcs--;
 	AssertImply(slot->nProcs == 0, slot->memUsage == 0);
@@ -1266,7 +1278,11 @@ static ResGroupSlotData *
 slotPoolPop(void)
 {
 	ResGroupSlotData	*root = &pResGroupControl->freeSlot;
+#if 0
 	ResGroupSlotData	*slot = root->next;
+#endif
+	/* pop from tail to simulate the old stack like behavior */
+	ResGroupSlotData	*slot = root->prev;
 
 	/*
 	 * the slot pool size is bigger than max connection,
@@ -1928,6 +1944,7 @@ ResGroupSlotRelease(void)
 
 	Assert(selfIsAssignedValidGroup());
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
+	Assert(Gp_role == GP_ROLE_DISPATCH);
 
 	putSlot();
 	Assert(!selfHasSlot());
@@ -2139,8 +2156,18 @@ UnassignResGroup(void)
 		Assert(Gp_role == GP_ROLE_EXECUTE);
 		selfUnsetSlot();
 
-		if (slot->nProcs == 0)
+		if (!selfOwnsSlot(slot))
 		{
+			/*
+			 * This slot was already transferred to other session,
+			 * detach forcely.
+			 */
+			group->nRunning--;
+		}
+		else if (slot->nProcs == 0)
+		{
+			Assert(selfOwnsSlot(slot));
+
 			/* Release the slot memory */
 			groupReleaseMemQuota(group, slot);
 
@@ -2219,11 +2246,62 @@ SwitchResGroupOnSegment(const char *buf, int len)
 	if (slot->nProcs != 0)
 	{
 		Assert(slotIsInUse(slot));
+#if 0
 		Assert(slot->sessionId == gp_session_id);
 		Assert(slot->groupId == newGroupId);
 		Assert(slot->memQuota == slotGetMemQuotaExpected(&caps));
+#endif
+
+		if (selfShouldOwnSlot(slot))
+		{
+			/*
+			 * This slot is still in use by other session.
+			 * Forcely transfer its ownership to us.
+			 * The other session must check for this.
+			 */
+
+			Assert(slot->groupId != InvalidOid);
+
+			ResGroupData *groupOther = ResGroupHashFind(slot->groupId, true);
+
+			/* FIXME: slot->memUsage can be concurrently updated */
+			groupDecMemUsage(groupOther, slot, slot->memUsage);
+			Assert(slot->memUsage == 0);
+
+			/*
+			 * We assume that on the old session QD was already unassigned,
+			 * so the memory quota were already returned.
+			 */
+
+			slot->nProcs = 0;
+			uninitSlot(slot);
+		}
+		else if (!selfOwnsSlot(slot))
+		{
+			/*
+			 * This slot was transferred to other session, unassign from it.
+			 *
+			 * FIXME: however will it happen here?
+			 */
+
+			LWLockRelease(ResGroupLock);
+			UnassignResGroup();
+			Assert(selfIsUnassigned());
+			return;
+		}
+		else
+		{
+			/*
+			 * This slot is owned by us and already inited, nothing to do.
+			 */
+
+			Assert(slot->sessionId == gp_session_id);
+			Assert(slot->groupId == newGroupId);
+			Assert(slot->memQuota == slotGetMemQuotaExpected(&caps));
+		}
 	}
-	else
+
+	if (slot->nProcs == 0)
 	{
 		Assert(slotIsIdle(slot));
 		initSlot(slot, &caps, newGroupId, gp_session_id);
@@ -2552,6 +2630,37 @@ selfValidateResGroupInfo(void)
 				self->group != NULL);
 	AssertImply(self->slotId != InvalidSlotId,
 				self->slot != NULL);
+}
+
+/*
+ * Whether the slot is owned by us?
+ *
+ * This is only meaningful on QE.
+ */
+static bool
+selfOwnsSlot(const ResGroupSlotData *slot)
+{
+	Assert(Gp_role != GP_ROLE_DISPATCH);
+	Assert(slot != NULL);
+
+	return slot->sessionId == gp_session_id;
+}
+
+/*
+ * Whether should we take the ownership of the slot?
+ *
+ * If this is true then the slot is not owned by us yet.
+ *
+ * This is only meaningful on QE.
+ */
+static bool
+selfShouldOwnSlot(const ResGroupSlotData *slot)
+{
+	Assert(Gp_role != GP_ROLE_DISPATCH);
+	Assert(slot != NULL);
+
+	/* FIXME: will sessionId wrap when it reaches INT32_MAX? */
+	return slot->sessionId < gp_session_id;
 }
 
 /*
