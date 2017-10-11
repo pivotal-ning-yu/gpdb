@@ -210,13 +210,11 @@ ccp_create_params_anchor: &ccp_default_params
   delete_on_failure: true
   generate_random_name: true
   terraform_source: ccp_src/aws-pivotal-pa-toolsmiths/
-  vars:
-    aws_instance-node-instance_type: t2.medium
 
 ccp_vars_anchor: &ccp_default_vars
   aws_instance-node-instance_type: t2.medium
   aws_ebs_volume_type: standard
-  platform: linux
+  platform: centos6
 
 ccp_destroy_anchor: &ccp_destroy
   put: terraform
@@ -1559,6 +1557,8 @@ jobs:
   - put: terraform
     params:
         <<: *ccp_default_params
+        vars:
+          <<: *ccp_default_vars
   - task: gen_cluster
     file: ccp_src/ci/tasks/gen_cluster.yml
     params:
@@ -1593,6 +1593,8 @@ jobs:
   - put: terraform
     params:
         <<: *ccp_default_params
+        vars:
+          <<: *ccp_default_vars
   - task: gen_cluster
     file: ccp_src/ci/tasks/gen_cluster.yml
     params:
@@ -1641,6 +1643,8 @@ jobs:
   - put: terraform
     params:
         <<: *ccp_default_params
+        vars:
+          <<: *ccp_default_vars
   - task: gen_cluster
     file: ccp_src/ci/tasks/gen_cluster.yml
     params:
@@ -2098,7 +2102,9 @@ jobs:
     - get: centos-gpdb-dev-6
   - put: terraform
     params:
-        <<: *ccp_default_params
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
   - task: gen_cluster
     file: ccp_src/ci/tasks/gen_cluster.yml
     params:
@@ -2133,6 +2139,8 @@ jobs:
   - put: terraform
     params:
       <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
   - task: setup_gpdb4-3-11-3
     file: ccp_src/ci/tasks/gen_cluster.yml
     params:
@@ -2181,7 +2189,9 @@ jobs:
     - get: centos-gpdb-dev-6
   - put: terraform
     params:
-        <<: *ccp_default_params
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
   - task: gen_cluster
     file: ccp_src/ci/tasks/gen_cluster.yml
     params:
@@ -2218,7 +2228,9 @@ jobs:
     - get: centos-gpdb-dev-6
   - put: terraform
     params:
-        <<: *ccp_default_params
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
   - task: gen_cluster
     file: ccp_src/ci/tasks/gen_cluster.yml
     params:
@@ -2255,7 +2267,9 @@ jobs:
     - get: centos-gpdb-dev-6
   - put: terraform
     params:
-        <<: *ccp_default_params
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
   - task: gen_cluster
     file: ccp_src/ci/tasks/gen_cluster.yml
     params:
@@ -2412,6 +2426,8 @@ jobs:
   - put: terraform
     params:
       <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
   - task: setup_gpdb4-3-11-3
     file: ccp_src/ci/tasks/gen_cluster.yml
     params:
@@ -2463,6 +2479,8 @@ jobs:
   - put: terraform
     params:
       <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
   - task: setup_gpdb4-3-11-3
     file: ccp_src/ci/tasks/gen_cluster.yml
     params:
@@ -2514,6 +2532,8 @@ jobs:
   - put: terraform
     params:
       <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
   - task: setup_gpdb4-3-11-3
     file: ccp_src/ci/tasks/gen_cluster.yml
     params:
