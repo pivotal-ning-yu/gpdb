@@ -397,8 +397,26 @@ size_t
 url_execute_fwrite(void *ptr, size_t size, URL_FILE *file, CopyState pstate)
 {
 	URL_EXECUTE_FILE *efile = (URL_EXECUTE_FILE *) file;
+	int fd = efile->handle->pipes[EXEC_DATA_P];
+	size_t offset = 0;
+	const char* p = (const char*) ptr;
+	
+	size_t n;
+	/* ensure all data in buffer is send out to pipe */
+	while(size > offset)
+	{
+		n = pipewrite(fd,p,size - offset);
+		if(n == -1) return -1;
 
-	return pipewrite(efile->handle->pipes[EXEC_DATA_P], ptr, size);
+		if(n == 0) break;
+
+		offset += n;
+		p = (const char*)ptr + offset;
+	}
+
+	if(offset < size) elog(WARNING,"parital write, exepected %lu, written %lu\n", size, offset);
+
+	return offset;
 }
 
 /*
