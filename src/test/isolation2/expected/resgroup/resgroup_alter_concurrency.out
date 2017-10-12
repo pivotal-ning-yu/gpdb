@@ -45,6 +45,13 @@ rg_concurrency_test|resgroup      |BEGIN;
 
 11:END;
 END
+11:RESET ROLE;
+RESET
+11:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 11q: ... <quitting>
 21<:  <... completed>
 BEGIN
@@ -62,6 +69,20 @@ rg_concurrency_test|              |<IDLE> in transaction
 END
 22:END;
 END
+21:RESET ROLE;
+RESET
+22:RESET ROLE;
+RESET
+21:SELECT 1;
+?column?
+--------
+1       
+(1 row)
+22:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 21q: ... <quitting>
 22q: ... <quitting>
 
@@ -102,6 +123,13 @@ rg_concurrency_test|resgroup      |BEGIN;
 
 11:END;
 END
+11:RESET ROLE;
+RESET
+11:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 11q: ... <quitting>
 21<:  <... completed>
 BEGIN
@@ -119,6 +147,20 @@ rg_concurrency_test|              |<IDLE> in transaction
 END
 22:END;
 END
+21:RESET ROLE;
+RESET
+22:RESET ROLE;
+RESET
+21:SELECT 1;
+?column?
+--------
+1       
+(1 row)
+22:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 21q: ... <quitting>
 22q: ... <quitting>
 
@@ -175,6 +217,13 @@ rg_concurrency_test|resgroup      |BEGIN;
 
 11:END;
 END
+11:RESET ROLE;
+RESET
+11:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 11q: ... <quitting>
 22<:  <... completed>
 BEGIN
@@ -190,6 +239,20 @@ rg_concurrency_test|              |<IDLE> in transaction
 END
 22:END;
 END
+21:RESET ROLE;
+RESET
+22:RESET ROLE;
+RESET
+21:SELECT 1;
+?column?
+--------
+1       
+(1 row)
+22:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 21q: ... <quitting>
 22q: ... <quitting>
 
@@ -235,6 +298,13 @@ rg_concurrency_test|resgroup      |BEGIN;
 
 11:END;
 END
+11:RESET ROLE;
+RESET
+11:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 11q: ... <quitting>
 22<:  <... completed>
 BEGIN
@@ -250,6 +320,20 @@ rg_concurrency_test|              |<IDLE> in transaction
 END
 22:END;
 END
+21:RESET ROLE;
+RESET
+22:RESET ROLE;
+RESET
+21:SELECT 1;
+?column?
+--------
+1       
+(1 row)
+22:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 21q: ... <quitting>
 22q: ... <quitting>
 
@@ -326,6 +410,13 @@ rg_concurrency_test|resgroup      |BEGIN;
 END
 -- 11 releases its quota, so there is now 30 free quota,
 -- so 22 gets executed
+11:RESET ROLE;
+RESET
+11:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 11q: ... <quitting>
 22<:  <... completed>
 BEGIN
@@ -341,6 +432,20 @@ rg_concurrency_test|              |<IDLE> in transaction
 END
 22:END;
 END
+21:RESET ROLE;
+RESET
+22:RESET ROLE;
+RESET
+21:SELECT 1;
+?column?
+--------
+1       
+(1 row)
+22:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 21q: ... <quitting>
 22q: ... <quitting>
 
@@ -404,6 +509,13 @@ rg_concurrency_test|resgroup      |BEGIN;
 END
 -- 11 releases its quota, so there is now 30 free quota,
 -- so 22 gets executed
+11:RESET ROLE;
+RESET
+11:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 11q: ... <quitting>
 22<:  <... completed>
 BEGIN
@@ -419,6 +531,20 @@ rg_concurrency_test|              |<IDLE> in transaction
 END
 22:END;
 END
+21:RESET ROLE;
+RESET
+22:RESET ROLE;
+RESET
+21:SELECT 1;
+?column?
+--------
+1       
+(1 row)
+22:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 21q: ... <quitting>
 22q: ... <quitting>
 
@@ -464,6 +590,41 @@ BEGIN
 ALTER RESOURCE GROUP rg_concurrency_test SET CONCURRENCY 1;
 ALTER
 
+11:RESET ROLE;
+RESET
+12:RESET ROLE;
+RESET
+13:RESET ROLE;
+RESET
+14:RESET ROLE;
+RESET
+15:RESET ROLE;
+RESET
+11:SELECT 1;
+?column?
+--------
+1       
+(1 row)
+12:SELECT 1;
+?column?
+--------
+1       
+(1 row)
+13:SELECT 1;
+?column?
+--------
+1       
+(1 row)
+14:SELECT 1;
+?column?
+--------
+1       
+(1 row)
+15:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 11q: ... <quitting>
 12q: ... <quitting>
 13q: ... <quitting>
@@ -504,6 +665,13 @@ rg_concurrency_test|              |<IDLE> in transaction
 
 11:END;
 END
+11:RESET ROLE;
+RESET
+11:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 11q: ... <quitting>
 
 --
@@ -559,6 +727,13 @@ rg_concurrency_test|              |<IDLE> in transaction
 
 11:END;
 END
+11:RESET ROLE;
+RESET
+11:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 11q: ... <quitting>
 
 --
@@ -599,6 +774,13 @@ rg_concurrency_test|resgroup      |BEGIN;
 
 11:END;
 END
+11:RESET ROLE;
+RESET
+11:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 11q: ... <quitting>
 SELECT * FROM rg_activity_status;
 rsgname            |waiting_reason|current_query
@@ -613,6 +795,13 @@ t
 (1 row)
 12<:  <... completed>
 ERROR:  canceling statement due to user request
+12:RESET ROLE;
+RESET
+12:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 12q: ... <quitting>
 SELECT * FROM rg_activity_status;
 rsgname|waiting_reason|current_query
@@ -644,6 +833,13 @@ DROP
 BEGIN
 61:END;
 END
+61:RESET ROLE;
+RESET
+61:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 61q: ... <quitting>
 
 -- 11: drop a role with concurrency=0 and pending queries
@@ -670,6 +866,13 @@ DROP
 61<:  <... completed>
 ERROR:  Role with Oid 213301 was dropped
 HINT:  Cannot execute commands anymore, please terminate this session.
+61:RESET ROLE;
+RESET
+61:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 61q: ... <quitting>
 
 -- cleanup

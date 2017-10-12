@@ -93,6 +93,13 @@ groupname      |memory_limit|proposed_memory_limit|memory_shared_quota|proposed_
 rg1_memory_test|60          |60                   |70                 |80                          
 (1 row)
 
+1:RESET ROLE;
+RESET
+1:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 1q: ... <quitting>
 
 --
@@ -179,6 +186,34 @@ rg1_memory_test|              |<IDLE> in transaction
 rg1_memory_test|              |<IDLE> in transaction
 (4 rows)
 
+1:RESET ROLE;
+RESET
+2:RESET ROLE;
+RESET
+3:RESET ROLE;
+RESET
+4:RESET ROLE;
+RESET
+1:SELECT 1;
+?column?
+--------
+1       
+(1 row)
+2:SELECT 1;
+?column?
+--------
+1       
+(1 row)
+3:SELECT 1;
+?column?
+--------
+1       
+(1 row)
+4:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 1q: ... <quitting>
 2q: ... <quitting>
 3q: ... <quitting>
@@ -301,6 +336,13 @@ groupname      |memory_limit|proposed_memory_limit|memory_shared_quota|proposed_
 rg1_memory_test|40          |30                   |60                 |20                          
 (1 row)
 
+1:RESET ROLE;
+RESET
+1:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 1q: ... <quitting>
 
 --
@@ -418,9 +460,23 @@ rg1_memory_test|              |<IDLE> in transaction
 rg2_memory_test|              |<IDLE> in transaction
 (4 rows)
 
+11:RESET ROLE;
+RESET
+11:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 11q: ... <quitting>
 -- proc11 ends, 10%-5%=5% quota is returned to sys
 
+12:RESET ROLE;
+RESET
+12:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 12q: ... <quitting>
 -- proc12 ends, 10%-5%=5% quota is returned to sys
 
@@ -458,6 +514,27 @@ rg2_memory_test|              |<IDLE> in transaction
 rg2_memory_test|              |<IDLE> in transaction
 (3 rows)
 
+13:RESET ROLE;
+RESET
+21:RESET ROLE;
+RESET
+22:RESET ROLE;
+RESET
+13:SELECT 1;
+?column?
+--------
+1       
+(1 row)
+21:SELECT 1;
+?column?
+--------
+1       
+(1 row)
+22:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 13q: ... <quitting>
 21q: ... <quitting>
 22q: ... <quitting>
@@ -547,6 +624,13 @@ rg2_memory_test|resgroup      |BEGIN;
 
 11: END;
 END
+11:RESET ROLE;
+RESET
+11:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 11q: ... <quitting>
 -- proc11 ends, 10%-5%=5% quota is returned to sys
 
@@ -567,6 +651,13 @@ rg2_memory_test|resgroup      |BEGIN;
 
 12: END;
 END
+12:RESET ROLE;
+RESET
+12:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 12q: ... <quitting>
 -- proc12 ends, 10%-5%=5% quota is returned to sys
 
@@ -588,6 +679,27 @@ rg2_memory_test|              |<IDLE> in transaction
 rg2_memory_test|              |<IDLE> in transaction
 (3 rows)
 
+13:RESET ROLE;
+RESET
+21:RESET ROLE;
+RESET
+22:RESET ROLE;
+RESET
+13:SELECT 1;
+?column?
+--------
+1       
+(1 row)
+21:SELECT 1;
+?column?
+--------
+1       
+(1 row)
+22:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 13q: ... <quitting>
 21q: ... <quitting>
 22q: ... <quitting>
@@ -701,6 +813,41 @@ rg2_memory_test|              |<IDLE> in transaction
 rg2_memory_test|              |<IDLE> in transaction
 (5 rows)
 
+11:RESET ROLE;
+RESET
+21:RESET ROLE;
+RESET
+22:RESET ROLE;
+RESET
+23:RESET ROLE;
+RESET
+24:RESET ROLE;
+RESET
+11:SELECT 1;
+?column?
+--------
+1       
+(1 row)
+21:SELECT 1;
+?column?
+--------
+1       
+(1 row)
+22:SELECT 1;
+?column?
+--------
+1       
+(1 row)
+23:SELECT 1;
+?column?
+--------
+1       
+(1 row)
+24:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 11q: ... <quitting>
 21q: ... <quitting>
 22q: ... <quitting>
@@ -819,6 +966,13 @@ rg2_memory_test|              |<IDLE> in transaction
 rg2_memory_test|resgroup      |BEGIN;               
 (5 rows)
 
+11:RESET ROLE;
+RESET
+11:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 11q: ... <quitting>
 -- rg1 releases 0.3%-0.2%=0.1% quota and 26.7%-18%=8.7%
 -- so rg2 gets 8.8% new quota
@@ -842,6 +996,34 @@ rg2_memory_test|              |<IDLE> in transaction
 rg2_memory_test|              |<IDLE> in transaction
 (4 rows)
 
+21:RESET ROLE;
+RESET
+22:RESET ROLE;
+RESET
+23:RESET ROLE;
+RESET
+24:RESET ROLE;
+RESET
+21:SELECT 1;
+?column?
+--------
+1       
+(1 row)
+22:SELECT 1;
+?column?
+--------
+1       
+(1 row)
+23:SELECT 1;
+?column?
+--------
+1       
+(1 row)
+24:SELECT 1;
+?column?
+--------
+1       
+(1 row)
 21q: ... <quitting>
 22q: ... <quitting>
 23q: ... <quitting>

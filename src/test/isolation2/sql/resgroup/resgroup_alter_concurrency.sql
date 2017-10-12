@@ -31,6 +31,8 @@ ALTER RESOURCE GROUP rg_concurrency_test SET CONCURRENCY 2;
 SELECT * FROM rg_activity_status;
 
 11:END;
+11:RESET ROLE;
+11:SELECT 1;
 11q:
 21<:
 22<:
@@ -39,6 +41,10 @@ SELECT * FROM rg_activity_status;
 
 21:END;
 22:END;
+21:RESET ROLE;
+22:RESET ROLE;
+21:SELECT 1;
+22:SELECT 1;
 21q:
 22q:
 
@@ -63,6 +69,8 @@ ALTER RESOURCE GROUP rg_concurrency_test SET CONCURRENCY 2;
 SELECT * FROM rg_activity_status;
 
 11:END;
+11:RESET ROLE;
+11:SELECT 1;
 11q:
 21<:
 22<:
@@ -71,6 +79,10 @@ SELECT * FROM rg_activity_status;
 
 21:END;
 22:END;
+21:RESET ROLE;
+22:RESET ROLE;
+21:SELECT 1;
+22:SELECT 1;
 21q:
 22q:
 
@@ -102,6 +114,8 @@ ALTER RESOURCE GROUP rg_concurrency_test SET MEMORY_SHARED_QUOTA 20;
 SELECT * FROM rg_activity_status;
 
 11:END;
+11:RESET ROLE;
+11:SELECT 1;
 11q:
 22<:
 
@@ -109,6 +123,10 @@ SELECT * FROM rg_activity_status;
 
 21:END;
 22:END;
+21:RESET ROLE;
+22:RESET ROLE;
+21:SELECT 1;
+22:SELECT 1;
 21q:
 22q:
 
@@ -135,6 +153,8 @@ ALTER RESOURCE GROUP rg_concurrency_test SET MEMORY_SHARED_QUOTA 20;
 SELECT * FROM rg_activity_status;
 
 11:END;
+11:RESET ROLE;
+11:SELECT 1;
 11q:
 22<:
 
@@ -142,6 +162,10 @@ SELECT * FROM rg_activity_status;
 
 21:END;
 22:END;
+21:RESET ROLE;
+22:RESET ROLE;
+21:SELECT 1;
+22:SELECT 1;
 21q:
 22q:
 
@@ -185,6 +209,8 @@ SELECT * FROM rg_activity_status;
 11:END;
 -- 11 releases its quota, so there is now 30 free quota,
 -- so 22 gets executed
+11:RESET ROLE;
+11:SELECT 1;
 11q:
 22<:
 
@@ -192,6 +218,10 @@ SELECT * FROM rg_activity_status;
 
 21:END;
 22:END;
+21:RESET ROLE;
+22:RESET ROLE;
+21:SELECT 1;
+22:SELECT 1;
 21q:
 22q:
 
@@ -231,6 +261,8 @@ SELECT * FROM rg_activity_status;
 11:END;
 -- 11 releases its quota, so there is now 30 free quota,
 -- so 22 gets executed
+11:RESET ROLE;
+11:SELECT 1;
 11q:
 22<:
 
@@ -238,6 +270,10 @@ SELECT * FROM rg_activity_status;
 
 21:END;
 22:END;
+21:RESET ROLE;
+22:RESET ROLE;
+21:SELECT 1;
+22:SELECT 1;
 21q:
 22q:
 
@@ -266,6 +302,16 @@ ALTER RESOURCE GROUP rg_concurrency_test SET CONCURRENCY 10;
 
 ALTER RESOURCE GROUP rg_concurrency_test SET CONCURRENCY 1;
 
+11:RESET ROLE;
+12:RESET ROLE;
+13:RESET ROLE;
+14:RESET ROLE;
+15:RESET ROLE;
+11:SELECT 1;
+12:SELECT 1;
+13:SELECT 1;
+14:SELECT 1;
+15:SELECT 1;
 11q:
 12q:
 13q:
@@ -291,6 +337,8 @@ ALTER RESOURCE GROUP rg_concurrency_test SET CONCURRENCY 1;
 SELECT * FROM rg_activity_status;
 
 11:END;
+11:RESET ROLE;
+11:SELECT 1;
 11q:
 
 --
@@ -322,6 +370,8 @@ ALTER RESOURCE GROUP rg_concurrency_test SET CONCURRENCY 0;
 SELECT * FROM rg_activity_status;
 
 11:END;
+11:RESET ROLE;
+11:SELECT 1;
 11q:
 
 --
@@ -343,12 +393,16 @@ ALTER RESOURCE GROUP rg_concurrency_test SET CONCURRENCY 0;
 SELECT * FROM rg_activity_status;
 
 11:END;
+11:RESET ROLE;
+11:SELECT 1;
 11q:
 SELECT * FROM rg_activity_status;
 
 SELECT pg_cancel_backend(procpid) FROM pg_stat_activity
 WHERE waiting_reason='resgroup' AND rsgname='rg_concurrency_test';
 12<:
+12:RESET ROLE;
+12:SELECT 1;
 12q:
 SELECT * FROM rg_activity_status;
 
@@ -368,6 +422,8 @@ DROP RESOURCE GROUP rg_concurrency_test;
 
 61<:
 61:END;
+61:RESET ROLE;
+61:SELECT 1;
 61q:
 
 -- 11: drop a role with concurrency=0 and pending queries
@@ -385,6 +441,8 @@ DROP ROLE role_concurrency_test;
 DROP RESOURCE GROUP rg_concurrency_test;
 
 61<:
+61:RESET ROLE;
+61:SELECT 1;
 61q:
 
 -- cleanup

@@ -70,6 +70,8 @@ ALTER RESOURCE GROUP rg1_memory_test SET MEMORY_SHARED_QUOTA 80;
 -- so memory_shared_quota shall be the old value.
 SELECT * FROM rg_mem_status;
 
+1:RESET ROLE;
+1:SELECT 1;
 1q:
 
 --
@@ -116,6 +118,14 @@ ALTER RESOURCE GROUP rg1_memory_test SET MEMORY_SHARED_QUOTA 40;
 SELECT * FROM rg_mem_status;
 SELECT * FROM rg_activity_status;
 
+1:RESET ROLE;
+2:RESET ROLE;
+3:RESET ROLE;
+4:RESET ROLE;
+1:SELECT 1;
+2:SELECT 1;
+3:SELECT 1;
+4:SELECT 1;
 1q:
 2q:
 3q:
@@ -189,6 +199,8 @@ ALTER RESOURCE GROUP rg1_memory_test SET MEMORY_LIMIT 30;
 -- so memory_limit shall be the old value.
 SELECT * FROM rg_mem_status;
 
+1:RESET ROLE;
+1:SELECT 1;
 1q:
 
 --
@@ -257,9 +269,13 @@ ALTER RESOURCE GROUP rg2_memory_test SET MEMORY_LIMIT 40;
 SELECT * FROM rg_mem_status;
 SELECT * FROM rg_activity_status;
 
+11:RESET ROLE;
+11:SELECT 1;
 11q:
 -- proc11 ends, 10%-5%=5% quota is returned to sys
 
+12:RESET ROLE;
+12:SELECT 1;
 12q:
 -- proc12 ends, 10%-5%=5% quota is returned to sys
 
@@ -274,6 +290,12 @@ SELECT * FROM rg_activity_status;
 SELECT * FROM rg_mem_status;
 SELECT * FROM rg_activity_status;
 
+13:RESET ROLE;
+21:RESET ROLE;
+22:RESET ROLE;
+13:SELECT 1;
+21:SELECT 1;
+22:SELECT 1;
 13q:
 21q:
 22q:
@@ -327,6 +349,8 @@ SELECT * FROM rg_mem_status;
 SELECT * FROM rg_activity_status;
 
 11: END;
+11:RESET ROLE;
+11:SELECT 1;
 11q:
 -- proc11 ends, 10%-5%=5% quota is returned to sys
 
@@ -334,6 +358,8 @@ SELECT * FROM rg_mem_status;
 SELECT * FROM rg_activity_status;
 
 12: END;
+12:RESET ROLE;
+12:SELECT 1;
 12q:
 -- proc12 ends, 10%-5%=5% quota is returned to sys
 
@@ -343,6 +369,12 @@ SELECT * FROM rg_activity_status;
 SELECT * FROM rg_mem_status;
 SELECT * FROM rg_activity_status;
 
+13:RESET ROLE;
+21:RESET ROLE;
+22:RESET ROLE;
+13:SELECT 1;
+21:SELECT 1;
+22:SELECT 1;
 13q:
 21q:
 22q:
@@ -405,6 +437,16 @@ ALTER RESOURCE GROUP rg1_memory_test SET MEMORY_SHARED_QUOTA 30;
 SELECT * FROM rg_mem_status;
 SELECT * FROM rg_activity_status;
 
+11:RESET ROLE;
+21:RESET ROLE;
+22:RESET ROLE;
+23:RESET ROLE;
+24:RESET ROLE;
+11:SELECT 1;
+21:SELECT 1;
+22:SELECT 1;
+23:SELECT 1;
+24:SELECT 1;
 11q:
 21q:
 22q:
@@ -469,6 +511,8 @@ ALTER RESOURCE GROUP rg1_memory_test SET MEMORY_SHARED_QUOTA 30;
 SELECT * FROM rg_mem_status;
 SELECT * FROM rg_activity_status;
 
+11:RESET ROLE;
+11:SELECT 1;
 11q:
 -- rg1 releases 0.3%-0.2%=0.1% quota and 26.7%-18%=8.7%
 -- so rg2 gets 8.8% new quota
@@ -479,6 +523,14 @@ SELECT * FROM rg_activity_status;
 SELECT * FROM rg_mem_status;
 SELECT * FROM rg_activity_status;
 
+21:RESET ROLE;
+22:RESET ROLE;
+23:RESET ROLE;
+24:RESET ROLE;
+21:SELECT 1;
+22:SELECT 1;
+23:SELECT 1;
+24:SELECT 1;
 21q:
 22q:
 23q:
