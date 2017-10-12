@@ -524,7 +524,7 @@ ResGroupCheckForDrop(Oid groupId, char *name)
 		Assert(name != NULL);
 		ereport(ERROR,
 				(errcode(ERRCODE_DEPENDENT_OBJECTS_STILL_EXIST),
-				 errmsg("Cannot drop resource group \"%s\"", name),
+				 errmsg("cannot drop resource group \"%s\"", name),
 				 errhint(" The resource group is currently managing %d query(ies) and cannot be dropped.\n"
 						 "\tTerminate the queries first or try dropping the group later.\n"
 						 "\tThe view pg_stat_activity tracks the queries managed by resource groups.", nQuery)));
@@ -572,7 +572,8 @@ ResGroupDropFinish(Oid groupId, bool isCommit)
 	PG_CATCH();
 	{
 		InterruptHoldoffCount = savedInterruptHoldoffCount;
-		elog(LOG, "Error happend while cleanup resource group %d", groupId);
+		EmitErrorReport();
+		FlushErrorState();
 	}
 	PG_END_TRY();
 
@@ -601,7 +602,8 @@ ResGroupCreateOnAbort(Oid groupId)
 	PG_CATCH();
 	{
 		InterruptHoldoffCount = savedInterruptHoldoffCount;
-		elog(LOG, "Fail to cleanup resource group %d", groupId);
+		EmitErrorReport();
+		FlushErrorState();
 	}
 	PG_END_TRY();
 	LWLockRelease(ResGroupLock);
@@ -646,7 +648,8 @@ ResGroupAlterOnCommit(Oid groupId,
 	PG_CATCH();
 	{
 		InterruptHoldoffCount = savedInterruptHoldoffCount;
-		elog(LOG, "Fail to apply new caps for resource group %d", groupId);
+		EmitErrorReport();
+		FlushErrorState();
 	}
 	PG_END_TRY();
 
@@ -691,7 +694,7 @@ ResGroupGetStat(Oid groupId, ResGroupStatType type)
 		default:
 			ereport(ERROR,
 					(errcode(ERRCODE_INTERNAL_ERROR),
-					 errmsg("Invalid stat type %d", type)));
+					 errmsg("invalid stat type %d", type)));
 	}
 
 	LWLockRelease(ResGroupLock);
@@ -1497,7 +1500,7 @@ decideResGroup(void)
 
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_CORRUPTED),
-				 errmsg("Can not find a valid resource group for current role")));
+				 errmsg("cannot find a valid resource group for current role")));
 	}
 
 	selfSetGroup(group);
@@ -2282,7 +2285,7 @@ SwitchResGroupOnSegment(const char *buf, int len)
 	if (!slotIdIsValid(newSlotId))
 		ereport(ERROR,
 				(errcode(ERRCODE_INTERNAL_ERROR),
-				 errmsg("Slot id %d is beyond the boundary [0, %d].", newSlotId, RESGROUP_MAX_SLOTS - 1)));
+				 errmsg("slot id %d is beyond the boundary [0, %d].", newSlotId, RESGROUP_MAX_SLOTS - 1)));
 
 	if (self->groupId != InvalidOid)
 	{
@@ -2446,7 +2449,7 @@ ResGroupHashFind(Oid groupId, bool raise)
 	{
 		ereport(raise ? ERROR : LOG,
 				(errcode(ERRCODE_DATA_CORRUPTED),
-				 errmsg("Cannot find resource group with Oid %d in shared memory",
+				 errmsg("cannot find resource group with Oid %d in shared memory",
 						groupId)));
 		return NULL;
 	}
@@ -2478,7 +2481,7 @@ ResGroupHashRemove(Oid groupId)
 	if (!found)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_CORRUPTED),
-				 errmsg("Cannot find resource group with Oid %d in shared memory to remove",
+				 errmsg("cannot find resource group with Oid %d in shared memory to remove",
 						groupId)));
 
 	group = &pResGroupControl->groups[entry->index];
