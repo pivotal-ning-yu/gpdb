@@ -3035,6 +3035,10 @@ jobs:
   - task: ask_teams_to_kick_off_jobs
     config:
       platform: linux
+      image_resource:
+        type: docker-image
+        source:
+          repository: alpine
       run:
         path: /bin/false
 
@@ -3045,6 +3049,10 @@ jobs:
   - task: ask_PMs_to_verify
     config:
       platform: linux
+      image_resource:
+        type: docker-image
+        source:
+          repository: alpine
       run:
         path: /bin/false
 
@@ -3055,6 +3063,10 @@ jobs:
   - task: ask_teams_to_kick_off_jobs
     config:
       platform: linux
+      image_resource:
+        type: docker-image
+        source:
+          repository: alpine
       run:
         path: /bin/false
 
@@ -3067,6 +3079,10 @@ jobs:
   - task: ask_PMs_to_verify
     config:
       platform: linux
+      image_resource:
+        type: docker-image
+        source:
+          repository: alpine
       run:
         path: /bin/false
 
@@ -3077,6 +3093,10 @@ jobs:
   - task: ask_PMs_to_verify
     config:
       platform: linux
+      image_resource:
+        type: docker-image
+        source:
+          repository: alpine
       run:
         path: /bin/false
 
