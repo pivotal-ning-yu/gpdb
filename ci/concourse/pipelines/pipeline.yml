@@ -28,6 +28,10 @@ groups:
   - cs_crash_recovery_11_20
   - cs_crash_recovery_21_30
   - cs_crash_recovery_31_42
+  - cs_filerep_end_to_end_full_primary
+  - cs_filerep_end_to_end_incr_primary
+  - cs_filerep_end_to_end_full_mirror
+  - cs_filerep_end_to_end_incr_mirror
   - icb_orca_centos
   - icb_planner_centos
   - icg_orca_centos
@@ -59,7 +63,6 @@ groups:
   - pulse_Kerberos-smoke
   - pulse_cs-aoco-compression
   - pulse_cs-bin-swap
-  - pulse_cs-filerep-end-to-end
   - pulse_QP_memory-accounting
   - QP_runaway-query
   - QP_optimizer-functional
@@ -109,7 +112,6 @@ groups:
   - pulse_Kerberos-smoke
   - pulse_cs-aoco-compression
   - pulse_cs-bin-swap
-  - pulse_cs-filerep-end-to-end
   - pulse_QP_memory-accounting
   - pulse_CCLE
   - pulse_CCLE-sles11sp4
@@ -136,10 +138,13 @@ groups:
   - cs_crash_recovery_11_20
   - cs_crash_recovery_21_30
   - cs_crash_recovery_31_42
+  - cs_filerep_end_to_end_full_primary
+  - cs_filerep_end_to_end_incr_primary
+  - cs_filerep_end_to_end_full_mirror
+  - cs_filerep_end_to_end_incr_mirror
   - gpdb_rc_packaging_centos
   - pulse_cs-aoco-compression
   - pulse_cs-bin-swap
-  - pulse_cs-filerep-end-to-end
 - name: QP
   jobs:
   - pulse_QP_memory-accounting
@@ -2047,6 +2052,87 @@ jobs:
       TINC_TARGET: crash_recovery_31_42
   - *ccp_destroy
 
+- name: cs_filerep_end_to_end_full_primary
+  plan:
+  - aggregate: *cs_ccp_aggregate
+  - put: terraform
+    <<: *cs_ccp_terraform_params
+    params:
+      <<: *ccp_default_params
+      terraform_source: ccp_src/aws-nvme-block-device/
+      vars:
+        <<: *ccp_default_vars
+        aws_instance-node-instance_type: i3.xlarge
+        number_of_nodes: 2
+  - task: gen_cluster
+    <<: *cs_ccp_gen_cluster_params
+  - task: run_tests
+    <<: *cs_ccp_run_tests_params
+    params:
+      TINC_TARGET: filerep_end_to_end_full_primary
+  - *ccp_destroy
+
+- name: cs_filerep_end_to_end_incr_primary
+  plan:
+  - aggregate: *cs_ccp_aggregate
+  - put: terraform
+    <<: *cs_ccp_terraform_params
+    params:
+      <<: *ccp_default_params
+      terraform_source: ccp_src/aws-nvme-block-device/
+      vars:
+        <<: *ccp_default_vars
+        aws_instance-node-instance_type: i3.xlarge
+        number_of_nodes: 1
+  - task: gen_cluster
+    <<: *cs_ccp_gen_cluster_params
+  - task: run_tests
+    <<: *cs_ccp_run_tests_params
+    params:
+      TINC_TARGET: filerep_end_to_end_incr_primary
+  - *ccp_destroy
+
+- name: cs_filerep_end_to_end_full_mirror
+  plan:
+  - aggregate: *cs_ccp_aggregate
+  - put: terraform
+    <<: *cs_ccp_terraform_params
+    params:
+      <<: *ccp_default_params
+      terraform_source: ccp_src/aws-nvme-block-device/
+      vars:
+        <<: *ccp_default_vars
+        aws_instance-node-instance_type: i3.xlarge
+        number_of_nodes: 1
+  - task: gen_cluster
+    <<: *cs_ccp_gen_cluster_params
+  - task: run_tests
+    <<: *cs_ccp_run_tests_params
+    params:
+      TINC_TARGET: filerep_end_to_end_full_mirror
+  - *ccp_destroy
+
+- name: cs_filerep_end_to_end_incr_mirror
+  plan:
+  - aggregate: *cs_ccp_aggregate
+  - put: terraform
+    <<: *cs_ccp_terraform_params
+    params:
+      <<: *ccp_default_params
+      terraform_source: ccp_src/aws-nvme-block-device/
+      vars:
+        <<: *ccp_default_vars
+        aws_instance-node-instance_type: i3.xlarge
+        number_of_nodes: 1
+  - task: gen_cluster
+    <<: *cs_ccp_gen_cluster_params
+  - task: run_tests
+    <<: *cs_ccp_run_tests_params
+    params:
+      TINC_TARGET: filerep_end_to_end_incr_mirror
+  - *ccp_destroy
+
+
 # Stage 3: Packaging of installer file
 # Stage 3a: Packaging the Release Candidate (rc)
 
@@ -2861,34 +2947,6 @@ jobs:
     params:
       PULSE_URL: {{pulse_url}}
       PULSE_PROJECT_NAME: cs-bin-swap
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
-
-- name: pulse_cs-filerep-end-to-end
-  plan:
-  - get: pulse-api-image
-    tags: ["gpdb5-pulse-worker"]
-  - get: nightly-trigger-pulse
-    tags: ["gpdb5-pulse-worker"]
-    trigger: true
-  - aggregate: *rhel_artifacts_for_pulse_release-add-trigger
-  - task: trigger_pulse
-    tags: ["gpdb5-pulse-worker"]
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/trigger_pulse.yml
-    params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: cs-filerep-end-to-end
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
-  - task: monitor_pulse
-    tags: ["gpdb5-pulse-worker"]
-    attempts: 2
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/monitor_pulse.yml
-    params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: cs-filerep-end-to-end
       PULSE_USERNAME: {{pulse_username}}
       PULSE_PASSWORD: {{pulse_password}}
 
