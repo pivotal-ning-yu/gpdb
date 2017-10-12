@@ -1,0 +1,19 @@
+platform: linux
+
+image_resource:
+  type: docker-image
+  source:
+    repository: pivotaldata/sles-gpdb-dev
+    tag: '11'
+
+inputs:
+  - name: gpdb_src
+  - name: bin_gpdb
+outputs:
+  - name: packaged_gpdb
+run:
+  path: gpdb_src/ci/concourse/scripts/gpdb_packaging.bash
+params:
+  INSTALL_SCRIPT_SRC: gpdb_src/gpAux/releng/bin/REPLACE_IN_PIPELINE_installer-header-foraspecificOS.sh
+  GPDB_TARGZ: bin_gpdb/bin_gpdb.tar.gz
+  INSTALLER_ZIP: packaged_gpdb/greenplum-db-@GP_VERSION@-OS-x86_64.zip
