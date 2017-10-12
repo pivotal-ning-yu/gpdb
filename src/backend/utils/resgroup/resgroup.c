@@ -273,6 +273,7 @@ static bool procIsInWaitQueue(const PGPROC *proc);
 static bool procIsWaiting(const PGPROC *proc);
 static void procWakeup(PGPROC *proc);
 static void slotValidate(const ResGroupSlotData *slot);
+static void slotValidateOwnership(const ResGroupSlotData *slot);
 static bool slotIsFreed(const ResGroupSlotData *slot);
 static bool slotIsInUse(const ResGroupSlotData *slot);
 static bool slotIsIdle(const ResGroupSlotData *slot);
@@ -820,6 +821,8 @@ ResGroupReserveMemory(int32 memoryChunks, int32 overuseChunks, bool *waiverUsed)
 
 	/* When doMemCheck is on, self must has been assigned to a resgroup. */
 	Assert(selfIsAssigned());
+	Assert(slotIsInUse(slot));
+	slotValidateOwnership(slot);
 
 	if (selfIsAssignedDroppedGroup())
 	{
@@ -896,6 +899,8 @@ ResGroupReleaseMemory(int32 memoryChunks)
 	}
 
 	Assert(selfIsAssigned());
+	Assert(slotIsInUse(slot));
+	slotValidateOwnership(slot);
 
 	if (selfIsAssignedDroppedGroup())
 	{
@@ -1145,6 +1150,8 @@ groupDecMemUsage(ResGroupData *group, ResGroupSlotData *slot, int32 chunks)
 static void
 selfAttachToSlot(ResGroupData *group, ResGroupSlotData *slot)
 {
+	slotValidateOwnership(slot);
+
 	selfSetSlot(slot);
 	AssertImply(slot->nProcs == 0, slot->memUsage == 0);
 	groupIncMemUsage(group, slot, self->memUsage);
@@ -1157,6 +1164,8 @@ selfAttachToSlot(ResGroupData *group, ResGroupSlotData *slot)
 static void
 selfDetachSlot(ResGroupData *group, ResGroupSlotData *slot)
 {
+	slotValidateOwnership(slot);
+
 	groupDecMemUsage(group, slot, self->memUsage);
 	pg_atomic_sub_fetch_u32((pg_atomic_uint32*) &slot->nProcs, 1);
 	AssertImply(slot->nProcs == 0, slot->memUsage == 0);
@@ -2020,6 +2029,7 @@ static void
 groupReleaseSlot(ResGroupData *group, ResGroupSlotData *slot)
 {
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
+	Assert(Gp_role == GP_ROLE_DISPATCH);
 	Assert(!selfHasSlot());
 
 	groupPutSlot(group, slot);
@@ -2939,6 +2949,23 @@ slotValidate(const ResGroupSlotData *slot)
 		Assert(slot->memQuota < 0);
 		Assert(slot->memUsage == 0);
 	}
+}
+
+/*
+ * Validate a slot's ownership.
+ */
+static void
+slotValidateOwnership(const ResGroupSlotData *slot)
+{
+	/*
+	 * On QD UnassignResGroup() can be called with a different sessionId,
+	 * so it's meaningless to check the ownership on QD.
+	 *
+	 * On QE we must ensure the ownership by checking sessionId.
+	 */
+
+	Assert(slot != NULL);
+	Assert(Gp_role == GP_ROLE_DISPATCH || slot->sessionId == gp_session_id);
 }
 
 /*
