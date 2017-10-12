@@ -336,7 +336,7 @@ resources:
   type: git
   source:
     branch: {{ccp-git-branch}}
-    tag_filter: 1.0.0
+    tag_filter: 1.0.1
     private_key: {{ccp-git-key}}
     uri: {{ccp-git-remote}}
 
