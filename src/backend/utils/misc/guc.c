@@ -6577,7 +6577,7 @@ static struct config_int ConfigureNamesInt[] =
 		{"optimizer_join_arity_for_associativity_commutativity", PGC_USERSET, QUERY_TUNING_METHOD,
 			gettext_noop("Maximum number of children Nary-join can have without disabling commutativity and associativity transform"),
 			NULL,
-			GUC_NO_SHOW_ALL | GUC_NOT_IN_SAMPLE
+			GUC_NOT_IN_SAMPLE
 		},
 		&optimizer_join_arity_for_associativity_commutativity,
 		7, 0, INT_MAX, NULL, NULL
