@@ -4057,6 +4057,23 @@ SELECT ntile(0) over (order by i) FROM filter_test;
 
 -- start_ignore
 DROP TABLE filter_test;
+-- end_ignore
+
+--
+-- Negative Test Cases for Nested Window Functions and Aggregates
+--
+
+-- start_ignore
+DROP TABLE IF EXISTS foo;
+CREATE TABLE foo (a INT);
+-- end_ignore
+
+SELECT LEAD(ROW_NUMBER() OVER()) OVER (ORDER BY 1) FROM foo;
+SELECT SUM(ROW_NUMBER() OVER()) FROM foo;
+SELECT SUM(AVG(a)) FROM foo;
+
+-- start_ignore
+DROP TABLE foo;
 
 --
 -- STANDARD DATA FOR olap_* TESTS.

@@ -81,35 +81,40 @@ check_call(ParseState *pstate, Node *call)
 	 * level (though outer aggs are okay).	We can skip this check if we
 	 * didn't find any local vars or aggs.
 	 */
-	if (min_varlevel == 0 && is_agg)
+	if (is_agg)
 	{
-		if (checkExprHasAggs((Node *)((Aggref *)call)->args))
+		if (min_varlevel == 0 &&
+				pstate->p_hasAggs &&
+					checkExprHasAggs((Node *)((Aggref *)call)->args))
 			ereport(ERROR,
 					(errcode(ERRCODE_GROUPING_ERROR),
-					 errmsg("aggregate function calls may not be nested")));
+					 errmsg("aggregate function calls may not be nested"),
+					 parser_errposition(pstate,
+							   locate_agg_of_level((Node *)((Aggref *)call)->args, 0))));
 		
-		if (checkExprHasWindFuncs((Node *)((Aggref *)call)->args))
+		if (pstate->p_hasWindFuncs &&
+				checkExprHasWindFuncs((Node *)((Aggref *)call)->args))
 		{
 			ereport(ERROR,
 					(errcode(ERRCODE_GROUPING_ERROR),
 					 errmsg("window functions may not be used as arguments to "
-							"aggregates")));
+							"aggregates"),
+					 parser_errposition(pstate,
+									locate_windowfunc((Node *)((Aggref *)call)->args))));
 		}
 	}
-
-	/*
-	 * Window functions, on the other hand, may contain nested aggregates
-	 * but not nested window refs.
-	 */
-	if (min_varlevel == 0 && !is_agg)
+	else if (pstate->p_hasWindFuncs &&
+				checkExprHasWindFuncs((Node *)((WindowRef *)call)->args))
 	{
-		if (checkExprHasWindFuncs((Node *)((WindowRef *)call)->args))
-		{
-			ereport(ERROR,
-					(errcode(ERRCODE_GROUPING_ERROR),
-					 errmsg("cannot use window function as an argument "
-							"to another window function")));
-		}
+		/*
+		 * Window functions, on the other hand, may contain nested aggregates
+		 * but not nested window refs.
+		 */
+		ereport(ERROR,
+				(errcode(ERRCODE_GROUPING_ERROR),
+				 errmsg("cannot use window function as an argument "
+						"to another window function"),
+					parser_errposition(pstate, locate_windowfunc((Node *)((WindowRef *)call)->args))));
 	}
 
 	if (min_varlevel < 0)

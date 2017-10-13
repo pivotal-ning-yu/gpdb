@@ -42,4 +42,7 @@ extern Node *ResolveNew(Node *node, int target_varno, int sublevels_up,
 		   RangeTblEntry *target_rte,
 		   List *targetlist, int event, int update_varno);
 
+extern int	locate_windowfunc(Node *node);
+extern int	locate_agg_of_level(Node *node, int levelsup);
+
 #endif   /* REWRITEMANIP_H */

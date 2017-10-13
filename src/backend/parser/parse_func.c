@@ -549,6 +549,7 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 			aggref->aggstar = agg_star;
 
 		aggref->aggdistinct = agg_distinct;
+		aggref->location = location;
 
 		transformAggregateCall(pstate, aggref, agg_order);
 
