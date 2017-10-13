@@ -1,0 +1,164 @@
+-- TODO: need to cleanup all existing resgroups
+
+--
+-- positive
+--
+
+-- by default resgroup names have the form of [_a-zA-Z][_a-zA-Z0-9]*
+CREATE RESOURCE GROUP rgNameTest01 WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+DROP   RESOURCE GROUP rgNameTest01;
+DROP
+CREATE RESOURCE GROUP __rg_name_test_01__ WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+DROP   RESOURCE GROUP __rg_name_test_01__;
+DROP
+
+-- names are case insensitive
+CREATE RESOURCE GROUP rg_name_test WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+CREATE RESOURCE GROUP RG_NAME_TEST WITH (cpu_rate_limit=10, memory_limit=10);
+ERROR:  resource group "rg_name_test" already exists
+DROP   RESOURCE GROUP RG_NAME_TEST;
+DROP
+DROP   RESOURCE GROUP rg_name_test;
+ERROR:  resource group "rg_name_test" does not exist
+
+-- min length is 1 character
+CREATE RESOURCE GROUP Z WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+DROP   RESOURCE GROUP Z;
+DROP
+
+-- max length is 63 characters
+CREATE RESOURCE GROUP max012345678901234567890123456789012345678901234567890123456789 WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+DROP   RESOURCE GROUP max012345678901234567890123456789012345678901234567890123456789;
+DROP
+-- characters exceed the max length are ignored
+CREATE RESOURCE GROUP max012345678901234567890123456789012345678901234567890123456789whatever WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+DROP   RESOURCE GROUP max012345678901234567890123456789012345678901234567890123456789ignored;
+DROP
+
+-- special characters are allowed with double quotation marks
+-- white spaces
+CREATE RESOURCE GROUP "newlines s p a c e s t	a	b	s" WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+DROP   RESOURCE GROUP "newlines s p a c e s t	a	b	s";
+DROP
+-- punctuations
+CREATE RESOURCE GROUP "!#$%&`()*+,-./:;<=>?@[]^_{|}~" WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+DROP   RESOURCE GROUP "!#$%&`()*+,-./:;<=>?@[]^_{|}~";
+DROP
+-- quotation marks
+CREATE RESOURCE GROUP "'' are 2 single quotation marks" WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+DROP   RESOURCE GROUP "'' are 2 single quotation marks";
+DROP
+CREATE RESOURCE GROUP """ is 1 double quotation mark" WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+DROP   RESOURCE GROUP """ is 1 double quotation mark";
+DROP
+
+-- nothing special with leading character
+CREATE RESOURCE GROUP "0 as prefix" WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+DROP   RESOURCE GROUP "0 as prefix";
+DROP
+CREATE RESOURCE GROUP " leading space" WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+DROP   RESOURCE GROUP " leading space";
+DROP
+
+-- backslash is not used as the escape character
+CREATE RESOURCE GROUP "\\ are two backslashes" WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+DROP   RESOURCE GROUP "\\ are two backslashes";
+DROP
+-- below are octal, hex and unicode representations of "rg1"
+CREATE RESOURCE GROUP "\o162\o147\o61" WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+CREATE RESOURCE GROUP "\x72\x67\x31" WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+CREATE RESOURCE GROUP "\u0072\u0067\u0031" WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+-- but as \o, \x and \u are not supported,
+-- so they are just 3 different names,
+-- none of them equals to "rg1".
+DROP   RESOURCE GROUP "rg1";
+ERROR:  resource group "rg1" does not exist
+DROP   RESOURCE GROUP "\o162\o147\o61";
+DROP
+DROP   RESOURCE GROUP "\x72\x67\x31";
+DROP
+DROP   RESOURCE GROUP "\u0072\u0067\u0031";
+DROP
+
+-- unicode escapes are supported
+CREATE RESOURCE GROUP U&"\0441\043B\043E\043D" WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+DROP   RESOURCE GROUP U&"\0441\043B\043E\043D";
+DROP
+CREATE RESOURCE GROUP U&"\0072\0067\0031" WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+DROP   RESOURCE GROUP "rg1";
+DROP
+
+-- CJK characters are allowed with or without double quotation marks
+CREATE RESOURCE GROUP 资源组 WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+DROP   RESOURCE GROUP 资源组;
+DROP
+CREATE RESOURCE GROUP リソース・グループ WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+DROP   RESOURCE GROUP リソース・グループ;
+DROP
+CREATE RESOURCE GROUP 자원그룹 WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+DROP   RESOURCE GROUP 자원그룹;
+DROP
+CREATE RESOURCE GROUP "资源组" WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+DROP   RESOURCE GROUP "资源组";
+DROP
+CREATE RESOURCE GROUP "リソース・グループ" WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+DROP   RESOURCE GROUP "リソース・グループ";
+DROP
+CREATE RESOURCE GROUP "자원 그룹" WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+DROP   RESOURCE GROUP "자원 그룹";
+DROP
+
+--
+-- negative
+--
+
+-- does not support single quotation marks around the name
+CREATE RESOURCE GROUP 'must_fail' WITH (cpu_rate_limit=10, memory_limit=10);
+ERROR:  syntax error at or near "'must_fail'"
+LINE 1: CREATE RESOURCE GROUP 'must_fail' WITH (cpu_rate_limit=10, m...
+                              ^
+
+-- does not support leading numbers
+CREATE RESOURCE GROUP 0_must_fail WITH (cpu_rate_limit=10, memory_limit=10);
+ERROR:  syntax error at or near "0"
+LINE 1: CREATE RESOURCE GROUP 0_must_fail WITH (cpu_rate_limit=10, m...
+                              ^
+
+-- reserved names are not allowed even with double quotation marks
+CREATE RESOURCE GROUP "default_group" WITH (cpu_rate_limit=10, memory_limit=10);
+ERROR:  resource group "default_group" already exists
+CREATE RESOURCE GROUP "admin_group" WITH (cpu_rate_limit=10, memory_limit=10);
+ERROR:  resource group "admin_group" already exists
+CREATE RESOURCE GROUP "none" WITH (cpu_rate_limit=10, memory_limit=10);
+ERROR:  resource group name "none" is reserved
+
+-- min length is 1 character
+CREATE RESOURCE GROUP "" WITH (cpu_rate_limit=10, memory_limit=10);
+ERROR:  zero-length delimited identifier at or near """"
+LINE 1: CREATE RESOURCE GROUP "" WITH (cpu_rate_limit=10, memory_lim...
+                              ^
+
