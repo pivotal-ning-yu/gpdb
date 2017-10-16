@@ -151,6 +151,42 @@ SELECT * FROM rg_name_view;
 DROP   RESOURCE GROUP "RG_NAME_TEST";
 DROP   RESOURCE GROUP RG_nAME_tEST;
 
+-- reserved names are all lower case: "default_group", "admin_group", "none",
+-- they can be used by users with at least one upper case character.
+CREATE RESOURCE GROUP "None" WITH (cpu_rate_limit=10, memory_limit=10);
+ALTER  RESOURCE GROUP "None" SET concurrency 2;
+SELECT * FROM rg_name_view;
+DROP   RESOURCE GROUP "None";
+CREATE RESOURCE GROUP "NONE" WITH (cpu_rate_limit=10, memory_limit=10);
+ALTER  RESOURCE GROUP "NONE" SET concurrency 2;
+SELECT * FROM rg_name_view;
+DROP   RESOURCE GROUP "NONE";
+CREATE RESOURCE GROUP "DEFAULT_GROup" WITH (cpu_rate_limit=10, memory_limit=10);
+ALTER  RESOURCE GROUP "DEFAULT_GROup" SET concurrency 2;
+SELECT * FROM rg_name_view;
+DROP   RESOURCE GROUP "DEFAULT_GROup";
+CREATE RESOURCE GROUP "ADMIN_GROUP" WITH (cpu_rate_limit=10, memory_limit=10);
+ALTER  RESOURCE GROUP "ADMIN_GROUP" SET concurrency 2;
+SELECT * FROM rg_name_view;
+DROP   RESOURCE GROUP "ADMIN_GROUP";
+
+CREATE RESOURCE GROUP "with" WITH (cpu_rate_limit=10, memory_limit=10);
+ALTER  RESOURCE GROUP "with" SET concurrency 2;
+SELECT * FROM rg_name_view;
+DROP   RESOURCE GROUP "with";
+CREATE RESOURCE GROUP "WITH" WITH (cpu_rate_limit=10, memory_limit=10);
+ALTER  RESOURCE GROUP "WITH" SET concurrency 2;
+SELECT * FROM rg_name_view;
+DROP   RESOURCE GROUP "WITH";
+CREATE RESOURCE GROUP "group" WITH (cpu_rate_limit=10, memory_limit=10);
+ALTER  RESOURCE GROUP "group" SET concurrency 2;
+SELECT * FROM rg_name_view;
+DROP   RESOURCE GROUP "group";
+CREATE RESOURCE GROUP "create" WITH (cpu_rate_limit=10, memory_limit=10);
+ALTER  RESOURCE GROUP "create" SET concurrency 2;
+SELECT * FROM rg_name_view;
+DROP   RESOURCE GROUP "create";
+
 --
 -- negative
 --
@@ -165,6 +201,18 @@ CREATE RESOURCE GROUP 0_must_fail WITH (cpu_rate_limit=10, memory_limit=10);
 CREATE RESOURCE GROUP "default_group" WITH (cpu_rate_limit=10, memory_limit=10);
 CREATE RESOURCE GROUP "admin_group" WITH (cpu_rate_limit=10, memory_limit=10);
 CREATE RESOURCE GROUP "none" WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE RESOURCE GROUP default_group WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE RESOURCE GROUP admin_group WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE RESOURCE GROUP none WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE RESOURCE GROUP DEFAULT_GROUP WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE RESOURCE GROUP Admin_Group WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE RESOURCE GROUP NONE WITH (cpu_rate_limit=10, memory_limit=10);
+
+-- keywords are not allowed without quotation marks
+CREATE RESOURCE GROUP with WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE RESOURCE GROUP WITH WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE RESOURCE GROUP group WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE RESOURCE GROUP CREATE WITH (cpu_rate_limit=10, memory_limit=10);
 
 -- min length is 1 character
 CREATE RESOURCE GROUP "" WITH (cpu_rate_limit=10, memory_limit=10);

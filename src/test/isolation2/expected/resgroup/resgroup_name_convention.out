@@ -284,6 +284,98 @@ DROP
 DROP   RESOURCE GROUP RG_nAME_tEST;
 DROP
 
+-- reserved names are all lower case: "default_group", "admin_group", "none",
+-- they can be used by users with at least one upper case character.
+CREATE RESOURCE GROUP "None" WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+ALTER  RESOURCE GROUP "None" SET concurrency 2;
+ALTER
+SELECT * FROM rg_name_view;
+rsgname|concurrency
+-------+-----------
+None   |2          
+(1 row)
+DROP   RESOURCE GROUP "None";
+DROP
+CREATE RESOURCE GROUP "NONE" WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+ALTER  RESOURCE GROUP "NONE" SET concurrency 2;
+ALTER
+SELECT * FROM rg_name_view;
+rsgname|concurrency
+-------+-----------
+NONE   |2          
+(1 row)
+DROP   RESOURCE GROUP "NONE";
+DROP
+CREATE RESOURCE GROUP "DEFAULT_GROup" WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+ALTER  RESOURCE GROUP "DEFAULT_GROup" SET concurrency 2;
+ALTER
+SELECT * FROM rg_name_view;
+rsgname      |concurrency
+-------------+-----------
+DEFAULT_GROup|2          
+(1 row)
+DROP   RESOURCE GROUP "DEFAULT_GROup";
+DROP
+CREATE RESOURCE GROUP "ADMIN_GROUP" WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+ALTER  RESOURCE GROUP "ADMIN_GROUP" SET concurrency 2;
+ALTER
+SELECT * FROM rg_name_view;
+rsgname    |concurrency
+-----------+-----------
+ADMIN_GROUP|2          
+(1 row)
+DROP   RESOURCE GROUP "ADMIN_GROUP";
+DROP
+
+CREATE RESOURCE GROUP "with" WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+ALTER  RESOURCE GROUP "with" SET concurrency 2;
+ALTER
+SELECT * FROM rg_name_view;
+rsgname|concurrency
+-------+-----------
+with   |2          
+(1 row)
+DROP   RESOURCE GROUP "with";
+DROP
+CREATE RESOURCE GROUP "WITH" WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+ALTER  RESOURCE GROUP "WITH" SET concurrency 2;
+ALTER
+SELECT * FROM rg_name_view;
+rsgname|concurrency
+-------+-----------
+WITH   |2          
+(1 row)
+DROP   RESOURCE GROUP "WITH";
+DROP
+CREATE RESOURCE GROUP "group" WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+ALTER  RESOURCE GROUP "group" SET concurrency 2;
+ALTER
+SELECT * FROM rg_name_view;
+rsgname|concurrency
+-------+-----------
+group  |2          
+(1 row)
+DROP   RESOURCE GROUP "group";
+DROP
+CREATE RESOURCE GROUP "create" WITH (cpu_rate_limit=10, memory_limit=10);
+CREATE
+ALTER  RESOURCE GROUP "create" SET concurrency 2;
+ALTER
+SELECT * FROM rg_name_view;
+rsgname|concurrency
+-------+-----------
+create |2          
+(1 row)
+DROP   RESOURCE GROUP "create";
+DROP
+
 --
 -- negative
 --
@@ -307,6 +399,36 @@ CREATE RESOURCE GROUP "admin_group" WITH (cpu_rate_limit=10, memory_limit=10);
 ERROR:  resource group "admin_group" already exists
 CREATE RESOURCE GROUP "none" WITH (cpu_rate_limit=10, memory_limit=10);
 ERROR:  resource group name "none" is reserved
+CREATE RESOURCE GROUP default_group WITH (cpu_rate_limit=10, memory_limit=10);
+ERROR:  resource group "default_group" already exists
+CREATE RESOURCE GROUP admin_group WITH (cpu_rate_limit=10, memory_limit=10);
+ERROR:  resource group "admin_group" already exists
+CREATE RESOURCE GROUP none WITH (cpu_rate_limit=10, memory_limit=10);
+ERROR:  resource group name "none" is reserved
+CREATE RESOURCE GROUP DEFAULT_GROUP WITH (cpu_rate_limit=10, memory_limit=10);
+ERROR:  resource group "default_group" already exists
+CREATE RESOURCE GROUP Admin_Group WITH (cpu_rate_limit=10, memory_limit=10);
+ERROR:  resource group "admin_group" already exists
+CREATE RESOURCE GROUP NONE WITH (cpu_rate_limit=10, memory_limit=10);
+ERROR:  resource group name "none" is reserved
+
+-- keywords are not allowed without quotation marks
+CREATE RESOURCE GROUP with WITH (cpu_rate_limit=10, memory_limit=10);
+ERROR:  syntax error at or near "with WITH"
+LINE 1: CREATE RESOURCE GROUP with WITH (cpu_rate_limit=10, memory_l...
+                              ^
+CREATE RESOURCE GROUP WITH WITH (cpu_rate_limit=10, memory_limit=10);
+ERROR:  syntax error at or near "WITH WITH"
+LINE 1: CREATE RESOURCE GROUP WITH WITH (cpu_rate_limit=10, memory_l...
+                              ^
+CREATE RESOURCE GROUP group WITH (cpu_rate_limit=10, memory_limit=10);
+ERROR:  syntax error at or near "group"
+LINE 1: CREATE RESOURCE GROUP group WITH (cpu_rate_limit=10, memory_...
+                              ^
+CREATE RESOURCE GROUP CREATE WITH (cpu_rate_limit=10, memory_limit=10);
+ERROR:  syntax error at or near "CREATE"
+LINE 1: CREATE RESOURCE GROUP CREATE WITH (cpu_rate_limit=10, memory...
+                              ^
 
 -- min length is 1 character
 CREATE RESOURCE GROUP "" WITH (cpu_rate_limit=10, memory_limit=10);
