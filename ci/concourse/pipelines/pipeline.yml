@@ -49,8 +49,12 @@ groups:
   - gpdb_rc_packaging_sles
   - DPM_backup-restore
   - DPM_backup-restore_filename_compatibility
-  - pulse_DPM_BehaveNetBackup77
-  - pulse_DPM_BehaveNetBackup77_filename_compatibility
+  - DPM_backup-restore_netbackup_part1
+  - DPM_backup-restore_netbackup_part2
+  - DPM_backup-restore_netbackup_part3
+  - DPM_netbackup_filename_compatibility_part1
+  - DPM_netbackup_filename_compatibility_part2
+  - DPM_netbackup_filename_compatibility_part3
   - DPM_backup-restore_ddboost_part1
   - DPM_backup-restore_ddboost_part2
   - DPM_backup-restore_ddboost_part3
@@ -105,8 +109,12 @@ groups:
 - name: Pulse
   jobs:
   - pulse_DPM_BehaveGptransfer43xTo43x
-  - pulse_DPM_BehaveNetBackup77
-  - pulse_DPM_BehaveNetBackup77_filename_compatibility
+  - DPM_backup-restore_netbackup_part1
+  - DPM_backup-restore_netbackup_part2
+  - DPM_backup-restore_netbackup_part3
+  - DPM_netbackup_filename_compatibility_part1
+  - DPM_netbackup_filename_compatibility_part2
+  - DPM_netbackup_filename_compatibility_part3
   - pulse_MM_Gpexpand
   - pulse_Kerberos-jdbc-no-scm
   - pulse_Kerberos-smoke
@@ -163,6 +171,12 @@ groups:
   - DPM_ddboost_filename_compatibility_part1
   - DPM_ddboost_filename_compatibility_part2
   - DPM_ddboost_filename_compatibility_part3
+  - DPM_backup-restore_netbackup_part1
+  - DPM_backup-restore_netbackup_part2
+  - DPM_backup-restore_netbackup_part3
+  - DPM_netbackup_filename_compatibility_part1
+  - DPM_netbackup_filename_compatibility_part2
+  - DPM_netbackup_filename_compatibility_part3
 - name: MM
   jobs:
   - MM_gpcheckcat
@@ -178,14 +192,16 @@ groups:
   - DPM_ddboost_filename_compatibility_part1
   - DPM_ddboost_filename_compatibility_part2
   - DPM_ddboost_filename_compatibility_part3
-  - pulse_DPM_BehaveNetBackup77
-  - pulse_DPM_BehaveNetBackup77_filename_compatibility
+  - DPM_backup-restore_netbackup_part1
+  - DPM_backup-restore_netbackup_part2
+  - DPM_backup-restore_netbackup_part3
+  - DPM_netbackup_filename_compatibility_part1
+  - DPM_netbackup_filename_compatibility_part2
+  - DPM_netbackup_filename_compatibility_part3
   - pulse_DPM_BehaveGptransfer43xTo43x
 - name: Pulse_MU
   jobs:
   - pulse_DPM_BehaveGptransfer43xTo43x
-  - pulse_DPM_BehaveNetBackup77
-  - pulse_DPM_BehaveNetBackup77_filename_compatibility
   - pulse_MM_Gpexpand
   - pulse_Kerberos-jdbc-no-scm
   - pulse_Kerberos-smoke
@@ -288,7 +304,7 @@ dpm_debug_sleep_anchor: &dpm_debug_sleep
         path: 'sh'
         args: ['-c', 'sleep 6h']
     ensure:
-      <<: *ccp_destroy
+      <<: *dpm_ccp_destroy
 
 rhel_artifacts_for_pulse_anchor: &rhel_artifacts_for_pulse_release-add-trigger
   - get: gpdb_src
@@ -944,6 +960,16 @@ resources:
     days: [Sunday]
     start: 1:00 PM
     stop: 2:00 PM
+
+# Resource used for Netbackup test
+- name: netbackup-client-installer
+  type: s3
+  source:
+    access_key_id: {{bucket-access-key-id}}
+    bucket: {{gpdb4-3-11-3-bucket-name}}
+    region_name: {{aws-region}}
+    secret_access_key: {{bucket-secret-access-key}}
+    versioned_file: netbackup-installation/NetBackup_7.7.3_CLIENTS_RHEL_2.6.18.tar.gz
 
 # Resources used for gppkg TINC tests.
 # These are old gppkgs that are not compiled in concourse.
@@ -2559,61 +2585,395 @@ jobs:
       PULSE_USERNAME: {{pulse_username}}
       PULSE_PASSWORD: {{pulse_password}}
 
-- name: pulse_DPM_BehaveNetBackup77
+- name: DPM_backup-restore_netbackup_part1
   plan:
-  - get: pulse-api-image
-    tags: ["gpdb5-pulse-worker"]
-  - get: nightly-trigger-pulse
-    tags: ["gpdb5-pulse-worker"]
-    trigger: true
-  - aggregate: *rhel_artifacts_for_pulse_release-add-trigger
-  - task: trigger_pulse
-    tags: ["gpdb5-pulse-worker"]
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/trigger_pulse.yml
-    params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: GPDB-43_STABLE-BehaveNetBackup77
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
-  - task: monitor_pulse
-    tags: ["gpdb5-pulse-worker"]
-    attempts: 2
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/monitor_pulse.yml
-    params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: GPDB-43_STABLE-BehaveNetBackup77
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
-
-- name: pulse_DPM_BehaveNetBackup77_filename_compatibility
-  plan:
-  - get: pulse-api-image
-    tags: ["gpdb5-pulse-worker"]
   - get: weekly-trigger-pulse
-    tags: ["gpdb5-pulse-worker"]
+    tags: ["gpdb4_ccp_external_worker"]
     trigger: true
-  - aggregate: *rhel_artifacts_for_pulse_release-add-trigger
-  - task: trigger_pulse
-    tags: ["gpdb5-pulse-worker"]
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/trigger_pulse.yml
+  - aggregate:
+    - get: ccp_src
+      tags: ["gpdb4_ccp_external_worker"]
+    - get: gpdb_src
+      tags: ["gpdb4_ccp_external_worker"]
+      passed: [compile_gpdb_centos]
+    - get: sync_tools_gpdb
+      tags: ["gpdb4_ccp_external_worker"]
+      resource: sync_tools_gpdb_centos
+      passed: [compile_gpdb_centos]
+    - get: bin_gpdb
+      tags: ["gpdb4_ccp_external_worker"]
+      resource: bin_gpdb_centos
+      passed: [compile_gpdb_centos]
+    - get: centos-gpdb-dev-6
+      tags: ["gpdb4_ccp_external_worker"]
+    - get: netbackup_installer
+      tags: ["gpdb4_ccp_external_worker"]
+      resource: netbackup-client-installer
+  - put: terraform
+    resource: terraform_for_dpm
+    tags: ["gpdb4_ccp_external_worker"]
     params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: GPDB-43_STABLE-BehaveNetBackup77_filename_compatibility
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
-  - task: monitor_pulse
-    tags: ["gpdb5-pulse-worker"]
-    attempts: 2
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/monitor_pulse.yml
+      <<: *dpm_ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+  - task: gen_cluster
+    tags: ["gpdb4_ccp_external_worker"]
+    file: ccp_src/ci/tasks/gen_cluster.yml
     params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: GPDB-43_STABLE-BehaveNetBackup77_filename_compatibility
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
+      <<: *dpm_ccp_gen_cluster_default_params
+    input_mapping:
+      gpdb_binary: bin_gpdb
+    on_failure:
+      <<: *dpm_ccp_destroy
+  - task: setup_netbackup
+    tags: ["gpdb4_ccp_external_worker"]
+    file: gpdb_src/ci/concourse/setup_netbackup.yml
+    image: centos-gpdb-dev-6
+    params:
+      CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}}; export NETBACKUP_KEY={{netbackup_key}};
+  - task: run_tests
+    tags: ["gpdb4_ccp_external_worker"]
+    file: gpdb_src/ci/concourse/terraform_run_behave.yml
+    image: centos-gpdb-dev-6
+    params:
+      BEHAVE_FLAGS: --tags=nbusetup77,nbupartI
+      CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}};
+    on_failure:
+      <<: *dpm_debug_sleep
+  - *dpm_ccp_destroy
+
+- name: DPM_backup-restore_netbackup_part2
+  plan:
+  - get: weekly-trigger-pulse
+    tags: ["gpdb4_ccp_external_worker"]
+    trigger: true
+  - aggregate:
+    - get: ccp_src
+      tags: ["gpdb4_ccp_external_worker"]
+    - get: gpdb_src
+      tags: ["gpdb4_ccp_external_worker"]
+      passed: [compile_gpdb_centos]
+    - get: sync_tools_gpdb
+      tags: ["gpdb4_ccp_external_worker"]
+      resource: sync_tools_gpdb_centos
+      passed: [compile_gpdb_centos]
+    - get: bin_gpdb
+      tags: ["gpdb4_ccp_external_worker"]
+      resource: bin_gpdb_centos
+      passed: [compile_gpdb_centos]
+    - get: centos-gpdb-dev-6
+      tags: ["gpdb4_ccp_external_worker"]
+    - get: netbackup_installer
+      tags: ["gpdb4_ccp_external_worker"]
+      resource: netbackup-client-installer
+  - put: terraform
+    resource: terraform_for_dpm
+    tags: ["gpdb4_ccp_external_worker"]
+    params:
+      <<: *dpm_ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+  - task: gen_cluster
+    tags: ["gpdb4_ccp_external_worker"]
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    params:
+      <<: *dpm_ccp_gen_cluster_default_params
+    input_mapping:
+      gpdb_binary: bin_gpdb
+    on_failure:
+      <<: *dpm_ccp_destroy
+  - task: setup_netbackup
+    tags: ["gpdb4_ccp_external_worker"]
+    file: gpdb_src/ci/concourse/setup_netbackup.yml
+    image: centos-gpdb-dev-6
+    params:
+      CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}}; export NETBACKUP_KEY={{netbackup_key}};
+  - task: run_tests
+    tags: ["gpdb4_ccp_external_worker"]
+    file: gpdb_src/ci/concourse/terraform_run_behave.yml
+    image: centos-gpdb-dev-6
+    params:
+      BEHAVE_FLAGS: --tags=nbusetup77,nbupartII
+      CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}};
+    on_failure:
+      <<: *dpm_debug_sleep
+  - *dpm_ccp_destroy
+
+- name: DPM_backup-restore_netbackup_part3
+  plan:
+  - get: weekly-trigger-pulse
+    tags: ["gpdb4_ccp_external_worker"]
+    trigger: true
+  - aggregate:
+    - get: ccp_src
+      tags: ["gpdb4_ccp_external_worker"]
+    - get: gpdb_src
+      tags: ["gpdb4_ccp_external_worker"]
+      passed: [compile_gpdb_centos]
+    - get: sync_tools_gpdb
+      tags: ["gpdb4_ccp_external_worker"]
+      resource: sync_tools_gpdb_centos
+      passed: [compile_gpdb_centos]
+    - get: bin_gpdb
+      tags: ["gpdb4_ccp_external_worker"]
+      resource: bin_gpdb_centos
+      passed: [compile_gpdb_centos]
+    - get: centos-gpdb-dev-6
+      tags: ["gpdb4_ccp_external_worker"]
+    - get: netbackup_installer
+      tags: ["gpdb4_ccp_external_worker"]
+      resource: netbackup-client-installer
+  - put: terraform
+    resource: terraform_for_dpm
+    tags: ["gpdb4_ccp_external_worker"]
+    params:
+      <<: *dpm_ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+  - task: gen_cluster
+    tags: ["gpdb4_ccp_external_worker"]
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    params:
+      <<: *dpm_ccp_gen_cluster_default_params
+    input_mapping:
+      gpdb_binary: bin_gpdb
+    on_failure:
+      <<: *dpm_ccp_destroy
+  - task: setup_netbackup
+    tags: ["gpdb4_ccp_external_worker"]
+    file: gpdb_src/ci/concourse/setup_netbackup.yml
+    image: centos-gpdb-dev-6
+    params:
+      CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}}; export NETBACKUP_KEY={{netbackup_key}};
+  - task: run_tests
+    tags: ["gpdb4_ccp_external_worker"]
+    file: gpdb_src/ci/concourse/terraform_run_behave.yml
+    image: centos-gpdb-dev-6
+    params:
+      BEHAVE_FLAGS: --tags=nbusetup77,nbupartIII
+      CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}};
+    on_failure:
+      <<: *dpm_debug_sleep
+  - *dpm_ccp_destroy
+
+- name: DPM_netbackup_filename_compatibility_part1
+  plan:
+  - get: weekly-trigger-pulse
+    tags: ["gpdb4_ccp_external_worker"]
+    trigger: true
+  - aggregate:
+    - get: gpdb_src
+      tags: ["gpdb4_ccp_external_worker"]
+      passed: [compile_gpdb_centos]
+    - get: bin_gpdb
+      tags: ["gpdb4_ccp_external_worker"]
+      resource: bin_gpdb_centos
+      passed: [compile_gpdb_centos]
+    - get: bin_gpdb4-3-11-3
+      tags: ["gpdb4_ccp_external_worker"]
+      resource: bin_gpdb4-3-11-3_centos
+    - get: ccp_src
+      tags: ["gpdb4_ccp_external_worker"]
+    - get: centos-gpdb-dev-6
+      tags: ["gpdb4_ccp_external_worker"]
+    - get: netbackup_installer
+      tags: ["gpdb4_ccp_external_worker"]
+      resource: netbackup-client-installer
+  - put: terraform
+    resource: terraform_for_dpm
+    tags: ["gpdb4_ccp_external_worker"]
+    params:
+      <<: *dpm_ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+  - task: setup_gpdb4-3-11-3
+    tags: ["gpdb4_ccp_external_worker"]
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    params:
+      <<: *dpm_ccp_gen_cluster_default_params
+    input_mapping:
+      gpdb_binary: bin_gpdb4-3-11-3
+    on_failure:
+      <<: *dpm_ccp_destroy
+  - task: setup_netbackup
+    tags: ["gpdb4_ccp_external_worker"]
+    file: gpdb_src/ci/concourse/setup_netbackup.yml
+    image: centos-gpdb-dev-6
+    params:
+      CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}}; export NETBACKUP_KEY={{netbackup_key}};
+  - task: run_backup_tests
+    tags: ["gpdb4_ccp_external_worker"]
+    file: gpdb_src/ci/concourse/terraform_run_behave.yml
+    image: centos-gpdb-dev-6
+    params:
+      BEHAVE_FLAGS: --tags=backup_and_restore_backups --tags=nbusetup76,nbupartI --tags=-skip_filename_compatibility
+      CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}};
+    on_failure:
+      <<: *dpm_debug_sleep
+  - task: setup_new_gpdb4
+    tags: ["gpdb4_ccp_external_worker"]
+    file: gpdb_src/ci/concourse/setup_new_gpdb_for_backup_restore.yml
+    params:
+      <<: *dpm_ccp_gen_cluster_default_params
+    image: centos-gpdb-dev-6
+    on_failure:
+      <<: *dpm_debug_sleep
+  - task: run_restore_tests
+    tags: ["gpdb4_ccp_external_worker"]
+    file: gpdb_src/ci/concourse/terraform_run_behave.yml
+    image: centos-gpdb-dev-6
+    params:
+      BEHAVE_FLAGS: --tags=backup_and_restore_restores --tags=nbusetup77,nbupartI --tags=-skip_filename_compatibility
+      CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}};
+    on_failure:
+      <<: *dpm_debug_sleep
+  - *dpm_ccp_destroy
+
+- name: DPM_netbackup_filename_compatibility_part2
+  plan:
+  - get: weekly-trigger-pulse
+    tags: ["gpdb4_ccp_external_worker"]
+    trigger: true
+  - aggregate:
+    - get: gpdb_src
+      tags: ["gpdb4_ccp_external_worker"]
+      passed: [compile_gpdb_centos]
+    - get: bin_gpdb
+      tags: ["gpdb4_ccp_external_worker"]
+      resource: bin_gpdb_centos
+      passed: [compile_gpdb_centos]
+    - get: bin_gpdb4-3-11-3
+      tags: ["gpdb4_ccp_external_worker"]
+      resource: bin_gpdb4-3-11-3_centos
+    - get: ccp_src
+      tags: ["gpdb4_ccp_external_worker"]
+    - get: centos-gpdb-dev-6
+      tags: ["gpdb4_ccp_external_worker"]
+    - get: netbackup_installer
+      tags: ["gpdb4_ccp_external_worker"]
+      resource: netbackup-client-installer
+  - put: terraform
+    resource: terraform_for_dpm
+    tags: ["gpdb4_ccp_external_worker"]
+    params:
+      <<: *dpm_ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+  - task: setup_gpdb4-3-11-3
+    tags: ["gpdb4_ccp_external_worker"]
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    params:
+      <<: *dpm_ccp_gen_cluster_default_params
+    input_mapping:
+      gpdb_binary: bin_gpdb4-3-11-3
+    on_failure:
+      <<: *dpm_ccp_destroy
+  - task: setup_netbackup
+    tags: ["gpdb4_ccp_external_worker"]
+    file: gpdb_src/ci/concourse/setup_netbackup.yml
+    image: centos-gpdb-dev-6
+    params:
+      CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}}; export NETBACKUP_KEY={{netbackup_key}};
+  - task: run_backup_tests
+    tags: ["gpdb4_ccp_external_worker"]
+    file: gpdb_src/ci/concourse/terraform_run_behave.yml
+    image: centos-gpdb-dev-6
+    params:
+      BEHAVE_FLAGS: --tags=backup_and_restore_backups --tags=nbusetup76,nbupartII --tags=-skip_filename_compatibility
+      CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}};
+    on_failure:
+      <<: *dpm_debug_sleep
+  - task: setup_new_gpdb4
+    tags: ["gpdb4_ccp_external_worker"]
+    file: gpdb_src/ci/concourse/setup_new_gpdb_for_backup_restore.yml
+    params:
+      <<: *dpm_ccp_gen_cluster_default_params
+    image: centos-gpdb-dev-6
+    on_failure:
+      <<: *dpm_debug_sleep
+  - task: run_restore_tests
+    tags: ["gpdb4_ccp_external_worker"]
+    file: gpdb_src/ci/concourse/terraform_run_behave.yml
+    image: centos-gpdb-dev-6
+    params:
+      BEHAVE_FLAGS: --tags=backup_and_restore_restores --tags=nbusetup77,nbupartII --tags=-skip_filename_compatibility
+      CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}};
+    on_failure:
+      <<: *dpm_debug_sleep
+  - *dpm_ccp_destroy
+
+- name: DPM_netbackup_filename_compatibility_part3
+  plan:
+  - get: weekly-trigger-pulse
+    tags: ["gpdb4_ccp_external_worker"]
+    trigger: true
+  - aggregate:
+    - get: gpdb_src
+      tags: ["gpdb4_ccp_external_worker"]
+      passed: [compile_gpdb_centos]
+    - get: bin_gpdb
+      tags: ["gpdb4_ccp_external_worker"]
+      resource: bin_gpdb_centos
+      passed: [compile_gpdb_centos]
+    - get: bin_gpdb4-3-11-3
+      tags: ["gpdb4_ccp_external_worker"]
+      resource: bin_gpdb4-3-11-3_centos
+    - get: ccp_src
+      tags: ["gpdb4_ccp_external_worker"]
+    - get: centos-gpdb-dev-6
+      tags: ["gpdb4_ccp_external_worker"]
+    - get: netbackup_installer
+      tags: ["gpdb4_ccp_external_worker"]
+      resource: netbackup-client-installer
+  - put: terraform
+    resource: terraform_for_dpm
+    tags: ["gpdb4_ccp_external_worker"]
+    params:
+      <<: *dpm_ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+  - task: setup_gpdb4-3-11-3
+    tags: ["gpdb4_ccp_external_worker"]
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    params:
+      <<: *dpm_ccp_gen_cluster_default_params
+    input_mapping:
+      gpdb_binary: bin_gpdb4-3-11-3
+    on_failure:
+      <<: *dpm_ccp_destroy
+  - task: setup_netbackup
+    tags: ["gpdb4_ccp_external_worker"]
+    file: gpdb_src/ci/concourse/setup_netbackup.yml
+    image: centos-gpdb-dev-6
+    params:
+      CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}}; export NETBACKUP_KEY={{netbackup_key}};
+  - task: run_backup_tests
+    tags: ["gpdb4_ccp_external_worker"]
+    file: gpdb_src/ci/concourse/terraform_run_behave.yml
+    image: centos-gpdb-dev-6
+    params:
+      BEHAVE_FLAGS: --tags=backup_and_restore_backups --tags=nbusetup76,nbupartIII --tags=-skip_filename_compatibility
+      CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}};
+    on_failure:
+      <<: *dpm_debug_sleep
+  - task: setup_new_gpdb4
+    tags: ["gpdb4_ccp_external_worker"]
+    file: gpdb_src/ci/concourse/setup_new_gpdb_for_backup_restore.yml
+    params:
+      <<: *dpm_ccp_gen_cluster_default_params
+    image: centos-gpdb-dev-6
+    on_failure:
+      <<: *dpm_debug_sleep
+  - task: run_restore_tests
+    tags: ["gpdb4_ccp_external_worker"]
+    file: gpdb_src/ci/concourse/terraform_run_behave.yml
+    image: centos-gpdb-dev-6
+    params:
+      BEHAVE_FLAGS: --tags=backup_and_restore_restores --tags=nbusetup77,nbupartIII --tags=-skip_filename_compatibility
+      CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}};
+    on_failure:
+      <<: *dpm_debug_sleep
+  - *dpm_ccp_destroy
 
 - name: pulse_Kerberos-jdbc-no-scm
   plan:
