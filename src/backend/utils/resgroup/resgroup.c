@@ -1390,6 +1390,34 @@ groupGetSlot(ResGroupData *group)
 }
 
 /*
+ * Put back the slot assigned to self.
+ *
+ * This will release a slot, its memory quota will be freed and
+ * nRunning will be decreased.
+ */
+static void
+groupPutSlot(ResGroupData *group, ResGroupSlotData *slot)
+{
+	bool				shouldWakeUp;
+
+	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
+	Assert(Gp_role == GP_ROLE_DISPATCH);
+	Assert(group->memQuotaUsed >= 0);
+	Assert(slotIsInUse(slot));
+
+	/* Return the memory quota granted to this slot */
+	groupReleaseMemQuota(group, slot);
+
+	shouldWakeUp = mempoolAutoRelease(group, slot);
+	if (shouldWakeUp)
+		wakeupGroups(group->groupId);
+
+	/* Return the slot back to free list */
+	slotpoolFreeSlot(slot);
+	group->nRunning--;
+}
+
+/*
  * Reserve memory quota for a slot in group.
  *
  * If there is not enough free memory quota then return false and nothing
@@ -1425,34 +1453,6 @@ groupReserveMemQuota(ResGroupData *group)
 	Assert(group->memQuotaUsed <= group->memQuotaGranted);
 
 	return true;
-}
-
-/*
- * Put back the slot assigned to self.
- *
- * This will release a slot, its memory quota will be freed and
- * nRunning will be decreased.
- */
-static void
-groupPutSlot(ResGroupData *group, ResGroupSlotData *slot)
-{
-	bool				shouldWakeUp;
-
-	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
-	Assert(Gp_role == GP_ROLE_DISPATCH);
-	Assert(group->memQuotaUsed >= 0);
-	Assert(slotIsInUse(slot));
-
-	/* Return the memory quota granted to this slot */
-	groupReleaseMemQuota(group, slot);
-
-	shouldWakeUp = mempoolAutoRelease(group, slot);
-	if (shouldWakeUp)
-		wakeupGroups(group->groupId);
-
-	/* Return the slot back to free list */
-	slotpoolFreeSlot(slot);
-	group->nRunning--;
 }
 
 /*
