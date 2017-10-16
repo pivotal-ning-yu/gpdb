@@ -1,4 +1,20 @@
 --
+-- Test the resource group name convention.
+--
+-- Resource group names follow the general object name convention:
+-- https://www.postgresql.org/docs/current/static/sql-syntax-lexical.html#SQL-SYNTAX-IDENTIFIERS
+--
+-- Besides that there are 3 reserved names:
+-- * default_group, admin_group: names of the 2 default resource groups;
+-- * none: a special name usually used in ALTER ROLE command to reset
+--   to the proper default resource group;
+--
+-- This case is put under isolation2 dir as other resource group cases,
+-- although it does not requires any extended feature of the isolation2
+-- test framework.
+--
+
+--
 -- setup
 --
 
