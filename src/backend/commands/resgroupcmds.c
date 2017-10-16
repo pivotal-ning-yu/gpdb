@@ -983,13 +983,13 @@ createResGroupCallback(bool isCommit, void *arg)
 {
 	Oid groupId;
 
+	groupId = *(Oid *)arg;
+	pfree(arg);
+
 	if (isCommit)
 		return;
 
-	groupId = *(Oid *)arg;
 	ResGroupCreateOnAbort(groupId);
-
-	pfree(arg);
 }
 
 /*
@@ -1004,9 +1004,9 @@ dropResGroupCallback(bool isCommit, void *arg)
 	Oid groupId;
 
 	groupId = *(Oid *)arg;
-	ResGroupDropFinish(groupId, isCommit);
-
 	pfree(arg);
+
+	ResGroupDropFinish(groupId, isCommit);
 }
 
 /*
@@ -1021,10 +1021,8 @@ alterResGroupCallback(bool isCommit, void *arg)
 	ResourceGroupAlterCallbackContext *ctx =
 		(ResourceGroupAlterCallbackContext *) arg;
 
-	if (!isCommit)
-		return;
-
-	ResGroupAlterOnCommit(ctx->groupid, ctx->limittype, &ctx->caps);
+	if (isCommit)
+		ResGroupAlterOnCommit(ctx->groupid, ctx->limittype, &ctx->caps);
 
 	pfree(arg);
 }
