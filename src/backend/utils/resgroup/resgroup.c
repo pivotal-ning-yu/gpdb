@@ -1400,7 +1400,6 @@ groupReserveMemQuota(ResGroupData *group)
 {
 	ResGroupCaps	*caps;
 	int32			slotMemQuota;
-	int32			memQuotaUsed;
 
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 	Assert(Gp_role == GP_ROLE_DISPATCH);
@@ -1411,21 +1410,19 @@ groupReserveMemQuota(ResGroupData *group)
 
 	/* Calculate the expected per slot quota */
 	slotMemQuota = slotGetMemQuotaExpected(caps);
+	Assert(slotMemQuota >= 0);
 
 	Assert(group->memQuotaUsed >= 0);
 	Assert(group->memQuotaUsed <= group->memQuotaGranted);
 
-	memQuotaUsed = pg_atomic_add_fetch_u32((pg_atomic_uint32*) &group->memQuotaUsed,
-										   slotMemQuota);
-
-	if (memQuotaUsed > group->memQuotaGranted)
+	if (group->memQuotaUsed + slotMemQuota > group->memQuotaGranted)
 	{
 		/* No enough memory quota available, give up */
-		memQuotaUsed = pg_atomic_sub_fetch_u32((pg_atomic_uint32*)&group->memQuotaUsed,
-											   slotMemQuota);
-		Assert(memQuotaUsed >= 0);
 		return false;
 	}
+
+	group->memQuotaUsed += slotMemQuota;
+	Assert(group->memQuotaUsed <= group->memQuotaGranted);
 
 	return true;
 }
@@ -1464,15 +1461,10 @@ groupPutSlot(ResGroupData *group, ResGroupSlotData *slot)
 static void
 groupReleaseMemQuota(ResGroupData *group, ResGroupSlotData *slot)
 {
-#ifdef USE_ASSERT_CHECKING
-	int32				memQuotaUsed;
+	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 
-	memQuotaUsed =
-#endif
-		pg_atomic_sub_fetch_u32((pg_atomic_uint32 *) &group->memQuotaUsed,
-								slot->memQuota);
-
-	Assert(memQuotaUsed >= 0);
+	group->memQuotaUsed -= slot->memQuota;
+	Assert(group->memQuotaUsed >= 0);
 }
 
 /*
@@ -1983,8 +1975,7 @@ mempoolAutoRelease(ResGroupData *group, ResGroupSlotData *slot)
 	if (memSharedToFree > 0)
 	{
 		mempoolRelease(group->groupId, memSharedToFree);
-		pg_atomic_sub_fetch_u32((pg_atomic_uint32 *) &group->memSharedGranted,
-								memSharedToFree);
+		group->memSharedGranted -= memSharedToFree;
 	}
 	return (memQuotaToFree > 0 || memSharedToFree > 0);
 }
