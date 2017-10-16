@@ -246,7 +246,6 @@ static ResGroupSlotData *slotpoolAllocSlot(void);
 static void slotpoolFreeSlot(ResGroupSlotData *slot);
 static void slotpoolPushSlot(ResGroupSlotData *slot);
 static ResGroupSlotData *slotpoolPopSlot(void);
-static ResGroupSlotData *slotpoolEraseSlot(ResGroupSlotData *slot);
 static ResGroupSlotData *groupGetSlot(ResGroupData *group);
 static void groupPutSlot(ResGroupData *group, ResGroupSlotData *slot);
 static ResGroupData *decideResGroup(void);
@@ -274,9 +273,7 @@ static bool procIsWaiting(const PGPROC *proc);
 static void procWakeup(PGPROC *proc);
 static void slotValidate(const ResGroupSlotData *slot);
 static void slotValidateOwnership(const ResGroupSlotData *slot);
-static bool slotIsFreed(const ResGroupSlotData *slot);
 static bool slotIsInUse(const ResGroupSlotData *slot);
-static bool slotIsIdle(const ResGroupSlotData *slot);
 static ResGroupSlotData * slotById(int slotId);
 static int slotGetId(const ResGroupSlotData *slot);
 static bool slotIdIsValid(int slotId);
@@ -1178,7 +1175,7 @@ selfDetachSlot(ResGroupData *group, ResGroupSlotData *slot)
 static void
 initSlot(ResGroupSlotData *slot, ResGroupCaps *caps, Oid groupId, int sessionId)
 {
-	Assert(slotIsIdle(slot));
+	Assert(!slotIsInUse(slot));
 	Assert(caps != NULL);
 	Assert(groupId != InvalidOid);
 	Assert(sessionId != InvalidSessionId);
@@ -1200,7 +1197,7 @@ uninitSlot(ResGroupSlotData *slot)
 {
 	slotValidate(slot);
 
-	Assert(!slotIsFreed(slot));
+	Assert(slotIsInUse(slot));
 
 	Assert(slot->nProcs == 0);
 
@@ -1209,7 +1206,7 @@ uninitSlot(ResGroupSlotData *slot)
 	slot->memQuota = -1;
 	slot->memUsage = 0;
 
-	Assert(slotIsIdle(slot));
+	Assert(!slotIsInUse(slot));
 }
 
 /*
@@ -1268,7 +1265,7 @@ slotpoolAllocSlot(void)
 	slot = slotpoolPopSlot();
 
 	Assert(slotIdIsValid(slot->slotId));
-	Assert(slotIsIdle(slot));
+	Assert(!slotIsInUse(slot));
 
 	return slot;
 }
@@ -1286,11 +1283,9 @@ slotpoolFreeSlot(ResGroupSlotData *slot)
 
 	uninitSlot(slot);
 
-	Assert(slotIsIdle(slot));
+	Assert(!slotIsInUse(slot));
 
 	slotpoolPushSlot(slot);
-
-	Assert(slotIsFreed(slot));
 }
 
 /*
@@ -1324,17 +1319,6 @@ slotpoolPopSlot(void)
 	 * the slot pool size is bigger than max connection,
 	 * so the pool should never be empty.
 	 */
-
-	return slotpoolEraseSlot(slot);
-}
-
-/*
- * Erase a slot from the free list.
- */
-static ResGroupSlotData *
-slotpoolEraseSlot(ResGroupSlotData *slot)
-{
-	ResGroupSlotData	*root = &pResGroupControl->freeSlot;
 
 	Assert(slot != root);
 	Assert(slot != NULL);
@@ -2030,7 +2014,7 @@ groupReleaseSlot(ResGroupData *group, ResGroupSlotData *slot)
 	 * Maybe zero, maybe one, maybe more, depends on how the resgroup's
 	 * configuration were changed during our execution.
 	 */
-	Assert(slotIsFreed(slot));
+	Assert(!slotIsInUse(slot));
 	wakeupSlots(group, true);
 }
 
@@ -2241,9 +2225,6 @@ UnassignResGroup(void)
 		/* Uninit the slot */
 		uninitSlot(slot);
 
-		/* Put it back to the free list */
-		slotpoolPushSlot(slot);
-
 		/* And finally decrease nRunning */
 		group->nRunning--;
 	}
@@ -2319,10 +2300,7 @@ SwitchResGroupOnSegment(const char *buf, int len)
 	}
 	else
 	{
-		/* Touch the slot for the first time, erase it from the free list */
-		slotpoolEraseSlot(slot);
-		Assert(slotIsIdle(slot));
-
+		Assert(!slotIsInUse(slot));
 		initSlot(slot, &caps, newGroupId, gp_session_id);
 		group->nRunning++;
 	}
@@ -2960,46 +2938,14 @@ slotValidateOwnership(const ResGroupSlotData *slot)
 }
 
 /*
- * A freed slot is still in the free list of the slot pool.
- *
- * This is only meaningful on QD, do not call this on QE.
- */
-static bool
-slotIsFreed(const ResGroupSlotData *slot)
-{
-	slotValidate(slot);
-
-	return slot->next != NULL;
-}
-
-/*
- * An allocated slot is in use if it has a valid groupId.
- *
- * The slot must be allocated on QD, no such requirement on QE.
+ * A slot is in use if it has a valid groupId.
  */
 static bool
 slotIsInUse(const ResGroupSlotData *slot)
 {
 	slotValidate(slot);
 
-	Assert(!slotIsFreed(slot));
-
 	return slot->groupId != InvalidOid;
-}
-
-/*
- * An allocated slot is idle if it has an invalid groupId.
- *
- * The slot must be allocated on QD, no such requirement on QE.
- */
-static bool
-slotIsIdle(const ResGroupSlotData *slot)
-{
-	slotValidate(slot);
-
-	Assert(!slotIsFreed(slot));
-
-	return slot->groupId == InvalidOid;
 }
 
 /*
