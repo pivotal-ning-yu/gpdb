@@ -390,3 +390,14 @@ basic_exttab:
 # gppkg language package tests:
 gppkg:
 	$(TESTER) $(DISCOVER) -s mpp/gpdb/tests/package
+
+# gpexpand test
+gpexpand_1:
+	$(TESTER) $(DISCOVER) \
+	-s mpp/gpdb/tests/utilities/gpexpand \
+	-q tags=part1
+
+gpexpand_2:
+	$(TESTER) $(DISCOVER) \
+	-s mpp/gpdb/tests/utilities/gpexpand \
+	-q tags=part2

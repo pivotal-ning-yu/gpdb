@@ -62,7 +62,6 @@ groups:
   - DPM_ddboost_filename_compatibility_part2
   - DPM_ddboost_filename_compatibility_part3
   - DPM_gptransfer-43x-to-43x
-  - pulse_MM_Gpexpand
   - pulse_Kerberos-jdbc-no-scm
   - pulse_Kerberos-smoke
   - pulse_cs-aoco-compression
@@ -76,6 +75,8 @@ groups:
   - compile_gpdb_windows_ccl
   - TINC_pgcrypto
   - MM_gpcheckcat
+  - MM_gpexpand_1
+  - MM_gpexpand_2
   - MM_gppkg
   - MM_gprecoverseg
 
@@ -107,7 +108,6 @@ groups:
   - pulse_mpp-interconnect-sles
 - name: Pulse
   jobs:
-  - pulse_MM_Gpexpand
   - pulse_Kerberos-jdbc-no-scm
   - pulse_Kerberos-smoke
   - pulse_cs-aoco-compression
@@ -172,6 +172,8 @@ groups:
 - name: MM
   jobs:
   - MM_gpcheckcat
+  - MM_gpexpand_1
+  - MM_gpexpand_2
   - MM_gppkg
   - MM_gprecoverseg
 - name: DPM
@@ -193,7 +195,6 @@ groups:
   - DPM_gptransfer-43x-to-43x
 - name: Pulse_MU
   jobs:
-  - pulse_MM_Gpexpand
   - pulse_Kerberos-jdbc-no-scm
   - pulse_Kerberos-smoke
 - name: Windows
@@ -1758,6 +1759,46 @@ jobs:
       <<: *debug_sleep
   - *ccp_destroy
 
+- name: MM_gpexpand_1
+  plan:
+  - aggregate: *ccp_aggregate_gets
+  - put: terraform
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+        <<: *ccp_terraform_bigger_vars
+        number_of_nodes: 5
+  - task: gen_cluster
+    <<: *ccp_gen_cluster_params
+  - task: run_tests
+    <<: *ccp_run_tinc_tests_params
+    params:
+      TINC_TARGET: gpexpand_1
+      CUSTOM_ENV: HOST1=mdw HOST2=sdw1 HOST3=sdw2 HOST4=sdw3 HOST5=sdw4
+      PRE_TEST_SCRIPT: bash -c 'ssh-keygen -f ~/.ssh/id_rsa -y > ~/.ssh/id_rsa.pub; for i in mdw sdw{1..4}; do ssh centos@$i "sudo chmod 777 /usr/local"; done'
+  - *ccp_destroy
+
+- name: MM_gpexpand_2
+  plan:
+  - aggregate: *ccp_aggregate_gets
+  - put: terraform
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+        <<: *ccp_terraform_bigger_vars
+        number_of_nodes: 5
+  - task: gen_cluster
+    <<: *ccp_gen_cluster_params
+  - task: run_tests
+    <<: *ccp_run_tinc_tests_params
+    params:
+      TINC_TARGET: gpexpand_2
+      CUSTOM_ENV: HOST1=mdw HOST2=sdw1 HOST3=sdw2 HOST4=sdw3 HOST5=sdw4
+      PRE_TEST_SCRIPT: bash -c 'ssh-keygen -f ~/.ssh/id_rsa -y > ~/.ssh/id_rsa.pub; for i in mdw sdw{1..4}; do ssh centos@$i "sudo chmod 777 /usr/local"; done'
+  - *ccp_destroy
+
 - name: MM_gppkg
   plan:
   - aggregate:
@@ -3319,34 +3360,6 @@ jobs:
     on_failure:
       <<: *dpm_debug_sleep
   - *dpm_ccp_destroy
-
-- name: pulse_MM_Gpexpand
-  plan:
-  - get: pulse-api-image
-    tags: ["gpdb5-pulse-worker"]
-  - get: nightly-trigger-pulse
-    tags: ["gpdb5-pulse-worker"]
-    trigger: true
-  - aggregate: *rhel_artifacts_for_pulse_release-add-trigger
-  - task: trigger_pulse
-    tags: ["gpdb5-pulse-worker"]
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/trigger_pulse.yml
-    params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: GPDB-43_STABLE-TINC-gpexpand
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
-  - task: monitor_pulse
-    tags: ["gpdb5-pulse-worker"]
-    attempts: 2
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/monitor_pulse.yml
-    params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: GPDB-43_STABLE-TINC-gpexpand
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
 
 - name: pulse_cs-aoco-compression
   plan:
