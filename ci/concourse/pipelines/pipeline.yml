@@ -236,6 +236,7 @@ ccp_destroy_anchor: &ccp_destroy
 
 dpm_ccp_destroy_anchor: &dpm_ccp_destroy
   put: terraform
+  resource: terraform_for_dpm
   tags: ["gpdb4_ccp_external_worker"]
   params:
     action: destroy
@@ -2286,7 +2287,7 @@ jobs:
     file: gpdb_src/ci/concourse/terraform_run_behave.yml
     image: centos-gpdb-dev-6
     params:
-      BEHAVE_FLAGS: --tags=backup_and_restore_backups --tags=-nbuonly --tags=-ddonly --tags=-skip_filename_compatibility 
+      BEHAVE_FLAGS: --tags=backup_and_restore_backups --tags=-nbuonly --tags=-ddonly --tags=-skip_filename_compatibility
     on_failure:
       <<: *debug_sleep
   - task: setup_new_gpdb4
@@ -2328,7 +2329,8 @@ jobs:
       passed: [compile_gpdb_centos]
     - get: centos-gpdb-dev-6
       tags: ["gpdb4_ccp_external_worker"]
-  - put: terraform_for_dpm
+  - put: terraform
+    resource: terraform_for_dpm
     tags: ["gpdb4_ccp_external_worker"]
     params:
       <<: *dpm_ccp_default_params
@@ -2376,7 +2378,8 @@ jobs:
       passed: [compile_gpdb_centos]
     - get: centos-gpdb-dev-6
       tags: ["gpdb4_ccp_external_worker"]
-  - put: terraform_for_dpm
+  - put: terraform
+    resource: terraform_for_dpm
     tags: ["gpdb4_ccp_external_worker"]
     params:
       <<: *dpm_ccp_default_params
@@ -2424,7 +2427,8 @@ jobs:
       passed: [compile_gpdb_centos]
     - get: centos-gpdb-dev-6
       tags: ["gpdb4_ccp_external_worker"]
-  - put: terraform_for_dpm
+  - put: terraform
+    resource: terraform_for_dpm
     tags: ["gpdb4_ccp_external_worker"]
     params:
       <<: *dpm_ccp_default_params
@@ -2611,7 +2615,8 @@ jobs:
       tags: ["gpdb4_ccp_external_worker"]
     - get: centos-gpdb-dev-6
       tags: ["gpdb4_ccp_external_worker"]
-  - put: terraform_for_dpm
+  - put: terraform
+    resource: terraform_for_dpm
     tags: ["gpdb4_ccp_external_worker"]
     params:
       <<: *dpm_ccp_default_params
@@ -2675,7 +2680,8 @@ jobs:
       tags: ["gpdb4_ccp_external_worker"]
     - get: centos-gpdb-dev-6
       tags: ["gpdb4_ccp_external_worker"]
-  - put: terraform_for_dpm
+  - put: terraform
+    resource: terraform_for_dpm
     tags: ["gpdb4_ccp_external_worker"]
     params:
       <<: *dpm_ccp_default_params
@@ -2739,7 +2745,8 @@ jobs:
       tags: ["gpdb4_ccp_external_worker"]
     - get: centos-gpdb-dev-6
       tags: ["gpdb4_ccp_external_worker"]
-  - put: terraform_for_dpm
+  - put: terraform
+    resource: terraform_for_dpm
     tags: ["gpdb4_ccp_external_worker"]
     params:
       <<: *dpm_ccp_default_params
