@@ -1900,7 +1900,6 @@ jobs:
   plan:
   - aggregate: *ccp_aggregate_gets
   - put: terraform
-    <<: *cs_ccp_terraform_params
     params:
       <<: *ccp_default_params
       vars:
@@ -1919,7 +1918,6 @@ jobs:
   plan:
   - aggregate: *ccp_aggregate_gets
   - put: terraform
-    <<: *cs_ccp_terraform_params
     params:
       <<: *ccp_default_params
       vars:
@@ -1938,7 +1936,6 @@ jobs:
   plan:
   - aggregate: *ccp_aggregate_gets
   - put: terraform
-    <<: *cs_ccp_terraform_params
     params:
       <<: *ccp_default_params
       vars:
@@ -1957,7 +1954,6 @@ jobs:
   plan:
   - aggregate: *ccp_aggregate_gets
   - put: terraform
-    <<: *cs_ccp_terraform_params
     params:
       <<: *ccp_default_params
       vars:
@@ -1976,7 +1972,6 @@ jobs:
   plan:
   - aggregate: *ccp_aggregate_gets
   - put: terraform
-    <<: *cs_ccp_terraform_params
     params:
       <<: *ccp_default_params
       vars:
@@ -1995,7 +1990,6 @@ jobs:
   plan:
   - aggregate: *ccp_aggregate_gets
   - put: terraform
-    <<: *cs_ccp_terraform_params
     params:
       <<: *ccp_default_params
       vars:
@@ -2014,7 +2008,6 @@ jobs:
   plan:
   - aggregate: *ccp_aggregate_gets
   - put: terraform
-    <<: *cs_ccp_terraform_params
     params:
       <<: *ccp_default_params
       vars:
@@ -2033,7 +2026,6 @@ jobs:
   plan:
   - aggregate: *ccp_aggregate_gets
   - put: terraform
-    <<: *cs_ccp_terraform_params
     params:
       <<: *ccp_default_params
       vars:
@@ -2052,7 +2044,6 @@ jobs:
   plan:
   - aggregate: *ccp_aggregate_gets
   - put: terraform
-    <<: *cs_ccp_terraform_params
     params:
       <<: *ccp_default_params
       vars:
@@ -2071,7 +2062,6 @@ jobs:
   plan:
   - aggregate: *ccp_aggregate_gets
   - put: terraform
-    <<: *cs_ccp_terraform_params
     params:
       <<: *ccp_default_params
       vars:
@@ -2090,7 +2080,6 @@ jobs:
   plan:
   - aggregate: *ccp_aggregate_gets
   - put: terraform
-    <<: *cs_ccp_terraform_params
     params:
       <<: *ccp_default_params
       vars:
@@ -2109,7 +2098,6 @@ jobs:
   plan:
   - aggregate: *ccp_aggregate_gets
   - put: terraform
-    <<: *cs_ccp_terraform_params
     params:
       <<: *ccp_default_params
       vars:
@@ -2128,7 +2116,6 @@ jobs:
   plan:
   - aggregate: *ccp_aggregate_gets
   - put: terraform
-    <<: *cs_ccp_terraform_params
     params:
       <<: *ccp_default_params
       vars:
@@ -2145,7 +2132,7 @@ jobs:
 
 - name: cs_filerep_end_to_end_full_primary
   plan:
-  - aggregate: *cs_ccp_aggregate
+  - aggregate: *ccp_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
@@ -2156,16 +2143,16 @@ jobs:
         aws_instance-node-instance_type: i3.xlarge
         number_of_nodes: 2
   - task: gen_cluster
-    <<: *cs_ccp_gen_cluster_params
+    <<: *ccp_gen_cluster_params
   - task: run_tests
-    <<: *cs_ccp_run_tests_params
+    <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: filerep_end_to_end_full_primary
   - *ccp_destroy
 
 - name: cs_filerep_end_to_end_incr_primary
   plan:
-  - aggregate: *cs_ccp_aggregate
+  - aggregate: *ccp_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
@@ -2176,16 +2163,16 @@ jobs:
         aws_instance-node-instance_type: i3.xlarge
         number_of_nodes: 2
   - task: gen_cluster
-    <<: *cs_ccp_gen_cluster_params
+    <<: *ccp_gen_cluster_params
   - task: run_tests
-    <<: *cs_ccp_run_tests_params
+    <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: filerep_end_to_end_incr_primary
   - *ccp_destroy
 
 - name: cs_filerep_end_to_end_full_mirror
   plan:
-  - aggregate: *cs_ccp_aggregate
+  - aggregate: *ccp_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
@@ -2196,16 +2183,16 @@ jobs:
         aws_instance-node-instance_type: i3.xlarge
         number_of_nodes: 2
   - task: gen_cluster
-    <<: *cs_ccp_gen_cluster_params
+    <<: *ccp_gen_cluster_params
   - task: run_tests
-    <<: *cs_ccp_run_tests_params
+    <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: filerep_end_to_end_full_mirror
   - *ccp_destroy
 
 - name: cs_filerep_end_to_end_incr_mirror
   plan:
-  - aggregate: *cs_ccp_aggregate
+  - aggregate: *ccp_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
@@ -2216,9 +2203,9 @@ jobs:
         aws_instance-node-instance_type: i3.xlarge
         number_of_nodes: 2
   - task: gen_cluster
-    <<: *cs_ccp_gen_cluster_params
+    <<: *ccp_gen_cluster_params
   - task: run_tests
-    <<: *cs_ccp_run_tests_params
+    <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: filerep_end_to_end_incr_mirror
   - *ccp_destroy
