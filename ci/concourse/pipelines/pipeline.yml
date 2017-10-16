@@ -327,7 +327,7 @@ rhel_artifacts_for_pulse_anchor: &rhel_artifacts_for_pulse_release-add-trigger
     resource: qautils_rhel5_tarball
     passed: [gpdb_rc_packaging_centos]
 
-cs_ccp_aggregate_anchor: &cs_ccp_aggregate
+ccp_aggregate_gets_anchor: &ccp_aggregate_gets
   - get: gpdb_src
     tags: ["gpdb5_ccp_external_worker"]
     params: {submodules: none}
@@ -346,7 +346,7 @@ cs_ccp_aggregate_anchor: &cs_ccp_aggregate
   - get: centos-gpdb-dev-6
     tags: ["gpdb5_ccp_external_worker"]
 
-cs_ccp_terraform_vars_anchor: &cs_ccp_terraform_vars
+ccp_terraform_bigger_vars_anchor: &ccp_terraform_bigger_vars
   aws_instance-node-instance_type: m4.large
   aws_ebs_volume_type: gp2
 
@@ -355,9 +355,9 @@ cs_ccp_terraform_params_anchor: &cs_ccp_terraform_params
     <<: *ccp_default_params
     vars:
       <<: *ccp_default_vars
-      <<: *cs_ccp_terraform_vars
+      <<: *ccp_terraform_bigger_vars
 
-cs_ccp_gen_cluster_params_anchor: &cs_ccp_gen_cluster_params
+ccp_gen_cluster_params_anchor: &ccp_gen_cluster_params
   tags: ["gpdb5_ccp_external_worker"]
   file: ccp_src/ci/tasks/gen_cluster.yml
   params:
@@ -365,7 +365,7 @@ cs_ccp_gen_cluster_params_anchor: &cs_ccp_gen_cluster_params
   on_failure:
     <<: *ccp_destroy
 
-cs_ccp_run_tests_params_anchor: &cs_ccp_run_tests_params
+ccp_run_tinc_tests_params_anchor: &ccp_run_tinc_tests_params
   tags: ["gpdb5_ccp_external_worker"]
   file: gpdb_src/ci/concourse/run_tinc.yml
   image: centos-gpdb-dev-6
@@ -1831,273 +1831,273 @@ jobs:
 
 - name: cs_walrep_1
   plan:
-  - aggregate: *cs_ccp_aggregate
+  - aggregate: *ccp_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
   - task: gen_cluster
-    <<: *cs_ccp_gen_cluster_params
+    <<: *ccp_gen_cluster_params
   - task: run_tests
-    <<: *cs_ccp_run_tests_params
+    <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: walrep_1
   - *ccp_destroy
 
 - name: cs_walrep_2
   plan:
-  - aggregate: *cs_ccp_aggregate
+  - aggregate: *ccp_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
   - task: gen_cluster
-    <<: *cs_ccp_gen_cluster_params
+    <<: *ccp_gen_cluster_params
   - task: run_tests
-    <<: *cs_ccp_run_tests_params
+    <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: walrep_2
   - *ccp_destroy
 
 - name: cs_pg_twophase_01_10
   plan:
-  - aggregate: *cs_ccp_aggregate
+  - aggregate: *ccp_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
       <<: *ccp_default_params
       vars:
         <<: *ccp_default_vars
-        <<: *cs_ccp_terraform_vars
+        <<: *ccp_terraform_bigger_vars
         number_of_nodes: 1
   - task: gen_cluster
-    <<: *cs_ccp_gen_cluster_params
+    <<: *ccp_gen_cluster_params
   - task: run_tests
-    <<: *cs_ccp_run_tests_params
+    <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: test_pg_twophase_01_10
   - *ccp_destroy
 
 - name: cs_pg_twophase_11_20
   plan:
-  - aggregate: *cs_ccp_aggregate
+  - aggregate: *ccp_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
       <<: *ccp_default_params
       vars:
         <<: *ccp_default_vars
-        <<: *cs_ccp_terraform_vars
+        <<: *ccp_terraform_bigger_vars
         number_of_nodes: 1
   - task: gen_cluster
-    <<: *cs_ccp_gen_cluster_params
+    <<: *ccp_gen_cluster_params
   - task: run_tests
-    <<: *cs_ccp_run_tests_params
+    <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: test_pg_twophase_11_20
   - *ccp_destroy
 
 - name: cs_pg_twophase_21_30
   plan:
-  - aggregate: *cs_ccp_aggregate
+  - aggregate: *ccp_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
       <<: *ccp_default_params
       vars:
         <<: *ccp_default_vars
-        <<: *cs_ccp_terraform_vars
+        <<: *ccp_terraform_bigger_vars
         number_of_nodes: 1
   - task: gen_cluster
-    <<: *cs_ccp_gen_cluster_params
+    <<: *ccp_gen_cluster_params
   - task: run_tests
-    <<: *cs_ccp_run_tests_params
+    <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: test_pg_twophase_21_30
   - *ccp_destroy
 
 - name: cs_pg_twophase_31_40
   plan:
-  - aggregate: *cs_ccp_aggregate
+  - aggregate: *ccp_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
       <<: *ccp_default_params
       vars:
         <<: *ccp_default_vars
-        <<: *cs_ccp_terraform_vars
+        <<: *ccp_terraform_bigger_vars
         number_of_nodes: 1
   - task: gen_cluster
-    <<: *cs_ccp_gen_cluster_params
+    <<: *ccp_gen_cluster_params
   - task: run_tests
-    <<: *cs_ccp_run_tests_params
+    <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: test_pg_twophase_31_40
   - *ccp_destroy
 
 - name: cs_pg_twophase_41_49
   plan:
-  - aggregate: *cs_ccp_aggregate
+  - aggregate: *ccp_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
       <<: *ccp_default_params
       vars:
         <<: *ccp_default_vars
-        <<: *cs_ccp_terraform_vars
+        <<: *ccp_terraform_bigger_vars
         number_of_nodes: 1
   - task: gen_cluster
-    <<: *cs_ccp_gen_cluster_params
+    <<: *ccp_gen_cluster_params
   - task: run_tests
-    <<: *cs_ccp_run_tests_params
+    <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: test_pg_twophase_41_49
   - *ccp_destroy
 
 - name: cs_pg_twophase_switch_01_12
   plan:
-  - aggregate: *cs_ccp_aggregate
+  - aggregate: *ccp_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
       <<: *ccp_default_params
       vars:
         <<: *ccp_default_vars
-        <<: *cs_ccp_terraform_vars
+        <<: *ccp_terraform_bigger_vars
         number_of_nodes: 1
   - task: gen_cluster
-    <<: *cs_ccp_gen_cluster_params
+    <<: *ccp_gen_cluster_params
   - task: run_tests
-    <<: *cs_ccp_run_tests_params
+    <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: test_switch_01_12
   - *ccp_destroy
 
 - name: cs_pg_twophase_switch_13_24
   plan:
-  - aggregate: *cs_ccp_aggregate
+  - aggregate: *ccp_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
       <<: *ccp_default_params
       vars:
         <<: *ccp_default_vars
-        <<: *cs_ccp_terraform_vars
+        <<: *ccp_terraform_bigger_vars
         number_of_nodes: 1
   - task: gen_cluster
-    <<: *cs_ccp_gen_cluster_params
+    <<: *ccp_gen_cluster_params
   - task: run_tests
-    <<: *cs_ccp_run_tests_params
+    <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: test_switch_13_24
   - *ccp_destroy
 
 - name: cs_pg_twophase_switch_25_33
   plan:
-  - aggregate: *cs_ccp_aggregate
+  - aggregate: *ccp_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
       <<: *ccp_default_params
       vars:
         <<: *ccp_default_vars
-        <<: *cs_ccp_terraform_vars
+        <<: *ccp_terraform_bigger_vars
         number_of_nodes: 1
   - task: gen_cluster
-    <<: *cs_ccp_gen_cluster_params
+    <<: *ccp_gen_cluster_params
   - task: run_tests
-    <<: *cs_ccp_run_tests_params
+    <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: test_switch_25_33
   - *ccp_destroy
 
 - name: cs_crash_recovery_schema_topology
   plan:
-  - aggregate: *cs_ccp_aggregate
+  - aggregate: *ccp_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
       <<: *ccp_default_params
       vars:
         <<: *ccp_default_vars
-        <<: *cs_ccp_terraform_vars
+        <<: *ccp_terraform_bigger_vars
         number_of_nodes: 1
   - task: gen_cluster
-    <<: *cs_ccp_gen_cluster_params
+    <<: *ccp_gen_cluster_params
   - task: run_tests
-    <<: *cs_ccp_run_tests_params
+    <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: crash_recovery_schema_topology
   - *ccp_destroy
 
 - name: cs_crash_recovery_04_10
   plan:
-  - aggregate: *cs_ccp_aggregate
+  - aggregate: *ccp_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
       <<: *ccp_default_params
       vars:
         <<: *ccp_default_vars
-        <<: *cs_ccp_terraform_vars
+        <<: *ccp_terraform_bigger_vars
         number_of_nodes: 1
   - task: gen_cluster
-    <<: *cs_ccp_gen_cluster_params
+    <<: *ccp_gen_cluster_params
   - task: run_tests
-    <<: *cs_ccp_run_tests_params
+    <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: crash_recovery_04_10
   - *ccp_destroy
 
 - name: cs_crash_recovery_11_20
   plan:
-  - aggregate: *cs_ccp_aggregate
+  - aggregate: *ccp_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
       <<: *ccp_default_params
       vars:
         <<: *ccp_default_vars
-        <<: *cs_ccp_terraform_vars
+        <<: *ccp_terraform_bigger_vars
         number_of_nodes: 1
   - task: gen_cluster
-    <<: *cs_ccp_gen_cluster_params
+    <<: *ccp_gen_cluster_params
   - task: run_tests
-    <<: *cs_ccp_run_tests_params
+    <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: crash_recovery_11_20
   - *ccp_destroy
 
 - name: cs_crash_recovery_21_30
   plan:
-  - aggregate: *cs_ccp_aggregate
+  - aggregate: *ccp_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
       <<: *ccp_default_params
       vars:
         <<: *ccp_default_vars
-        <<: *cs_ccp_terraform_vars
+        <<: *ccp_terraform_bigger_vars
         number_of_nodes: 1
   - task: gen_cluster
-    <<: *cs_ccp_gen_cluster_params
+    <<: *ccp_gen_cluster_params
   - task: run_tests
-    <<: *cs_ccp_run_tests_params
+    <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: crash_recovery_21_30
   - *ccp_destroy
 
 - name: cs_crash_recovery_31_42
   plan:
-  - aggregate: *cs_ccp_aggregate
+  - aggregate: *ccp_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
       <<: *ccp_default_params
       vars:
         <<: *ccp_default_vars
-        <<: *cs_ccp_terraform_vars
+        <<: *ccp_terraform_bigger_vars
         number_of_nodes: 1
   - task: gen_cluster
-    <<: *cs_ccp_gen_cluster_params
+    <<: *ccp_gen_cluster_params
   - task: run_tests
-    <<: *cs_ccp_run_tests_params
+    <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: crash_recovery_31_42
   - *ccp_destroy
