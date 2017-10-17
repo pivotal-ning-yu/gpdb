@@ -32,6 +32,12 @@ groups:
   - cs_filerep_end_to_end_incr_primary
   - cs_filerep_end_to_end_full_mirror
   - cs_filerep_end_to_end_incr_mirror
+  - cs_aoco_compression_large_01
+  - cs_aoco_compression_large_02
+  - cs_aoco_compression_large_03
+  - cs_aoco_compression_large_04
+  - cs_aoco_compression_small
+  - cs_aoco_compression_small_serial
   - icb_orca_centos
   - icb_planner_centos
   - icg_orca_centos
@@ -64,7 +70,6 @@ groups:
   - DPM_gptransfer-43x-to-43x
   - pulse_Kerberos-jdbc-no-scm
   - pulse_Kerberos-smoke
-  - pulse_cs-aoco-compression
   - pulse_cs-bin-swap
   - pulse_QP_memory-accounting
   - QP_optimizer-functional
@@ -110,7 +115,6 @@ groups:
   jobs:
   - pulse_Kerberos-jdbc-no-scm
   - pulse_Kerberos-smoke
-  - pulse_cs-aoco-compression
   - pulse_cs-bin-swap
   - pulse_QP_memory-accounting
   - pulse_CCLE
@@ -142,8 +146,13 @@ groups:
   - cs_filerep_end_to_end_incr_primary
   - cs_filerep_end_to_end_full_mirror
   - cs_filerep_end_to_end_incr_mirror
+  - cs_aoco_compression_large_01
+  - cs_aoco_compression_large_02
+  - cs_aoco_compression_large_03
+  - cs_aoco_compression_large_04
+  - cs_aoco_compression_small
+  - cs_aoco_compression_small_serial
   - gpdb_rc_packaging_centos
-  - pulse_cs-aoco-compression
   - pulse_cs-bin-swap
 - name: QP
   jobs:
@@ -2210,6 +2219,125 @@ jobs:
       TINC_TARGET: filerep_end_to_end_incr_mirror
   - *ccp_destroy
 
+- name: cs_aoco_compression_large_01
+  plan:
+  - aggregate: *cs_ccp_aggregate
+  - put: terraform
+    <<: *cs_ccp_terraform_params
+    params:
+      <<: *ccp_default_params
+      terraform_source: ccp_src/aws-nvme-block-device/
+      vars:
+        <<: *ccp_default_vars
+        aws_instance-node-instance_type: i3.large
+        number_of_nodes: 1
+  - task: gen_cluster
+    <<: *cs_ccp_gen_cluster_params
+  - task: run_tests
+    <<: *cs_ccp_run_tests_params
+    params:
+      TINC_TARGET: aoco_compression_large_01
+  - *ccp_destroy
+
+- name: cs_aoco_compression_large_02
+  plan:
+  - aggregate: *cs_ccp_aggregate
+  - put: terraform
+    <<: *cs_ccp_terraform_params
+    params:
+      <<: *ccp_default_params
+      terraform_source: ccp_src/aws-nvme-block-device/
+      vars:
+        <<: *ccp_default_vars
+        aws_instance-node-instance_type: i3.large
+        number_of_nodes: 1
+  - task: gen_cluster
+    <<: *cs_ccp_gen_cluster_params
+  - task: run_tests
+    <<: *cs_ccp_run_tests_params
+    params:
+      TINC_TARGET: aoco_compression_large_02
+  - *ccp_destroy
+
+- name: cs_aoco_compression_large_03
+  plan:
+  - aggregate: *cs_ccp_aggregate
+  - put: terraform
+    <<: *cs_ccp_terraform_params
+    params:
+      <<: *ccp_default_params
+      terraform_source: ccp_src/aws-nvme-block-device/
+      vars:
+        <<: *ccp_default_vars
+        aws_instance-node-instance_type: i3.large
+        number_of_nodes: 1
+  - task: gen_cluster
+    <<: *cs_ccp_gen_cluster_params
+  - task: run_tests
+    <<: *cs_ccp_run_tests_params
+    params:
+      TINC_TARGET: aoco_compression_large_03
+  - *ccp_destroy
+
+- name: cs_aoco_compression_large_04
+  plan:
+  - aggregate: *cs_ccp_aggregate
+  - put: terraform
+    <<: *cs_ccp_terraform_params
+    params:
+      <<: *ccp_default_params
+      terraform_source: ccp_src/aws-nvme-block-device/
+      vars:
+        <<: *ccp_default_vars
+        aws_instance-node-instance_type: i3.large
+        number_of_nodes: 1
+  - task: gen_cluster
+    <<: *cs_ccp_gen_cluster_params
+  - task: run_tests
+    <<: *cs_ccp_run_tests_params
+    params:
+      TINC_TARGET: aoco_compression_large_04
+  - *ccp_destroy
+
+- name: cs_aoco_compression_small
+  plan:
+  - aggregate: *cs_ccp_aggregate
+  - put: terraform
+    <<: *cs_ccp_terraform_params
+    params:
+      <<: *ccp_default_params
+      terraform_source: ccp_src/aws-nvme-block-device/
+      vars:
+        <<: *ccp_default_vars
+        aws_instance-node-instance_type: i3.large
+        number_of_nodes: 1
+  - task: gen_cluster
+    <<: *cs_ccp_gen_cluster_params
+  - task: run_tests
+    <<: *cs_ccp_run_tests_params
+    params:
+      TINC_TARGET: aoco_compression_small
+  - *ccp_destroy
+
+- name: cs_aoco_compression_small_serial
+  plan:
+  - aggregate: *cs_ccp_aggregate
+  - put: terraform
+    <<: *cs_ccp_terraform_params
+    params:
+      <<: *ccp_default_params
+      terraform_source: ccp_src/aws-nvme-block-device/
+      vars:
+        <<: *ccp_default_vars
+        aws_instance-node-instance_type: i3.large
+        number_of_nodes: 1
+  - task: gen_cluster
+    <<: *cs_ccp_gen_cluster_params
+  - task: run_tests
+    <<: *cs_ccp_run_tests_params
+    params:
+      TINC_TARGET: aoco_compression_small_serial
+  - *ccp_destroy
 
 # Stage 3: Packaging of installer file
 # Stage 3a: Packaging the Release Candidate (rc)
@@ -3347,34 +3475,6 @@ jobs:
     on_failure:
       <<: *dpm_debug_sleep
   - *dpm_ccp_destroy
-
-- name: pulse_cs-aoco-compression
-  plan:
-  - get: pulse-api-image
-    tags: ["gpdb5-pulse-worker"]
-  - get: nightly-trigger-pulse
-    tags: ["gpdb5-pulse-worker"]
-    trigger: true
-  - aggregate: *rhel_artifacts_for_pulse_release-add-trigger
-  - task: trigger_pulse
-    tags: ["gpdb5-pulse-worker"]
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/trigger_pulse.yml
-    params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: cs-aoco-compression
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
-  - task: monitor_pulse
-    tags: ["gpdb5-pulse-worker"]
-    attempts: 2
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/monitor_pulse.yml
-    params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: cs-aoco-compression
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
 
 - name: pulse_cs-bin-swap
   plan:
