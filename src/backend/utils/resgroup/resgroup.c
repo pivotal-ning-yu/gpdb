@@ -1785,8 +1785,7 @@ groupGetMemExpected(const ResGroupCaps *caps)
 static int32
 groupGetMemQuotaExpected(const ResGroupCaps *caps)
 {
-	return groupGetMemExpected(caps) *
-		(100 - caps->memSharedQuota.proposed) / 100;
+	return slotGetMemQuotaExpected(caps) * caps->concurrency.proposed;
 }
 
 /*
@@ -1814,7 +1813,9 @@ static int32
 slotGetMemQuotaExpected(const ResGroupCaps *caps)
 {
 	Assert(caps->concurrency.proposed != 0);
-	return groupGetMemQuotaExpected(caps) / caps->concurrency.proposed;
+	return groupGetMemExpected(caps) *
+		(100 - caps->memSharedQuota.proposed) / 100 /
+		caps->concurrency.proposed;
 }
 
 /*
