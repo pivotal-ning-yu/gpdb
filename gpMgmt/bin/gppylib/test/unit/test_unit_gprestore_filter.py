@@ -54,7 +54,7 @@ class GpRestoreFilterProcessLineTestCase(unittest.TestCase):
     def test_set_search_path_for_pg_catalog(self):
         arguments = Arguments(set(['schema']), set([('schema', 'table')]))
         state = ParserState()
-        input_line = "SET search_path = pg_catalog;"
+        input_line = "SET search_path = pg_catalog;\n"
 
         newState, line = process_line(state, input_line, arguments)
 
@@ -66,7 +66,7 @@ class GpRestoreFilterProcessLineTestCase(unittest.TestCase):
     def test_set_search_path_schema_in_table_file(self):
         arguments = Arguments(set(['schemaIcareAbout']), set([('schemaIcareAbout', 'table')]))
         state = ParserState()
-        input_line = "SET search_path = schemaIcareAbout, pg_catalog;"
+        input_line = "SET search_path = schemaIcareAbout, pg_catalog;\n"
 
         newState, line = process_line(state, input_line, arguments)
 
@@ -79,7 +79,7 @@ class GpRestoreFilterProcessLineTestCase(unittest.TestCase):
         arguments = Arguments()
         arguments.schemas_in_schema_file = ['schemaIcareAbout']
         state = ParserState()
-        input_line = "SET search_path = schemaIcareAbout, pg_catalog;"
+        input_line = "SET search_path = schemaIcareAbout, pg_catalog;\n"
 
         newState, line = process_line(state, input_line, arguments)
 
@@ -92,32 +92,32 @@ class GpRestoreFilterProcessLineTestCase(unittest.TestCase):
         arguments = Arguments(set(['schemaIcareAbout']), set([('schemaIcareAbout', 'table')]))
         arguments.change_schema_name = 'newSchema'
         state = ParserState()
-        input_line = "SET search_path = schemaIcareAbout, pg_catalog;"
+        input_line = "SET search_path = schemaIcareAbout, pg_catalog;\n"
 
         newState, line = process_line(state, input_line, arguments)
 
         self.assertTrue(newState.output)
         self.assertEquals(newState.schema, 'schemaIcareAbout')
         self.assertEquals(newState.cast_func_schema, 'schemaIcareAbout')
-        self.assertEquals(line, 'SET search_path = "newSchema", pg_catalog;')
+        self.assertEquals(line, 'SET search_path = "newSchema", pg_catalog;\n')
 
     def test_set_search_path_change_quoted_schema_in_table_file_(self):
         arguments = Arguments(set(['schemaIcareAbout']), set([('schemaIcareAbout', 'table')]))
         arguments.change_schema_name = 'newSchema'
         state = ParserState()
-        input_line = 'SET search_path = "schemaIcareAbout", pg_catalog;'
+        input_line = 'SET search_path = "schemaIcareAbout", pg_catalog;\n'
 
         newState, line = process_line(state, input_line, arguments)
 
         self.assertTrue(newState.output)
         self.assertEquals(newState.schema, 'schemaIcareAbout')
         self.assertEquals(newState.cast_func_schema, 'schemaIcareAbout')
-        self.assertEquals(line, 'SET search_path = "newSchema", pg_catalog;')
+        self.assertEquals(line, 'SET search_path = "newSchema", pg_catalog;\n')
 
     def test_set_search_path_ignores_unineresting_schemas(self):
         arguments = Arguments(set(['schemaIcareAbout']), set([('schemaIcareAbout', 'table')]))
         state = ParserState()
-        input_line = "SET search_path = someOtherSchema, pg_catalog;"
+        input_line = "SET search_path = someOtherSchema, pg_catalog;\n"
 
         newState, line = process_line(state, input_line, arguments)
 
@@ -959,6 +959,13 @@ COPY ao_part_table_comp_1_prt_p1_2_prt_1 (column1, column2, column3) FROM stdin;
 1091	restore	2012-12-27
 \.
 
+--
+-- Data for Name: set_search_table; Type: TABLE DATA; Schema: public; Owner: dcddev
+--
+
+COPY set_search_table (column1, column2) FROM stdin;
+SET search_path = public, pg_catalog    4
+\.
 
 --
 -- Greenplum Database database dump complete
@@ -994,6 +1001,9 @@ COPY ao_part_table_comp_1_prt_p1_2_prt_1 (column1, column2, column3) FROM stdin;
 1087	restore	2012-12-23
 1091	restore	2012-12-27
 \.
+COPY set_search_table (column1, column2) FROM stdin;
+SET search_path = public, pg_catalog    4
+\.
 """
 
         in_name = os.path.join(os.getcwd(), 'infile')
@@ -1002,7 +1012,7 @@ COPY ao_part_table_comp_1_prt_p1_2_prt_1 (column1, column2, column3) FROM stdin;
             fd.write(test_case_buf)
 
         dump_schemas = set(['public'])
-        dump_tables = set([('public', 'ao_part_table_comp_1_prt_p1_2_prt_1'), ('public', 'ao_part_table_1_prt_p1_2_prt_1')])
+        dump_tables = set([('public', 'ao_part_table_comp_1_prt_p1_2_prt_1'), ('public', 'ao_part_table_1_prt_p1_2_prt_1'), ('public', 'set_search_table')])
         arguments = Arguments(dump_schemas, dump_tables)
         with open(out_name, 'w') as fdout:
             with open(in_name, 'r') as fdin:
