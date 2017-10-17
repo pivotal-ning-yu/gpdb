@@ -46,8 +46,8 @@ EXECNAME = 'analyzedb'
 # statement_mem. It is not clear why this occurs within the GPDB analyze tool.
 # But for clients that have statement_mem set higher as a default
 # configuration, it is important to restrict it only for analyze.
-ANALYZE_SQL = """psql %s -c 'set statement_mem=125000; analyze %s'"""
-ANALYZE_ROOT_SQL = """psql %s -c 'set statement_mem=125000; analyze rootpartition %s'"""
+ANALYZE_SQL = """analyze %s"""
+ANALYZE_ROOT_SQL = """analyze rootpartition %s"""
 
 STATEFILE_DIR = 'db_analyze'
 logger = gplog.get_default_logger()
@@ -185,6 +185,7 @@ class AnalyzeDb(Operation):
         self.detailed = options.detailed
         self.clean_last = options.clean_last
         self.clean_all = options.clean_all
+        self.statement_mem = options.statement_mem
 
         self.success_list = []
 
@@ -367,10 +368,10 @@ class AnalyzeDb(Operation):
             for can in ordered_candidates:
                 if can in candidates:
                     target = self._get_tablename_with_cols(can, input_col_dict)
-                    cmd = Command('analyze %s' % target, ANALYZE_SQL % (self.dbname, quote_tbl(target)))
+                    cmd = create_psql_command(self.dbname, ANALYZE_SQL % target, self.statement_mem)
                 else: # can in root_partition_col_dict
                     target = self._get_tablename_with_cols(can, root_partition_col_dict)
-                    cmd = Command('analyze rootpartition %s' % target, ANALYZE_ROOT_SQL % (self.dbname, quote_tbl(target)))
+                    cmd = create_psql_command(self.dbname, ANALYZE_ROOT_SQL % target, self.statement_mem)
                 pool.addCommand(cmd)
 
             wait_count = len(ordered_candidates)
@@ -786,7 +787,9 @@ class AnalyzeDb(Operation):
 
 
 # Create a Command object that executes a query using psql.
-def create_psql_command(dbname, query):
+def create_psql_command(dbname, query, statement_mem=None):
+    if statement_mem:
+        query = 'set statement_mem="{statement_mem}"; {query}'.format(statement_mem=statement_mem, query=query)
     psql_cmd = """psql %s -c %s""" % (pipes.quote(dbname), pipes.quote(query))
     return Command(query, psql_cmd)
 
@@ -1096,6 +1099,9 @@ def create_parser():
                            "comma) can be specified using -i or -x.")
     parser.add_option('-l', '--list', action='store_true', dest='dry_run', default=False,
                       help="List the tables to be analyzed without actually running analyze (dry run).")
+    parser.add_option('-m', '--statement_mem', type='string', dest='statement_mem',
+                      help="Set statement_mem to use on analyze queries. Default is to use the database-wide value.")
+
     parser.add_option('-p', type='int', dest='parallel_level', default=5, metavar="<parallel level>",
                       help="Parallel level, i.e. the number of tables to be analyzed in parallel. Valid numbers are between 1 and 10. Default value is 5.")
     parser.add_option('--skip_root_stats', action='store_false', dest='rootstats', default=True,
