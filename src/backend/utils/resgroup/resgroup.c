@@ -832,12 +832,17 @@ ResGroupReserveMemory(int32 memoryChunks, int32 overuseChunks, bool *waiverUsed)
 		 * We would unset the group and slot from self and turn off memory
 		 * limit check so we'll not reach here again and again.
 		 */
-		if (Debug_resource_group)
-			write_log("Resource group is concurrently dropped while reserving memory: "
-					  "dropped group=%d, my group=%d",
-					  group->groupId, self->groupId);
+
+		Oid		groupGroupId = group->groupId;
+		Oid		selfGroupId = self->groupId;
+
 		selfUnassignDroppedGroup();
 		self->doMemCheck = false;
+
+		LOG_RESGROUP_DEBUG(LOG, "resource group is concurrently dropped while reserving memory: "
+						   "dropped group=%d, my group=%d",
+						   groupGroupId, selfGroupId);
+
 		return true;
 	}
 
@@ -901,12 +906,16 @@ ResGroupReleaseMemory(int32 memoryChunks)
 
 	if (selfIsAssignedDroppedGroup())
 	{
-		if (Debug_resource_group)
-			write_log("Resource group is concurrently dropped while releasing memory: "
-					  "dropped group=%d, my group=%d",
-					  group->groupId, self->groupId);
+		Oid		groupGroupId = group->groupId;
+		Oid		selfGroupId = self->groupId;
+
 		selfUnassignDroppedGroup();
 		self->doMemCheck = false;
+
+		LOG_RESGROUP_DEBUG(LOG, "resource group is concurrently dropped while releasing memory: "
+						   "dropped group=%d, my group=%d",
+						   groupGroupId, selfGroupId);
+
 		return;
 	}
 
