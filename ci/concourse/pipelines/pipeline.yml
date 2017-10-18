@@ -436,6 +436,19 @@ resources:
       ###########################################################
       bucket_path: {{gpdb5-pipeline-tf-bucket-path}}
 
+- name: terraform2
+  type: terraform
+  source:
+    env:
+      AWS_ACCESS_KEY_ID: {{gpdb5-pipeline-tf-machine-access-key-id}}
+      AWS_SECRET_ACCESS_KEY: {{gpdb5-pipeline-tf-machine-secret-access-key}}
+    storage:
+      access_key_id: {{gpdb5-pipeline-tf-machine-access-key-id}}
+      secret_access_key: {{gpdb5-pipeline-tf-machine-secret-access-key}}
+      region_name: {{aws-region}}
+      bucket: gpdb5-pipeline-dynamic-terraform
+      bucket_path: {{gpdb5-pipeline-tf-bucket-path}}
+
 - name: terraform_for_dpm
   type: terraform
   source:
@@ -461,19 +474,6 @@ resources:
       #     bucket_path: dev/[Team Name]/                       #
       #                                                         #
       ###########################################################
-      bucket_path: {{tf-bucket-path}}
-
-- name: terraform2
-  type: terraform
-  source:
-    env:
-      AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
-      AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
-    storage:
-      access_key_id: {{tf-machine-access-key-id}}
-      secret_access_key: {{tf-machine-secret-access-key}}
-      region_name: {{aws-region}}
-      bucket: pivotal-pa-toolsmiths-pipeline-dynamic-terraform
       bucket_path: {{tf-bucket-path}}
 
 - name: centos-gpdb-dev-5
