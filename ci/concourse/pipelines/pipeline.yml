@@ -2585,23 +2585,29 @@ jobs:
   plan:
   - aggregate:
     - get: ccp_src
+      tags: ["gpdb5_ccp_external_worker"]
     - get: bin_gpdb
+      tags: ["gpdb5_ccp_external_worker"]
       resource: bin_gpdb_centos
       passed: [compile_gpdb_centos]
       trigger: true
     - get: gpdb_src
+      tags: ["gpdb5_ccp_external_worker"]
       passed: [compile_gpdb_centos]
     - get: centos-gpdb-dev-6
+      tags: ["gpdb5_ccp_external_worker"]
   # The separate clusters can be created in parallel with the aggregate and do blocks
   #  The terraform put and gen cluster that correspond must still happen serially
   - aggregate:
     - do:
       - put: terraform
+        tags: ["gpdb5_ccp_external_worker"]
         params:
           <<: *ccp_default_params
           vars:
             <<: *ccp_default_vars
       - task: gen_cluster1
+        tags: ["gpdb5_ccp_external_worker"]
         file: ccp_src/ci/tasks/gen_cluster.yml
         params:
           <<: *ccp_gen_cluster_default_params
@@ -2611,12 +2617,14 @@ jobs:
           <<: *ccp_destroy
     - do:
       - put: terraform2
+        tags: ["gpdb5_ccp_external_worker"]
         params:
           <<: *ccp_default_params
           vars:
             <<: *ccp_default_vars
             cluster_suffix: "-2"
       - task: gen_cluster2
+        tags: ["gpdb5_ccp_external_worker"]
         file: ccp_src/ci/tasks/gen_cluster.yml
         params:
           <<: *ccp_gen_cluster_default_params
@@ -2627,21 +2635,24 @@ jobs:
           cluster_env_files: cluster_env_files2
         on_failure:
           put: terraform2
+          tags: ["gpdb5_ccp_external_worker"]
           params:
             action: destroy
             env_name_file: terraform2/name
-            terraform_source: ccp_src/aws-pivotal-pa-toolsmiths/
+            terraform_source: ccp_src/aws/
             vars:
               <<: *ccp_default_vars
               cluster_suffix: "-2"
           get_params:
             action: destroy
   - task: exchange_keys
+    tags: ["gpdb5_ccp_external_worker"]
     file: gpdb_src/ci/concourse/exchange_keys.yml
     image: centos-gpdb-dev-6
     on_failure:
       <<: *ccp_destroy_2_cluster
   - task: run_gptransfer_tests
+    tags: ["gpdb5_ccp_external_worker"]
     file: gpdb_src/ci/concourse/terraform_run_behave.yml
     image: centos-gpdb-dev-6
     params:
