@@ -346,7 +346,7 @@ ResGroupControlInit(void)
 
     hash_flags = (HASH_ELEM | HASH_FUNCTION);
 
-    LOG_RESGROUP_DEBUG(LOG, "Creating hash table for %d resource groups", MaxResourceGroups);
+    LOG_RESGROUP_DEBUG(LOG, "creating hash table for %d resource groups", MaxResourceGroups);
 
     pResGroupControl->htbl = ShmemInitHash("Resource Group Hash Table",
                                            MaxResourceGroups,
@@ -1701,7 +1701,7 @@ mempoolReserve(Oid groupId, int32 chunks)
 {
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 
-	LOG_RESGROUP_DEBUG(LOG, "Allocate %u out of %u chunks to group %d",
+	LOG_RESGROUP_DEBUG(LOG, "allocate %u out of %u chunks to group %d",
 					   chunks, pResGroupControl->freeChunks, groupId);
 
 	chunks = Min(pResGroupControl->freeChunks, chunks);
@@ -1719,7 +1719,7 @@ mempoolReserve(Oid groupId, int32 chunks)
 static void
 mempoolRelease(Oid groupId, int32 chunks)
 {
-	LOG_RESGROUP_DEBUG(LOG, "Free %u to pool(%u) chunks from group %d",
+	LOG_RESGROUP_DEBUG(LOG, "free %u to pool(%u) chunks from group %d",
 					   chunks, pResGroupControl->freeChunks, groupId);
 
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
@@ -2207,7 +2207,7 @@ UnassignResGroup(void)
 
 	/* Cleanup self */
 	if (self->memUsage > 10)
-		LOG_RESGROUP_DEBUG(LOG, "Idle proc memory usage: %d", self->memUsage);
+		LOG_RESGROUP_DEBUG(LOG, "idle proc memory usage: %d", self->memUsage);
 
 	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
 
