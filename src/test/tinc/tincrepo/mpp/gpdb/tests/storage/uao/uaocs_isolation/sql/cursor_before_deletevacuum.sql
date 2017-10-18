@@ -8,7 +8,7 @@
 2: BEGIN;
 2: DELETE FROM ao WHERE a < 5;
 2: COMMIT;
-2&: VACUUM ao;
+2&: VACUUM FULL ao;
 1: FETCH NEXT IN cur;
 1: FETCH NEXT IN cur;
 1: FETCH NEXT IN cur;
