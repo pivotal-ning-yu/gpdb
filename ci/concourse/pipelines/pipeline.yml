@@ -1549,6 +1549,7 @@ jobs:
       image: centos-gpdb-dev-5
       params:
         MAKE_TEST_COMMAND: aocoalter_catalog_loaders
+        BLDWRAP_POSTGRES_CONF_ADDONS: "fsync=off"
         TEST_OS: centos
     - task: storage_persistent_filerep_accessmethods_and_vacuum
       timeout: 3h
@@ -1556,6 +1557,7 @@ jobs:
       image: centos-gpdb-dev-5
       params:
         MAKE_TEST_COMMAND: storage_persistent_filerep_accessmethods_and_vacuum
+        BLDWRAP_POSTGRES_CONF_ADDONS: "fsync=off"
         TEST_OS: centos
     - task: filerep_end_to_end_xlog_ctlog_cons
       timeout: 3h
@@ -1563,6 +1565,7 @@ jobs:
       image: centos-gpdb-dev-5
       params:
         MAKE_TEST_COMMAND: filerep_end_to_end_xlog_ctlog_cons
+        BLDWRAP_POSTGRES_CONF_ADDONS: "fsync=off"
         TEST_OS: centos
     - task: storage_queryfinish_and_transactionmanagement
       timeout: 3h
@@ -1570,6 +1573,7 @@ jobs:
       image: centos-gpdb-dev-5
       params:
         MAKE_TEST_COMMAND: storage_queryfinish_and_transactionmanagement
+        BLDWRAP_POSTGRES_CONF_ADDONS: "fsync=off"
         TEST_OS: centos
     - task: storage_vacuum_xidlimits
       timeout: 3h
@@ -1577,6 +1581,7 @@ jobs:
       image: centos-gpdb-dev-5
       params:
         MAKE_TEST_COMMAND: storage_vacuum_xidlimits
+        BLDWRAP_POSTGRES_CONF_ADDONS: "fsync=off"
         TEST_OS: centos
 
 - name: cs-subtransaction_centos
