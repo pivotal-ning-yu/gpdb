@@ -10,7 +10,7 @@
 --   to the proper default resource group;
 --
 -- This case is put under isolation2 dir as other resource group cases,
--- although it does not requires any extended feature of the isolation2
+-- although it does not require any extended feature of the isolation2
 -- test framework.
 --
 
