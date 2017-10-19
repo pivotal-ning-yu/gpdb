@@ -54,7 +54,7 @@ class high_transaction_id(MPPTestCase):
 
         # @note: Issue with self.run_gpstop, hard-coded remoteHost to mdw
         # @note: upgrade model uses a series of gpstop and gpstart command, need helper classes
-        cmd = GpStop("gpstop")
+        cmd = GpStop("gpstop", fast=True)
         cmd.run(validateAfter=True)
         
         for segment in segments:
