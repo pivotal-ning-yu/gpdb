@@ -2221,7 +2221,7 @@ jobs:
 
 - name: cs_aoco_compression_large_01
   plan:
-  - aggregate: *cs_ccp_aggregate
+  - aggregate: *ccp_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
@@ -2232,16 +2232,16 @@ jobs:
         aws_instance-node-instance_type: i3.large
         number_of_nodes: 1
   - task: gen_cluster
-    <<: *cs_ccp_gen_cluster_params
+    <<: *ccp_gen_cluster_params
   - task: run_tests
-    <<: *cs_ccp_run_tests_params
+    <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: aoco_compression_large_01
   - *ccp_destroy
 
 - name: cs_aoco_compression_large_02
   plan:
-  - aggregate: *cs_ccp_aggregate
+  - aggregate: *ccp_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
@@ -2252,16 +2252,16 @@ jobs:
         aws_instance-node-instance_type: i3.large
         number_of_nodes: 1
   - task: gen_cluster
-    <<: *cs_ccp_gen_cluster_params
+    <<: *ccp_gen_cluster_params
   - task: run_tests
-    <<: *cs_ccp_run_tests_params
+    <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: aoco_compression_large_02
   - *ccp_destroy
 
 - name: cs_aoco_compression_large_03
   plan:
-  - aggregate: *cs_ccp_aggregate
+  - aggregate: *ccp_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
@@ -2272,16 +2272,16 @@ jobs:
         aws_instance-node-instance_type: i3.large
         number_of_nodes: 1
   - task: gen_cluster
-    <<: *cs_ccp_gen_cluster_params
+    <<: *ccp_gen_cluster_params
   - task: run_tests
-    <<: *cs_ccp_run_tests_params
+    <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: aoco_compression_large_03
   - *ccp_destroy
 
 - name: cs_aoco_compression_large_04
   plan:
-  - aggregate: *cs_ccp_aggregate
+  - aggregate: *ccp_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
@@ -2292,16 +2292,16 @@ jobs:
         aws_instance-node-instance_type: i3.large
         number_of_nodes: 1
   - task: gen_cluster
-    <<: *cs_ccp_gen_cluster_params
+    <<: *ccp_gen_cluster_params
   - task: run_tests
-    <<: *cs_ccp_run_tests_params
+    <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: aoco_compression_large_04
   - *ccp_destroy
 
 - name: cs_aoco_compression_small
   plan:
-  - aggregate: *cs_ccp_aggregate
+  - aggregate: *ccp_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
@@ -2312,16 +2312,16 @@ jobs:
         aws_instance-node-instance_type: i3.large
         number_of_nodes: 1
   - task: gen_cluster
-    <<: *cs_ccp_gen_cluster_params
+    <<: *ccp_gen_cluster_params
   - task: run_tests
-    <<: *cs_ccp_run_tests_params
+    <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: aoco_compression_small
   - *ccp_destroy
 
 - name: cs_aoco_compression_small_serial
   plan:
-  - aggregate: *cs_ccp_aggregate
+  - aggregate: *ccp_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
@@ -2332,9 +2332,9 @@ jobs:
         aws_instance-node-instance_type: i3.large
         number_of_nodes: 1
   - task: gen_cluster
-    <<: *cs_ccp_gen_cluster_params
+    <<: *ccp_gen_cluster_params
   - task: run_tests
-    <<: *cs_ccp_run_tests_params
+    <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: aoco_compression_small_serial
   - *ccp_destroy
