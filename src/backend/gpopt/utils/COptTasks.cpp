@@ -826,7 +826,8 @@ COptTasks::PoconfCreate
 								ulJoinArityForAssociativityCommutativity,
 								ulArrayExpansionThreshold,
 								ulJoinOrderThreshold,
-								ulBroadcastThreshold
+								ulBroadcastThreshold,
+								true /* fEnforceConstraintsOnDML */
 								)
 						);
 }
