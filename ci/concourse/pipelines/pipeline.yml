@@ -356,6 +356,27 @@ ccp_aggregate_gets_anchor: &ccp_aggregate_gets
   - get: centos-gpdb-dev-6
     tags: ["gpdb5_ccp_external_worker"]
 
+cs_aoco_compression_trigger_anchor: &cs_aoco_compression_trigger
+    - get: nightly-trigger-pulse
+      tags: ["gpdb5_ccp_external_worker"]
+      trigger: true
+    - get: gpdb_src
+      tags: ["gpdb5_ccp_external_worker"]
+      params: {submodules: none}
+      passed: [compile_gpdb_centos]
+    - get: sync_tools_gpdb
+      tags: ["gpdb5_ccp_external_worker"]
+      resource: sync_tools_gpdb_centos
+      passed: [compile_gpdb_centos]
+    - get: gpdb_binary
+      tags: ["gpdb5_ccp_external_worker"]
+      resource: bin_gpdb_centos
+      passed: [compile_gpdb_centos]
+    - get: ccp_src
+      tags: ["gpdb5_ccp_external_worker"]
+    - get: centos-gpdb-dev-6
+      tags: ["gpdb5_ccp_external_worker"]
+
 ccp_terraform_bigger_vars_anchor: &ccp_terraform_bigger_vars
   aws_instance-node-instance_type: m4.large
   aws_ebs_volume_type: gp2
@@ -2221,7 +2242,7 @@ jobs:
 
 - name: cs_aoco_compression_large_01
   plan:
-  - aggregate: *ccp_aggregate_gets
+  - aggregate: *cs_aoco_compression_trigger
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
@@ -2241,7 +2262,7 @@ jobs:
 
 - name: cs_aoco_compression_large_02
   plan:
-  - aggregate: *ccp_aggregate_gets
+  - aggregate: *cs_aoco_compression_trigger
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
@@ -2261,7 +2282,7 @@ jobs:
 
 - name: cs_aoco_compression_large_03
   plan:
-  - aggregate: *ccp_aggregate_gets
+  - aggregate: *cs_aoco_compression_trigger
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
@@ -2281,7 +2302,7 @@ jobs:
 
 - name: cs_aoco_compression_large_04
   plan:
-  - aggregate: *ccp_aggregate_gets
+  - aggregate: *cs_aoco_compression_trigger
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
@@ -2301,7 +2322,7 @@ jobs:
 
 - name: cs_aoco_compression_small
   plan:
-  - aggregate: *ccp_aggregate_gets
+  - aggregate: *cs_aoco_compression_trigger
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
@@ -2321,7 +2342,7 @@ jobs:
 
 - name: cs_aoco_compression_small_serial
   plan:
-  - aggregate: *ccp_aggregate_gets
+  - aggregate: *cs_aoco_compression_trigger
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
