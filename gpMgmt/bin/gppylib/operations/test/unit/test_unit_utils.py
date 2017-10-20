@@ -2,6 +2,7 @@
 #
 # Copyright (c) Greenplum Inc 2008. All Rights Reserved. 
 #
+import sys
 
 import unittest
 import pickle
@@ -13,6 +14,14 @@ from gppylib.operations.test_utils_helper import TestOperation, RaiseOperation, 
 # exist in a later version of unit test, I believe
 
 class utilsTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.old_sys_argv = sys.argv
+        sys.argv = ['utils.py']
+
+    def tearDown(self):
+        sys.argv = self.old_sys_argv
+
     def test_Remote_basic(self):
         """ Basic RemoteOperation test """
         self.assertTrue(TestOperation().run() == RemoteOperation(TestOperation(), "localhost").run())
