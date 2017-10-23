@@ -79,6 +79,7 @@ groups:
   - pulse_mpp-interconnect-sles
   - compile_gpdb_windows_ccl
   - TINC_pgcrypto
+  - MM_analyzedb
   - MM_gpcheckcat
   - MM_gpexpand_1
   - MM_gpexpand_2
@@ -182,6 +183,7 @@ groups:
   - DPM_gptransfer-43x-to-43x
 - name: MM
   jobs:
+  - MM_analyzedb
   - MM_gpcheckcat
   - MM_gpexpand_1
   - MM_gpexpand_2
@@ -1560,6 +1562,29 @@ jobs:
       BLDWRAP_POSTGRES_CONF_ADDONS: ""
       TEST_OS: centos
 
+- name: MM_analyzedb
+  plan:
+  - aggregate:
+    - get: gpdb_src
+      params: {submodules: none}
+      passed: [compile_gpdb_centos]
+    - get: sync_tools_gpdb
+      resource: sync_tools_gpdb_centos
+      passed: [compile_gpdb_centos]
+    - get: bin_gpdb
+      resource: bin_gpdb_centos
+      passed: [compile_gpdb_centos]
+      trigger: true
+    - get: centos-gpdb-dev-5
+  - task: persistent_table_rebuild
+    timeout: 1h
+    file: gpdb_src/ci/concourse/behave_tests.yml
+    image: centos-gpdb-dev-5
+    params:
+      BEHAVE_TAGS: analyzedb
+      BLDWRAP_POSTGRES_CONF_ADDONS: ""
+      TEST_OS: centos
+
 - name: cs-fts_centos
   plan:
   - aggregate:
@@ -2566,7 +2591,7 @@ jobs:
     file: gpdb_src/ci/concourse/terraform_run_behave.yml
     image: centos-gpdb-dev-6
     params:
-      BEHAVE_FLAGS: --tags=analyzedb,backups,backup_and_restore_backups,backup_and_restore_restores,restores --tags=-nbuonly --tags=-ddonly
+      BEHAVE_FLAGS: --tags=backups,backup_and_restore_backups,backup_and_restore_restores,restores --tags=-nbuonly --tags=-ddonly
     on_failure:
       <<: *debug_sleep
   - *ccp_destroy
