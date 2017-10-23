@@ -84,6 +84,8 @@ groups:
   - MM_gpexpand_2
   - MM_gppkg
   - MM_gprecoverseg
+  - MADlib_Test_gppkg_Orca_centos5
+  - MADlib_Test_gppkg_Planner_centos5
 
 - name: CentOS/RHEL
   jobs:
@@ -209,6 +211,10 @@ groups:
 - name: Windows
   jobs:
   - compile_gpdb_windows_ccl
+- name: AdvancedAnalytics
+  jobs:
+  - MADlib_Test_gppkg_Orca_centos5
+  - MADlib_Test_gppkg_Planner_centos5
 
 - name: Bootstrap
   jobs:
@@ -1041,6 +1047,21 @@ resources:
     secret_access_key: {{bucket-secret-access-key}}
     versioned_file: deliverables/plperl-ossv5.12.4_pv1.3_gpdb4.3-rhel6-x86_64.gppkg
 
+- name: madlib_ci
+  type: git
+  source:
+    branch: {{madlib-ci-git-branch}}
+    uri: {{madlib-ci-git-remote}}
+    private_key: {{madlib-ci-git-key}}
+
+- name: madlib_gppkg
+  type: s3
+  source:
+    access_key_id: {{gpdb5-pipeline-bucket-access-key-id}}
+    bucket: madlib-concourse
+    region_name: {{aws-region}}
+    secret_access_key: {{gpdb5-pipeline-bucket-secret-access-key}}
+    versioned_file: release/gpdb4/madlib-1.12-gp4.3-rhel5-x86_64.gppkg
 ## ======================================================================
 ## jobs
 ## ======================================================================
@@ -3745,3 +3766,51 @@ jobs:
         output_mapping: {ccache_tar: ccache_empty}
       - put: ccache_empty
         params: {file: ccache_empty/ccache_gpdb.tar.gz}
+
+- name: MADlib_Test_gppkg_Orca_centos5
+  plan:
+  - aggregate:
+    - get: madlib_ci
+      trigger: true
+    - get: gpdb_src
+      passed:
+      - icb_orca_centos
+      - icg_planner_centos
+    - get: bin_gpdb
+      resource: bin_gpdb_centos
+      trigger: true
+      passed:
+      - icb_orca_centos
+      - icg_planner_centos
+    - get: centos-gpdb-dev-5
+    - get: madlib_gppkg
+  - task: MADlib_Test_gppkg
+    file: madlib_ci/concourse/tasks/madlib_test_gppkg.yml
+    image: centos-gpdb-dev-5
+    params:
+      TEST_OS: centos
+      ORCA: "on"
+
+- name: MADlib_Test_gppkg_Planner_centos5
+  plan:
+  - aggregate:
+    - get: madlib_ci
+      trigger: true
+    - get: gpdb_src
+      passed:
+      - icb_orca_centos
+      - icg_planner_centos
+    - get: bin_gpdb
+      resource: bin_gpdb_centos
+      trigger: true
+      passed:
+      - icb_orca_centos
+      - icg_planner_centos
+    - get: centos-gpdb-dev-5
+    - get: madlib_gppkg
+  - task: MADlib_Test_gppkg
+    file: madlib_ci/concourse/tasks/madlib_test_gppkg.yml
+    image: centos-gpdb-dev-5
+    params:
+      TEST_OS: centos
+      ORCA: "off"
