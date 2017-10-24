@@ -39,6 +39,14 @@ Debug
 pgsql.sln
 cscope.*
 .DS_Store
+build.sh
+.cproject
+.project
+.settings/
+.vscode/
+GPATH
+GRTAGS
+GTAGS
 
 # Local excludes in root directory
 /GNUmakefile
@@ -47,5 +55,5 @@ cscope.*
 /Release
 /VERSION
 
-#emacs
+# Emacs
 *~
