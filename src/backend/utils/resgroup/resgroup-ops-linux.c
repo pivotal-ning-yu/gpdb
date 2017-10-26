@@ -49,7 +49,6 @@
 
 #define PROC_MOUNTS "/proc/self/mounts"
 #define MAX_INT_STRING_LEN 20
-#define MAX_PATH_LEN 256
 
 static char * buildPath(Oid group, const char *base, const char *comp, const char *prop, char *path, size_t pathsize);
 static int lockDir(const char *path, bool block);
@@ -69,7 +68,7 @@ static void detectCgroupMountPoint(void);
 
 static Oid currentGroupIdInCGroup = InvalidOid;
 static int cpucores = 0;
-static char cgdir[MAX_PATH_LEN];
+static char cgdir[MAXPGPATH];
 
 /*
  * Build path string with parameters.
@@ -110,7 +109,7 @@ buildPath(Oid group,
 static void
 unassignGroup(Oid group, const char *comp, int fddir)
 {
-	char path[128];
+	char path[MAXPGPATH];
 	size_t pathsize = sizeof(path);
 	char *buf;
 	size_t bufsize;
@@ -321,7 +320,7 @@ createDir(Oid group, const char *comp)
 static bool
 removeDir(Oid group, const char *comp, bool unassign)
 {
-	char path[128];
+	char path[MAXPGPATH];
 	size_t pathsize = sizeof(path);
 	int fddir;
 
@@ -453,7 +452,7 @@ readInt64(Oid group, const char *base, const char *comp, const char *prop)
 	int64 x;
 	char data[MAX_INT_STRING_LEN];
 	size_t datasize = sizeof(data);
-	char path[128];
+	char path[MAXPGPATH];
 	size_t pathsize = sizeof(path);
 
 	buildPath(group, base, comp, prop, path, pathsize);
@@ -474,7 +473,7 @@ writeInt64(Oid group, const char *base, const char *comp, const char *prop, int6
 {
 	char data[MAX_INT_STRING_LEN];
 	size_t datasize = sizeof(data);
-	char path[128];
+	char path[MAXPGPATH];
 	size_t pathsize = sizeof(path);
 
 	buildPath(group, base, comp, prop, path, pathsize);
@@ -492,7 +491,7 @@ writeInt64(Oid group, const char *base, const char *comp, const char *prop, int6
 static bool
 checkPermission(Oid group, bool report)
 {
-	char path[128];
+	char path[MAXPGPATH];
 	size_t pathsize = sizeof(path);
 	const char *comp;
 
