@@ -23,6 +23,7 @@
 #error  cgroup is only available on linux
 #endif
 
+#include <fcntl.h>
 #include <unistd.h>
 #include <sched.h>
 #include <sys/file.h>
@@ -226,7 +227,7 @@ lockDir(const char *path, bool block)
 {
 	int fddir;
 
-	fddir = open(path, O_RDONLY | O_DIRECTORY);
+	fddir = open(path, O_RDONLY);
 	if (fddir < 0)
 	{
 		if (errno == ENOENT)
