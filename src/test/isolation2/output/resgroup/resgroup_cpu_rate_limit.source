@@ -52,7 +52,7 @@ CREATE
 True
 
 
-! python -c "print $(cat @cgroup_mnt_point@/cpu/gpdb/cpu.shares) == 1024 * 256";
+! python -c "print $(cat @cgroup_mnt_point@/cpu/gpdb/cpu.shares) == 1024 * 1";
 True
 
 

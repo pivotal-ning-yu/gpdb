@@ -71,7 +71,7 @@ CREATE VIEW cancel_all AS
 
 ! python -c "print $(cat @cgroup_mnt_point@/cpu/gpdb/cpu.cfs_quota_us) == int($(cat @cgroup_mnt_point@/cpu/gpdb/cpu.cfs_period_us) * $(nproc) * $(psql -d isolation2resgrouptest -Aqtc "SHOW gp_resource_group_cpu_limit"))";
 
-! python -c "print $(cat @cgroup_mnt_point@/cpu/gpdb/cpu.shares) == 1024 * 256";
+! python -c "print $(cat @cgroup_mnt_point@/cpu/gpdb/cpu.shares) == 1024 * 1";
 
 --
 -- check default groups configuration
