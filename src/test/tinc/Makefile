@@ -154,38 +154,7 @@ walrep_2:
 uao_orca_both_regression:
 	$(TESTER) $(DISCOVER) -s tincrepo/mpp/gpdb/tests/storage/uao
 
-
-# cs-aoco-compression
-# The following targets are pulled from:
-# http://pulse-cloud.gopivotal.com/admin/projects/cs-aoco-compression
-#
-# Refer to the properties of the pulse project and individual build
-# stages for configuration requirements.
-
-aoco_compression: aoco_compression_large_01 aoco_compression_large_02 \
-	aoco_compression_large_03 aoco_compression_large_04 \
-	aoco_compression_small aoco_compression_small_serial
-
-aoco_compression_large_01:
-	$(TESTER) mpp.gpdb.tests.storage.aoco_compression.test_func_aococompression_large_01
-
-aoco_compression_large_02:
-	$(TESTER) mpp.gpdb.tests.storage.aoco_compression.test_func_aococompression_large_02
-
-aoco_compression_large_03:
-	$(TESTER) mpp.gpdb.tests.storage.aoco_compression.test_func_aococompression_large_03
-
-aoco_compression_large_04:
-	$(TESTER) mpp.gpdb.tests.storage.aoco_compression.test_func_aococompression_large_04
-
-aoco_compression_small:
-	$(TESTER) mpp.gpdb.tests.storage.aoco_compression.test_func_aococompression_small
-
-aoco_compression_small_serial:
-	$(TESTER) mpp.gpdb.tests.storage.aoco_compression.test_func_aococompression_small_serial
-
-
-# GPDB-O2-TINC-Upgrade-no-scm 
+# GPDB-O2-TINC-Upgrade-no-scm
 # The following targets are pulled from:
 # http://pulse-cloud.gopivotal.com/admin/projects/GPDB-O2-TINC-Upgrade-no-scm
 #
@@ -194,7 +163,6 @@ aoco_compression_small_serial:
 
 upgrade:
 	$(TESTER) $(DISCOVER) -s tincrepo/mpp/gpdb/tests/utilities/upgrade
-
 
 # cs-filerep-end-to-end
 # The following targets are pulled from:
