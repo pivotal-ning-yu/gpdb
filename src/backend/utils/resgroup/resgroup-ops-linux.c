@@ -654,7 +654,8 @@ ResGroupOps_Init(void)
 	cfs_period_us = readInt64(0, NULL, comp, "cpu.cfs_period_us");
 	writeInt64(0, NULL, comp, "cpu.cfs_quota_us",
 			   cfs_period_us * ncores * gp_resource_group_cpu_limit);
-	writeInt64(0, NULL, comp, "cpu.shares", 1024 * 1);
+	writeInt64(0, NULL, comp, "cpu.shares",
+			   1024 * gp_resource_group_cpu_priority);
 }
 
 /* Adjust GUCs for this OS group implementation */
