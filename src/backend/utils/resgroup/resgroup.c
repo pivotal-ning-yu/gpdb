@@ -580,8 +580,15 @@ ResGroupDropFinish(Oid groupId, bool isCommit)
 	PG_CATCH();
 	{
 		InterruptHoldoffCount = savedInterruptHoldoffCount;
-		EmitErrorReport();
-		FlushErrorState();
+		if (elog_demote(WARNING))
+		{
+			EmitErrorReport();
+			FlushErrorState();
+		}
+		else
+		{
+			elog(LOG, "unable to demote error");
+		}
 	}
 	PG_END_TRY();
 
@@ -610,8 +617,15 @@ ResGroupCreateOnAbort(Oid groupId)
 	PG_CATCH();
 	{
 		InterruptHoldoffCount = savedInterruptHoldoffCount;
-		EmitErrorReport();
-		FlushErrorState();
+		if (elog_demote(WARNING))
+		{
+			EmitErrorReport();
+			FlushErrorState();
+		}
+		else
+		{
+			elog(LOG, "unable to demote error");
+		}
 	}
 	PG_END_TRY();
 	LWLockRelease(ResGroupLock);
@@ -656,8 +670,15 @@ ResGroupAlterOnCommit(Oid groupId,
 	PG_CATCH();
 	{
 		InterruptHoldoffCount = savedInterruptHoldoffCount;
-		EmitErrorReport();
-		FlushErrorState();
+		if (elog_demote(WARNING))
+		{
+			EmitErrorReport();
+			FlushErrorState();
+		}
+		else
+		{
+			elog(LOG, "unable to demote error");
+		}
 	}
 	PG_END_TRY();
 
