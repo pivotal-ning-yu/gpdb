@@ -620,8 +620,13 @@ ResGroupOps_Name(void)
 void
 ResGroupOps_Bless(void)
 {
+	if (IsUnderPostmaster)
+		return;
+
 	detectCgroupMountPoint();
 	checkPermission(0, true);
+
+	ResGroupOps_AssignGroup(InvalidOid, PostmasterPid);
 }
 
 /* Initialize the OS group */
@@ -728,7 +733,7 @@ ResGroupOps_DestroyGroup(Oid group)
 void
 ResGroupOps_AssignGroup(Oid group, int pid)
 {
-	if (group == currentGroupIdInCGroup)
+	if (IsUnderPostmaster && group == currentGroupIdInCGroup)
 		return;
 
 	writeInt64(group, NULL, "cpu", "cgroup.procs", pid);
