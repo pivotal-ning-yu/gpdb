@@ -6012,3 +6012,12 @@ SELECT COUNT(DISTINCT cn) as cn_r FROM (SELECT cn, CASE WHEN (vn = 0) THEN 1 END
     4
 (3 rows)
 
+-- ###### Queries involving CUBE with HAVING CLAUSE ###### --
+WITH src AS (SELECT 1 AS a, 1 AS b)
+SELECT 1 FROM src GROUP BY CUBE(a, b) HAVING a IS NOT NULL;
+ ?column? 
+----------
+        1
+        1
+(2 rows)
+

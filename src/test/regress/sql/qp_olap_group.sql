@@ -159,3 +159,7 @@ GROUP BY ROLLUP((sale.prc),(sale.prc,sale.vn),(sale.qty,sale.qty),(sale.vn)),GRO
 
 -- ###### Rollup with DQA and constants in target list expressions with same value as that of constant grouping column ###### --
 SELECT COUNT(DISTINCT cn) as cn_r FROM (SELECT cn, CASE WHEN (vn = 0) THEN 1 END AS f, 1 AS g FROM sale) sale_view GROUP BY ROLLUP(f,g);
+
+-- ###### Queries involving CUBE with HAVING CLAUSE ###### --
+WITH src AS (SELECT 1 AS a, 1 AS b)
+SELECT 1 FROM src GROUP BY CUBE(a, b) HAVING a IS NOT NULL;
