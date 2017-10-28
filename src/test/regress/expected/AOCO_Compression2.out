@@ -3974,6 +3974,6 @@ create table empty_aorow_table (c int) with (appendonly=true) distributed by (c)
 select get_ao_compression_ratio('empty_aorow_table');
  get_ao_compression_ratio 
 --------------------------
-                        1
+                       -1
 (1 row)
 
