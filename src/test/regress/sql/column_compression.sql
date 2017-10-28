@@ -1,3 +1,6 @@
+create database column_compression;
+\c column_compression
+
 -----------------------------------------------------------------------
 -- Basic syntax
 -- Expect: success
@@ -758,3 +761,6 @@ WHERE id=1;
 -- Lets validate above insert worked.
 SELECT count(*) from col_large_content_block_add_col;
 SET enable_seqscan TO ON;
+
+\c regression
+drop database column_compression;
