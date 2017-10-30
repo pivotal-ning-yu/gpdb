@@ -1129,9 +1129,8 @@ class gpload:
         self.ERROR = 1
         self.options.qv = self.INFO
         self.options.l = None
-        self.lastcmdtime = ''
-        self.cmdtime = ''
         self.formatOpts = ""
+        self.startTimestamp = time.time()
         seenv = False
         seenq = False
 
@@ -2398,17 +2397,11 @@ class gpload:
                     self.log(self.WARN, "error_table is deprecated")
                     return 0
                 else:
-                    queryStr = "select cmdtime, count(*) from gp_read_error_log('%s') group by cmdtime order by cmdtime desc limit 1" %self.extTableName
+                    queryStr = "select count(*) from gp_read_error_log('%s') where cmdtime > to_timestamp(%s)" %(self.extTableName, self.startTimestamp)
                     results = self.db.query(queryStr.encode('utf-8')).getresult()
                     global NUM_WARN_ROWS
-                    if len(results) == 0:
-                        NUM_WARN_ROWS = 0
-                        return 0
-
-                    if (results[0])[0] != self.cmdtime:
-                        self.lastcmdtime = (results[0])[0]
-                        NUM_WARN_ROWS = (results[0])[1]
-                        return (results[0])[1];
+                    NUM_WARN_ROWS = (results[0])[0]
+                    return (results[0])[0];
         return 0
 
     def report_errors(self):
@@ -2422,7 +2415,7 @@ class gpload:
         # if reuse_table is set, error message is not deleted.
         if errors and self.log_errors and self.reuse_tables:
             self.log(self.WARN, "Please use following query to access the detailed error")
-            self.log(self.WARN, "select * from gp_read_error_log('{0}') where cmdtime = '{1}'".format(self.extTableName, self.lastcmdtime))
+            self.log(self.WARN, "select * from gp_read_error_log('{0}') where cmdtime > to_timestamp('{1}')".format(self.extTableName, self.startTimestamp))
         self.exitValue = 1 if errors else 0
 
 
@@ -2430,12 +2423,6 @@ class gpload:
         """
         Handle the INSERT case
         """
-        if self.reuse_tables:
-            queryStr = "select cmdtime from gp_read_error_log('%s') group by cmdtime order by cmdtime desc limit 1" % pg.escape_string(self.extTableName)
-            results = self.db.query(queryStr.encode('utf-8')).getresult()
-            if len(results) > 0:
-                self.cmdtime = (results[0])[0]
-
         self.log(self.DEBUG, "into columns " + str(self.into_columns))
         cols = filter(lambda a:a[2]!=None, self.into_columns)
 
