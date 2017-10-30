@@ -3588,6 +3588,7 @@ OpenIntoRel(QueryDesc *queryDesc)
     Oid         intoComptypeOid;
     GpPolicy   *targetPolicy;
 	bool		bufferPoolBulkLoad;
+	bool		validate_reloptions;
 
 	RelFileNode relFileNode;
 	
@@ -3661,9 +3662,19 @@ OpenIntoRel(QueryDesc *queryDesc)
 
 	/* Parse and validate any reloptions */
 	reloptions = transformRelOptions((Datum) 0, intoClause->options, true, false);
-	
+
+	/*
+	 * Set to true for CTAS and SELECT INTO. Set to false for ALTER TABLE
+	 * REORGANIZE. This is mainly used to check if the dispatched query is
+	 * meant for internal rewrite on QE segments or just for holding data from
+	 * a SELECT for a new relation. If DestIntoRel is set in queryDesc->dest,
+	 * use the original table's reloptions. If DestRemote is set, use default
+	 * reloptions + gp_default_storage_options.
+	 */
+	validate_reloptions = queryDesc->dest->mydest == DestIntoRel ? false : true;
+
 	/* get the relstorage (heap or AO tables) */
-	stdRdOptions = (StdRdOptions*) heap_reloptions(relkind, reloptions, true);
+	stdRdOptions = (StdRdOptions*) heap_reloptions(relkind, reloptions, validate_reloptions);
 	if(stdRdOptions->appendonly)
 		relstorage = stdRdOptions->columnstore ? RELSTORAGE_AOCOLS : RELSTORAGE_AOROWS;
 	else
@@ -3706,7 +3717,7 @@ OpenIntoRel(QueryDesc *queryDesc)
 											  targetPolicy,  	/* MPP */
 											  reloptions,
 											  allowSystemTableModsDDL,
-											  /* valid_opts */false,
+											  /* valid_opts */ !validate_reloptions,
 											  &intoComptypeOid, 	/* MPP */
 						 					  &persistentTid,
 						 					  &persistentSerialNum);
