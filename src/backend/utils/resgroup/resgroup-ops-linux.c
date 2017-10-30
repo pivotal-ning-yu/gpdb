@@ -620,12 +620,21 @@ ResGroupOps_Name(void)
 void
 ResGroupOps_Bless(void)
 {
+	/*
+	 * We only have to do these checks and initialization once on each host,
+	 * so only let postmaster do the job.
+	 */
 	if (IsUnderPostmaster)
 		return;
 
 	detectCgroupMountPoint();
 	checkPermission(0, true);
 
+	/*
+	 * Put postmaster and all the children processes into the gpdb cgroup,
+	 * otherwise auxiliary processes might get too low priority when
+	 * gp_resource_group_cpu_priority is set to a large value
+	 */
 	ResGroupOps_AssignGroup(InvalidOid, PostmasterPid);
 }
 
