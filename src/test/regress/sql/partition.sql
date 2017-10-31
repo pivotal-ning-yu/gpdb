@@ -5281,3 +5281,24 @@ insert into test_split_part (log_id , f_array) select id, '{10}' from generate_s
 
 ALTER TABLE test_split_part SPLIT DEFAULT PARTITION START (201) INCLUSIVE END (301) EXCLUSIVE INTO (PARTITION "New", DEFAULT PARTITION);
 
+create table foo(
+  a int,
+  b int,
+  c int,
+  d int)
+  partition by range(b)
+  subpartition by list(c)
+  subpartition template
+ (
+    default subpartition subothers,
+    subpartition s1 values(1,2,3),
+    subpartition s2 values(4,5,6)
+ )
+ (
+    default partition others,
+    start(1) end(5) every(1)
+ );
+
+alter table foo alter partition others split partition subothers at (10) into (partition b1, default partition);
+alter table foo alter partition others split partition subothers at (10) into (partition b1, partition subothers);
+alter table foo alter partition others split default partition at (10) into (partition b1, default partition);
