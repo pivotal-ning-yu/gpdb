@@ -11,9 +11,11 @@
  *	AS '$libdir/gpoptutils', 'gp_dump_query_oids'
  *	LANGUAGE C STRICT;
  */
-#include "postgres_fe.h"
 #include "postgres.h"
+
+#include "postgres_fe.h"
 #include "funcapi.h"
+#include "optimizer/prep.h"
 #include "utils/builtins.h"
 #include "rewrite/rewriteHandler.h"
 #include "tcop/tcopprot.h"
@@ -24,6 +26,25 @@ Datum gp_dump_query_oids(PG_FUNCTION_ARGS);
 
 PG_MODULE_MAGIC;
 PG_FUNCTION_INFO_V1(gp_dump_query_oids);
+
+/*
+ * Find all child table relids including inheritances, interior and leaf
+ * partitions of given root table oid, append them into string buffer.
+ */
+static void
+appendChildrenRelids(StringInfoData *relbuf, Oid relid)
+{
+	List *relids = find_all_inheritors(relid);
+	if (list_length(relids) <= 1)
+		return;
+
+	relids = list_delete_first(relids);
+	ListCell   *lc;
+	foreach(lc, relids)
+	{
+		appendStringInfo(relbuf, ",%u", lfirst_oid(lc));
+	}
+}
 
 static void
 traverseQueryOids
@@ -54,6 +75,7 @@ traverseQueryOids
 					if (relbuf->len != 0)
 						appendStringInfo(relbuf, "%s", ",");
 					appendStringInfo(relbuf, "%u", relid);
+					appendChildrenRelids(relbuf, relid);
 				}
 			}
 		}
