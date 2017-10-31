@@ -1,4 +1,6 @@
 \c dldb
+set time zone PST8PDT;
+
 -- Select from CO table
 Select a1,a2,a3,a4,a5,a6,a7 from delta_t1 order by 1,2,3,4,5,6,7;
 

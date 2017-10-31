@@ -13,6 +13,7 @@ groups:
   - cs-storage_centos
   - cs-subtransaction_centos
   - cs-uao_centos
+  - cs-bin-swap
   - cs_walrep_1
   - cs_walrep_2
   - cs_pg_twophase_01_10
@@ -64,7 +65,6 @@ groups:
   - DPM_gptransfer-43x-to-43x
   - pulse_Kerberos-jdbc-no-scm
   - pulse_Kerberos-smoke
-  - pulse_cs-bin-swap
   - pulse_QP_memory-accounting
   - QP_optimizer-functional
   - pulse_CCLE
@@ -112,7 +112,6 @@ groups:
   jobs:
   - pulse_Kerberos-jdbc-no-scm
   - pulse_Kerberos-smoke
-  - pulse_cs-bin-swap
   - pulse_QP_memory-accounting
   - pulse_CCLE
   - pulse_CCLE-sles11sp4
@@ -124,6 +123,7 @@ groups:
   - cs-storage_centos
   - cs-subtransaction_centos
   - cs-uao_centos
+  - cs-bin-swap
   - cs_walrep_1
   - cs_walrep_2
   - cs_pg_twophase_01_10
@@ -144,7 +144,6 @@ groups:
   - cs_filerep_end_to_end_full_mirror
   - cs_filerep_end_to_end_incr_mirror
   - gpdb_rc_packaging_centos
-  - pulse_cs-bin-swap
 - name: QP
   jobs:
   - pulse_QP_memory-accounting
@@ -522,6 +521,15 @@ resources:
     region_name: {{aws-region}}
     secret_access_key: {{bucket-secret-access-key}}
     versioned_file: bin_gpdb_centos/bin_gpdb.tar.gz
+
+- name: copy_bin_from
+  type: s3
+  source:
+    access_key_id: {{gpdb5-pipeline-bucket-access-key-id}}
+    secret_access_key: {{gpdb5-pipeline-bucket-secret-access-key}}
+    bucket: 4.3-stable-binary-swap
+    region_name: {{aws-region}}
+    versioned_file: 4.3.4.1/greenplum-db-4.3.4.1-build-2-RHEL5-x86_64.zip
 
 - name: bin_gpdb4-3-11-3_centos
   type: s3
@@ -1688,6 +1696,30 @@ jobs:
     image: centos-gpdb-dev-5
     params:
       MAKE_TEST_COMMAND: uao_orca_both_regression
+      TEST_OS: centos
+
+- name: cs-bin-swap
+  plan:
+  - aggregate:
+    - get: gpdb_src
+      params: {submodules: none}
+      passed: [compile_gpdb_centos]
+    - get: sync_tools_gpdb
+      resource: sync_tools_gpdb_centos
+      passed: [compile_gpdb_centos]
+    - get: bin_gpdb
+      resource: bin_gpdb_centos
+      passed: [compile_gpdb_centos]
+      trigger: true
+    - get: copy_bin_from
+    - get: centos-gpdb-dev-5
+  - task: bin-swap
+    timeout: 3h
+    file: gpdb_src/ci/concourse/tinc_gpdb_binswap.yml
+    image: centos-gpdb-dev-5
+    params:
+      MAKE_TEST_COMMAND: bin-swap
+      BLDWRAP_POSTGRES_CONF_ADDONS: "fsync=off"
       TEST_OS: centos
 
 - name: regression_tests_gphdfs_centos
@@ -3388,34 +3420,6 @@ jobs:
     on_failure:
       <<: *dpm_debug_sleep
   - *dpm_ccp_destroy
-
-- name: pulse_cs-bin-swap
-  plan:
-  - get: pulse-api-image
-    tags: ["pulse"]
-  - get: nightly-trigger-pulse
-    tags: ["pulse"]
-    trigger: true
-  - aggregate: *rhel_artifacts_for_pulse_release-add-trigger
-  - task: trigger_pulse
-    tags: ["pulse"]
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/trigger_pulse.yml
-    params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: cs-bin-swap
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
-  - task: monitor_pulse
-    tags: ["pulse"]
-    attempts: 2
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/monitor_pulse.yml
-    params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: cs-bin-swap
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
 
 - name: pulse_QP_memory-accounting
   plan:

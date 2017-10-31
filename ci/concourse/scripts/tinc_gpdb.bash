@@ -28,6 +28,7 @@ function gen_env(){
 		PGDATABASE=${PGDATABASE:=gptest}
 		createdb ${PGDATABASE}
 		export PGDATABASE="${PGDATABASE}"
+		export GPDB_COPY_BIN_FROM="\${1}/copy_bin_from"
 		cd ../src/test/tinc
 		source tinc_env.sh
 		make ${MAKE_TEST_COMMAND}

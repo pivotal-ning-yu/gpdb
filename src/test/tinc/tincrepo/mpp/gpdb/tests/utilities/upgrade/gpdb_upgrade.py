@@ -86,9 +86,7 @@ class UpgradeTestCase(MPPTestCase):
         gpdb_version = ver_list.pop(0)
         logger.debug("Starting the install for GPDB version %s" % gpdb_version)
 
-        install_dir = self.download_binaries(gpdb_version,
-                                                 ver_list.pop(0),
-                                                 ver_list.pop(0), gpdb_download_link)
+        install_dir = self.copy_binaries(gpdb_version, ver_list.pop(0))
         logger.debug("GPDB Install Dir %s " % install_dir)
         old_gphome_path = self.unzip_download_and_install(install_dir)
 
@@ -190,62 +188,24 @@ class UpgradeTestCase(MPPTestCase):
                 os.chdir(save_path)
         return install_dir 
 
-    def download_binaries(self, version, build_num, build_type, download_link):
+    def copy_binaries(self, version, build_num):
         """
-        @param version: the version of the gpdb(4.1|4.2.3|4.2.4)
-        @type  version: String
-        @param build_num: the build number of gpdb(success|latest|healthy)
-        @type  build_num: String
-        @param build_type: the build type pf the gpdb(rc|sp|hf|debug|continuous)
-        @type  build_type: String
-        @param download_link: the download link for the zip file
-        @type  download_link: String
-        @return: the location of the gpdb folder
-        @type : String
+        Set environment variable GPDB_INSTALLER_DIR to location of Greenplum installer
+
+        Note: QAUtils is not needed at the moment so it is not considered here.
         """
-        logger.debug("Downloading binaries ...")
+
         cur_dir = self.upgrade_home
-        download_dir = "%s/download/%s/" % (cur_dir, version)
         target_dir = "%s/gpdb_%s/" % (cur_dir, version)
+        logger.debug("Copying binaries over to target directory: %s" % target_dir)
+
+        gpdb_filename = 'greenplum-db-%s-build-%s-%s.zip' % (version, build_num, self.bin_platform)
+        gpdb_installer_dir = os.environ.get('GPDB_COPY_BIN_FROM', '/tmp')
 
         if not os.path.isdir(target_dir):
             os.mkdir(target_dir)
 
-        if build_type == 'sp' or build_type == 'hf':
-            if download_link == None:
-                download_link = '%s/dist/GPDB/releases/service-packs/%s/greenplum-db-%s-build-%s-%s.zip' % \
-                                (self.rc_build_prod_link, version, version, build_num, self.bin_platform)
-
-            qa_utils_link = '%s/dist/GPDB/releases/service-packs/%s/qautils/QAUtils-%s.tar.gz' % \
-                            (self.rc_build_prod_link, version, self.bin_platform)
-        else:
-            if download_link == None:
-                download_link = '%s/internal-builds/greenplum-db/rc/%s-build-%s/greenplum-db-%s-build-%s-%s.zip' % \
-                                (self.rc_build_prod_link, version, build_num, version, build_num, self.bin_platform)
-
-            qa_utils_link = '%s/internal-builds/greenplum-db/rc/%s-build-%s/qautils/QAUtils-%s.tar.gz' % \
-                            (self.rc_build_prod_link, version, build_num, self.bin_platform)
-
-        wget_cmd = 'wget --directory-prefix=%s %s' % (download_dir, download_link)
-        qa_util_cmd = 'wget --directory-prefix=%s %s' % (download_dir, qa_utils_link)
-
-        download_path = '%s/%s' % (download_dir, os.path.basename(download_link))
-        if os.path.isfile(download_path):
-            logger.debug('Reusing downloaded binary from download directory: %s' % download_dir)
-        else:
-            logger.debug('Download link: %s' % wget_cmd)
-            cmd = Command(name='run wget', cmdStr=wget_cmd, ctxt=REMOTE, remoteHost='localhost')
-            cmd.run(validateAfter=True)
-        shutil.copy(download_path, target_dir)
-
-        qa_util_path = '%s/%s' % (download_dir, os.path.basename(qa_utils_link))
-        if os.path.isfile(qa_util_path):
-            logger.debug('Reusing downloaded QAUtils from download directory: %s' % download_dir)
-        else:
-            logger.debug('Download qautils link: %s' % qa_util_cmd)
-            cmd = Command(name='run wget', cmdStr=qa_util_cmd, ctxt=REMOTE, remoteHost='localhost')
-            cmd.run(validateAfter=True)
-        shutil.copy(qa_util_path, target_dir)
+        shutil.copy('%s/%s' % (gpdb_installer_dir, gpdb_filename), target_dir)
 
         return target_dir
 

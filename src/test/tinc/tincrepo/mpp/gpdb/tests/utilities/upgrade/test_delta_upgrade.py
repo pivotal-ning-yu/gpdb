@@ -38,7 +38,7 @@ class DeltaUpgradeTestCase(ScenarioTestCase, UpgradeTestCase):
     
     def setUp(self):
         self.upgrade_from = os.environ.get('UPGRADE_FROM', '4.2.6.0 2 sp')
-        self.binary_swap_from = os.environ.get('BINARY_SWAP_FROM', '4.3.2.1 2 rc')
+        self.binary_swap_from = os.environ.get('BINARY_SWAP_FROM', '4.3.4.1 2 sp')
         if 'binary_swap' in self.test_method:
             (self.old_gpdb, self.new_gpdb) = self.get_gpdbpath_info(self.binary_swap_from)
         else:
@@ -68,7 +68,7 @@ class DeltaUpgradeTestCase(ScenarioTestCase, UpgradeTestCase):
 
     def test_binary_swap_432_to_43(self):
         
-        self.binary_swap_from = '4.3.2.0 1 sp'
+        self.binary_swap_from = '4.3.4.1 2 sp'
         (self.old_gpdb, self.new_gpdb) = self.get_gpdbpath_info(self.binary_swap_from)
 
         test_case_list0 = []
@@ -84,13 +84,13 @@ class DeltaUpgradeTestCase(ScenarioTestCase, UpgradeTestCase):
         
         test_case_list0.append(('.gpdb_upgrade.UpgradeTestCase.validate_workload', ['test_delta'], {'db_port': self.db_port}))
 
-        test_case_list0.append(('mpp.gpdb.tests.utilities.upgrade.UpgradeHelperClass.check_gpfiledump', [self.old_gpdb, self.new_gpdb, self.db_port]))
+        test_case_list0.append(('mpp.gpdb.tests.utilities.upgrade.UpgradeHelperClass.check_gpfiledump', [self.old_gpdb, self.new_gpdb, self.db_port, True]))
         self.test_case_scenario.append(test_case_list0, serial=True)
 
     def test_binary_swap_43_to_432(self):
 
 
-        self.binary_swap_to = '4.3.2.0 1 sp'
+        self.binary_swap_to = '4.3.4.1 2 sp'
         (self.old_gpdb, self.new_gpdb) = self.get_gpdbpath_info(self.binary_swap_to)
 
         test_case_list0 = []
@@ -110,7 +110,7 @@ class DeltaUpgradeTestCase(ScenarioTestCase, UpgradeTestCase):
 
     def backup_432_restore_43(self, checksum=False):
 
-        self.binary_swap_from = '4.3.2.0 1 sp'
+        self.binary_swap_from = '4.3.4.1 2 sp'
         (self.old_gpdb, self.new_gpdb) = self.get_gpdbpath_info(self.binary_swap_from)
 
         test_case_list0 = []

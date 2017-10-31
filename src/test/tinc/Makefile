@@ -164,6 +164,12 @@ uao_orca_both_regression:
 upgrade:
 	$(TESTER) $(DISCOVER) -s tincrepo/mpp/gpdb/tests/utilities/upgrade
 
+bin-swap:
+	$(TESTER) mpp.gpdb.tests.utilities.upgrade.test_upgrade.UpgradeScenarioTestCase.test_upgrade_43x_binary_swap \
+	mpp.gpdb.tests.utilities.upgrade.test_delta_upgrade.DeltaUpgradeTestCase.test_binary_swap_432_to_43 \
+	mpp.gpdb.tests.utilities.upgrade.test_delta_upgrade.DeltaUpgradeTestCase.test_binary_swap_43_to_432 \
+	mpp.gpdb.tests.utilities.upgrade.test_delta_upgrade.DeltaUpgradeTestCase.test_backup_432_restore_43
+
 # cs-filerep-end-to-end
 # The following targets are pulled from:
 # http://pulse-cloud.gopivotal.com/admin/projects/cs-filerep-end-to-end

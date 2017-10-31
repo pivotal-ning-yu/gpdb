@@ -1,11 +1,30 @@
 \c dldb
 You are now connected to database "dldb" as user "sivand".
+set time zone PST8PDT;
+SET
 -- Select from CO table
 Select a1,a2,a3,a4,a5,a6,a7 from delta_t1 order by 1,2,3,4,5,6,7;
-ERROR:  Bad datum stream Dense block version.  Found 2 and expected 1 (datumstreamblock.c:xxx)
-DETAIL:  
-        Append-Only storage Small Content header: smallcontent_bytes_0_3 0x19004400, smallcontent_bytes_4_7 0x8800000, headerKind = 1, executorBlockKind = 1, rowCount = 17, usingChecksums = false, header checksum 0x0, block checksum 0x0, dataLength 68, compressedLength 0, overallBlockLen 80
-        Scan of Append-Only Column-Oriented relation 'delta_t1', column #1 'a1'. Append-Only segment file 'base/17088/17100.1', block header offset in file = 0, bufferCount 1
+    a1    |     a2     |      a3      |       a4        |             a5             |              a6               |     a7      
+----------+------------+--------------+-----------------+----------------------------+-------------------------------+-------------
+        1 | 2147483648 | 2014-07-29   | 14:22:23.77689  | 2014-07-30 14:22:58.356229 | 2014-07-30 14:22:23.776892-07 | delta_one
+        1 | 2147483648 | 2014-07-29   | 14:22:23.77689  | 2014-07-30 14:22:58.356229 | 2014-07-30 14:22:23.776892-07 | delta_one
+        1 | 2147483648 | 2014-07-29   | 14:22:23.77689  | 2014-07-30 14:22:58.356229 | 2014-07-30 14:22:23.776892-07 | delta_one
+        1 | 2147483648 | 2014-07-29   | 14:22:23.77689  | 2014-07-30 14:22:58.356229 | 2014-07-30 14:22:23.776892-07 | delta_one
+        1 | 2147483648 | 2014-07-29   | 14:22:23.77689  | 2014-07-30 14:22:58.356229 | 2014-07-30 14:22:23.776892-07 | delta_one
+        1 | 2147483648 | 2014-07-29   | 14:22:23.77689  | 2014-07-30 14:22:58.356229 | 2014-07-30 14:22:23.776892-07 | delta_one
+        1 | 2147483648 | 2014-07-29   | 14:22:23.77689  | 2014-07-30 14:22:58.356229 | 2014-07-30 14:22:23.776892-07 | delta_one
+       10 | 2147483660 | 2014-07-30   | 14:22:23.776892 | 2014-07-30 14:22:58.356249 | 2014-07-30 14:22:23.776899-07 | delta_one
+       10 | 2147483660 | 2014-07-30   | 14:22:23.776892 | 2014-07-30 14:22:58.356249 | 2014-07-30 14:22:23.776899-07 | delta_three
+       10 | 2147483660 | 2014-07-30   | 14:22:23.776892 | 2014-07-30 14:22:58.356249 | 2014-07-30 14:22:23.776899-07 | delta_three
+       10 | 2147483660 | 2014-07-30   | 14:22:23.776892 | 2014-07-30 14:22:58.356249 | 2014-07-30 14:22:23.776899-07 | delta_two
+       10 | 2147483660 | 2014-07-30   | 14:22:23.776892 | 2014-07-30 14:22:58.356249 | 2014-07-30 14:22:23.776899-07 | delta_two
+     1000 | 2147479999 | 2014-07-31   | 14:22:23.778899 | 2014-07-30 14:22:58.357229 | 2014-07-30 14:22:23.778899-07 | delta_one
+   800000 | 2147499999 | 2024-07-30   | 14:22:24.778899 | 2014-07-30 10:22:31        | 2014-07-30 14:22:24.776892-07 | delta_three
+   800000 | 2147499999 | 2024-07-30   | 14:22:24.778899 | 2014-07-30 10:22:31        | 2014-07-30 14:22:24.776892-07 | delta_three
+   800000 | 2147499999 | 2024-07-30   | 14:22:24.778899 | 2014-07-30 10:22:31        | 2014-07-30 14:22:24.776892-07 | delta_two
+ 80000000 | 2243322399 | 990834-07-30 | 14:24:23.776899 | 2014-07-30 14:26:23.776899 | 2014-07-30 14:24:23.776899-07 | delta_two
+(17 rows)
+
 -- Insert more rows that can be delta compressed
 Insert into delta_t1 values
     (1, 2147483648, '2014-07-29', '14:22:23.776890', '2014-07-30 14:22:58.356229', '2014-07-30 14:22:23.776892-07','delta_one'),
@@ -28,7 +47,12 @@ Insert into delta_t1 values
 INSERT 0 17
 -- Select both pre and post data together using aggregates
 Select avg(a1), a2 from delta_t1 group by a2 order by a2;
-ERROR:  Bad datum stream Dense block version.  Found 2 and expected 1 (datumstreamblock.c:xxx)
-DETAIL:  
-        Append-Only storage Small Content header: smallcontent_bytes_0_3 0x19004400, smallcontent_bytes_4_7 0x8800000, headerKind = 1, executorBlockKind = 1, rowCount = 17, usingChecksums = false, header checksum 0x0, block checksum 0x0, dataLength 68, compressedLength 0, overallBlockLen 80
-        Scan of Append-Only Column-Oriented relation 'delta_t1', column #1 'a1'. Append-Only segment file 'base/17088/17100.1', block header offset in file = 0, bufferCount 1
+   avg    |     a2     
+----------+------------
+     1000 | 2147479999
+        1 | 2147483648
+       10 | 2147483660
+   800000 | 2147499999
+ 80000000 | 2243322399
+(5 rows)
+

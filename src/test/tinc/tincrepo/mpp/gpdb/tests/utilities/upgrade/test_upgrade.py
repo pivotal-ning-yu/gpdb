@@ -32,7 +32,7 @@ class UpgradeScenarioTestCase(ScenarioTestCase, UpgradeTestCase):
 
     def setUp(self):
         self.upgrade_from = os.environ.get('UPGRADE_FROM', '4.2.6.0 2 sp')
-        self.binary_swap_from = os.environ.get('BINARY_SWAP_FROM', '4.3.2.1 2 rc')
+        self.binary_swap_from = os.environ.get('BINARY_SWAP_FROM', '4.3.4.1 2 sp')
         if 'binary_swap' in self.test_method:
             (self.old_gpdb, self.new_gpdb) = self.get_gpdbpath_info(self.binary_swap_from)
         else:
