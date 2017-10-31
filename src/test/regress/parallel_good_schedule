@@ -25,7 +25,7 @@ test: qp_query_execution
 test: without_oid namespace truncate sequence gpdiffcheck gptokencheck olap_setup subtransaction_limit
 # test 'partition' needs to serial since occasionally it picks up other tables in its view
 test: partition
-test: gp_hashagg gp_dqa exttab1 privileges analyze
+test: gp_hashagg gp_dqa exttab1 privileges analyze external_table external_table_create_privs
 test: column_compression rangefuncs_cdb temp
 
 test: custom_format gpcopy appendonly filter gpctas gpdist matrix gpdtm_plpgsql
