@@ -5302,3 +5302,27 @@ create table foo(
 alter table foo alter partition others split partition subothers at (10) into (partition b1, default partition);
 alter table foo alter partition others split partition subothers at (10) into (partition b1, partition subothers);
 alter table foo alter partition others split default partition at (10) into (partition b1, default partition);
+
+create table mpp14613_range(
+  a int, 
+  b int, 
+  c int,
+  d int 
+ )  
+  partition by range(b) 
+  subpartition by range( c )
+  subpartition template
+ ( 
+     default subpartition subothers,
+     start (1) end(7) every (3)
+ )   
+ ( 
+     default partition others, 
+     start(1) end(5) every(1)
+ );
+
+-- Check the partition and subpartition details
+select tablename,partitiontablename, partitionname from pg_partitions where tablename = 'mpp14613_range';
+
+-- SPLIT partition
+alter table mpp14613_range alter partition others split partition subothers at (10) into (partition b1, partition b2);
