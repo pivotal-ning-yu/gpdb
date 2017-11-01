@@ -142,7 +142,7 @@ psql:/path/sql_file:1: NOTICE:  Table doesn't have 'distributed by' clause, defa
 CREATE EXTERNAL TABLE
 CREATE TABLE tbl_wet_ctas AS SELECT * from tbl_wet_non_supported_sql;
 psql:/path/sql_file:1: NOTICE:  Table doesn't have 'distributed by' clause. Creating a NULL policy entry.
-psql:/path/sql_file:1: ERROR:  External scan error: It is not possible to read from a WRITABLE external table. Create the table as READABLE instead. (COptTasks.cpp:1731)
+psql:/path/sql_file:1: ERROR:  External scan error: cannot read from a WRITABLE external table Create the table as READABLE instead.
 --negative testing
 -- selecting from WET should error
     CREATE TABLE table_distributed_randomly (
@@ -164,7 +164,7 @@ CREATE EXTERNAL TABLE
 INSERT INTO tbl_wet_select SELECT * FROM table_distributed_randomly;
 INSERT 0 3
 select * from tbl_wet_select;
-psql:/path/sql_file:1: ERROR:  External scan error: It is not possible to read from a WRITABLE external table. Create the table as READABLE instead. (COptTasks.cpp:1731)
+psql:/path/sql_file:1: ERROR:  External scan error: cannot read from a WRITABLE external table Create the table as READABLE instead.
 -- Insert into WET doesnt match col's from the target table it should fail 
 CREATE WRITABLE EXTERNAL TABLE tbl_wet_insert (text_col text, bigint_col bigint, char_vary_col character varying(30)) LOCATION ('gpfdist://vraghavan.local:8080/output/wet_insert_dsp.tbl' ) FORMAT 'TEXT'  (DELIMITER '|' ) ;
 CREATE EXTERNAL TABLE
