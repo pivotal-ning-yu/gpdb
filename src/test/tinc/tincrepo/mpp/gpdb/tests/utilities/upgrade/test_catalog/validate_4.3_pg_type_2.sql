@@ -1,1 +1,0 @@
-select typname, typowner, typlen, typbyval, typtype, typisdefined, typdelim, typelem, typinput, typoutput, typreceive, typsend, typanalyze, typalign, typstorage, typnotnull, typbasetype, typtypmod, typndims, typdefaultbin, typdefault from pg_type where typnamespace <> (select oid from pg_namespace where nspname='gp_toolkit') and typname not like 'pg_toast_%' order by typname;

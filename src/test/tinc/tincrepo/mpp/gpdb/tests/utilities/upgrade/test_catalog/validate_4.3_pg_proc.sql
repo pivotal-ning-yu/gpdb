@@ -1,2 +1,0 @@
-select oid, proname, pronamespace, proowner, prolang, proisagg, prosecdef, proisstrict, proretset, provolatile, pronargs, prorettype, proiswin, proargtypes, proallargtypes, proargmodes, proargnames, prosrc, probin, proacl, prodataaccess from pg_proc where pronamespace<>(select oid from pg_namespace where nspname='gp_toolkit') and oid<10000  and pronamespace<10000 order by oid; -- Exclude gp_toolkit 
-

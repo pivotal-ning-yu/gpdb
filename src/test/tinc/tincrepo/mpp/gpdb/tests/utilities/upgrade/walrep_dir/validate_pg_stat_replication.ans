@@ -1,6 +1,0 @@
-select count(*) from pg_stat_replication;
- count 
--------
-     1
-(1 row)
-
