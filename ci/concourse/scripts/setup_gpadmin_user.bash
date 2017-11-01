@@ -56,9 +56,15 @@ setup_gpadmin_user_on_sles() {
 }
 
 setup_sshd() {
-  test -e /etc/ssh/ssh_host_key || ssh-keygen -f /etc/ssh/ssh_host_key -N '' -t rsa1
+  if [ ! "$TEST_OS" = 'ubuntu' ]; then
+    test -e /etc/ssh/ssh_host_key || ssh-keygen -f /etc/ssh/ssh_host_key -N '' -t rsa1
+  fi
   test -e /etc/ssh/ssh_host_rsa_key || ssh-keygen -f /etc/ssh/ssh_host_rsa_key -N '' -t rsa
   test -e /etc/ssh/ssh_host_dsa_key || ssh-keygen -f /etc/ssh/ssh_host_dsa_key -N '' -t dsa
+
+  # For Centos 7, disable looking for host key types that older Centos versions don't support.
+  sed -ri 's@^HostKey /etc/ssh/ssh_host_ecdsa_key$@#&@' /etc/ssh/sshd_config
+  sed -ri 's@^HostKey /etc/ssh/ssh_host_ed25519_key$@#&@' /etc/ssh/sshd_config
 
   # See https://gist.github.com/gasi/5691565
   sed -ri 's/UsePAM yes/UsePAM no/g' /etc/ssh/sshd_config
@@ -67,13 +73,12 @@ setup_sshd() {
 
   setup_ssh_for_user root
 
-  # Test that sshd can start
-  if [ -x /etc/init.d/sshd ]; then
-    /etc/init.d/sshd start
-  else
-    # Ubuntu uses ssh instead of sshd
-    /etc/init.d/ssh start
+  if [ "$TEST_OS" = 'ubuntu' ]; then
+    mkdir -p /var/run/sshd
+    chmod 0755 /var/run/sshd
   fi
+
+  /usr/sbin/sshd
 
   ssh_keyscan_for_user root
   ssh_keyscan_for_user gpadmin
