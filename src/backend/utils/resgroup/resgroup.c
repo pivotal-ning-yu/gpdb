@@ -1474,7 +1474,6 @@ groupAcquireSlot(ResGroupData *group)
 	return slot;
 }
 
-/* Update the total queued time of this group */
 /*
  * Wake up the backends in the wait queue when 'concurrency' is increased.
  * This function is called in the callback function of ALTER RESOURCE GROUP.
@@ -1869,6 +1868,7 @@ mempoolAutoReserve(ResGroupData *group, const ResGroupCaps *caps)
 	}
 }
 
+/* Update the total queued time of this group */
 static void
 addTotalQueueDuration(ResGroupData *group)
 {
