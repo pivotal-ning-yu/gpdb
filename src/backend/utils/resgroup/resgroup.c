@@ -1142,12 +1142,11 @@ selfDetachSlot(ResGroupData *group, ResGroupSlotData *slot)
 static void
 initSlot(ResGroupSlotData *slot, ResGroupCaps *caps, Oid groupId, int sessionId)
 {
+	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 	Assert(!slotIsInUse(slot));
 	Assert(caps != NULL);
 	Assert(groupId != InvalidOid);
 	Assert(sessionId != InvalidSessionId);
-
-	/* TODO: check for LWLock */
 
 	slot->groupId = groupId;
 	slot->sessionId = sessionId;
