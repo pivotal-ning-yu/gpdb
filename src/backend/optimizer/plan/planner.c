@@ -232,6 +232,8 @@ optimize_query(Query *parse, ParamListInfo boundParams)
 
 	log_optimizer(result, fUnexpectedFailure);
 
+	CHECK_FOR_INTERRUPTS();
+
 	return result;
 }
 #endif
