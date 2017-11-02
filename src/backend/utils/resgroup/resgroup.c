@@ -272,6 +272,9 @@ static void groupWaitQueuePush(ResGroupData *group, PGPROC *proc);
 static PGPROC * groupWaitQueuePop(ResGroupData *group);
 static void groupWaitQueueErase(ResGroupData *group, PGPROC *proc);
 static bool groupWaitQueueIsEmpty(const ResGroupData *group);
+#ifdef USE_ASSERT_CHECKING
+static bool groupWaitQueueFind(const ResGroupData *group, const PGPROC *proc);
+#endif/* USE_ASSERT_CHECKING */
 static bool shouldBypassQuery(const char* query_string);
 static void lockResGroupForDrop(ResGroupData *group);
 static void unlockResGroupForDrop(ResGroupData *group);
@@ -2399,6 +2402,9 @@ groupWaitCancel(void)
 	LWLockAcquire(ResGroupLock, LW_EXCLUSIVE);
 
 	group = self->group;
+
+	AssertImply(procIsWaiting(MyProc),
+				groupWaitQueueFind(group, MyProc));
 	Assert(!selfHasSlot());
 
 	if (procIsWaiting(MyProc))
@@ -2708,6 +2714,9 @@ selfUnsetSlot(void)
  * Check whether proc is in some resgroup's wait queue.
  *
  * The LWLock is not required.
+ *
+ * This function does not check whether proc is in a specific resgroup's
+ * wait queue. To make this check use groupWaitQueueFind().
  */
 static bool
 procIsWaiting(const PGPROC *proc)
@@ -2889,6 +2898,8 @@ groupWaitQueuePush(ResGroupData *group, PGPROC *proc)
 	SHMQueueInsertBefore(&headProc->links, &proc->links);
 
 	waitQueue->size++;
+
+	Assert(groupWaitQueueFind(group, proc));
 }
 
 /*
@@ -2908,7 +2919,7 @@ groupWaitQueuePop(ResGroupData *group)
 	waitQueue = &group->waitProcs;
 
 	proc = (PGPROC *) MAKE_PTR(waitQueue->links.next);
-	Assert(procIsWaiting(proc));
+	Assert(groupWaitQueueFind(group, proc));
 	Assert(proc->resSlot == NULL);
 
 	SHMQueueDelete(&proc->links);
@@ -2928,7 +2939,7 @@ groupWaitQueueErase(ResGroupData *group, PGPROC *proc)
 
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 	Assert(!groupWaitQueueIsEmpty(group));
-	Assert(procIsWaiting(proc));
+	Assert(groupWaitQueueFind(group, proc));
 	Assert(proc->resSlot == NULL);
 
 	groupWaitQueueValidate(group);
@@ -2956,6 +2967,46 @@ groupWaitQueueIsEmpty(const ResGroupData *group)
 
 	return waitQueue->size == 0;
 }
+
+#ifdef USE_ASSERT_CHECKING
+/*
+ * Find proc in group's wait queue.
+ *
+ * Return true if found or false if not found.
+ *
+ * This functions is expensive so should only be used in debugging logic,
+ * in most cases procIsWaiting() shall be used.
+ */
+static bool
+groupWaitQueueFind(const ResGroupData *group, const PGPROC *proc)
+{
+	const PROC_QUEUE	*waitQueue;
+	const SHM_QUEUE		*head;
+	const SHM_QUEUE		*target;
+	const SHM_QUEUE		*iter;
+
+	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
+
+	groupWaitQueueValidate(group);
+
+	waitQueue = &group->waitProcs;
+	head = &waitQueue->links;
+	target = &proc->links;
+
+	for (iter = (SHM_QUEUE *) MAKE_PTR(head->next);
+		 iter != head;
+		 iter = (SHM_QUEUE *) MAKE_PTR(iter->next))
+	{
+		if (iter == target)
+		{
+			Assert(procIsWaiting(proc));
+			return true;
+		}
+	}
+
+	return false;
+}
+#endif/* USE_ASSERT_CHECKING */
 
 /*
  * Parse the query and check if this query should
