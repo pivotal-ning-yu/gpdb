@@ -206,7 +206,7 @@ static bool localResWaiting = false;
 
 /* static functions */
 
-static bool groupApplyMemCaps(ResGroupData *group, const ResGroupCaps *caps);
+static bool groupApplyMemCaps(ResGroupData *group);
 static int32 mempoolReserve(Oid groupId, int32 chunks);
 static void mempoolRelease(Oid groupId, int32 chunks);
 static void groupRebalanceQuota(ResGroupData *group,
@@ -221,8 +221,8 @@ static int32 slotGetMemQuotaExpected(const ResGroupCaps *caps);
 static int32 slotGetMemSpill(const ResGroupCaps *caps);
 static void wakeupSlots(ResGroupData *group, bool grant);
 static void wakeupGroups(Oid skipGroupId);
-static bool mempoolAutoRelease(ResGroupData *group, ResGroupSlotData *slot);
-static void mempoolAutoReserve(ResGroupData *group, const ResGroupCaps *caps);
+static int32 mempoolAutoRelease(ResGroupData *group);
+static int32 mempoolAutoReserve(ResGroupData *group, const ResGroupCaps *caps);
 static ResGroupData *groupHashNew(Oid groupId);
 static ResGroupData *groupHashFind(Oid groupId, bool raise);
 static void groupHashRemove(Oid groupId);
@@ -660,7 +660,7 @@ ResGroupAlterOnCommit(Oid groupId,
 		}
 		else if (limittype != RESGROUP_LIMIT_TYPE_MEMORY_SPILL_RATIO)
 		{
-			shouldWakeUp = groupApplyMemCaps(group, caps);
+			shouldWakeUp = groupApplyMemCaps(group);
 
 			wakeupSlots(group, true);
 			if (shouldWakeUp)
@@ -1280,7 +1280,7 @@ groupGetSlot(ResGroupData *group)
 static void
 groupPutSlot(ResGroupData *group, ResGroupSlotData *slot)
 {
-	bool				shouldWakeUp;
+	int32		released;
 
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 	Assert(Gp_role == GP_ROLE_DISPATCH);
@@ -1290,13 +1290,14 @@ groupPutSlot(ResGroupData *group, ResGroupSlotData *slot)
 	/* Return the memory quota granted to this slot */
 	groupReleaseMemQuota(group, slot);
 
-	shouldWakeUp = mempoolAutoRelease(group, slot);
-	if (shouldWakeUp)
-		wakeupGroups(group->groupId);
-
 	/* Return the slot back to free list */
 	slotpoolFreeSlot(slot);
 	group->nRunning--;
+
+	/* And finally release the overused memory quota */
+	released = mempoolAutoRelease(group);
+	if (released > 0)
+		wakeupGroups(group->groupId);
 }
 
 /*
@@ -1481,59 +1482,18 @@ groupAcquireSlot(ResGroupData *group)
  * Return TRUE if any memory quota or shared quota is returned to MEM POOL.
  */
 static bool
-groupApplyMemCaps(ResGroupData *group, const ResGroupCaps *caps)
+groupApplyMemCaps(ResGroupData *group)
 {
-	int32 memQuotaAvailable;
-	int32 memQuotaNeeded;
-	int32 memQuotaToFree;
-	int32 memSharedNeeded;
-	int32 memSharedToFree;
+	int32				reserved;
+	int32				released;
+	const ResGroupCaps	*caps = &group->caps;
 
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 
 	group->memExpected = groupGetMemExpected(caps);
 
-	/* memQuotaAvailable is the total free non-shared quota */
-	memQuotaAvailable = group->memQuotaGranted - group->memQuotaUsed;
-
-	if (caps->concurrency > group->nRunning)
-	{
-		/*
-		 * memQuotaNeeded is the total non-shared quota needed
-		 * by all the free slots
-		 */
-		memQuotaNeeded = slotGetMemQuotaExpected(caps) *
-			(caps->concurrency - group->nRunning);
-
-		/*
-		 * if memQuotaToFree > 0 then we can safely release these
-		 * non-shared quota and still have enough quota to run
-		 * all the free slots.
-		 */
-		memQuotaToFree = memQuotaAvailable - memQuotaNeeded;
-	}
-	else
-	{
-		memQuotaToFree = Min(memQuotaAvailable,
-							  group->memQuotaGranted - groupGetMemQuotaExpected(caps));
-	}
-
-	/* TODO: optimize the free logic */
-	if (memQuotaToFree > 0)
-	{
-		mempoolRelease(group->groupId, memQuotaToFree);
-		group->memQuotaGranted -= memQuotaToFree;
-	}
-
-	memSharedNeeded = Max(group->memSharedUsage,
-						  groupGetMemSharedExpected(caps));
-	memSharedToFree = group->memSharedGranted - memSharedNeeded;
-
-	if (memSharedToFree > 0)
-	{
-		mempoolRelease(group->groupId, memSharedToFree);
-		group->memSharedGranted -= memSharedToFree;
-	}
+	released = mempoolAutoRelease(group);
+	Assert(released >= 0);
 
 	/*
 	 * suppose rg1 has memory_limit=10, memory_shared_quota=40,
@@ -1547,9 +1507,10 @@ groupApplyMemCaps(ResGroupData *group, const ResGroupCaps *caps)
 	 *
 	 * so we should try to acquire the new quota immediately.
 	 */
-	mempoolAutoReserve(group, caps);
+	reserved = mempoolAutoReserve(group, caps);
+	Assert(reserved >= 0);
 
-	return (memQuotaToFree > 0 || memSharedToFree > 0);
+	return released > reserved;
 }
 
 /*
@@ -1799,73 +1760,95 @@ wakeupGroups(Oid skipGroupId)
 }
 
 /*
- * Release overused memory quota to MEM POOL when a slot gets freed and
- * the caps has been changed, the released memory quota includes:
- * - the slot overused quota
- * - the group overused shared quota
+ * Release overused memory quota to MEM POOL.
+ *
+ * Both overused shared and non-shared memory quota will be released.
+ *
+ * If there was enough non-shared memory quota for free slots,
+ * then after this call there will still be enough non-shared memory quota.
+ *
+ * If this function is called after a slot is released, make sure that
+ * group->nRunning is updated before this function.
+ *
+ * Return the total released quota in chunks, can be 0.
  */
-static bool 
-mempoolAutoRelease(ResGroupData *group, ResGroupSlotData *slot)
+static int32
+mempoolAutoRelease(ResGroupData *group)
 {
-	int32		memQuotaNeedFree;
-	int32		memSharedNeeded;
+	int32		memQuotaAvailable;
+	int32		memQuotaNeeded;
 	int32		memQuotaToFree;
+	int32		memSharedNeeded;
 	int32		memSharedToFree;
-	int32       memQuotaExpected;
+	int32		nfreeSlots;
 	ResGroupCaps *caps = &group->caps;
 
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 
-	/* Return the over used memory quota to sys */
-	memQuotaNeedFree = group->memQuotaGranted - groupGetMemQuotaExpected(caps);
-	memQuotaToFree = memQuotaNeedFree > 0 ? Min(memQuotaNeedFree, slot->memQuota) : 0;
+	/* memQuotaAvailable is the total free non-shared quota */
+	memQuotaAvailable = group->memQuotaGranted - group->memQuotaUsed;
 
-	if (caps->concurrency > 0)
-	{
-		/*
-		 * Under this situation, when this slot is released,
-		 * others will not be blocked by concurrency limit if
-		 * they come to acquire this slot. So we could decide
-		 * not to give all the memory to MEM POOL even if we could.
-		 */
-		memQuotaExpected = slotGetMemQuotaExpected(caps);
-		if (memQuotaToFree > memQuotaExpected)
-			memQuotaToFree -= memQuotaExpected;
-	}
+	/* nfreeSlots is the number of free slots */
+	nfreeSlots = caps->concurrency - group->nRunning;
+
+	/*
+	 * memQuotaNeeded is the total non-shared quota needed
+	 * by all the free slots
+	 */
+	memQuotaNeeded =
+		nfreeSlots > 0 ? slotGetMemQuotaExpected(caps) * nfreeSlots : 0;
+
+	/*
+	 * if memQuotaToFree > 0 then we can safely release these
+	 * non-shared quota and still have enough quota to run
+	 * all the free slots.
+	 */
+	memQuotaToFree = memQuotaAvailable - memQuotaNeeded;
+
+	/* but make sure we do not over free the non-shared quota */
+	memQuotaToFree = Min(memQuotaToFree,
+						 group->memQuotaGranted - groupGetMemQuotaExpected(caps));
 
 	if (memQuotaToFree > 0)
 	{
+		/* release the over used non-shared quota to MEM POOL */
 		mempoolRelease(group->groupId, memQuotaToFree); 
 		group->memQuotaGranted -= memQuotaToFree; 
 	}
 
-	/* Return the over used shared quota to sys */
 	memSharedNeeded = Max(group->memSharedUsage,
 						  groupGetMemSharedExpected(caps));
 	memSharedToFree = group->memSharedGranted - memSharedNeeded;
 	if (memSharedToFree > 0)
 	{
+		/* release the over used shared quota to MEM POOL */
 		mempoolRelease(group->groupId, memSharedToFree);
 		group->memSharedGranted -= memSharedToFree;
 	}
-	return (memQuotaToFree > 0 || memSharedToFree > 0);
+
+	return Max(memQuotaToFree, 0) + Max(memSharedToFree, 0);
 }
 
 /*
  * Try to acquire enough quota & shared quota for current group from MEM POOL,
  * the actual acquired quota depends on system loads.
+ *
+ * Return the reserved quota in chunks, can be 0.
  */
-static void
+static int32
 mempoolAutoReserve(ResGroupData *group, const ResGroupCaps *caps)
 {
 	int32 currentMemStocks = group->memSharedGranted + group->memQuotaGranted;
 	int32 neededMemStocks = group->memExpected - currentMemStocks;
+	int32 chunks = 0;
 
 	if (neededMemStocks > 0)
 	{
-		int32 chunks = mempoolReserve(group->groupId, neededMemStocks);
+		chunks = mempoolReserve(group->groupId, neededMemStocks);
 		groupRebalanceQuota(group, chunks, caps);
 	}
+
+	return chunks;
 }
 
 /* Update the total queued time of this group */
@@ -2112,17 +2095,17 @@ UnassignResGroup(void)
 	{
 		Assert(Gp_role == GP_ROLE_EXECUTE);
 
-		/* Release the slot memory */
-		mempoolAutoRelease(group, slot);
-
 		/* Release this slot back to slot pool */
 		slotpoolFreeSlot(slot);
 
 		/* Reset resource group slot for current session */
 		sessionResetSlot();
 
-		/* And finally decrease nRunning */
+		/* Decrease nRunning */
 		group->nRunning--;
+
+		/* And finally release the overused memory quota */
+		mempoolAutoRelease(group);
 	}
 
 	/* Cleanup group */
