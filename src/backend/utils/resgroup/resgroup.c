@@ -264,7 +264,6 @@ static void selfSetGroup(ResGroupData *group);
 static void selfUnsetGroup(void);
 static void selfSetSlot(ResGroupSlotData *slot);
 static void selfUnsetSlot(void);
-static bool procIsInWaitQueue(const PGPROC *proc);
 static bool procIsWaiting(const PGPROC *proc);
 static void procWakeup(PGPROC *proc);
 static int slotGetId(const ResGroupSlotData *slot);
@@ -2402,7 +2401,7 @@ groupWaitCancel(void)
 	group = self->group;
 	Assert(!selfHasSlot());
 
-	if (procIsInWaitQueue(MyProc))
+	if (procIsWaiting(MyProc))
 	{
 		/*
 		 * Still waiting on the queue when get interrupted, remove
@@ -2410,7 +2409,6 @@ groupWaitCancel(void)
 		 */
 
 		Assert(!groupWaitQueueIsEmpty(group));
-		Assert(procIsWaiting(MyProc));
 		Assert(selfHasGroup());
 
 		groupWaitQueueErase(group, MyProc);
@@ -2419,7 +2417,7 @@ groupWaitCancel(void)
 	{
 		/* Woken up by a slot holder */
 
-		Assert(!procIsInWaitQueue(MyProc));
+		Assert(!procIsWaiting(MyProc));
 		Assert(selfIsAssignedValidGroup());
 
 		/* First complete the slot's transfer from MyProc to self */
@@ -2445,7 +2443,7 @@ groupWaitCancel(void)
 		 * already been removed by here.
 		 */
 
-		Assert(!procIsInWaitQueue(MyProc));
+		Assert(!procIsWaiting(MyProc));
 	}
 
 	if (selfIsAssignedValidGroup())
@@ -2707,37 +2705,25 @@ selfUnsetSlot(void)
 }
 
 /*
- * Check whether proc is in the resgroup wait queue.
+ * Check whether proc is in some resgroup's wait queue.
  *
- * Unlike procIsWaiting() this function requires the LWLock.
- */
-static bool
-procIsInWaitQueue(const PGPROC *proc)
-{
-	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
-
-	AssertImply(proc->links.next != INVALID_OFFSET,
-				proc->resWaiting != false);
-
-	/* TODO: verify that proc is really in the queue in debug mode */
-
-	return proc->links.next != INVALID_OFFSET;
-}
-
-/*
- * Check whether proc is waiting.
- *
- * Unlike procIsInWaitQueue() this function doesn't require the LWLock.
- *
- * FIXME: when asserts are enabled this function is not atomic.
+ * The LWLock is not required.
  */
 static bool
 procIsWaiting(const PGPROC *proc)
 {
-	AssertImply(proc->links.next != INVALID_OFFSET,
-				proc->resWaiting != false);
-
-	return proc->resWaiting;
+	/*
+	 * The typical asm instructions fow below C operation can be like this:
+	 * ( gcc 4.8.5-11, x86_64-redhat-linux, -O0 )
+	 *
+     *     mov    -0x8(%rbp),%rax           ; load proc
+     *     mov    0x8(%rax),%rax            ; load proc->links.next
+     *     cmp    $0xffffffffffffffff,%rax  ; compare with INVALID_OFFSET
+     *     setne  %al                       ; store the result
+	 *
+	 * The operation is atomic, so a lock is not required here.
+	 */
+	return proc->links.next != INVALID_OFFSET;
 }
 
 /*
@@ -2892,8 +2878,7 @@ groupWaitQueuePush(ResGroupData *group, PGPROC *proc)
 	PGPROC				*headProc;
 
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
-	Assert(!procIsInWaitQueue(proc));
-	Assert(proc->resWaiting == false);
+	Assert(!procIsWaiting(proc));
 	Assert(proc->resSlot == NULL);
 
 	groupWaitQueueValidate(group);
@@ -2902,7 +2887,6 @@ groupWaitQueuePush(ResGroupData *group, PGPROC *proc)
 	headProc = (PGPROC *) &waitQueue->links;
 
 	SHMQueueInsertBefore(&headProc->links, &proc->links);
-	proc->resWaiting = true;
 
 	waitQueue->size++;
 }
@@ -2924,14 +2908,10 @@ groupWaitQueuePop(ResGroupData *group)
 	waitQueue = &group->waitProcs;
 
 	proc = (PGPROC *) MAKE_PTR(waitQueue->links.next);
-	Assert(procIsInWaitQueue(proc));
-	Assert(proc->resWaiting != false);
+	Assert(procIsWaiting(proc));
 	Assert(proc->resSlot == NULL);
 
 	SHMQueueDelete(&proc->links);
-	proc->resWaiting = false;
-
-	Assert(!procIsInWaitQueue(proc));
 
 	waitQueue->size--;
 
@@ -2948,8 +2928,7 @@ groupWaitQueueErase(ResGroupData *group, PGPROC *proc)
 
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 	Assert(!groupWaitQueueIsEmpty(group));
-	Assert(procIsInWaitQueue(proc));
-	Assert(proc->resWaiting != false);
+	Assert(procIsWaiting(proc));
 	Assert(proc->resSlot == NULL);
 
 	groupWaitQueueValidate(group);
@@ -2957,9 +2936,6 @@ groupWaitQueueErase(ResGroupData *group, PGPROC *proc)
 	waitQueue = &group->waitProcs;
 
 	SHMQueueDelete(&proc->links);
-	proc->resWaiting = false;
-
-	Assert(!procIsInWaitQueue(proc));
 
 	waitQueue->size--;
 }
@@ -3107,7 +3083,7 @@ resgroupDumpWaitQueue(StringInfo str, PROC_QUEUE *queue)
 	{
 		appendStringInfo(str, "{");
 		appendStringInfo(str, "\"pid\":%d,", proc->pid);
-		appendStringInfo(str, "\"resWaiting\":%d,", proc->resWaiting);
+		appendStringInfo(str, "\"resWaiting\":%d,", procIsWaiting(proc));
 		appendStringInfo(str, "\"resSlot\":%d", slotGetId(proc->resSlot));
 		appendStringInfo(str, "}");
 		proc = (PGPROC *)SHMQueueNext(&queue->links,
