@@ -69,7 +69,7 @@ groups:
   - QP_optimizer-functional
   - pulse_CCLE
   - pulse_CCLE-sles11sp4
-  - pulse_mpp-interconnect
+  - mpp-interconnect
   - pulse_mpp-interconnect-sles
   - compile_gpdb_windows_ccl
   - TINC_pgcrypto
@@ -99,7 +99,7 @@ groups:
   - TINC_pgcrypto
   - gpdb_rc_packaging_centos
   - gpdb_src_packaging
-  - pulse_mpp-interconnect
+  - mpp-interconnect
 - name: SLES
   jobs:
   - compile_gpdb_sles
@@ -115,7 +115,6 @@ groups:
   - pulse_QP_memory-accounting
   - pulse_CCLE
   - pulse_CCLE-sles11sp4
-  - pulse_mpp-interconnect
   - pulse_mpp-interconnect-sles
 - name: CS
   jobs:
@@ -3548,33 +3547,23 @@ jobs:
       PULSE_USERNAME: {{pulse_username}}
       PULSE_PASSWORD: {{pulse_password}}
 
-- name: pulse_mpp-interconnect
+- name: mpp-interconnect
   plan:
-  - get: pulse-api-image
-    tags: ["pulse"]
-  - get: nightly-trigger-pulse
-    tags: ["pulse"]
-    trigger: true
-  - aggregate: *rhel_artifacts_for_pulse_release-add-trigger
-  - task: trigger_pulse
-    tags: ["pulse"]
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/trigger_pulse.yml
+  - aggregate: *ccp_aggregate_gets
+  - put: terraform
     params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: mpp-interconnect
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
-  - task: monitor_pulse
-    tags: ["pulse"]
-    attempts: 2
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/monitor_pulse.yml
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+  - task: gen_cluster
+    <<: *ccp_gen_cluster_params
+  - task: run_tests
+    <<: *ccp_run_tinc_tests_params
     params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: mpp-interconnect
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
+      TINC_TARGET: mpp_interconnect
+      PRE_TEST_SCRIPT_USER: centos
+      PRE_TEST_SCRIPT: sudo bash -c 'yum -y install "kernel-devel-uname-r == $(uname -r)"'
+  - *ccp_destroy
 
 - name: pulse_mpp-interconnect-sles
   plan:
