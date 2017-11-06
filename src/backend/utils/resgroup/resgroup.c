@@ -272,9 +272,6 @@ static void groupWaitQueuePush(ResGroupData *group, PGPROC *proc);
 static PGPROC * groupWaitQueuePop(ResGroupData *group);
 static void groupWaitQueueErase(ResGroupData *group, PGPROC *proc);
 static bool groupWaitQueueIsEmpty(const ResGroupData *group);
-#ifdef USE_ASSERT_CHECKING
-static bool groupWaitQueueFind(const ResGroupData *group, const PGPROC *proc);
-#endif/* USE_ASSERT_CHECKING */
 static bool shouldBypassQuery(const char* query_string);
 static void lockResGroupForDrop(ResGroupData *group);
 static void unlockResGroupForDrop(ResGroupData *group);
@@ -296,6 +293,7 @@ static void slotValidate(const ResGroupSlotData *slot);
 static bool slotIsInFreelist(const ResGroupSlotData *slot);
 static bool slotIsInUse(const ResGroupSlotData *slot);
 static bool groupIsNotDropped(const ResGroupData *group);
+static bool groupWaitQueueFind(const ResGroupData *group, const PGPROC *proc);
 #endif /* USE_ASSERT_CHECKING */
 
 /*
