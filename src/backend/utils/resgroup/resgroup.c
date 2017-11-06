@@ -3156,7 +3156,8 @@ resgroupDumpWaitQueue(StringInfo str, PROC_QUEUE *queue)
 	{
 		appendStringInfo(str, "{");
 		appendStringInfo(str, "\"pid\":%d,", proc->pid);
-		appendStringInfo(str, "\"resWaiting\":%d,", procIsWaiting(proc));
+		appendStringInfo(str, "\"resWaiting\":%s,",
+						 procIsWaiting(proc) ? "true" : "false");
 		appendStringInfo(str, "\"resSlot\":%d", slotGetId(proc->resSlot));
 		appendStringInfo(str, "}");
 		proc = (PGPROC *)SHMQueueNext(&queue->links,
