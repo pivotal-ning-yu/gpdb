@@ -1771,6 +1771,46 @@ wakeupGroups(Oid skipGroupId)
  * group->nRunning is updated before this function.
  *
  * Return the total released quota in chunks, can be 0.
+ *
+ * XXX: Some examples.
+ *
+ * Suppose concurrency is 10, running is 4,
+ * memory limit is 0.5, memory shared is 0.4
+ *
+ * assume currentSharedUsage is 0
+ *
+ * currentSharedStocks is 0.5*0.4 = 0.2
+ * memQuotaGranted is 0.5*0.6 = 0.3
+ * memStocksInuse is 0.5*0.4/10*6 = 0.12
+ * memStocksFree is 0.3 - 0.12 = 0.18
+ *
+ * * memLimit: 0.5 -> 0.4
+ *   for memQuotaGranted we could free 0.18 - 0.4*0.6/10*6 = 0.18-0.144 = 0.036
+ *       new memQuotaGranted is 0.3-0.036 = 0.264
+ *       new memStocksFree is 0.18-0.036 = 0.144
+ *   for memShared we could free currentSharedStocks - Max(currentSharedUsage, 0.4*0.4)=0.04
+ *       new currentSharedStocks is 0.2-0.04 = 0.16
+ *
+ * * concurrency: 10 -> 20
+ *   for memQuotaGranted we could free 0.144 - 0.4*0.6/20*16 = 0.144 - 0.24*0.8 = -0.048
+ *   for memShared we could free currentSharedStocks - Max(currentSharedUsage, 0.4*0.4)=0.00
+ *
+ * * memShared: 0.4 -> 0.2
+ *   for memQuotaGranted we could free 0.144 - 0.4*0.8/20*16 = 0.144 - 0.256 = -0.122
+ *   for memShared we could free currentSharedUsage - Max(currentSharedUsage, 0.4*0.2)=0.08
+ *       new currentSharedStocks is 0.16-0.08 = 0.08
+ *
+ * * memShared: 0.2 -> 0.6
+ *   for memQuotaGranted we could free 0.144 - 0.4*0.4/20*16 = 0.144 - 0.128 = 0.016
+ *       new memQuotaGranted is 0.264 - 0.016 = 0.248
+ *       new memStocksFree is 0.144 - 0.016 = 0.128
+ *   for memShared we could free currentSharedUsage - Max(currentSharedUsage, 0.4*0.6) = -0.18
+ *
+ * * memLimit: 0.4 -> 0.2
+ *   for memQuotaGranted we could free 0.128 - 0.2*0.4/20*16 = 0.128 - 0.064 = 0.064
+ *       new memQuotaGranted is 0.248-0.064 = 0.184
+ *       new memStocksFree is 0.128 - 0.064 = 0.064
+ *   for memShared we could free currentSharedStocks - Max(currentSharedUsage, 0.2*0.6) = -0.04
  */
 static int32
 mempoolAutoRelease(ResGroupData *group)
