@@ -1296,6 +1296,11 @@ groupPutSlot(ResGroupData *group, ResGroupSlotData *slot)
 	released = mempoolAutoRelease(group);
 	if (released > 0)
 		wakeupGroups(group->groupId);
+
+	/*
+	 * Once we have waken up other groups then the slot we just released
+	 * might be reused, so we should not touch it anymore since now.
+	 */
 }
 
 /*
@@ -1927,7 +1932,6 @@ groupReleaseSlot(ResGroupData *group, ResGroupSlotData *slot)
 	 * Maybe zero, maybe one, maybe more, depends on how the resgroup's
 	 * configuration were changed during our execution.
 	 */
-	Assert(!slotIsInUse(slot));
 	wakeupSlots(group, true);
 }
 
