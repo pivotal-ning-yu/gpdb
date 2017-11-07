@@ -23,7 +23,6 @@ groups:
   - cs_pg_twophase_41_49
   - cs_pg_twophase_switch_01_12
   - cs_pg_twophase_switch_13_24
-  - cs_pg_twophase_switch_25_33
   - cs_crash_recovery_schema_topology
   - cs_crash_recovery_04_10
   - cs_crash_recovery_11_20
@@ -131,7 +130,6 @@ groups:
   - cs_pg_twophase_41_49
   - cs_pg_twophase_switch_01_12
   - cs_pg_twophase_switch_13_24
-  - cs_pg_twophase_switch_25_33
   - cs_crash_recovery_schema_topology
   - cs_crash_recovery_04_10
   - cs_crash_recovery_11_20
@@ -2086,24 +2084,6 @@ jobs:
     <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: test_switch_13_24
-  - *ccp_destroy
-
-- name: cs_pg_twophase_switch_25_33
-  plan:
-  - aggregate: *ccp_aggregate_gets
-  - put: terraform
-    params:
-      <<: *ccp_default_params
-      vars:
-        <<: *ccp_default_vars
-        <<: *ccp_terraform_bigger_vars
-        number_of_nodes: 1
-  - task: gen_cluster
-    <<: *ccp_gen_cluster_params
-  - task: run_tests
-    <<: *ccp_run_tinc_tests_params
-    params:
-      TINC_TARGET: test_switch_25_33
   - *ccp_destroy
 
 - name: cs_crash_recovery_schema_topology
