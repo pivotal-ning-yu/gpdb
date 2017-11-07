@@ -1543,7 +1543,7 @@ mempoolRelease(Oid groupId, int32 chunks)
 					   chunks, pResGroupControl->freeChunks, groupId);
 
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
-	Assert(chunks > 0);
+	Assert(chunks >= 0);
 
 	pResGroupControl->freeChunks += chunks;
 
@@ -1811,7 +1811,6 @@ wakeupGroups(Oid skipGroupId)
 static int32
 mempoolAutoRelease(ResGroupData *group)
 {
-	int32		memQuotaAvailable;
 	int32		memQuotaNeeded;
 	int32		memQuotaToFree;
 	int32		memSharedNeeded;
@@ -1821,30 +1820,17 @@ mempoolAutoRelease(ResGroupData *group)
 
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 
-	/* memQuotaAvailable is the total free non-shared quota */
-	memQuotaAvailable = group->memQuotaGranted - group->memQuotaUsed;
-
 	/* nfreeSlots is the number of free slots */
 	nfreeSlots = caps->concurrency - group->nRunning;
 
-	/*
-	 * memQuotaNeeded is the total non-shared quota needed
-	 * by all the free slots
-	 */
-	memQuotaNeeded =
+	/* the in use non-shared quota must be reserved */
+	memQuotaNeeded = group->memQuotaUsed;
+
+	/* also should reserve enough non-shared quota for free slots */
+	memQuotaNeeded +=
 		nfreeSlots > 0 ? slotGetMemQuotaExpected(caps) * nfreeSlots : 0;
 
-	/*
-	 * if memQuotaToFree > 0 then we can safely release these
-	 * non-shared quota and still have enough quota to run
-	 * all the free slots.
-	 */
-	memQuotaToFree = memQuotaAvailable - memQuotaNeeded;
-
-	/* but make sure we do not over free the non-shared quota */
-	memQuotaToFree = Min(memQuotaToFree,
-						 group->memQuotaGranted - groupGetMemQuotaExpected(caps));
-
+	memQuotaToFree = group->memQuotaGranted - memQuotaNeeded;
 	if (memQuotaToFree > 0)
 	{
 		/* release the over used non-shared quota to MEM POOL */
