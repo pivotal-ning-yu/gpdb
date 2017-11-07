@@ -293,7 +293,7 @@ static void slotValidate(const ResGroupSlotData *slot);
 static bool slotIsInFreelist(const ResGroupSlotData *slot);
 static bool slotIsInUse(const ResGroupSlotData *slot);
 static bool groupIsNotDropped(const ResGroupData *group);
-static bool groupWaitQueueFind(const ResGroupData *group, const PGPROC *proc);
+static bool groupWaitQueueFind(ResGroupData *group, const PGPROC *proc);
 #endif /* USE_ASSERT_CHECKING */
 
 /*
@@ -3002,12 +3002,12 @@ groupWaitQueueIsEmpty(const ResGroupData *group)
  * in most cases procIsWaiting() shall be used.
  */
 static bool
-groupWaitQueueFind(const ResGroupData *group, const PGPROC *proc)
+groupWaitQueueFind(ResGroupData *group, const PGPROC *proc)
 {
-	const PROC_QUEUE	*waitQueue;
-	const SHM_QUEUE		*head;
-	const SHM_QUEUE		*target;
-	const SHM_QUEUE		*iter;
+	PROC_QUEUE			*waitQueue;
+	SHM_QUEUE			*head;
+	PGPROC				*iter;
+	Size				offset;
 
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 
@@ -3015,13 +3015,12 @@ groupWaitQueueFind(const ResGroupData *group, const PGPROC *proc)
 
 	waitQueue = &group->waitProcs;
 	head = &waitQueue->links;
-	target = &proc->links;
+	offset = offsetof(PGPROC, links);
 
-	for (iter = (SHM_QUEUE *) MAKE_PTR(head->next);
-		 iter != head;
-		 iter = (SHM_QUEUE *) MAKE_PTR(iter->next))
+	for (iter = (PGPROC *) SHMQueueNext(head, head, offset); iter;
+		 iter = (PGPROC *) SHMQueueNext(head, &iter->links, offset))
 	{
-		if (iter == target)
+		if (iter == proc)
 		{
 			Assert(procIsWaiting(proc));
 			return true;
