@@ -755,14 +755,7 @@ ResGroupGetStat(Oid groupId, ResGroupStatType type)
 static char*
 groupDumpMemUsage(ResGroupData *group)
 {
-	int32 slotUsage;
 	StringInfoData memUsage;
-
-	if (Gp_role == GP_ROLE_DISPATCH)
-		slotUsage = group->memQuotaUsed;
-	else
-		/* slotUsage has no meaning in QE */
-		slotUsage = -1;	
 
 	initStringInfo(&memUsage);
 
@@ -773,7 +766,7 @@ groupDumpMemUsage(ResGroupData *group)
 					 VmemTracker_ConvertVmemChunksToMB(
 						group->memQuotaGranted + group->memSharedGranted - group->memUsage));
 	appendStringInfo(&memUsage, "\"quota_used\":%d, ",
-					 VmemTracker_ConvertVmemChunksToMB(slotUsage));
+					 VmemTracker_ConvertVmemChunksToMB(group->memQuotaUsed));
 	appendStringInfo(&memUsage, "\"quota_available\":%d, ",
 					 VmemTracker_ConvertVmemChunksToMB(
 						group->memQuotaGranted - group->memQuotaUsed));
@@ -2137,6 +2130,8 @@ UnassignResGroup(void)
 	{
 		Assert(Gp_role == GP_ROLE_EXECUTE);
 
+		group->memQuotaUsed -= slot->memQuota;
+
 		/* Release this slot back to slot pool */
 		slotpoolFreeSlot(slot);
 
@@ -2219,6 +2214,7 @@ SwitchResGroupOnSegment(const char *buf, int len)
 		Assert(!slotIsInUse(slot));
 		sessionSetSlot(slot);
 		initSlot(slot, &caps, newGroupId, gp_session_id);
+		group->memQuotaUsed += slot->memQuota;
 		group->nRunning++;
 	}
 
