@@ -15161,8 +15161,8 @@ ATPExecPartExchange(AlteredTableInfo *tab, Relation rel, AlterPartitionCmd *pc)
 		char			*oldname;
 		Relation		 newrel;
 		Relation		 oldrel;
-		AttrMap			*newmap; /* used for compatability check below only */
-		AttrMap			*oldmap; /* used for compatability check below only */
+		AttrMap			*newmap;
+		AttrMap			*oldmap;
 		List			*newcons;
 		bool			 ok;
 		bool			 validate	= intVal(pc2->arg1) ? true : false;
@@ -15192,9 +15192,9 @@ ATPExecPartExchange(AlteredTableInfo *tab, Relation rel, AlterPartitionCmd *pc)
 		newname = pstrdup(RelationGetRelationName(newrel));
 		oldname = pstrdup(RelationGetRelationName(oldrel));
 		
-		ok = map_part_attrs(rel, newrel, &newmap, TRUE);
+		ok = map_part_attrs(rel, newrel, &newmap, FALSE);
 		Assert(ok);
-		ok = map_part_attrs(rel, oldrel, &oldmap, TRUE);
+		ok = map_part_attrs(rel, oldrel, &oldmap, FALSE);
 		Assert(ok);
 
 		newcons = cdb_exchange_part_constraints(
