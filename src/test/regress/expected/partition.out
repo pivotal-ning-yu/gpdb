@@ -5922,7 +5922,7 @@ LINE 9: );
          ^
 -- MPP-5185
 -- Should work
-CREATE TABLE rank (id int, rank int, year date, gender
+CREATE TABLE rank_settemp (id int, rank int, year date, gender
 char(1)) DISTRIBUTED BY (id, gender, year)
 partition by list (gender)
 subpartition by range (year)
@@ -5937,45 +5937,49 @@ start (date '2005-01-01')
 partition boys values ('M'),
 partition girls values ('F')
 );
-NOTICE:  CREATE TABLE will create partition "rank_1_prt_boys" for table "rank"
-NOTICE:  CREATE TABLE will create partition "rank_1_prt_girls" for table "rank"
-NOTICE:  CREATE TABLE will create partition "rank_1_prt_boys_2_prt_1" for table "rank_1_prt_boys"
-NOTICE:  CREATE TABLE will create partition "rank_1_prt_boys_2_prt_2" for table "rank_1_prt_boys"
-NOTICE:  CREATE TABLE will create partition "rank_1_prt_boys_2_prt_3" for table "rank_1_prt_boys"
-NOTICE:  CREATE TABLE will create partition "rank_1_prt_boys_2_prt_4" for table "rank_1_prt_boys"
-NOTICE:  CREATE TABLE will create partition "rank_1_prt_boys_2_prt_5" for table "rank_1_prt_boys"
-NOTICE:  CREATE TABLE will create partition "rank_1_prt_girls_2_prt_1" for table "rank_1_prt_girls"
-NOTICE:  CREATE TABLE will create partition "rank_1_prt_girls_2_prt_2" for table "rank_1_prt_girls"
-NOTICE:  CREATE TABLE will create partition "rank_1_prt_girls_2_prt_3" for table "rank_1_prt_girls"
-NOTICE:  CREATE TABLE will create partition "rank_1_prt_girls_2_prt_4" for table "rank_1_prt_girls"
-NOTICE:  CREATE TABLE will create partition "rank_1_prt_girls_2_prt_5" for table "rank_1_prt_girls"
-alter table rank set subpartition template ();
-NOTICE:  dropped level 1 subpartition template specification for relation "rank"
+NOTICE:  CREATE TABLE will create partition "rank_settemp_1_prt_boys" for table "rank_settemp"
+NOTICE:  CREATE TABLE will create partition "rank_settemp_1_prt_boys_2_prt_1" for table "rank_settemp_1_prt_boys"
+NOTICE:  CREATE TABLE will create partition "rank_settemp_1_prt_boys_2_prt_2" for table "rank_settemp_1_prt_boys"
+NOTICE:  CREATE TABLE will create partition "rank_settemp_1_prt_boys_2_prt_3" for table "rank_settemp_1_prt_boys"
+NOTICE:  CREATE TABLE will create partition "rank_settemp_1_prt_boys_2_prt_4" for table "rank_settemp_1_prt_boys"
+NOTICE:  CREATE TABLE will create partition "rank_settemp_1_prt_boys_2_prt_5" for table "rank_settemp_1_prt_boys"
+NOTICE:  CREATE TABLE will create partition "rank_settemp_1_prt_girls" for table "rank_settemp"
+NOTICE:  CREATE TABLE will create partition "rank_settemp_1_prt_girls_2_prt_1" for table "rank_settemp_1_prt_girls"
+NOTICE:  CREATE TABLE will create partition "rank_settemp_1_prt_girls_2_prt_2" for table "rank_settemp_1_prt_girls"
+NOTICE:  CREATE TABLE will create partition "rank_settemp_1_prt_girls_2_prt_3" for table "rank_settemp_1_prt_girls"
+NOTICE:  CREATE TABLE will create partition "rank_settemp_1_prt_girls_2_prt_4" for table "rank_settemp_1_prt_girls"
+NOTICE:  CREATE TABLE will create partition "rank_settemp_1_prt_girls_2_prt_5" for table "rank_settemp_1_prt_girls"
+alter table rank_settemp set subpartition template ();
+NOTICE:  dropped level 1 subpartition template specification for relation "rank_settemp"
 -- nothing there
-select * from pg_partition_templates;
+select * from pg_partition_templates where tablename like 'rank_settemp%';
  schemaname | tablename | partitionname | partitiontype | partitionlevel | partitionrank | partitionposition | partitionlistvalues | partitionrangestart | partitionstartinclusive | partitionrangeend | partitionendinclusive | partitioneveryclause | partitionisdefault | partitionboundary 
 ------------+-----------+---------------+---------------+----------------+---------------+-------------------+---------------------+---------------------+-------------------------+-------------------+-----------------------+----------------------+--------------------+-------------------
 (0 rows)
 
-alter table rank set subpartition template (default subpartition def2);
-NOTICE:  adding level 1 subpartition template specification for relation "rank"
+alter table rank_settemp set subpartition template (default subpartition def2);
+NOTICE:  adding level 1 subpartition template specification for relation "rank_settemp"
+NOTICE:  CREATE TABLE will create partition "rank_settemp_1_prt_subpartition_template" for table "rank_settemp"
+NOTICE:  CREATE TABLE will create partition "rank_settemp_1_prt_subpartition_template_2_prt_def2" for table "rank_settemp_1_prt_subpartition_template"
 -- def2 is there
-select * from pg_partition_templates;
- schemaname | tablename | partitionname | partitiontype | partitionlevel | partitionrank | partitionposition | partitionlistvalues | partitionrangestart | partitionstartinclusive | partitionrangeend | partitionendinclusive | partitioneveryclause | partitionisdefault |     partitionboundary      
-------------+-----------+---------------+---------------+----------------+---------------+-------------------+---------------------+---------------------+-------------------------+-------------------+-----------------------+----------------------+--------------------+----------------------------
- public     | rank      | def2          | range         |              1 |             1 |                 1 |                     |                     | f                       |                   | f                     |                      | t                  | DEFAULT SUBPARTITION def2 
+select * from pg_partition_templates where tablename like 'rank_settemp%';
+ schemaname |  tablename   | partitionname | partitiontype | partitionlevel | partitionrank | partitionposition | partitionlistvalues | partitionrangestart | partitionstartinclusive | partitionrangeend | partitionendinclusive | partitioneveryclause | partitionisdefault |     partitionboundary      
+------------+--------------+---------------+---------------+----------------+---------------+-------------------+---------------------+---------------------+-------------------------+-------------------+-----------------------+----------------------+--------------------+----------------------------
+ public     | rank_settemp | def2          | range         |              1 |             1 |                 1 |                     |                     | f                       |                   | f                     |                      | t                  | DEFAULT SUBPARTITION def2 
 (1 row)
 
-alter table rank set subpartition template (default subpartition def2);
-NOTICE:  replacing level 1 subpartition template specification for relation "rank"
+alter table rank_settemp set subpartition template (default subpartition def2);
+NOTICE:  replacing level 1 subpartition template specification for relation "rank_settemp"
+NOTICE:  CREATE TABLE will create partition "rank_settemp_1_prt_subpartition_template" for table "rank_settemp"
+NOTICE:  CREATE TABLE will create partition "rank_settemp_1_prt_subpartition_template_2_prt_def2" for table "rank_settemp_1_prt_subpartition_template"
 -- Should still be there
-select * from pg_partition_templates;
- schemaname | tablename | partitionname | partitiontype | partitionlevel | partitionrank | partitionposition | partitionlistvalues | partitionrangestart | partitionstartinclusive | partitionrangeend | partitionendinclusive | partitioneveryclause | partitionisdefault |     partitionboundary      
-------------+-----------+---------------+---------------+----------------+---------------+-------------------+---------------------+---------------------+-------------------------+-------------------+-----------------------+----------------------+--------------------+----------------------------
- public     | rank      | def2          | range         |              1 |             1 |                 1 |                     |                     | f                       |                   | f                     |                      | t                  | DEFAULT SUBPARTITION def2 
+select * from pg_partition_templates where tablename like 'rank_settemp%';
+ schemaname |  tablename   | partitionname | partitiontype | partitionlevel | partitionrank | partitionposition | partitionlistvalues | partitionrangestart | partitionstartinclusive | partitionrangeend | partitionendinclusive | partitioneveryclause | partitionisdefault |     partitionboundary      
+------------+--------------+---------------+---------------+----------------+---------------+-------------------+---------------------+---------------------+-------------------------+-------------------+-----------------------+----------------------+--------------------+----------------------------
+ public     | rank_settemp | def2          | range         |              1 |             1 |                 1 |                     |                     | f                       |                   | f                     |                      | t                  | DEFAULT SUBPARTITION def2 
 (1 row)
 
-drop table rank;
+drop table rank_settemp;
 -- MPP-5397
 -- should be able to add partition after dropped a col
 create table mpp_5397 (a int, b int, c int) 

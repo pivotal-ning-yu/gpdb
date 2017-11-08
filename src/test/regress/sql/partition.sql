@@ -3136,7 +3136,7 @@ SUBPARTITION TEMPLATE
 
 -- MPP-5185
 -- Should work
-CREATE TABLE rank (id int, rank int, year date, gender
+CREATE TABLE rank_settemp (id int, rank int, year date, gender
 char(1)) DISTRIBUTED BY (id, gender, year)
 partition by list (gender)
 subpartition by range (year)
@@ -3152,21 +3152,21 @@ partition boys values ('M'),
 partition girls values ('F')
 );
 
-alter table rank set subpartition template ();
+alter table rank_settemp set subpartition template ();
 
 -- nothing there
-select * from pg_partition_templates;
+select * from pg_partition_templates where tablename like 'rank_settemp%';
 
-alter table rank set subpartition template (default subpartition def2);
+alter table rank_settemp set subpartition template (default subpartition def2);
 
 -- def2 is there
-select * from pg_partition_templates;
+select * from pg_partition_templates where tablename like 'rank_settemp%';
 
-alter table rank set subpartition template (default subpartition def2);
+alter table rank_settemp set subpartition template (default subpartition def2);
 -- Should still be there
-select * from pg_partition_templates;
+select * from pg_partition_templates where tablename like 'rank_settemp%';
 
-drop table rank;
+drop table rank_settemp;
 
 -- MPP-5397
 -- should be able to add partition after dropped a col
