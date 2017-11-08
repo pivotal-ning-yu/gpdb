@@ -4,11 +4,11 @@ set -e
 
 GPDB4_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ## assume ~workspace contains both gpdb4 and gpdb-ci-deployments dirs
-GPDB_CI_DEPLOYMENTS_DIR="$GPDB4_DIR/../gpdb-ci-deployments"
+GPDB_CONTINUOUS_INTEGRATION_DIR="$GPDB4_DIR/../continuous-integration/secrets"
 IVYREPO_PASSWD=$(python - <<EOF
 import yaml
 import os
-yaml_path = os.path.realpath('$GPDB_CI_DEPLOYMENTS_DIR/gpdb-4.3_STABLE-ci-secrets.yml')
+yaml_path = os.path.realpath('$GPDB_CONTINUOUS_INTEGRATION_DIR/gpdb-4.3_STABLE-ci-secrets.yml')
 with open(yaml_path, 'r') as f:
   contents = f.read()
 parsed_yaml = yaml.load(contents)
