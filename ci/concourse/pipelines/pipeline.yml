@@ -65,7 +65,7 @@ groups:
   - DPM_gptransfer-43x-to-43x
   - pulse_Kerberos-jdbc-no-scm
   - pulse_Kerberos-smoke
-  - pulse_QP_memory-accounting
+  - QP_memory-accounting
   - QP_optimizer-functional
   - pulse_CCLE
   - pulse_CCLE-sles11sp4
@@ -112,7 +112,6 @@ groups:
   jobs:
   - pulse_Kerberos-jdbc-no-scm
   - pulse_Kerberos-smoke
-  - pulse_QP_memory-accounting
   - pulse_CCLE
   - pulse_CCLE-sles11sp4
   - pulse_mpp-interconnect-sles
@@ -145,7 +144,7 @@ groups:
   - gpdb_rc_packaging_centos
 - name: QP
   jobs:
-  - pulse_QP_memory-accounting
+  - QP_memory-accounting
   - QP_optimizer-functional
 - name: terraform
   jobs:
@@ -3570,7 +3569,7 @@ jobs:
       <<: *dpm_debug_sleep
   - *dpm_ccp_destroy
 
-- name: pulse_QP_memory-accounting
+- name: QP_memory-accounting
   plan:
   - aggregate:
     - get: gpdb_src
