@@ -2192,6 +2192,7 @@ SwitchResGroupOnSegment(const char *buf, int len)
 		slot = slotpoolAllocSlot();
 		Assert(!slotIsInUse(slot));
 		sessionSetSlot(slot);
+		mempoolAutoReserve(group, &caps);
 		initSlot(slot, &caps, newGroupId);
 		group->memQuotaUsed += slot->memQuota;
 		group->nRunning++;
@@ -2200,7 +2201,6 @@ SwitchResGroupOnSegment(const char *buf, int len)
 	selfAttachToSlot(group, slot);
 	Assert(selfHasSlot());
 
-	mempoolAutoReserve(group, &caps);
 	LWLockRelease(ResGroupLock);
 
 	/* finally we can say we are in a valid resgroup */
