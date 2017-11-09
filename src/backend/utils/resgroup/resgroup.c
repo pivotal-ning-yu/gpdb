@@ -217,6 +217,7 @@ static int32 groupGetMemQuotaExpected(const ResGroupCaps *caps);
 static int32 groupGetMemSharedExpected(const ResGroupCaps *caps);
 static int32 groupGetMemSpillTotal(const ResGroupCaps *caps);
 static int32 slotGetMemQuotaExpected(const ResGroupCaps *caps);
+static int32 slotGetMemQuotaOnQE(const ResGroupCaps *caps, ResGroupData *group);
 static int32 slotGetMemSpill(const ResGroupCaps *caps);
 static void wakeupSlots(ResGroupData *group, bool grant);
 static void wakeupGroups(Oid skipGroupId);
@@ -229,7 +230,7 @@ static void waitOnGroup(ResGroupData *group);
 static ResGroupData *createGroup(Oid groupId, const ResGroupCaps *caps);
 static void AtProcExit_ResGroup(int code, Datum arg);
 static void groupWaitCancel(void);
-static bool groupReserveMemQuota(ResGroupData *group);
+static int32 groupReserveMemQuota(ResGroupData *group);
 static void groupReleaseMemQuota(ResGroupData *group, ResGroupSlotData *slot);
 static int32 groupIncMemUsage(ResGroupData *group,
 							  ResGroupSlotData *slot,
@@ -237,7 +238,8 @@ static int32 groupIncMemUsage(ResGroupData *group,
 static void groupDecMemUsage(ResGroupData *group,
 							 ResGroupSlotData *slot,
 							 int32 chunks);
-static void initSlot(ResGroupSlotData *slot, ResGroupCaps *caps, Oid groupId);
+static void initSlot(ResGroupSlotData *slot, ResGroupData *group,
+					 int32 slotMemQuota);
 static void selfAttachToSlot(ResGroupData *group, ResGroupSlotData *slot);
 static void selfDetachSlot(ResGroupData *group, ResGroupSlotData *slot);
 static bool slotpoolInit(void);
@@ -1129,16 +1131,15 @@ selfDetachSlot(ResGroupData *group, ResGroupSlotData *slot)
  * Initialize the members of a slot
  */
 static void
-initSlot(ResGroupSlotData *slot, ResGroupCaps *caps, Oid groupId)
+initSlot(ResGroupSlotData *slot, ResGroupData *group, int32 slotMemQuota)
 {
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 	Assert(!slotIsInUse(slot));
-	Assert(caps != NULL);
-	Assert(groupId != InvalidOid);
+	Assert(group->groupId != InvalidOid);
 
-	slot->groupId = groupId;
-	slot->caps = *caps;
-	slot->memQuota = slotGetMemQuotaExpected(caps);
+	slot->groupId = group->groupId;
+	slot->caps = group->caps;
+	slot->memQuota = slotMemQuota;
 	slot->memUsage = 0;
 }
 
@@ -1233,6 +1234,7 @@ groupGetSlot(ResGroupData *group)
 {
 	ResGroupSlotData	*slot;
 	ResGroupCaps		*caps;
+	int32				slotMemQuota;
 
 	Assert(LWLockHeldExclusiveByMe(ResGroupLock));
 	Assert(Gp_role == GP_ROLE_DISPATCH);
@@ -1244,12 +1246,15 @@ groupGetSlot(ResGroupData *group)
 	if (group->nRunning >= caps->concurrency)
 		return NULL;
 
-	if (!groupReserveMemQuota(group))
+	slotMemQuota = groupReserveMemQuota(group);
+	if (slotMemQuota == 0)
 		return NULL;
 
 	/* Now actually get a free slot */
 	slot = slotpoolAllocSlot();
 	Assert(!slotIsInUse(slot));
+
+	initSlot(slot, group, slotMemQuota);
 
 	group->nRunning++;
 
@@ -1293,10 +1298,10 @@ groupPutSlot(ResGroupData *group, ResGroupSlotData *slot)
 /*
  * Reserve memory quota for a slot in group.
  *
- * If there is not enough free memory quota then return false and nothing
- * is changed; otherwise return true and the quota is reserved.
+ * If there is not enough free memory quota then return 0 and nothing
+ * is changed; otherwise return the reserved quota size.
  */
-static bool
+static int32
 groupReserveMemQuota(ResGroupData *group)
 {
 	ResGroupCaps	*caps;
@@ -1319,12 +1324,12 @@ groupReserveMemQuota(ResGroupData *group)
 	if (group->memQuotaUsed + slotMemQuota > group->memQuotaGranted)
 	{
 		/* No enough memory quota available, give up */
-		return false;
+		return 0;
 	}
 
 	group->memQuotaUsed += slotMemQuota;
 
-	return true;
+	return slotMemQuota;
 }
 
 /*
@@ -1424,7 +1429,6 @@ groupAcquireSlot(ResGroupData *group)
 		if (slot != NULL)
 		{
 			/* got one, lucky */
-			initSlot(slot, &group->caps, group->groupId);
 			group->totalExecuted++;
 			LWLockRelease(ResGroupLock);
 			pgstat_report_resgroup(0, group->groupId);
@@ -1654,6 +1658,24 @@ slotGetMemQuotaExpected(const ResGroupCaps *caps)
 }
 
 /*
+ * Get per-slot expected memory quota in chunks on QE.
+ */
+static int32
+slotGetMemQuotaOnQE(const ResGroupCaps *caps, ResGroupData *group)
+{
+	int nFreeSlots = caps->concurrency - group->nRunning;
+
+	Assert(nFreeSlots > 0);
+
+	/*
+	 * On QE the runtime status must also be considered as it might have
+	 * different caps with QD.
+	 */
+	return Min(slotGetMemQuotaExpected(caps),
+			   (group->memQuotaGranted - group->memQuotaUsed) / nFreeSlots);
+}
+
+/*
  * Get per-slot expected memory spill in chunks
  */
 static int32
@@ -1696,10 +1718,6 @@ wakeupSlots(ResGroupData *group, bool grant)
 
 		/* wake up one process in the wait queue */
 		waitProc = groupWaitQueuePop(group);
-
-		if (slot != NULL)
-			initSlot(slot, &group->caps,
-					 group->groupId);
 
 		waitProc->resSlot = slot;
 
@@ -2193,8 +2211,10 @@ SwitchResGroupOnSegment(const char *buf, int len)
 		Assert(!slotIsInUse(slot));
 		sessionSetSlot(slot);
 		mempoolAutoReserve(group, &caps);
-		initSlot(slot, &caps, newGroupId);
+		initSlot(slot, group,
+				 slotGetMemQuotaOnQE(&caps, group));
 		group->memQuotaUsed += slot->memQuota;
+		Assert(group->memQuotaUsed <= group->memQuotaGranted);
 		group->nRunning++;
 	}
 
