@@ -500,12 +500,6 @@ resources:
     repository: pivotaldata/centos-gpdb-dev
     tag: '7'
 
-- name: sles-gpdb-dev
-  type: docker-image
-  source:
-    repository: pivotaldata/sles-gpdb-dev
-    tag: '11'
-
 - name: pulse-api-image
   type: docker-image
   source:
@@ -2359,15 +2353,12 @@ jobs:
       - icg_planner_sles
       - ic_externaltable_sles
       trigger: true
-    - get: sles-gpdb-dev
   - task: separate_qautils_files_for_rc
-    file: gpdb_src/ci/concourse/separate_qautils_files_for_rc.yml
-    image: sles-gpdb-dev
+    file: gpdb_src/ci/concourse/separate_qautils_files_for_rc_sles11.yml
     params:
       QAUTILS_TARBALL: rc_bin_gpdb/QAUtils-sles11-x86_64.tar.gz
   - task: gpdb_rc_packaging_sles
-    file: gpdb_src/ci/concourse/gpdb_packaging.yml
-    image: sles-gpdb-dev
+    file: gpdb_src/ci/concourse/gpdb_packaging_sles11.yml
     input_mapping:
       bin_gpdb: rc_bin_gpdb
     params:
