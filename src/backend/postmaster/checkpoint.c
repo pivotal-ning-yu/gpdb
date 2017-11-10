@@ -511,6 +511,7 @@ RequestCheckpoint(bool waitforit, bool warnontime)
 	volatile CheckpointShmemStruct *css = CheckpointShmem;
 	sig_atomic_t old_failed = css->ckpt_failed;
 	sig_atomic_t old_started = css->ckpt_started;
+	int         ntries;
 
 	/*
 	 * If in a standalone backend, just do it ourselves.
@@ -533,15 +534,38 @@ RequestCheckpoint(bool waitforit, bool warnontime)
 		css->ckpt_time_warn = true;
 
 	/*
-	 * Send signal to request checkpoint.  When waitforit is false, we
-	 * consider failure to send the signal to be nonfatal.
+	 * Send signal to request checkpoint.  It's possible that the checkpointer
+	 * hasn't started yet, or is in process of restarting, so we will retry a
+	 * few times if needed.  Also, if not told to wait for the checkpoint to
+	 * occur, we consider failure to send the signal to be nonfatal and merely
+	 * LOG it.
 	 */
-	if (CheckpointShmem->checkpoint_server_pid == 0)
-		elog(waitforit ? ERROR : LOG,
-			 "could not request checkpoint because checkpoint server not running");
-	if (kill(CheckpointShmem->checkpoint_server_pid, SIGINT) != 0)
-		elog(waitforit ? ERROR : LOG,
-			 "could not signal for checkpoint: %m");
+	for (ntries = 0;; ntries++)
+	{
+		if (CheckpointShmem->checkpoint_server_pid == 0)
+		{
+			if (ntries >= 20)	/* max wait 2.0 sec */
+			{
+				elog(waitforit ? ERROR : LOG,
+					 "could not request checkpoint because checkpoint process not running");
+				break;
+			}
+		}
+		else if (kill(CheckpointShmem->checkpoint_server_pid, SIGINT) != 0)
+		{
+			if (ntries >= 20)	/* max wait 2.0 sec */
+			{
+				elog(waitforit ? ERROR : LOG,
+					 "could not signal for checkpoint: %m");
+				break;
+			}
+		}
+		else
+			break;				/* signal sent successfully */
+
+		CHECK_FOR_INTERRUPTS();
+		pg_usleep(100000L);		/* wait 0.1 sec, then retry */
+	}
 
 	/*
 	 * If requested, wait for completion.  We detect completion according to
