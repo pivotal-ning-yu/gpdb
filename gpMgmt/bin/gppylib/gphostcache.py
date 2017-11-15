@@ -157,9 +157,10 @@ class GpInterfaceToHostNameCache:
 
 class GpHostCache:
 
-    def __init__(self, gparray, pool, skiplist=[], withMasters=False):
+    def __init__(self, gparray, pool, skiplist=[], withMasters=False, segs=None):
         self.gparray=gparray
         self.gphost_map={}        # hostname -> GpHost
+        self.segs = segs
 
         # these are any db's that should be skipped.
         skipmap={}
@@ -185,6 +186,9 @@ class GpHostCache:
             dblist = self.gparray.getDbList()
         else:
             dblist = self.gparray.getSegDbList()
+
+        if segs:
+            dblist = segs
 
         # build the interface->host mapping
         for db in dblist:
