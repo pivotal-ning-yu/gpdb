@@ -32,7 +32,7 @@ def createFromSingleHostFile(inputFile):
     f = open(inputFile, 'r')
     for line in f:
       rows.append(parseSingleFile(line))
-    
+
     return rows
 
 
@@ -62,10 +62,10 @@ def checkIsInt(label, value):
 def isNone( value):
     isN=False
     if value is None:
-        isN=True 
+        isN=True
     elif value =="":
         isN= True
-    return isN 
+    return isN
 
 def readAllLinesFromFile(fileName, stripLines=False, skipEmptyLines=False):
     """
@@ -100,15 +100,15 @@ def writeLinesToFile(fileName, lines):
 
 #############
 def parseSingleFile(line):
-    ph=None 
+    ph=None
     if re.search(r"^#", line):
         #skip it, it's a comment
         pass
     else:
-        ph=line.rstrip("\n").rstrip()  
+        ph=line.rstrip("\n").rstrip()
     return ph
 
-def openAnything(source):            
+def openAnything(source):
     """URI, filename, or string --> stream
 
     This function lets you define parsers that take any input source
@@ -116,7 +116,7 @@ def openAnything(source):
     and deal with it in a uniform manner.  Returned object is guaranteed
     to have all the basic stdio read methods (read, readline, readlines).
     Just .close() the object when you're done with it.
-    
+
     Examples:
     >>> from xml.dom import minidom
     >>> sock = openAnything("http://localhost/kant.xml")
@@ -137,50 +137,50 @@ def openAnything(source):
         return sys.stdin
 
     # try to open with urllib (if source is http, ftp, or file URL)
-    import urllib                         
-    try:                                  
-        return urllib.urlopen(source)     
-    except (IOError, OSError):            
-        pass                              
-    
+    import urllib
+    try:
+        return urllib.urlopen(source)
+    except (IOError, OSError):
+        pass
+
     # try to open with native open function (if source is pathname)
-    try:                                  
-        return open(source)               
-    except Exception, e: 
-        print ("Exception occurred opening file %s Error: %s"  % (source, str(e)))                             
-        
-    
+    try:
+        return open(source)
+    except Exception, e:
+        print ("Exception occurred opening file %s Error: %s"  % (source, str(e)))
+
+
     # treat source as string
-    import StringIO                       
-    return StringIO.StringIO(str(source)) 
+    import StringIO
+    return StringIO.StringIO(str(source))
 def getOs():
     dist=None
     fdesc = None
     RHId = "/etc/redhat-release"
     slesId = "/etc/SuSE-release"
-    try: 
+    try:
         fdesc = open(RHId)
-        for line in fdesc: 
-            line = line.rstrip()   
+        for line in fdesc:
+            line = line.rstrip()
             if re.match('CentOS', line):
-                dist = 'CentOS' 
+                dist = 'CentOS'
             if re.match('Red Hat', line):
-                dist = 'CentOS' 
+                dist = 'CentOS'
     except IOError:
         pass
     finally:
         if fdesc :
             fdesc.close()
-    try: 
+    try:
         fdesc = open(slesId)
-        for line in fdesc: 
-            line = line.rstrip()   
+        for line in fdesc:
+            line = line.rstrip()
             if re.match('SUSE', line):
                 dist = 'sles'
     except IOError:
         pass
     finally:
-        if fdesc : 
+        if fdesc :
             fdesc.close()
     return dist
 def factory(aClass, *args):
@@ -192,7 +192,7 @@ def addDicts(a,b):
     return c
 
 def joinPath(a,b,parm=""):
-    c=a+parm+b 
+    c=a+parm+b
     return c
 
 def debug(varname, o):
@@ -203,7 +203,7 @@ def loadXmlElement(config,elementName):
     fdesc = openAnything(config)
     xmldoc = minidom.parse(fdesc).documentElement
     fdesc.close()
-    elements=xmldoc.getElementsByTagName(elementName) 
+    elements=xmldoc.getElementsByTagName(elementName)
     return elements
 
 def docIter(node):
@@ -238,7 +238,7 @@ def makeNonBlocking(fd):
 def getCommandOutput(command):
     child = os.popen(command)
     data = child.read( )
-    err = child.close( ) 
+    err = child.close( )
     #if err :
     #    raise RuntimeError, '%r failed with exit code %d' % (command, err)
     return ''.join(data)
@@ -296,7 +296,7 @@ def make_inf_hosts(hp, hstart, hend, istart, iend, hf=None):
     inf_hosts=[]
     if None != hf:
         hfArr=hf.split('-')
-    print hfArr 
+    print hfArr
     for h in range(int(hstart), int(hend)+1):
         host = '%s%d' % (hp, h)
         for i in range(int(istart), int(iend)+1):
