@@ -1,0 +1,7 @@
+2012-01-26 09:02:13|INFO|gpload session started 2012-01-26 09:02:13
+2012-01-26 09:02:13|INFO|started gpfdist --ssl /data/pazy/cdbfast/private/pazy/main/gpfdist_ssl/data/certificate/server/ -p 8000 -P 9000 -f "/data/pazy/cdbfast/private/pazy/main/gpfdist_ssl/data/tbl1.tbl" -t 30 -m 268435456
+2012-01-26 09:02:14|INFO|running time: 1.08 seconds
+2012-01-26 09:02:14|INFO|rows Inserted          = 10
+2012-01-26 09:02:14|INFO|rows Updated           = 0
+2012-01-26 09:02:14|INFO|data formatting errors = 0
+2012-01-26 09:02:14|INFO|gpload succeeded

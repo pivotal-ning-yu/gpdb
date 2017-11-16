@@ -1,0 +1,33 @@
+CREATE EXTERNAL TABLE ext_lineitem (
+                L_ORDERKEY INT8,
+                L_PARTKEY INTEGER,
+                L_SUPPKEY INTEGER,
+                L_LINENUMBER integer,
+                L_QUANTITY decimal,
+                L_EXTENDEDPRICE decimal,
+                L_DISCOUNT decimal,
+                L_TAX decimal,
+                L_RETURNFLAG CHAR(1),
+                L_LINESTATUS CHAR(1),
+                L_SHIPDATE date,
+                L_COMMITDATE date,
+                L_RECEIPTDATE date,
+                L_SHIPINSTRUCT CHAR(2),
+                L_SHIPMODE CHAR(1),
+                L_COMMENT VARCHAR(4)
+                )
+LOCATION
+(
+        'gpfdist://10.1.2.16/gpfdist2/data/lineitem.tbl'
+)
+FORMAT 'text'
+(
+        DELIMITER AS '|'
+)
+;
+CREATE EXTERNAL TABLE
+SELECT count(*) FROM ext_lineitem;
+ERROR:  value too long for type character(2)  (seg0 slice1 hawthorn6:18051 pid=13873)
+DETAIL:  External table ext_lineitem, line 1 of gpfdist://10.1.2.16/gpfdist2/data/lineitem.tbl, column l_shipinstruct
+DROP EXTERNAL TABLE ext_lineitem;
+DROP EXTERNAL TABLE

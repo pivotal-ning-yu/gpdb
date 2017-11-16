@@ -1,0 +1,32 @@
+CREATE EXTERNAL TABLE ext_lineitem (
+                L_ORDERKEY INT8,
+                L_PARTKEY INTEGER,
+                L_SUPPKEY INTEGER,
+                L_LINENUMBER integer,
+                L_QUANTITY decimal,
+                L_EXTENDEDPRICE decimal,
+                L_DISCOUNT decimal,
+                L_TAX decimal,
+                L_RETURNFLAG CHAR(1),
+                L_LINESTATUS CHAR(1),
+                L_SHIPDATE date,
+                L_COMMITDATE date,
+                L_RECEIPTDATE date,
+                L_SHIPINSTRUCT CHAR(25),
+                L_SHIPMODE CHAR(10),
+                L_COMMENT VARCHAR(44)
+                )
+LOCATION
+(
+        'gpfdist://10.110.121.166/gpfdist2/data/bad_data/lineitem.tbl.no_read'
+)
+FORMAT 'text'
+(
+        DELIMITER AS '|'
+)
+;
+CREATE EXTERNAL TABLE
+SELECT count(*) FROM ext_lineitem;
+ERROR:  http response code 404 from gpfdist (gpfdist://10.110.121.166/gpfdist2/data/bad_data/lineitem.tbl.no_read): HTTP/1.0 404 file open failure /data/home/gpadmin/charis1/my_p4/cdbfast/private/primo/Release-4_2-branch/gpfdist2/data/bad_data/lineitem.tbl.no_read: Permission denied (url.c:343)  (seg1 slice1 rh55-qa01.sanmateo.greenplum.com:50001 pid=19582) (cdbdisp.c:1520)
+DROP EXTERNAL TABLE ext_lineitem;
+DROP EXTERNAL TABLE

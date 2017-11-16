@@ -1,0 +1,12 @@
+-- start_matchsubs
+-- m/|/
+-- s/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})\.(\d+)-(\d+)/TODAYS_DATE/
+-- m/|/
+-- s/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/TODAYS_DATE1/
+-- m/|/
+-- s/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/TODAYS_DATE2/
+-- m/running time:/
+-- s/(\d+)\.(\d+)/RUNNING_TIME/
+-- m/INFO|started gpfdist --ssl/
+-- s/--ssl .* -p(.*) -f .* -t (.*)/--ssl SSL_PATH -p $1 -f WRI_EXT_PATH -t $2/
+-- end_matchsubs

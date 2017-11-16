@@ -1,0 +1,32 @@
+CREATE EXTERNAL TABLE ext_lineitem (
+                L_ORDERKEY INT8,
+                L_PARTKEY INTEGER,
+                L_SUPPKEY INTEGER,
+                L_LINENUMBER integer,
+                L_QUANTITY decimal,
+                L_EXTENDEDPRICE decimal,
+                L_DISCOUNT decimal,
+                L_TAX decimal,
+                L_RETURNFLAG CHAR(1),
+                L_LINESTATUS CHAR(1),
+                L_SHIPDATE date,
+                L_COMMITDATE date,
+                L_RECEIPTDATE date,
+                L_SHIPINSTRUCT CHAR(25),
+                L_SHIPMODE CHAR(10),
+                L_COMMENT VARCHAR(44)
+                )
+LOCATION
+(
+        'gpfdist://10.110.121.167/gpfdist2/data/empty_dir/*'
+)
+FORMAT 'text'
+(
+        DELIMITER AS '|'
+)
+;
+CREATE EXTERNAL TABLE
+SELECT count(*) FROM ext_lineitem;
+ERROR:  http response code 404 from gpfdist (gpfdist://10.110.121.167/gpfdist2/data/empty_dir/*): HTTP/1.0 404 file not found (url.c:271)  (seg0 slice1 hawthorn6:18051 pid=14580)
+DROP EXTERNAL TABLE ext_lineitem;
+DROP EXTERNAL TABLE

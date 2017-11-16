@@ -1,0 +1,40 @@
+CREATE EXTERNAL TABLE ext_lineitem (
+                L_ORDERKEY INT8,
+                L_PARTKEY INTEGER,
+                L_SUPPKEY INTEGER,
+                L_LINENUMBER integer,
+                L_QUANTITY decimal,
+                L_EXTENDEDPRICE decimal,
+                L_DISCOUNT decimal,
+                L_TAX decimal,
+                L_RETURNFLAG CHAR(1),
+                L_LINESTATUS CHAR(1),
+                L_SHIPDATE date,
+                L_COMMITDATE date,
+                L_RECEIPTDATE date,
+                L_SHIPINSTRUCT CHAR(25),
+                L_SHIPMODE CHAR(10),
+                L_COMMENT VARCHAR(44)
+                )
+LOCATION
+(
+        'gpfdist://10.1.2.10/gpfdist2/data/lineitem.tbl'
+)
+FORMAT 'text'
+(
+	DELIMITER '|'
+)
+;
+CREATE EXTERNAL TABLE
+CREATE INDEX index ON ext_lineitem (L_ORDERKEY);
+ERROR:  cannot create indexes on external tables.
+TRUNCATE ext_lineitem;
+ERROR:  "ext_lineitem" is an external relation and can't be truncated
+DELETE FROM ext_lineitem where L_ORDERKEY > 10;
+ERROR:  cannot update or delete from external relation "ext_lineitem"
+UPDATE ext_lineitem SET L_ORDERKEY = 10 where L_ORDERKEY > 10;
+ERROR:  cannot update or delete from external relation "ext_lineitem"
+INSERT INTO ext_lineitem VALUES (1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1);
+ERROR:  cannot change a readable external table "ext_lineitem"
+DROP EXTERNAL TABLE ext_lineitem;
+DROP EXTERNAL TABLE

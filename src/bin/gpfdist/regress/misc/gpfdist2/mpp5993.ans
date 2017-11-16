@@ -1,0 +1,39 @@
+CREATE EXTERNAL TABLE mpp5993_ext (
+                id text,
+                stuff text
+                )
+LOCATION
+(
+      'gpfdist://10.0.0.240/gpfdist2/data/longline.txt'
+)
+FORMAT 'text'
+(
+        DELIMITER AS ','
+)
+;
+CREATE EXTERNAL TABLE
+CREATE TABLE mpp5993 (
+                id text,
+                stuff text
+                );
+NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column named 'id' as the Greenplum Database data distribution key for this table.
+HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.
+CREATE TABLE
+SELECT count(*) FROM mpp5993_ext;
+ count 
+-------
+     1
+(1 row)
+
+insert into mpp5993 select * from mpp5993_ext;
+INSERT 0 1
+SELECT count(*) FROM mpp5993;
+ count 
+-------
+     1
+(1 row)
+
+drop external table mpp5993_ext;
+DROP EXTERNAL TABLE
+drop table mpp5993;
+DROP TABLE

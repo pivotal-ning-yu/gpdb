@@ -1,0 +1,66 @@
+CREATE EXTERNAL TABLE ext_lineitem (
+                L_ORDERKEY INT8,
+                L_PARTKEY INTEGER,
+                L_SUPPKEY INTEGER,
+                L_LINENUMBER integer,
+                L_QUANTITY decimal,
+                L_EXTENDEDPRICE decimal,
+                L_DISCOUNT decimal,
+                L_TAX decimal,
+                L_RETURNFLAG CHAR(2),
+                L_LINESTATUS CHAR(2),
+                L_SHIPDATE date,
+                L_COMMITDATE date,
+                L_RECEIPTDATE date,
+                L_SHIPINSTRUCT CHAR(2),
+                L_SHIPMODE CHAR(1)
+                )
+LOCATION
+(
+        'gpfdist://10.1.2.16/gpfdist2/data/lineitem.tbl'
+)
+FORMAT 'text'
+(
+        DELIMITER AS '|'
+)
+;
+CREATE EXTERNAL TABLE
+SELECT count(*) FROM ext_lineitem;
+ERROR:  extra data after last expected column  (seg0 slice1 hawthorn6:18051 pid=13944)
+DETAIL:  External table ext_lineitem, line 1 of gpfdist://10.1.2.16/gpfdist2/data/lineitem.tbl: "1|156|4|1|17|17954.55|0.04|0.02|N|O|1996-03-13|1996-02-12|1996-03-22|DELIVER IN PERSON|TRUCK|egular ..."
+DROP EXTERNAL TABLE ext_lineitem;
+DROP EXTERNAL TABLE
+CREATE EXTERNAL TABLE ext_lineitem (
+                L_ORDERKEY INT8,
+                L_PARTKEY INTEGER,
+                L_SUPPKEY INTEGER,
+                L_LINENUMBER integer,
+                L_QUANTITY decimal,
+                L_EXTENDEDPRICE decimal,
+                L_DISCOUNT decimal,
+                L_TAX decimal,
+                L_RETURNFLAG CHAR(2),
+                L_LINESTATUS CHAR(2),
+                L_SHIPDATE date,
+                L_COMMITDATE date,
+                L_RECEIPTDATE date,
+                L_SHIPINSTRUCT CHAR(2),
+                L_SHIPMODE CHAR(1),
+		L_COMMENT VARCHAR(44),
+		L_BLAH CHAR(1)
+                )
+LOCATION
+(
+        'gpfdist://10.1.2.16/gpfdist2/data/lineitem.tbl'
+)
+FORMAT 'text'
+(
+        DELIMITER AS '|'
+)
+;
+CREATE EXTERNAL TABLE
+SELECT count(*) FROM ext_lineitem;
+ERROR:  missing data for column "l_blah"  (seg0 slice1 hawthorn6:18051 pid=13944)
+DETAIL:  External table ext_lineitem, line 1 of gpfdist://10.1.2.16/gpfdist2/data/lineitem.tbl: "1|156|4|1|17|17954.55|0.04|0.02|N|O|1996-03-13|1996-02-12|1996-03-22|DELIVER IN PERSON|TRUCK|egular ..."
+DROP EXTERNAL TABLE ext_lineitem;
+DROP EXTERNAL TABLE

@@ -1382,6 +1382,11 @@ installcheck-externaltable:
 	@cd $(BUILDDIR)/src/test/regress && $(MAKE) all
 	@cd $(BUILDDIR)/contrib/formatter_fixedwidth && $(MAKE) installcheck
 
+installcheck-gpfdist:
+	@if [ ! -f $(ISCONFIG) ]; then echo "not configured, cannot check"; exit 1; fi
+	@cd $(BUILDDIR)/src/test/regress && $(MAKE) all
+	@cd $(BUILDDIR)/src/bin/gpfdist && $(MAKE) installcheck
+
 #---------------------------------------------------------------------
 # More internal functions
 #---------------------------------------------------------------------

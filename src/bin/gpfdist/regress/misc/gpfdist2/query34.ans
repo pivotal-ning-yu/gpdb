@@ -1,0 +1,6 @@
+The -q, -h and -x options are gone.  Please specify these as in this example:
+create external table a (a int) location ('gpfdist://...') format 'csv' (escape as '"' quote as '"' header);
+The -q, -h and -x options are gone.  Please specify these as in this example:
+create external table a (a int) location ('gpfdist://...') format 'csv' (escape as '"' quote as '"' header);
+The -q, -h and -x options are gone.  Please specify these as in this example:
+create external table a (a int) location ('gpfdist://...') format 'csv' (escape as '"' quote as '"' header);

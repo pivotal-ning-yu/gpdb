@@ -1,0 +1,44 @@
+CREATE EXTERNAL TABLE ext_test (
+                id text,
+                stuff text
+                )
+LOCATION
+(
+      'gpfdist://10.1.2.12/gpfdist2/data/10lines.txt'
+)
+FORMAT 'text'
+(
+        DELIMITER AS ','
+)
+;
+CREATE EXTERNAL TABLE
+SELECT count(*) FROM ext_test;
+ count 
+-------
+     1
+(1 row)
+
+DROP EXTERNAL TABLE ext_test;
+DROP EXTERNAL TABLE
+CREATE EXTERNAL TABLE ext_test1 (
+                id text,
+                stuff text
+                )
+LOCATION
+(
+      'gpfdist://10.1.2.12/gpfdist2/data/10lines.csv'
+)
+FORMAT 'csv'
+(
+        DELIMITER AS ','
+)
+;
+CREATE EXTERNAL TABLE
+SELECT count(*) FROM ext_test1;
+ count 
+-------
+     1
+(1 row)
+
+DROP EXTERNAL TABLE ext_test1;
+DROP EXTERNAL TABLE

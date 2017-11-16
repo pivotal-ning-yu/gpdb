@@ -39,6 +39,7 @@ groups:
   - icg_planner_sles
   - ic_externaltable_centos
   - ic_externaltable_sles
+  - regression_tests_gpfdist_centos
   - regression_tests_gpcloud_centos
   - regression_tests_gphdfs_centos
   - MU_check_centos
@@ -65,7 +66,6 @@ groups:
   - pulse_Kerberos-smoke
   - QP_memory-accounting
   - QP_optimizer-functional
-  - pulse_CCLE
   - pulse_CCLE-sles11sp4
   - mpp-interconnect
   - pulse_mpp-interconnect-sles
@@ -110,7 +110,6 @@ groups:
   jobs:
   - pulse_Kerberos-jdbc-no-scm
   - pulse_Kerberos-smoke
-  - pulse_CCLE
   - pulse_CCLE-sles11sp4
   - pulse_mpp-interconnect-sles
 - name: CS
@@ -1460,6 +1459,26 @@ jobs:
         MAKE_TEST_COMMAND: basic_exttab
         TEST_OS: sles
 
+- name: regression_tests_gpfdist_centos
+  plan:
+  - aggregate:
+    - get: gpdb_src
+      passed: [compile_gpdb_centos]
+    - get: sync_tools_gpdb
+      passed: [compile_gpdb_centos]
+      resource: sync_tools_gpdb_centos
+    - get: bin_gpdb
+      passed: [compile_gpdb_centos]
+      trigger: true
+      resource: bin_gpdb_centos
+    - get: centos-gpdb-dev-5
+  - task: ic_gpdb
+    file: gpdb_src/ci/concourse/ic_gpdb.yml
+    image: centos-gpdb-dev-5
+    params:
+      MAKE_TEST_COMMAND: installcheck-gpfdist
+      TEST_OS: centos
+
 - name: regression_tests_gpcloud_centos
   plan:
   - aggregate:
@@ -2345,6 +2364,7 @@ jobs:
       - icg_orca_centos
       - icg_planner_centos
       - ic_externaltable_centos
+      - regression_tests_gpfdist_centos
       - regression_tests_gpcloud_centos
       - MU_check_centos
       - icg_orca_sles
@@ -3582,34 +3602,6 @@ jobs:
         MAKE_TEST_COMMAND: optimizer_functional_part2
         BLDWRAP_POSTGRES_CONF_ADDONS: fsync=off optimizer_print_missing_stats=off
         TEST_OS: centos
-
-- name: pulse_CCLE
-  plan:
-  - get: pulse-api-image
-    tags: ["pulse"]
-  - get: weekly-trigger-pulse
-    tags: ["pulse"]
-    trigger: true
-  - aggregate: *rhel_artifacts_for_pulse_release-add-trigger
-  - task: trigger_pulse
-    tags: ["pulse"]
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/trigger_pulse.yml
-    params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: GPDB-43_STABLE-CCLE
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
-  - task: monitor_pulse
-    tags: ["pulse"]
-    attempts: 2
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/monitor_pulse.yml
-    params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: GPDB-43_STABLE-CCLE
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
 
 - name: pulse_CCLE-sles11sp4
   plan:

@@ -14,6 +14,9 @@
 -- m/ERROR\:\s+external table .* command ended with .*No such file.*/i
 -- s/cat\: (cannot open)? nosuchfile\.txt/cat\: nosuchfile\.txt/
 --
+-- m/ERROR\:  could not open file .*: 404 file not found/i
+-- s/ERROR\:  could not open file .*: 404 file not found/ERROR\:  could not open file XXX: 404 file not found/
+--
 -- # remove line number - redhat
 -- m/ERROR\:\s+external table .* command ended with .*NOT FOUND.*/i
 -- s/\s+line \d+\://
@@ -793,7 +796,7 @@ format 'text' (delimiter '|');
 select * from badt1;
 NOTICE:  gfile stat @abs_srcdir@/data/no/such/place/badt1.tbl failure: No such file or directory  (seg0 slice1 @hostname@:50000 pid=64819)
 NOTICE:  fstream unable to open file @abs_srcdir@/data/no/such/place/badt1.tbl  (seg0 slice1 @hostname@:50000 pid=64819)
-ERROR:  could not open "file://@hostname@@abs_srcdir@/data/no/such/place/badt1.tbl" for reading: 404 file not found  (seg0 slice1 @hostname@:50000 pid=64819)
+ERROR:  could not open file XXX: 404 file not found
 drop external table badt1;
 --
 -- try a bad protocol
@@ -912,7 +915,7 @@ ERROR:  ON clause may not be used with a writable external table
 -- SELECT from WET (negative)
 --
 select * from wet_pos1;
-ERROR:  it is not possible to read from a WRITABLE external table.
+ERROR:  cannot read from a WRITABLE external table
 HINT:  Create the table as READABLE instead
 --
 -- WET: export some data with INSERT SELECT, INSERT and COPY. 

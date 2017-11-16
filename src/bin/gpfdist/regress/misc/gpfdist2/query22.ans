@@ -1,0 +1,49 @@
+CREATE EXTERNAL TABLE ext_lineitem (
+                L_ORDERKEY INT8,
+                L_PARTKEY INTEGER,
+                L_SUPPKEY INTEGER,
+                L_LINENUMBER integer,
+                L_QUANTITY decimal,
+                L_EXTENDEDPRICE decimal,
+                L_DISCOUNT decimal,
+                L_TAX decimal,
+                L_RETURNFLAG CHAR(1),
+                L_LINESTATUS CHAR(1),
+                L_SHIPDATE date,
+                L_COMMITDATE date,
+                L_RECEIPTDATE date,
+                L_SHIPINSTRUCT CHAR(25),
+                L_SHIPMODE CHAR(10),
+                L_COMMENT VARCHAR(44)
+                )
+LOCATION
+(
+        'gpfdist://10.110.121.167/gpfdist2/data/bad_data/lineitem.tbl.bad'
+)
+FORMAT 'text'
+(
+        DELIMITER AS '|'
+)
+LOG ERRORS INTO ext_lineitem_err SEGMENT REJECT LIMIT 200
+;
+psql:/data/gpdb_p2/nuprit/cdbfast/main/gpfdist2/query22.sql:28: NOTICE:  Error table "ext_lineitem_err" does not exist. Auto generating an error table with the same name
+CREATE EXTERNAL TABLE
+SELECT count(*) FROM ext_lineitem;
+psql:/data/gpdb_p2/nuprit/cdbfast/main/gpfdist2/query22.sql:29: NOTICE:  Found 4 data formatting errors (4 or more input rows). Rejected related input data.
+ count 
+-------
+  6001
+(1 row)
+
+\t
+Showing only tuples.
+SELECT * FROM ext_lineitem_err;
+ 2009-07-31 11:51:32.401942-07 | ext_lineitem | gpfdist://10.110.121.167/gpfdist2/data/bad_data/lineitem.tbl.bad [/data/gpdb_p2/nuprit/cdbfast/main/gpfdist2/data/bad_data/lineitem.tbl.bad] |       1 |         | invalid input syntax for integer: "a1", column l_orderkey       | a1|156|4|1|17|17954.55|0.04|0.02|N|O|1996-03-13|1996-02-12|1996-03-22|DELIVER IN PERSON|TRUCK|egular courts above the         | 
+ 2009-07-31 11:51:32.401942-07 | ext_lineitem | gpfdist://10.110.121.167/gpfdist2/data/bad_data/lineitem.tbl.bad [/data/gpdb_p2/nuprit/cdbfast/main/gpfdist2/data/bad_data/lineitem.tbl.bad] |       2 |         | invalid input syntax for integer: "a68", column l_partkey       | 1|a68|9|2|36|34850.16|0.09|0.06|N|O|1996-04-12|1996-02-28|1996-04-20|TAKE BACK RETURN|MAIL|ly final dependencies: slyly bold  | 
+ 2009-07-31 11:51:32.401942-07 | ext_lineitem | gpfdist://10.110.121.167/gpfdist2/data/bad_data/lineitem.tbl.bad [/data/gpdb_p2/nuprit/cdbfast/main/gpfdist2/data/bad_data/lineitem.tbl.bad] |       3 |         | invalid input syntax for integer: "a5", column l_suppkey        | 1|64|a5|3|8|7712.48|0.10|0.02|N|O|1996-01-29|1996-03-05|1996-01-31|TAKE BACK RETURN|REG AIR|riously. regular, express dep     | 
+ 2009-07-31 11:51:32.401942-07 | ext_lineitem | gpfdist://10.110.121.167/gpfdist2/data/bad_data/lineitem.tbl.bad [/data/gpdb_p2/nuprit/cdbfast/main/gpfdist2/data/bad_data/lineitem.tbl.bad] |       4 |         | invalid input syntax for type numeric: "a28", column l_quantity | 1|3|6|4|a28|25284.00|0.09|0.06|N|O|1996-04-21|1996-03-30|1996-05-16|NONE|AIR|lites. fluffily even de                          | 
+
+DROP EXTERNAL TABLE ext_lineitem;
+DROP EXTERNAL TABLE
+DROP TABLE ext_lineitem_err;
+DROP TABLE

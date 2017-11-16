@@ -1,0 +1,96 @@
+CREATE EXTERNAL TABLE ext_lineitem (
+                L_ORDERKEY INT8,
+                L_PARTKEY INTEGER,
+                L_SUPPKEY INTEGER,
+                L_LINENUMBER integer,
+                L_QUANTITY decimal,
+                L_EXTENDEDPRICE decimal,
+                L_DISCOUNT decimal,
+                L_TAX decimal,
+                L_RETURNFLAG CHAR(1),
+                L_LINESTATUS CHAR(1),
+                L_SHIPDATE date,
+                L_COMMITDATE date,
+                L_RECEIPTDATE date,
+                L_SHIPINSTRUCT CHAR(25),
+                L_SHIPMODE CHAR(10),
+                L_COMMENT VARCHAR(44)
+                )
+LOCATION
+(
+        'gpfdist://10.1.2.16/gpfdist2/data/lineitem.tbl'
+)
+FORMAT 'text'
+(
+        DELIMITER AS '|'
+)
+;
+CREATE EXTERNAL TABLE
+CREATE TABLE lineitem AS SELECT * FROM ext_lineitem;
+NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column(s) named 'l_orderkey' as the Greenplum Database data distribution key for this table.
+HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.
+SELECT 6005
+SELECT count(*) FROM lineitem;
+ count 
+-------
+  6005
+(1 row)
+
+SELECT count(*) FROM ext_lineitem;
+ count 
+-------
+  6005
+(1 row)
+
+DROP EXTERNAL TABLE ext_lineitem;
+DROP EXTERNAL TABLE
+DROP TABLE lineitem;
+DROP TABLE
+CREATE EXTERNAL TABLE ext_lineitem (
+                L_ORDERKEY INT8,
+                L_PARTKEY INTEGER,
+                L_SUPPKEY INTEGER,
+                L_LINENUMBER integer,
+                L_QUANTITY decimal,
+                L_EXTENDEDPRICE decimal,
+                L_DISCOUNT decimal,
+                L_TAX decimal,
+                L_RETURNFLAG CHAR(1),
+                L_LINESTATUS CHAR(1),
+                L_SHIPDATE date,
+                L_COMMITDATE date,
+                L_RECEIPTDATE date,
+                L_SHIPINSTRUCT CHAR(25),
+                L_SHIPMODE CHAR(10),
+                L_COMMENT VARCHAR(44)
+                )
+LOCATION
+(
+        'gpfdist://10.1.2.16/gpfdist2/data/lineitem.tbl'
+)
+FORMAT 'text'
+(
+        DELIMITER AS '|'
+)
+;
+CREATE EXTERNAL TABLE
+SELECT * INTO lineitem FROM ext_lineitem;
+NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column(s) named 'l_orderkey' as the Greenplum Database data distribution key for this table.
+HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.
+SELECT 6005
+SELECT count(*) FROM lineitem;
+ count 
+-------
+  6005
+(1 row)
+
+SELECT count(*) FROM ext_lineitem;
+ count 
+-------
+  6005
+(1 row)
+
+DROP EXTERNAL TABLE ext_lineitem;
+DROP EXTERNAL TABLE
+DROP TABLE lineitem;
+DROP TABLE

@@ -1,0 +1,38 @@
+CREATE EXTERNAL TABLE ext_test (
+                id text,
+                stuff text
+                )
+LOCATION
+(
+      'gpfdist://10.5.213.150/gpfdist2/data/10lines.txt'
+)
+FORMAT 'text'
+(
+        DELIMITER AS ','
+)
+;
+CREATE EXTERNAL TABLE
+SELECT count(*) FROM ext_test;
+ERROR:  gpfdist error - line too long in file /data/build/pulse2-agent/agents/agent1/work/GPDB-main-opt-4xcent/rhel5_x86_64-4/cdbunit/cdbfast/gpfdist2/data/10lines.txt near (0 bytes) (url.c:1445)  (seg0 slice1 centbuild5:28511 pid=16120) (cdbdisp.c:1453)
+DETAIL:  External table ext_test, file gpfdist://10.5.213.150/gpfdist2/data/10lines.txt
+DROP EXTERNAL TABLE ext_test;
+DROP EXTERNAL TABLE
+CREATE EXTERNAL TABLE ext_test1 (
+                id text,
+                stuff text
+                )
+LOCATION
+(
+      'gpfdist://10.5.213.150/gpfdist2/data/10lines.csv'
+)
+FORMAT 'csv'
+(
+        DELIMITER AS ','
+)
+;
+CREATE EXTERNAL TABLE
+SELECT count(*) FROM ext_test1;
+ERROR:  gpfdist error - line too long in file /data/build/pulse2-agent/agents/agent1/work/GPDB-main-opt-4xcent/rhel5_x86_64-4/cdbunit/cdbfast/gpfdist2/data/10lines.csv near (0 bytes) (url.c:1445)  (seg1 slice1 centbuild5:28512 pid=16122) (cdbdisp.c:1453)
+DETAIL:  External table ext_test1, file gpfdist://10.5.213.150/gpfdist2/data/10lines.csv
+DROP EXTERNAL TABLE ext_test1;
+DROP EXTERNAL TABLE

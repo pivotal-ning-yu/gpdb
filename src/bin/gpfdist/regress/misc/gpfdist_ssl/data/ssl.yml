@@ -1,0 +1,33 @@
+version: 1.0.0.1
+database:  gptest
+USER: pazy
+host: 10.110.120.137
+port: 5432
+gpload:
+    input:
+          - source:
+              local_hostname:
+                -  10.110.120.137
+
+              file: 
+                - /data/pazy/cdbfast/private/pazy/main/gpfdist_ssl/data/tbl1.tbl
+              ssl: true 
+              CERTIFICATES_PATH: /data/pazy/cdbfast/private/pazy/main/gpfdist_ssl/data/certificate/server/
+          - columns:
+              - s1: text
+              - s2: text
+              - s3: text
+              - dt: timestamp
+              - n1: smallint
+              - n2: integer
+              - n3: bigint
+              - n4: decimal
+              - n5: numeric
+              - n6: real
+              - n7: double precision
+          - delimiter: '|'
+          - format: text
+          - MAX_LINE_LENGTH: 268435456
+    output:
+          - table: public.tbl_item
+          - MODE: insert

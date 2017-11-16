@@ -1,0 +1,76 @@
+CREATE OR REPLACE FUNCTION fxwd_in() RETURNS record AS '$libdir/fixedwidth.so', 'fixedwidth_in' LANGUAGE C STABLE;
+CREATE FUNCTION
+CREATE OR REPLACE FUNCTION fxwd_out(record) RETURNS bytea AS '$libdir/fixedwidth.so', 'fixedwidth_out' LANGUAGE C STABLE;
+CREATE FUNCTION
+DROP EXTERNAL TABLE IF EXISTS tbl_ext_fixedwidth_shtrodel;
+DROP EXTERNAL TABLE
+CREATE READABLE EXTERNAL TABLE tbl_ext_fixedwidth_shtrodel ( 
+s1 char(10), s2 varchar(10), s3 text, dt timestamp,   
+n1 smallint, n2 integer, n3 bigint, n4 decimal,       
+n5 numeric, n6 real, n7 double precision) 
+LOCATION ('gpfdist://10.110.120.137/gpfdist_end_of_line/data/fixedwidth_small_correct_shtrodel.tbl')   
+FORMAT 'CUSTOM' (formatter='fxwd_in', s1='10',             
+s2='10', s3='10', dt='20',n1='5', n2='10',                                                                                                                                      
+n3='10', n4='10', n5='10', n6='10', n7='15',line_delim='@');
+CREATE EXTERNAL TABLE
+DROP EXTERNAL TABLE IF EXISTS tbl_out_fixedwidth;
+DROP EXTERNAL TABLE
+CREATE WRITABLE EXTERNAL TABLE tbl_out_fixedwidth (
+            s1 char(10), s2 varchar(10), s3 text, dt timestamp, 
+            n1 smallint, n2 integer, n3 bigint, n4 decimal, 
+            n5 numeric, n6 real, n7 double precision)                                                              
+        LOCATION ('gpfdist://10.110.120.137/gpfdist_end_of_line/data/fixedwidth_out.tbl')     
+        FORMAT 'CUSTOM' (formatter='fxwd_out', s1='10', 
+            s2='10', s3='10', dt='20', n1='5', n2='10', 
+            n3='10', n4='10', n5='10', n6='10', n7='15',line_delim='x');
+CREATE EXTERNAL TABLE
+DROP TABLE IF EXISTS tbl_on_heap;
+DROP TABLE
+CREATE TABLE tbl_on_heap (
+            s1 char(10), s2 varchar(10), s3 text, dt timestamp, 
+            n1 smallint, n2 integer, n3 bigint, n4 decimal, 
+            n5 numeric, n6 real, n7 double precision);
+NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column named 's1' as the Greenplum Database data distribution key for this table.
+HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.
+CREATE TABLE
+INSERT INTO tbl_on_heap SELECT * FROM tbl_ext_fixedwidth_shtrodel;
+INSERT 0 10
+INSERT INTO tbl_out_fixedwidth SELECT * FROM tbl_on_heap ORDER BY s1;
+INSERT 0 10
+DROP EXTERNAL TABLE IF EXISTS tbl_ext_fixedwidth;
+DROP EXTERNAL TABLE
+CREATE READABLE EXTERNAL TABLE tbl_ext_fixedwidth (
+s1 char(10), s2 varchar(10), s3 text, dt timestamp,
+n1 smallint, n2 integer, n3 bigint, n4 decimal,
+n5 numeric, n6 real, n7 double precision)
+LOCATION ('gpfdist://10.110.120.137/gpfdist_end_of_line/data/fixedwidth_out.tbl')
+FORMAT 'CUSTOM' (formatter='fxwd_in', s1='10',
+s2='10', s3='10', dt='20',n1='5', n2='10',
+n3='10', n4='10', n5='10', n6='10', n7='15',line_delim='x');
+CREATE EXTERNAL TABLE
+DROP TABLE IF EXISTS tbl_on_heap;
+DROP TABLE
+CREATE TABLE tbl_on_heap (
+            s1 char(10), s2 varchar(10), s3 text, dt timestamp,
+            n1 smallint, n2 integer, n3 bigint, n4 decimal,
+            n5 numeric, n6 real, n7 double precision);
+NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column named 's1' as the Greenplum Database data distribution key for this table.
+HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.
+CREATE TABLE
+INSERT INTO tbl_on_heap SELECT * FROM tbl_ext_fixedwidth;
+INSERT 0 10
+SELECT * FROM tbl_on_heap ORDER BY s1;
+     s1     |  s2  |   s3   |         dt          | n1 | n2  |   n3   |  n4   |   n5    |   n6    |     n7     
+------------+------+--------+---------------------+----+-----+--------+-------+---------+---------+------------
+ aaa        | twoa | shpits | 2011-06-01 12:30:30 | 23 | 732 | 834567 | 45.67 | 789.123 | 7.12345 | 123.456789
+ bbb        | twob | shpits | 2011-06-01 12:30:30 | 23 | 732 | 834567 | 45.67 | 789.123 | 7.12345 | 123.456789
+ ccc        | twoc | shpits | 2011-06-01 12:30:30 | 23 | 732 | 834567 | 45.67 | 789.123 | 7.12345 | 123.456789
+ ddd        | twod | shpits | 2011-06-01 12:30:30 | 23 | 732 | 834567 | 45.67 | 789.123 | 7.12345 | 123.456789
+ eee        | twoe | shpits | 2011-06-01 12:30:30 | 23 | 732 | 834567 | 45.67 | 789.123 | 7.12345 | 123.456789
+ fff        | twof | shpits | 2011-06-01 12:30:30 | 23 | 732 | 834567 | 45.67 | 789.123 | 7.12345 | 123.456789
+ ggg        | twog | shpits | 2011-06-01 12:30:30 | 23 | 732 | 834567 | 45.67 | 789.123 | 7.12345 | 123.456789
+ hhh        | twoh | shpits | 2011-06-01 12:30:30 | 23 | 732 | 834567 | 45.67 | 789.123 | 7.12345 | 123.456789
+ iii        | twoi | shpits | 2011-06-01 12:30:30 | 23 | 732 | 834567 | 45.67 | 789.123 | 7.12345 | 123.456789
+ jjj        | twoj | shpits | 2011-06-01 12:30:30 | 23 | 732 | 834567 | 45.67 | 789.123 | 7.12345 | 123.456789
+(10 rows)
+

@@ -1,0 +1,190 @@
+-- start_ignore
+----------------------------------------------------------------------------------
+-- PURPOSE:
+--     This is nearly identical to 
+--         IndexedAOTablesBasicTests2/test04renameIndex.sql 
+--     except that this uses gpfdist to load the table named "albums".
+-- LAST MODIFIED:
+--     2010-03-24 mgilkey
+--         We removed the feature "unique indexes on AO tables" shortly before
+--         the product release, so I had to modify several files in this test
+--         to make unique indexes non-unique indexes, and remove primary keys
+--         (which implicitly create a unique index).
+----------------------------------------------------------------------------------
+-- end_ignore
+-- start_ignore
+DROP TABLE IF EXISTS albums;
+psql:/data/build/pulse2-agent/work/GPDB-main-cdbfast-dbg-4xsol-hawthorn7/sol10_x86_64-3/cdbunit/cdbfast/gpfdist2/query65.sql:17: NOTICE:  table "albums" does not exist, skipping
+DROP TABLE
+DROP EXTERNAL TABLE IF EXISTS externalRecords;
+DROP EXTERNAL TABLE
+-- end_ignore
+CREATE TABLE records (ID INTEGER, 
+ title VARCHAR, 
+ performer VARCHAR)
+ WITH (APPENDONLY=True, ORIENTATION='column')
+ DISTRIBUTED BY (id)
+ ;
+CREATE TABLE
+CREATE INDEX albumTitleIndex ON records USING BITMAP (title);
+CREATE INDEX
+-- --- OLD
+-- COPY records FROM '/tmp/albumData.txt' DELIMITER ',';
+-- --- NEW
+CREATE EXTERNAL TABLE externalRecords (LIKE records)
+ LOCATION ('gpfdist://10.1.2.17/gpfdist2/data/albumData.txt')
+ FORMAT 'CSV' (DELIMITER ',');
+CREATE EXTERNAL TABLE
+INSERT INTO records SELECT * FROM externalRecords;
+INSERT 0 24
+SET enable_seqscan = False;
+SET
+SELECT id, title, performer FROM records ORDER BY title;
+ id |                      title                      |           performer            
+----+-------------------------------------------------+--------------------------------
+ 11 |  'Abacus'                                       |  'Quick Calculators'
+ 17 |  'All American Boy'                             |  'Rick Derringer'
+  9 |  'Canned Wheat'                                 |  'Guess Who'
+ 24 |  'Decadent'                                     |  'The Daughters of Prevention'
+  7 |  'Everybody Knows This Is Nowhere'              |  'Neil Young'
+ 20 |  'Excitable Boy'                                |  'Warren Zevon'
+  5 |  'Follow You Down'                              |  'Gin Blossoms'
+  6 |  'If I Could Only Remember My Name'             |  'David Crosby'
+ 22 |  'In The Court Of The Crimson King'             |  'King Crimson'
+ 19 |  'L.A. Woman'                                   |  'Doors'
+ 21 |  'Modern Times'                                 |  'Jefferson Starship'
+ 10 |  'Quadrophenia'                                 |  'Who'
+ 23 |  'Rebel Yell'                                   |  'Billy Idol'
+  3 |  'River Songs'                                  |  'Badlees'
+  8 |  'Rock and Roll Animal'                         |  'Lou Reed'
+  4 |  'Rubber Soul'                                  |  'Beatles'
+ 13 |  'Saturate Before Using'                        |  'Jackson Browne'
+ 12 |  'Songs for Beginners'                          |  'Graham Nash'
+ 16 |  'Souveniers'                                   |  'Dan Fogelberg'
+ 15 |  'Stephen Stills II'                            |  'Stephen Stills'
+ 18 |  'They Only Come Out At Night'                  |  'Edgar Winter Group'
+ 14 |  'Turnstiles'                                   |  'Billy Joel'
+  1 |  'Wish You Were Here'                           |  'Pink Floyd'
+  2 |  'You Can Tune A Piano But You Can't Tuna Fish' |  'REO Speedwagon'
+(24 rows)
+
+SELECT id, performer, title FROM records ORDER BY performer;
+ id |           performer            |                      title                      
+----+--------------------------------+-------------------------------------------------
+  3 |  'Badlees'                     |  'River Songs'
+  4 |  'Beatles'                     |  'Rubber Soul'
+ 23 |  'Billy Idol'                  |  'Rebel Yell'
+ 14 |  'Billy Joel'                  |  'Turnstiles'
+ 16 |  'Dan Fogelberg'               |  'Souveniers'
+  6 |  'David Crosby'                |  'If I Could Only Remember My Name'
+ 19 |  'Doors'                       |  'L.A. Woman'
+ 18 |  'Edgar Winter Group'          |  'They Only Come Out At Night'
+  5 |  'Gin Blossoms'                |  'Follow You Down'
+ 12 |  'Graham Nash'                 |  'Songs for Beginners'
+  9 |  'Guess Who'                   |  'Canned Wheat'
+ 13 |  'Jackson Browne'              |  'Saturate Before Using'
+ 21 |  'Jefferson Starship'          |  'Modern Times'
+ 22 |  'King Crimson'                |  'In The Court Of The Crimson King'
+  8 |  'Lou Reed'                    |  'Rock and Roll Animal'
+  7 |  'Neil Young'                  |  'Everybody Knows This Is Nowhere'
+  1 |  'Pink Floyd'                  |  'Wish You Were Here'
+ 11 |  'Quick Calculators'           |  'Abacus'
+  2 |  'REO Speedwagon'              |  'You Can Tune A Piano But You Can't Tuna Fish'
+ 17 |  'Rick Derringer'              |  'All American Boy'
+ 15 |  'Stephen Stills'              |  'Stephen Stills II'
+ 24 |  'The Daughters of Prevention' |  'Decadent'
+ 20 |  'Warren Zevon'                |  'Excitable Boy'
+ 10 |  'Who'                         |  'Quadrophenia'
+(24 rows)
+
+-- Rename the table.
+ALTER TABLE records RENAME TO albums;
+ALTER TABLE
+-- Rename a column.  (In fact, we'll rename it twice.)
+ALTER TABLE albums RENAME COLUMN performer TO "group";
+ALTER TABLE
+ALTER TABLE albums RENAME COLUMN "group" TO band;
+ALTER TABLE
+CREATE SCHEMA worstLaidSchemasOfMiceAndMen; 
+CREATE SCHEMA
+ALTER TABLE albums SET SCHEMA worstLaidSchemasOfMiceAndMen;
+ALTER TABLE
+-- Try to rename the index.  Presumably it should be part of the new schema.
+ALTER INDEX worstLaidSchemasOfMiceAndMen.albumTitleIndex RENAME TO albumNameIndex;
+ALTER INDEX
+ALTER INDEX worstLaidSchemasOfMiceAndMen.albumNameIndex SET (FILLFACTOR = 10);
+ALTER INDEX
+-- This should fail because the table named "albums" is no longer in the 
+-- current schema.
+SELECT id, title, band FROM albums ORDER BY title, band;
+psql:/data/build/pulse2-agent/work/GPDB-main-cdbfast-dbg-4xsol-hawthorn7/sol10_x86_64-3/cdbunit/cdbfast/gpfdist2/query65.sql:61: ERROR:  relation "albums" does not exist
+LINE 1: SELECT id, title, band FROM albums ORDER BY title, band;
+                                    ^
+-- These should succeed because we specified the schema.
+SELECT id, title, band FROM worstLaidSchemasOfMiceAndMen.albums ORDER BY title;
+ id |                      title                      |              band              
+----+-------------------------------------------------+--------------------------------
+ 11 |  'Abacus'                                       |  'Quick Calculators'
+ 17 |  'All American Boy'                             |  'Rick Derringer'
+  9 |  'Canned Wheat'                                 |  'Guess Who'
+ 24 |  'Decadent'                                     |  'The Daughters of Prevention'
+  7 |  'Everybody Knows This Is Nowhere'              |  'Neil Young'
+ 20 |  'Excitable Boy'                                |  'Warren Zevon'
+  5 |  'Follow You Down'                              |  'Gin Blossoms'
+  6 |  'If I Could Only Remember My Name'             |  'David Crosby'
+ 22 |  'In The Court Of The Crimson King'             |  'King Crimson'
+ 19 |  'L.A. Woman'                                   |  'Doors'
+ 21 |  'Modern Times'                                 |  'Jefferson Starship'
+ 10 |  'Quadrophenia'                                 |  'Who'
+ 23 |  'Rebel Yell'                                   |  'Billy Idol'
+  3 |  'River Songs'                                  |  'Badlees'
+  8 |  'Rock and Roll Animal'                         |  'Lou Reed'
+  4 |  'Rubber Soul'                                  |  'Beatles'
+ 13 |  'Saturate Before Using'                        |  'Jackson Browne'
+ 12 |  'Songs for Beginners'                          |  'Graham Nash'
+ 16 |  'Souveniers'                                   |  'Dan Fogelberg'
+ 15 |  'Stephen Stills II'                            |  'Stephen Stills'
+ 18 |  'They Only Come Out At Night'                  |  'Edgar Winter Group'
+ 14 |  'Turnstiles'                                   |  'Billy Joel'
+  1 |  'Wish You Were Here'                           |  'Pink Floyd'
+  2 |  'You Can Tune A Piano But You Can't Tuna Fish' |  'REO Speedwagon'
+(24 rows)
+
+SELECT id, band, title FROM worstLaidSchemasOfMiceAndMen.albums ORDER BY band;
+ id |              band              |                      title                      
+----+--------------------------------+-------------------------------------------------
+  3 |  'Badlees'                     |  'River Songs'
+  4 |  'Beatles'                     |  'Rubber Soul'
+ 23 |  'Billy Idol'                  |  'Rebel Yell'
+ 14 |  'Billy Joel'                  |  'Turnstiles'
+ 16 |  'Dan Fogelberg'               |  'Souveniers'
+  6 |  'David Crosby'                |  'If I Could Only Remember My Name'
+ 19 |  'Doors'                       |  'L.A. Woman'
+ 18 |  'Edgar Winter Group'          |  'They Only Come Out At Night'
+  5 |  'Gin Blossoms'                |  'Follow You Down'
+ 12 |  'Graham Nash'                 |  'Songs for Beginners'
+  9 |  'Guess Who'                   |  'Canned Wheat'
+ 13 |  'Jackson Browne'              |  'Saturate Before Using'
+ 21 |  'Jefferson Starship'          |  'Modern Times'
+ 22 |  'King Crimson'                |  'In The Court Of The Crimson King'
+  8 |  'Lou Reed'                    |  'Rock and Roll Animal'
+  7 |  'Neil Young'                  |  'Everybody Knows This Is Nowhere'
+  1 |  'Pink Floyd'                  |  'Wish You Were Here'
+ 11 |  'Quick Calculators'           |  'Abacus'
+  2 |  'REO Speedwagon'              |  'You Can Tune A Piano But You Can't Tuna Fish'
+ 17 |  'Rick Derringer'              |  'All American Boy'
+ 15 |  'Stephen Stills'              |  'Stephen Stills II'
+ 24 |  'The Daughters of Prevention' |  'Decadent'
+ 20 |  'Warren Zevon'                |  'Excitable Boy'
+ 10 |  'Who'                         |  'Quadrophenia'
+(24 rows)
+
+-- start_ignore
+DROP TABLE IF EXISTS worstLaidSchemasOfMiceAndMen.records;
+psql:/data/build/pulse2-agent/work/GPDB-main-cdbfast-dbg-4xsol-hawthorn7/sol10_x86_64-3/cdbunit/cdbfast/gpfdist2/query65.sql:70: NOTICE:  table "records" does not exist, skipping
+DROP TABLE
+DROP TABLE IF EXISTS worstLaidSchemasOfMiceAndMen.albums;
+DROP TABLE
+DROP SCHEMA IF EXISTS worstLaidSchemasOfMiceAndMen;
+DROP SCHEMA
+-- end_ignore

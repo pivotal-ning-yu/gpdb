@@ -1,0 +1,38 @@
+create external table xab_ext (
+zdate int,
+ztime int,
+sid int,
+uid int,
+pid bigint,
+hostname varchar(40),
+details varchar(1000),
+url varchar(500))
+location ('gpfdist://10.5.213.63/gpfdist2/data/xab')
+format 'text'
+(delimiter as '' null as '');
+CREATE EXTERNAL TABLE
+                     External table "public.xab_ext"
+  Column  |          Type           | Modifiers | Storage  | Description 
+----------+-------------------------+-----------+----------+-------------
+ zdate    | integer                 |           | plain    | 
+ ztime    | integer                 |           | plain    | 
+ sid      | integer                 |           | plain    | 
+ uid      | integer                 |           | plain    | 
+ pid      | bigint                  |           | plain    | 
+ hostname | character varying(40)   |           | extended | 
+ details  | character varying(1000) |           | extended | 
+ url      | character varying(500)  |           | extended | 
+Type: readable
+Encoding: UTF8
+Format type: text
+Format options: delimiter '' null '' escape '\'
+External location: gpfdist://10.5.213.63/gpfdist2/data/xab
+
+select count(*) from xab_ext;
+ count 
+-------
+     3
+(1 row)
+
+drop external table xab_ext;
+DROP EXTERNAL TABLE
