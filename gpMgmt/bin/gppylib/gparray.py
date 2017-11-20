@@ -1239,6 +1239,9 @@ class GpArray:
                                                           str(self.standbyMaster) if self.standbyMaster else 'Not Configured',
                                                           "\n".join([str(seg) for seg in self.segments]))
 
+    def hasStandbyMaster(self):
+        return self.standbyMaster is not None
+
     def addSegmentDb(self, segdb):
         content = segdb.getSegmentContentId()
 
@@ -1840,6 +1843,13 @@ class GpArray:
         for seg in self.segments:
             hosts.extend(seg.get_hosts())
         return hosts
+
+    # --------------------------------------------------------------------
+    def get_master_host_names(self):
+        if self.hasStandbyMaster():
+            return [self.master.hostname, self.standbyMaster.hostname]
+        else:
+            return [self.master.hostname]
 
     # --------------------------------------------------------------------
     def get_max_dbid(self,includeExpansionSegs=False):
