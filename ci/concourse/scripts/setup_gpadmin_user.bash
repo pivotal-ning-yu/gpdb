@@ -30,7 +30,7 @@ ssh_keyscan_for_user() {
 }
 
 transfer_ownership() {
-  for i in 1 2 3; do find gpdb_src/ -print0 | xargs -0 chown gpadmin:gpadmin && break || sleep 15; done
+  chown -R gpadmin:gpadmin gpdb_src
   chown -R gpadmin:gpadmin /usr/local/greenplum-db-devel
   chown -R gpadmin:gpadmin /home/gpadmin
 }
