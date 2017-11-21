@@ -6011,11 +6011,18 @@ dumpTableSchema(Archive *fout, TableInfo *tbinfo)
 			int i = 0;
 			int ntups = 0;
 			char *relname = NULL;
-			char *parname = NULL;
 			int i_relname = 0;
 			int i_parname = 0;
+			int i_partitionrank = 0;
 			resetPQExpBuffer(query);
 
+			appendPQExpBuffer(query, "SELECT DISTINCT cc.relname, ps.partitionrank, pp.parname "
+						"FROM pg_partition p "
+						"JOIN pg_class c on (p.parrelid = c.oid) "
+						"JOIN pg_partitions ps on (c.relname = ps.tablename) "
+						"JOIN pg_class cc on (ps.partitiontablename = cc.relname) "
+						"JOIN pg_partition_rule pp on (cc.oid = pp.parchildrelid) "
+						"WHERE p.parrelid = %u AND cc.relstorage = '%c';", tbinfo->dobj.catId.oid, RELSTORAGE_EXTERNAL);
 			appendPQExpBuffer(query, "SELECT "
 						      "c.relname, pr.parname FROM pg_partition_rule pr "
 						      "join pg_class c ON pr.parchildrelid = c.oid "
@@ -6028,6 +6035,7 @@ dumpTableSchema(Archive *fout, TableInfo *tbinfo)
 			ntups = PQntuples(res);
 			i_relname = PQfnumber(res, "relname");
 			i_parname = PQfnumber(res, "parname");
+			i_partitionrank = PQfnumber(res, "partitionrank");
 
 			appendPQExpBuffer(q, ";\n");
 
@@ -6035,11 +6043,23 @@ dumpTableSchema(Archive *fout, TableInfo *tbinfo)
 			{
 				char tmpExtTable[500] = {0};
 				relname = pg_strdup(PQgetvalue(res, i, i_relname));
-				parname = pg_strdup(PQgetvalue(res, i, i_parname));
 				snprintf(tmpExtTable, sizeof(tmpExtTable), "%s%s", relname, EXT_PARTITION_NAME_POSTFIX);
 				appendPQExpBuffer(q, "ALTER TABLE %s.", fmtId(tbinfo->dobj.namespace->dobj.name));
 				appendPQExpBuffer(q, "%s ", fmtId(tbinfo->dobj.name));
-				appendPQExpBuffer(q, "EXCHANGE PARTITION %s ", fmtId(parname));
+				/*
+				 * If it is an anonymous range partition we must exchange for
+				 * the rank rather than the parname.
+				 */
+				if (PQgetisnull(res, i, i_parname) || !strlen(PQgetvalue(res, i, i_parname)))
+				{
+					appendPQExpBuffer(q, "EXCHANGE PARTITION FOR (RANK(%s)) ",
+									  PQgetvalue(res, i, i_partitionrank));
+				}
+				else
+				{
+					appendPQExpBuffer(q, "EXCHANGE PARTITION %s ",
+									  fmtId(PQgetvalue(res, i, i_parname)));
+				}
 				appendPQExpBuffer(q, "WITH TABLE %s WITHOUT VALIDATION; ", fmtId(tmpExtTable));
 
 				appendPQExpBuffer(q, "\n");
@@ -6047,6 +6067,8 @@ dumpTableSchema(Archive *fout, TableInfo *tbinfo)
 				appendPQExpBuffer(q, "DROP TABLE %s; ", fmtId(tmpExtTable));
 
 				appendPQExpBuffer(q, "\n");
+				if (relname)
+					free(relname);
 			}
 
 			PQclear(res);
