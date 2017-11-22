@@ -451,32 +451,52 @@ CConfigParamMapping::PbsPack
 		pbsHeterogeneousIndex->Release();
 	}
 
-    if (!optimizer_enable_hashjoin)
-    {
-        // disable hash-join if the corresponding GUC is turned off
-        CBitSet *pbsHashJoin = CXform::PbsHashJoinXforms(pmp);
-        pbs->Union(pbsHashJoin);
-        pbsHashJoin->Release();
-    }
-    
-    if (!optimizer_enable_dynamictablescan)
-    {
-        // disable dynamic table scan if the corresponding GUC is turned off
-        pbs->FExchangeSet(GPOPT_DISABLE_XFORM_TF(CXform::ExfDynamicGet2DynamicTableScan));
-    }
-    
-    if (!optimizer_enable_indexscan)
-    {
-        // disable index scan if the corresponding GUC is turned off
-        pbs->FExchangeSet(GPOPT_DISABLE_XFORM_TF(CXform::ExfIndexGet2IndexScan));
-    }
+	if (!optimizer_enable_hashjoin)
+	{
+		// disable hash-join if the corresponding GUC is turned off
+		CBitSet *pbsHashJoin = CXform::PbsHashJoinXforms(pmp);
+		pbs->Union(pbsHashJoin);
+		pbsHashJoin->Release();
+	}
 
-    if (!optimizer_enable_tablescan)
-    {
-        // disable table scan if the corresponding GUC is turned off
-        pbs->FExchangeSet(GPOPT_DISABLE_XFORM_TF(CXform::ExfGet2TableScan));
-    }
-    
+	if (!optimizer_enable_dynamictablescan)
+	{
+		// disable dynamic table scan if the corresponding GUC is turned off
+		pbs->FExchangeSet(GPOPT_DISABLE_XFORM_TF(CXform::ExfDynamicGet2DynamicTableScan));
+	}
+
+	if (!optimizer_enable_indexscan)
+	{
+		// disable index scan if the corresponding GUC is turned off
+		pbs->FExchangeSet(GPOPT_DISABLE_XFORM_TF(CXform::ExfIndexGet2IndexScan));
+	}
+
+	if (!optimizer_enable_tablescan)
+	{
+		// disable table scan if the corresponding GUC is turned off
+		pbs->FExchangeSet(GPOPT_DISABLE_XFORM_TF(CXform::ExfGet2TableScan));
+	}
+
+	CBitSet *pbsJoinHeuristic = NULL;
+	switch (optimizer_join_order)
+	{
+		case JOIN_ORDER_IN_QUERY:
+			pbsJoinHeuristic = CXform::PbsJoinOrderInQueryXforms(pmp);
+			break;
+		case JOIN_ORDER_GREEDY_SEARCH:
+			pbsJoinHeuristic = CXform::PbsJoinOrderOnGreedyXforms(pmp);
+			break;
+		case JOIN_ORDER_EXHAUSTIVE_SEARCH:
+			pbsJoinHeuristic = GPOS_NEW(pmp) CBitSet(pmp, EopttraceSentinel);
+			break;
+		default:
+			elog(ERROR, "Invalid value for optimizer_join_order, must \
+				 not come here");
+			break;
+	}
+	pbs->Union(pbsJoinHeuristic);
+	pbsJoinHeuristic->Release();
+
 	return pbs;
 }
 

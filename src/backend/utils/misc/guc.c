@@ -246,6 +246,7 @@ static const char *assign_debug_dtm_action_protocol(const char *newval,
 						bool doit, GucSource source);
 static const char *assign_gp_log_format(const char *value, bool doit,
 										GucSource source);
+static const char *assign_optimizer_join_order_options(const char *newval, bool doit, GucSource source);
 
 #ifdef USE_CONNECTEMC
 static const char *assign_connectemc_mode(const char *newval, bool doit, GucSource source);
@@ -554,6 +555,7 @@ static char *gp_log_format_string;
 static char *gp_workfile_caching_loglevel_str;
 static char *gp_sessionstate_loglevel_str;
 static char *explain_memory_verbosity_str;
+static char *optimizer_join_order_str;
 
 #ifdef HAVE_SYSLOG
 static char *syslog_facility_str;
@@ -807,8 +809,9 @@ double		optimizer_sort_factor;
 
 /* Optimizer hints */
 int			optimizer_join_arity_for_associativity_commutativity;
-int         optimizer_array_expansion_threshold;
-int         optimizer_join_order_threshold;
+int			optimizer_array_expansion_threshold;
+int			optimizer_join_order_threshold;
+int			optimizer_join_order;
 int			optimizer_cte_inlining_bound;
 bool		optimizer_force_multistage_agg;
 bool		optimizer_force_three_stage_scalar_dqa;
@@ -8139,6 +8142,16 @@ static struct config_string ConfigureNamesString[] =
 		&gp_default_storage_options, "", assign_gp_default_storage_options, NULL
 	},
 
+	{
+		{"optimizer_join_order", PGC_USERSET, QUERY_TUNING_OTHER,
+			gettext_noop("Set optimizer join heuristic model."),
+			gettext_noop("Valid values are query, greedy and exhaustive"),
+			GUC_NOT_IN_SAMPLE
+		},
+		&optimizer_join_order_str,
+		"exhaustive", assign_optimizer_join_order_options, NULL, NULL
+	},
+
 	/* End-of-list marker */
 	{
 		{NULL, 0, 0, NULL, NULL}, NULL, NULL, NULL, NULL
@@ -8297,7 +8310,6 @@ int get_num_guc_variables(void)
 {
 	return num_guc_variables;
 }
-
 
 /*
  * Build the sorted array.	This is split out so that it could be
@@ -12666,6 +12678,33 @@ assign_explain_memory_verbosity(const char *newval, bool doit, GucSource source)
 	else
 	{
 		printf("Unknown memory verbosity.");
+		return NULL;
+	}
+
+	return newval;
+}
+
+static const char *
+assign_optimizer_join_order_options(const char *newval, bool doit, GucSource source)
+{
+	if (pg_strcasecmp(newval, "query") == 0)
+	{
+		if (doit)
+			optimizer_join_order = JOIN_ORDER_IN_QUERY;
+	}
+	else if (pg_strcasecmp(newval, "greedy") == 0)
+	{
+		if (doit)
+			optimizer_join_order = JOIN_ORDER_GREEDY_SEARCH;
+	}
+	else if (pg_strcasecmp(newval, "exhaustive") == 0)
+	{
+		if (doit)
+			optimizer_join_order = JOIN_ORDER_EXHAUSTIVE_SEARCH;
+	}
+	else
+	{
+		printf("Unknown join order option.");
 		return NULL;
 	}
 
