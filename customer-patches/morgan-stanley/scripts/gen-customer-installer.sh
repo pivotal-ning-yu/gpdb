@@ -387,18 +387,29 @@ LIB_LIST="krb5-1.6.2"
 
 for i in ${LIB_LIST}; do
   for i in `cat $SCRIPT_DIR/checksums.$i | awk '{print $2}'`; do
-    if [ -f ${GPDB_INSTALLDIR}/$i ]; then
+    if [ -f "${GPDB_INSTALLDIR}/$i" ]; then
       rm -fv ${GPDB_INSTALLDIR}/$i
     fi
   done
 done
 
 rm -rf krb5-rhel55_x86_64-1.13.targz
-cp $BASE_DIR/mit_krb5_rhel62_tarball/krb5-rhel62_x86_64-1.13.targz .
 rm -rf rhel62_x86_64
-tar xf krb5-rhel62_x86_64-1.13.targz
-rsync -au rhel62_x86_64/lib/* ${GPDB_INSTALLDIR}/lib
 
+cat  <<EOF >> ${GPDB_INSTALLDIR}/greenplum_path.sh
+
+if [ -z "\${KRB5_LIBS}" ]; then
+   export LD_LIBRARY_PATH=\$KRB5_LIBS:\$LD_LIBRARY_PATH
+fi
+
+EOF
+cat  <<EOF >> ${GPDB_INSTALLDIR}/greenplum_connectivity_path.sh
+
+if [ -z "\${KRB5_LIBS}" ]; then
+   export LD_LIBRARY_PATH=\$KRB5_LIBS:\$LD_LIBRARY_PATH
+fi
+
+EOF
 ## ----------------------------------------------------------------------
 ## Retrieve and Extract Clients installer
 ## ----------------------------------------------------------------------
@@ -479,6 +490,54 @@ tail -n +${SKIP} ${LOADERS_BIN} | tar zxf - -C ${CLIENTS_INSTALLDIR}
 
 ## Save original installer
 mv ${LOADERS_BIN} ${LOADERS_BIN}.orig
+
+
+echo ""
+echo "----------------------------------------------------------------------"
+echo "Remove KRB5 - GPDB Clients"
+echo "----------------------------------------------------------------------"
+echo ""
+
+
+LIB_LIST="krb5-1.6.2"
+
+for i in ${LIB_LIST}; do
+  for a_file in `cat $SCRIPT_DIR/checksums.$i | awk '{print $2}'`; do
+    if [ -f "${GPDB_INSTALLDIR}/$a_file" ]; then
+      rm -fv ${GPDB_INSTALLDIR}/$a_file
+    fi
+  done
+done
+
+rm -rf krb5-rhel55_x86_64-1.13.targz
+rm -rf rhel62_x86_64
+
+cat  <<EOF >> ${CLIENTS_INSTALLDIR}/greenplum_clients_path.sh
+
+if [ -z "\${KRB5_LIBS}" ]; then
+   export LD_LIBRARY_PATH=\$KRB5_LIBS:\$LD_LIBRARY_PATH
+fi
+
+EOF
+
+cat  <<EOF >> ${CLIENTS_INSTALLDIR}/greenplum_loaders_path.sh
+
+if [ -z "\${KRB5_LIBS}" ]; then
+   export LD_LIBRARY_PATH=\$KRB5_LIBS:\$LD_LIBRARY_PATH
+fi
+
+EOF
+
+cat  <<EOF >> ${CLIENTS_INSTALLDIR}/greenplum_connectivity_path.sh
+
+if [ -z "\${KRB5_LIBS}" ]; then
+   export LD_LIBRARY_PATH=\$KRB5_LIBS:\$LD_LIBRARY_PATH
+fi
+
+EOF
+
+rm -rf krb5-rhel65_x86_64-1.13.targz
+rm -rf rhel62_x86_64
 
 ## ----------------------------------------------------------------------
 ## Process JDBC Driver clients_installer
