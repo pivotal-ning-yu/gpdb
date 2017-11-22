@@ -8,8 +8,8 @@ gpmgmt2: Management Utilities 2
 # Set up some globals, and import gptest 
 #    [YOU DO NOT NEED TO CHANGE THESE]
 #
-import sys, unittest, os, time, md5
-import subprocess
+import sys, unittest, os, time, hashlib
+import subprocess, socket
 MYD = os.path.abspath(os.path.dirname(__file__))
 mkpath = lambda *x: os.path.join(MYD, *x)
 UPD = os.path.abspath(mkpath('..'))
@@ -49,22 +49,13 @@ class gpfdist1(unittest.TestCase):
 
     lineitem_md5 = None
 
-    def _readMd5(self, fp):
-        m = md5.new()
-        cnt = 0
-        while True:
-            d = fp.read(1024*16)
-            if not d: break
-            m.update(d)
-            cnt = cnt + len(d)
-
-        m = m.hexdigest()
-        #print 'cnt =', cnt, ' m =', m
-        return m
+    def readMD5(self, data):
+        m = hashlib.md5()
+        m.update(data)
+        return m.hexdigest()
 
 
     def setUp(self):
-        (ok, out) = killall('gpfdist')
         cmd = 'gpfdist -v -d %s >> %s 2>&1 &' % (_dataPath, mkpath('gpfdist.out'))
         (ok, out) = run(cmd)
         if not ok: 
@@ -75,7 +66,7 @@ class gpfdist1(unittest.TestCase):
                 raise Exception('Unable to gunzip lineitem.tbl.gz')
         if not gpfdist1.lineitem_md5:
             f = open('%s/lineitem.tbl' % _dataPath)
-            gpfdist1.lineitem_md5 = self._readMd5(f)
+            gpfdist1.lineitem_md5 = self.readMD5(f.read())
             f.close()
         time.sleep(1)
 
@@ -84,56 +75,49 @@ class gpfdist1(unittest.TestCase):
         #run('rm -rf %s/split' % _dataPath)
 
     def test_1simple(self):
-        f = os.popen('curl -H "X-GP-PROTO:0" -s -S http://localhost:8080/lineitem.tbl')
-        m = self._readMd5(f)
+        (ok, out) = run('curl -H "X-GP-PROTO:0" -s -S http://localhost:8080/lineitem.tbl')
+        m = self.readMD5(out[0])
         self.failUnless(m == gpfdist1.lineitem_md5)
-        self.failUnless(not f.close())
 
     def test_2simple_gz(self):
-        f = os.popen('curl -H "X-GP-PROTO:0" -s -S http://localhost:8080/lineitem.tbl.gz')
-        m = self._readMd5(f)
+        (ok, out) = run('curl -H "X-GP-PROTO:0" -s -S http://localhost:8080/lineitem.tbl.gz')
+        m = self.readMD5(out[0])
         self.failUnless(m == gpfdist1.lineitem_md5)
-        self.failUnless(not f.close())
 
     def test_3glob(self):
         (ok, out) = run('cd %s && rm -rf split0 && mkdir split0 && cd split0 && split -l 500 ../lineitem.tbl' % _dataPath)
         self.failUnless(ok)
         
         # take everything under the split0 dir
-        f = os.popen('curl -H "X-GP-PROTO:0" -s -S http://localhost:8080/split0')
-        m = self._readMd5(f)
-        self.failUnless(not f.close())
+        (ok, out) = run('curl -H "X-GP-PROTO:0" -s -S http://localhost:8080/split0')
+        m = self.readMD5(out[0])
         self.failUnless(m == gpfdist1.lineitem_md5)
 
         # take only files x* under the split0 dir
-        f = os.popen('curl -H "X-GP-PROTO:0" -s -S http://localhost:8080/split0/x\*')
-        m = self._readMd5(f)
-        self.failUnless(not f.close())
+        (ok, out) = run('curl -H "X-GP-PROTO:0" -s -S http://localhost:8080/split0/x\*')
+        m = self.readMD5(out[0])
         self.failUnless(m == gpfdist1.lineitem_md5)
 
         # gzip 2nd file in split0 dir, and try to take mixture of x?? and x*.gz
         (ok, out) = run('cd %s/split0 && gzip xab' % _dataPath)
         self.failUnless(ok)
-        f = os.popen('curl -H "X-GP-PROTO:0" -s -S http://localhost:8080/split0')
-        m = self._readMd5(f)
-        self.failUnless(not f.close())
+        (ok, out) = run('curl -H "X-GP-PROTO:0" -s -S http://localhost:8080/split0')
+        m = self.readMD5(out[0])
         self.failUnless(m == gpfdist1.lineitem_md5)
 
         # add empty files in between x* files
         (ok, out) = run('cd %s/split0 && touch xaaa xaba xaca xzza' % _dataPath)
         self.failUnless(ok)
-        f = os.popen('curl -H "X-GP-PROTO:0" -s -S http://localhost:8080/split0')
-        m = self._readMd5(f)
-        self.failUnless(not f.close())
+        (ok, out) = run('curl -H "X-GP-PROTO:0" -s -S http://localhost:8080/split0')
+        m = self.readMD5(out[0])
         self.failUnless(m == gpfdist1.lineitem_md5)
 
         #if True:
         #    return
 
         # split[0]
-        f = os.popen('curl -H "X-GP-PROTO:0" -s -S http://localhost:8080/%s' % urllib.quote('split[0]'))
-        m = self._readMd5(f)
-        self.failUnless(not f.close())
+        (ok, out) = run('curl -H "X-GP-PROTO:0" -s -S http://localhost:8080/%s' % urllib.quote('split[0]'))
+        m = self.readMD5(out[0])
         self.failUnless(m == gpfdist1.lineitem_md5)
 
         # glob directories
@@ -143,9 +127,8 @@ class gpfdist1(unittest.TestCase):
         (ok, out) = run("bash -c 'cd %s/split0 && mv $(ls -1 x* | tail -5) ../split2/'" % _dataPath)
         self.failUnless(ok)
 
-        f = os.popen('curl -H "X-GP-PROTO:0" -s -S http://localhost:8080/split?')
-        m = self._readMd5(f)
-        self.failUnless(not f.close())
+        (ok, out) = run('curl -H "X-GP-PROTO:0" -s -S http://localhost:8080/split?')
+        m = self.readMD5(out[0])
         self.failUnless(m == gpfdist1.lineitem_md5)
         
         
