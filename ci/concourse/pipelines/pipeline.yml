@@ -1483,9 +1483,12 @@ jobs:
   plan:
   - aggregate:
     - get: gpdb_src
+      passed: [compile_gpdb_sles]
     - get: sync_tools_gpdb
+      passed: [compile_gpdb_sles]
       resource: sync_tools_gpdb_sles
     - get: bin_gpdb
+      passed: [compile_gpdb_sles]
       trigger: true
       resource: bin_gpdb_sles
   - task: ic_gpdb
