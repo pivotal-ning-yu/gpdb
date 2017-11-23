@@ -9,7 +9,7 @@ gpmgmt2: Management Utilities 2
 #    [YOU DO NOT NEED TO CHANGE THESE]
 #
 import sys, unittest, os, time, hashlib
-import subprocess, socket
+import subprocess, socket, signal
 MYD = os.path.abspath(os.path.dirname(__file__))
 mkpath = lambda *x: os.path.join(MYD, *x)
 UPD = os.path.abspath(mkpath('..'))
