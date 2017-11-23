@@ -67,7 +67,7 @@ class gpfdist1(unittest.TestCase):
             f.close()
 
     def tearDown(self):
-        self.p.send_signal(signal.SIGINT)
+        self.p.send_signal(signal.SIGTERM)
         self.p.wait()
 
     def test_1simple(self):
