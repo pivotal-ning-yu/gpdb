@@ -56,10 +56,7 @@ class gpfdist1(unittest.TestCase):
 
 
     def setUp(self):
-        cmd = 'gpfdist -v -d %s >> %s 2>&1 &' % (_dataPath, mkpath('gpfdist.out'))
-        (ok, out) = run(cmd)
-        if not ok: 
-            raise Exception('Unable to start gpfdist')
+        self.p = subprocess.Popen('gpfdist -v -d %s >> %s 2>&1' % (_dataPath, mkpath('gpfdist.out')), shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
         if not os.path.exists('%s/lineitem.tbl' % _dataPath):
             (ok, out) = run('cd %s && gzip -d -c lineitem.tbl.gz > lineitem.tbl' % _dataPath)
             if not ok:
@@ -68,11 +65,10 @@ class gpfdist1(unittest.TestCase):
             f = open('%s/lineitem.tbl' % _dataPath)
             gpfdist1.lineitem_md5 = self.readMD5(f.read())
             f.close()
-        time.sleep(1)
 
     def tearDown(self):
-        killall('gpfdist')
-        #run('rm -rf %s/split' % _dataPath)
+        self.p.send_signal(signal.SIGINT)
+        self.p.wait()
 
     def test_1simple(self):
         (ok, out) = run('curl -H "X-GP-PROTO:0" -s -S http://localhost:8080/lineitem.tbl')
