@@ -63,8 +63,6 @@ groups:
   - DPM_ddboost_filename_compatibility_part2
   - DPM_ddboost_filename_compatibility_part3
   - DPM_gptransfer-43x-to-43x
-  - pulse_Kerberos-jdbc-no-scm
-  - pulse_Kerberos-smoke
   - QP_memory-accounting
   - QP_optimizer-functional
   - mpp-interconnect
@@ -109,8 +107,6 @@ groups:
   - regression_tests_gpfdist_sles
 - name: Pulse
   jobs:
-  - pulse_Kerberos-jdbc-no-scm
-  - pulse_Kerberos-smoke
   - pulse_mpp-interconnect-sles
 - name: CS
   jobs:
@@ -186,10 +182,6 @@ groups:
   - DPM_netbackup_filename_compatibility_part2
   - DPM_netbackup_filename_compatibility_part3
   - DPM_gptransfer-43x-to-43x
-- name: Pulse_MU
-  jobs:
-  - pulse_Kerberos-jdbc-no-scm
-  - pulse_Kerberos-smoke
 - name: Windows
   jobs:
   - compile_gpdb_windows_ccl
@@ -3245,62 +3237,6 @@ jobs:
     on_failure:
       <<: *dpm_debug_sleep
   - *dpm_ccp_destroy
-
-- name: pulse_Kerberos-jdbc-no-scm
-  plan:
-  - get: pulse-api-image
-    tags: ["pulse"]
-  - get: nightly-trigger-pulse
-    tags: ["pulse"]
-    trigger: true
-  - aggregate: *rhel_artifacts_for_pulse_release-add-trigger
-  - task: trigger_pulse
-    tags: ["pulse"]
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/trigger_pulse.yml
-    params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: GPDB-43_STABLE-kerberos_jdbc-no-scm
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
-  - task: monitor_pulse
-    tags: ["pulse"]
-    attempts: 2
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/monitor_pulse.yml
-    params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: GPDB-43_STABLE-kerberos_jdbc-no-scm
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
-
-- name: pulse_Kerberos-smoke
-  plan:
-  - get: pulse-api-image
-    tags: ["pulse"]
-  - get: nightly-trigger-pulse
-    tags: ["pulse"]
-    trigger: true
-  - aggregate: *rhel_artifacts_for_pulse_release-add-trigger
-  - task: trigger_pulse
-    tags: ["pulse"]
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/trigger_pulse.yml
-    params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: GPDB-43_STABLE-TINC-kerberos_smoke
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
-  - task: monitor_pulse
-    tags: ["pulse"]
-    attempts: 2
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/monitor_pulse.yml
-    params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: GPDB-43_STABLE-TINC-kerberos_smoke
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
 
 - name: DPM_ddboost_filename_compatibility_part1
   plan:

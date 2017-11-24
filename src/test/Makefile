@@ -15,3 +15,4 @@
 	$(MAKE) -C regress $@
 	$(MAKE) -C isolation $@
 	$(MAKE) -C isolation2 $@
+	$(MAKE) -C kerberos $@
