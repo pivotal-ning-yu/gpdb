@@ -1,0 +1,728 @@
+## ======================================================================
+## groups
+## ======================================================================
+
+groups:
+- name: all
+  jobs:
+  - validate_pipeline
+################################
+  - gate_compile_start
+  - compile_gpdb_sles11
+  - gate_compile_end
+################################
+  - gate_icw_start
+  - icw_gporca_sles11
+  - icw_gporca_sles12
+  - icw_planner_sles11
+  - icw_planner_sles12
+  - gate_icw_end
+################################
+  - gate_mpp_start
+  - mpp_interconnect_sles12
+  - mpp_resource_group_sles11
+  - mpp_resource_group_sles12
+  - gate_mpp_end
+################################
+
+- name: G:Compile
+  jobs:
+  - gate_compile_start
+  - compile_gpdb_sles11
+  - gate_compile_end
+
+- name: G:ICW
+  jobs:
+  - gate_icw_start
+  - icw_gporca_sles11
+  - icw_gporca_sles12
+  - icw_planner_sles11
+  - icw_planner_sles12
+  - gate_icw_end
+
+- name: G:MPP
+  jobs:
+  - gate_mpp_start
+  - mpp_interconnect_sles12
+  - mpp_resource_group_sles11
+  - mpp_resource_group_sles12
+  - gate_mpp_end
+
+## ======================================================================
+## resource types
+## ======================================================================
+
+resource_types:
+- name: terraform
+  type: docker-image
+  source:
+    repository: ljfranklin/terraform-resource
+
+## ======================================================================
+## resources
+## ======================================================================
+
+resources:
+- name: ccp_src
+  type: git
+  source:
+    branch: {{ccp-git-branch}}
+    private_key: {{ccp-git-key}}
+    uri: {{ccp-git-remote}}
+    tag_filter: {{ccp-tag-filter}}
+
+- name: terraform
+  type: terraform
+  source:
+    env:
+      AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
+      AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
+    storage:
+      access_key_id: {{tf-machine-access-key-id}}
+      secret_access_key: {{tf-machine-secret-access-key}}
+      region_name: {{aws-region}}
+      # This is not parameterized, on purpose. All tfstates will go to this spot,
+      # and different teams will place there clusters' tfstate files under different paths
+      bucket: gpdb5-pipeline-dynamic-terraform
+      ###########################################################
+      # Two conventions are allowed for bucket_path:            #
+      # 1) Cluster are expected to be destroyed automatically   #
+      #    Toolsmiths will reap old and orphaned clusters       #
+      #                                                         #
+      #      bucket_path: prod/[Pipeline Name]/                 #
+      #                                                         #
+      # 2) Long lived clusters for development.                 #
+      #    The team that creates it is responsible for cluster  #
+      #                                                         #
+      #     bucket_path: dev/[Team Name]/                       #
+      #                                                         #
+      ###########################################################
+      bucket_path: {{tf-bucket-path}}
+
+- name: gpdb_src
+  type: git
+  source:
+    branch: {{gpdb-git-branch}}
+    uri: {{gpdb-git-remote}}
+    ignore_paths:
+    - gpdb-doc/*
+    - README*
+
+- name: gpaddon_src
+  type: git
+  source:
+    branch: {{gpaddon-git-branch}}
+    private_key: {{gpaddon-git-key}}
+    uri: {{gpaddon-git-remote}}
+
+- name: pxf_src
+  type: git
+  source:
+    branch: {{pxf-git-branch}}
+    tag_filter: {{pxf-git-filter}}
+    private_key: {{pxf-git-key}}
+    uri: {{pxf-git-remote}}
+
+- name: centos-gpdb-dev-6
+  type: docker-image
+  source:
+    repository: pivotaldata/centos-gpdb-dev
+    tag: '6-gcc6.2-llvm3.7'
+
+- name: bin_gpdb_sles11
+  type: s3
+  source:
+    access_key_id: {{bucket-access-key-id}}
+    bucket: {{bucket-name}}
+    region_name: {{aws-region}}
+    secret_access_key: {{bucket-secret-access-key}}
+    versioned_file: {{bin_gpdb_sles11_versioned_file}}
+
+- name: reduced-frequency-trigger
+  type: time
+  source:
+    location: America/Los_Angeles
+    days: [Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday]
+    start: {{reduced-frequency-trigger-start}}
+    stop: {{reduced-frequency-trigger-stop}}
+
+## ======================================================================
+## reusable anchors
+## ======================================================================
+
+ccp_jitter_delay_anchor: &ccp_jitter_delay
+  do:
+  - task: ccp jitter delay
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source:
+          repository: alpine
+      run:
+        path: 'sh'
+        args: ['-c', 'sleep `expr $RANDOM % {{ccp_delay_jitter}} + 1`']
+
+ccp_create_params_anchor: &ccp_default_params
+  action: create
+  delete_on_failure: true
+  generate_random_name: true
+  terraform_source: ccp_src/aws/
+
+ccp_vars_anchor: &ccp_default_vars
+  aws_instance-node-instance_type: t2.medium
+  aws_ebs_volume_type: standard
+  platform: centos6
+
+ccp_destroy_anchor: &ccp_destroy
+  put: terraform
+  tags: ["ccp"]
+  params:
+    action: destroy
+    env_name_file: terraform/name
+    terraform_source: ccp_src/aws/
+    vars:
+      aws_instance-node-instance_type: t2.micro #t2.micro is ignored in destroy, but aws_instance-node-instance_type is required.
+      aws_ebs_volume_type: standard
+  get_params:
+    action: destroy
+
+ccp_destroy_2_cluster_anchor: &ccp_destroy_2_cluster
+  do:
+  - *ccp_destroy
+  - put: terraform2
+    params:
+      action: destroy
+      env_name_file: terraform2/name
+      terraform_source: ccp_src/aws/
+      vars:
+        platform: centos6
+        aws_instance-node-instance_type: t2.micro
+        cluster_suffix: "-2"
+    get_params:
+      action: destroy
+
+ccp_gen_cluster_default_params_anchor: &ccp_gen_cluster_default_params
+  AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
+  AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
+  AWS_DEFAULT_REGION: {{aws-region}}
+  BUCKET_PATH: {{tf-bucket-path}}
+  BUCKET_NAME: {{tf-bucket-name}}
+
+debug_sleep_anchor: &debug_sleep
+  do:
+  - task: debug_sleep
+    tags: ["ccp"]
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source:
+          repository: alpine
+          tag: latest
+      run:
+        path: 'sh'
+        args: ['-c', 'sleep {{ccp_debug_sleep}}']
+    ensure:
+      <<: *ccp_destroy
+
+pulse_properties_anchor: &pulse_properties
+  PULSE_URL: {{pulse_url}}
+  PULSE_USERNAME: {{pulse_username}}
+  PULSE_PASSWORD: {{pulse_password}}
+
+cs_ccp_aggregate_dpm_start_anchor: &cs_ccp_aggregate_dpm_start
+  - get: gpdb_src
+    tags: ["ccp"]
+    passed: [gate_dpm_start]
+  - get: gpdb_binary
+    tags: ["ccp"]
+    resource: bin_gpdb_centos6
+    passed: [gate_dpm_start]
+    trigger: ((reduced-frequency-trigger-flag))
+  - get: ccp_src
+    tags: ["ccp"]
+  - get: centos-gpdb-dev-6
+    tags: ["ccp"]
+
+cs_ccp_aggregate_cluster_start_anchor: &cs_ccp_aggregate_cluster_start
+  - get: gpdb_src
+    tags: ["ccp"]
+    passed: [gate_cs_start]
+  - get: gpdb_binary
+    tags: ["ccp"]
+    resource: bin_gpdb_centos6
+    passed: [gate_cs_start]
+    trigger: true
+  - get: ccp_src
+    tags: ["ccp"]
+  - get: centos-gpdb-dev-6
+    tags: ["ccp"]
+
+cs_ccp_terraform_vars_anchor: &cs_ccp_terraform_vars
+  aws_instance-node-instance_type: m4.large
+  aws_ebs_volume_type: gp2
+  number_of_nodes: 1
+
+cs_ccp_terraform_params_anchor: &cs_ccp_terraform_params
+  tags: ["ccp"]
+  params:
+    <<: *ccp_default_params
+    vars:
+      <<: *ccp_default_vars
+      <<: *cs_ccp_terraform_vars
+
+cs_ccp_gen_cluster_params_anchor: &cs_ccp_gen_cluster_params
+  tags: ["ccp"]
+  file: ccp_src/ci/tasks/gen_cluster.yml
+  params:
+    <<: *ccp_gen_cluster_default_params
+  on_failure:
+    <<: *ccp_destroy
+
+cs_ccp_run_tests_params_anchor: &cs_ccp_run_tests_params
+  tags: ["ccp"]
+  file: gpdb_src/concourse/tasks/run_tinc.yml
+  image: centos-gpdb-dev-6
+  on_failure:
+    <<: *debug_sleep
+
+
+## ======================================================================
+## jobs
+## ======================================================================
+
+# Stage 1: Build and C Unit Tests
+
+jobs:
+
+- name: validate_pipeline
+  plan:
+  - aggregate:
+    - get: gpdb_src
+      trigger: true
+    - get: centos-gpdb-dev-6
+  - task: validate_pipeline
+    file: gpdb_src/concourse/tasks/validate_pipeline.yml
+    image: centos-gpdb-dev-6
+
+################# Compile Group
+- name: gate_compile_start
+  plan:
+  - aggregate:
+    - get: gpdb_src
+      trigger: true
+    - get: gpaddon_src
+      trigger: true
+    - get: pxf_src
+      trigger: true
+    - get: centos-gpdb-dev-6
+
+- name: compile_gpdb_sles11
+  plan:
+  - aggregate:
+    - get: reduced-frequency-trigger
+      trigger: ((reduced-frequency-trigger-flag))
+    - get: gpdb_src
+      passed: [gate_compile_start]
+      trigger: ((gpdb_src-trigger-flag))
+    - get: gpaddon_src
+      passed: [gate_compile_start]
+    - get: pxf_src
+      passed: [gate_compile_start]
+  - task: compile_gpdb
+    file: gpdb_src/concourse/tasks/compile_gpdb_sles11.yml
+    params:
+      IVYREPO_HOST: {{ivyrepo_host}}
+      IVYREPO_REALM: {{ivyrepo_realm}}
+      IVYREPO_USER: {{ivyrepo_user}}
+      IVYREPO_PASSWD: {{ivyrepo_passwd}}
+      CONFIGURE_FLAGS: {{configure_flags}}
+      TARGET_OS: sles
+      TARGET_OS_VERSION:
+      BLD_TARGETS: "clients loaders"
+  - put: bin_gpdb_sles11
+    params:
+      file: gpdb_artifacts/bin_gpdb.tar.gz
+
+- name: gate_compile_end
+  plan:
+  - aggregate:
+    - get: gpdb_src
+      passed:
+      - gate_compile_start
+      - compile_gpdb_sles11
+      trigger: true
+    - get: bin_gpdb_sles11
+      passed:
+      - compile_gpdb_sles11
+################# Compile Group End
+
+################# ICW Group
+- name: gate_icw_start
+  plan:
+    - aggregate:
+      - get: gpdb_src
+        passed:
+        - gate_compile_end
+        trigger: true
+      - get: bin_gpdb_sles11
+        passed:
+        - gate_compile_end
+
+- name: icw_gporca_sles11
+  plan:
+  - aggregate:
+    - get: gpdb_src
+      passed: [gate_icw_start]
+    - get: bin_gpdb
+      resource: bin_gpdb_sles11
+      passed: [gate_icw_start]
+      trigger: true
+  - task: ic_gpdb
+    file: gpdb_src/concourse/tasks/ic_gpdb_sles11.yml
+    params:
+      MAKE_TEST_COMMAND: PGOPTIONS='-c optimizer=on' installcheck-world
+      BLDWRAP_POSTGRES_CONF_ADDONS: "fsync=off"
+      TEST_OS: sles
+      CONFIGURE_FLAGS: {{configure_flags}}
+
+- name: icw_planner_sles11
+  plan:
+  - aggregate:
+    - get: gpdb_src
+      passed: [gate_icw_start]
+    - get: bin_gpdb
+      resource: bin_gpdb_sles11
+      passed: [gate_icw_start]
+      trigger: true
+  - task: ic_gpdb
+    file: gpdb_src/concourse/tasks/ic_gpdb_sles11.yml
+    params:
+      MAKE_TEST_COMMAND: PGOPTIONS='-c optimizer=off' installcheck-world
+      BLDWRAP_POSTGRES_CONF_ADDONS: "fsync=off"
+      TEST_OS: sles
+      CONFIGURE_FLAGS: {{configure_flags}}
+
+- name: icw_gporca_sles12
+  plan:
+  - *ccp_jitter_delay
+  - aggregate:
+    - get: gpdb_src
+      tags: ["ccp"]
+      passed: [gate_icw_start]
+    - get: gpdb_binary
+      tags: ["ccp"]
+      resource: bin_gpdb_sles11
+      passed: [gate_icw_start]
+      trigger: true
+    - get: ccp_src
+      tags: ["ccp"]
+    - get: centos-gpdb-dev-6
+      tags: ["ccp"]
+  - put: terraform
+    tags: ["ccp"]
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+        platform: sles12
+        aws_instance-node-instance_type: m4.xlarge
+        number_of_nodes: 1
+  - task: gen_cluster
+    tags: ["ccp"]
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    params:
+      <<: *ccp_gen_cluster_default_params
+      platform: sles12
+    on_failure:
+      <<: *ccp_destroy
+  - task: pre_run_test_setup
+    tags: ["ccp"]
+    image: centos-gpdb-dev-6
+    config:
+      platform: linux
+      inputs:
+       - name: ccp_src
+       - name: cluster_env_files
+      run:
+        path: bash
+        args:
+        - -c
+        - |
+          set -ex
+          ccp_src/aws/setup_ssh_to_cluster.sh
+          ssh -t ec2-user@mdw sudo bash -ex << 'SSH_CMD'
+              zypper -n install gcc-c++ make bison flex \
+                                krb5 krb5-client krb5-server \
+                    || ( ps -ef; exit 1 )
+              cp /usr/lib/mit/sbin/krb5kdc /usr/sbin/
+              ln -sf "$(rpm -ql perl | grep libperl.so)" /lib64/libperl.so
+          SSH_CMD
+    on_failure:
+      <<: *debug_sleep
+  - task: run_tests
+    tags: ["ccp"]
+    file: gpdb_src/concourse/tasks/run_icw_ccp.yml
+    image: centos-gpdb-dev-6
+    params:
+      OPTIMIZER: on
+    on_failure:
+      <<: *debug_sleep
+  - *ccp_destroy
+
+- name: icw_planner_sles12
+  plan:
+  - *ccp_jitter_delay
+  - aggregate:
+    - get: gpdb_src
+      tags: ["ccp"]
+      passed: [gate_icw_start]
+    - get: gpdb_binary
+      tags: ["ccp"]
+      resource: bin_gpdb_sles11
+      passed: [gate_icw_start]
+      trigger: true
+    - get: ccp_src
+      tags: ["ccp"]
+    - get: centos-gpdb-dev-6
+      tags: ["ccp"]
+  - put: terraform
+    tags: ["ccp"]
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+        platform: sles12
+        aws_instance-node-instance_type: m4.xlarge
+        number_of_nodes: 1
+  - task: gen_cluster
+    tags: ["ccp"]
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    params:
+      <<: *ccp_gen_cluster_default_params
+      platform: sles12
+    on_failure:
+      <<: *ccp_destroy
+  - task: pre_run_test_setup
+    tags: ["ccp"]
+    image: centos-gpdb-dev-6
+    config:
+      platform: linux
+      inputs:
+       - name: ccp_src
+       - name: cluster_env_files
+      run:
+        path: bash
+        args:
+        - -c
+        - |
+          set -ex
+          ccp_src/aws/setup_ssh_to_cluster.sh
+          ssh -t ec2-user@mdw sudo bash -ex << 'SSH_CMD'
+              zypper -n install gcc-c++ make bison flex \
+                                krb5 krb5-client krb5-server \
+                  || ( ps -ef; exit 1 )
+              cp /usr/lib/mit/sbin/krb5kdc /usr/sbin/
+              ln -sf "$(rpm -ql perl | grep libperl.so)" /lib64/libperl.so
+          SSH_CMD
+    on_failure:
+      <<: *debug_sleep
+  - task: run_tests
+    tags: ["ccp"]
+    file: gpdb_src/concourse/tasks/run_icw_ccp.yml
+    image: centos-gpdb-dev-6
+    params:
+      OPTIMIZER: off
+    on_failure:
+      <<: *debug_sleep
+  - *ccp_destroy
+
+- name: mpp_resource_group_sles11
+  plan:
+  - *ccp_jitter_delay
+  - aggregate:
+    - get: gpdb_src
+      tags: ["ccp"]
+      passed: [gate_compile_start]
+      trigger: true
+    - get: bin_gpdb
+      tags: ["ccp"]
+      resource: bin_gpdb_sles11
+      passed: [gate_mpp_start]
+      trigger: true
+    - get: ccp_src
+      tags: ["ccp"]
+    - get: centos-gpdb-dev-6
+      tags: ["ccp"]
+  - put: terraform
+    tags: ["ccp"]
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+        platform: sles11
+  - task: gen_cluster
+    tags: ["ccp"]
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    params:
+      <<: *ccp_gen_cluster_default_params
+      platform: sles11
+    input_mapping:
+      gpdb_binary: bin_gpdb
+    on_failure:
+      <<: *ccp_destroy
+  - task: run_tests
+    tags: ["ccp"]
+    file: gpdb_src/concourse/tasks/ic_gpdb_resgroup.yml
+    image: centos-gpdb-dev-6
+    params:
+      TEST_OS: sles11
+    on_failure:
+      <<: *debug_sleep
+  - *ccp_destroy
+
+- name: mpp_resource_group_sles12
+  plan:
+  - *ccp_jitter_delay
+  - aggregate:
+    - get: gpdb_src
+      tags: ["ccp"]
+      passed: [gate_mpp_start]
+    - get: bin_gpdb
+      tags: ["ccp"]
+      resource: bin_gpdb_sles11
+      passed: [gate_mpp_start]
+      trigger: true
+    - get: ccp_src
+      tags: ["ccp"]
+    - get: centos-gpdb-dev-6
+      tags: ["ccp"]
+  - put: terraform
+    tags: ["ccp"]
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+        platform: sles12
+  - task: gen_cluster
+    tags: ["ccp"]
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    params:
+      <<: *ccp_gen_cluster_default_params
+      platform: sles12
+    input_mapping:
+      gpdb_binary: bin_gpdb
+    on_failure:
+      <<: *ccp_destroy
+  - task: run_tests
+    tags: ["ccp"]
+    file: gpdb_src/concourse/tasks/ic_gpdb_resgroup.yml
+    image: centos-gpdb-dev-6
+    params:
+      TEST_OS: sles12
+    on_failure:
+      <<: *debug_sleep
+  - *ccp_destroy
+
+- name: gate_icw_end
+  plan:
+  - aggregate:
+    - get: gpdb_src
+      passed:
+      - icw_gporca_sles11
+      - icw_gporca_sles12
+      - icw_planner_sles11
+      - icw_planner_sles12
+      trigger: true
+################# ICW Group End
+
+############### MPP Start
+- name: gate_mpp_start
+  plan:
+  - task: sleep_before_starting
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source:
+          repository: alpine
+      run:
+        path: 'sh'
+        args: ['-c', 'sleep `expr 2 \* {{group_start_delay}} + 1 + $RANDOM % {{group_delay_jitter}}`']
+  - aggregate:
+    - get: gpdb_src
+      passed:
+      - gate_compile_end
+      trigger: true
+    - get: bin_gpdb_sles11
+      passed: [gate_compile_end]
+
+- name: mpp_interconnect_sles12
+  plan:
+  - *ccp_jitter_delay
+  - aggregate:
+    - get: gpdb_src
+      tags: ["ccp"]
+      passed: [gate_mpp_start]
+    - get: gpdb_binary
+      tags: ["ccp"]
+      resource: bin_gpdb_sles11
+      passed: [gate_mpp_start]
+      trigger: true
+    - get: ccp_src
+      tags: ["ccp"]
+    - get: centos-gpdb-dev-6
+      tags: ["ccp"]
+  - put: terraform
+    tags: ["ccp"]
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+        platform: sles12
+  - task: gen_cluster
+    tags: ["ccp"]
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    params:
+      <<: *ccp_gen_cluster_default_params
+      platform: sles12
+    on_failure:
+      <<: *ccp_destroy
+  - task: pre_run_test_setup
+    tags: ["ccp"]
+    image: centos-gpdb-dev-6
+    config:
+      platform: linux
+      inputs:
+       - name: ccp_src
+       - name: cluster_env_files
+      run:
+        path: bash
+        args:
+        - -c
+        - |
+          set -ex
+          ccp_src/aws/setup_ssh_to_cluster.sh
+          ssh -t ec2-user@mdw << 'SSH_CMD'
+            sudo zypper -n install kernel-default-devel gcc-c++ make
+          SSH_CMD
+    on_failure:
+      <<: *debug_sleep
+  - task: run_tests
+    <<: *cs_ccp_run_tests_params
+    params:
+      TINC_TARGET: mpp_interconnect
+  - *ccp_destroy
+
+- name: gate_mpp_end
+  plan:
+  - aggregate:
+    - get: gpdb_src
+      passed:
+      - mpp_interconnect_sles12
+      - mpp_resource_group_sles11
+      - mpp_resource_group_sles12
+      trigger: true
+############### MPP End
+
