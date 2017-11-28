@@ -453,6 +453,8 @@ jobs:
           set -ex
           ccp_src/aws/setup_ssh_to_cluster.sh
           ssh -t ec2-user@mdw sudo bash -ex << 'SSH_CMD'
+              systemctl status guestregister.service || true
+              systemctl stop guestregister.service || true
               zypper -n install gcc-c++ make bison flex \
                                 krb5 krb5-client krb5-server \
                     || ( ps -ef; exit 1 )
@@ -520,6 +522,8 @@ jobs:
           set -ex
           ccp_src/aws/setup_ssh_to_cluster.sh
           ssh -t ec2-user@mdw sudo bash -ex << 'SSH_CMD'
+              systemctl status guestregister.service || true
+              systemctl stop guestregister.service || true
               zypper -n install gcc-c++ make bison flex \
                                 krb5 krb5-client krb5-server \
                   || ( ps -ef; exit 1 )
