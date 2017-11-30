@@ -317,6 +317,15 @@ PortalCleanup(Portal portal)
 			cleanupPortalGangs(portal);
 		}
 
+		/*
+		 * If resource scheduling is enabled, release the resource lock.
+		 */
+		if (portal->releaseResLock)
+		{
+			ResUnLockPortal(portal);
+			portal->releaseResLock = false;
+		}
+
 		/* Sorry, can't dismiss this error. */
 		PortalSetStatus(portal, PORTAL_FAILED);
 
@@ -375,8 +384,8 @@ PortalCleanupHelper(Portal portal, volatile int *cleanupstate)
 	 */
 	if (portal->releaseResLock)
 	{
+		ResUnLockPortal(portal);
 		portal->releaseResLock = false;
-        ResUnLockPortal(portal);
 	}
 
 	/**

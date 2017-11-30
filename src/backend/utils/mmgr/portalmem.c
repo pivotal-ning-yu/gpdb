@@ -385,6 +385,24 @@ PortalDrop(Portal portal, bool isTopCommit)
 
 	TeardownSequenceServer();
 
+	if (Gp_role == GP_ROLE_DISPATCH && Debug_print_resource_queue_id)
+	{
+		elog(LOG, "RQ Logging: PortalDrop: dropping portal with portalId = %d, queueId = %d, releaseResLock=%d",
+				portal->portalId, portal->queueId, portal->releaseResLock);
+	}
+
+	/*
+	 * we need to ensure that the resource queue lock
+	 * is released, a leak of it may corrupt the whole
+	 * system, so release it before the portal is
+	 * removed from hash table.
+	 */
+	if (portal->releaseResLock)
+	{
+		ResUnLockPortal(portal);
+		portal->releaseResLock = false;
+	}
+
 	/*
 	 * Remove portal from hash table.  Because we do this first, we will not
 	 * come back to try to remove the portal again if there's any error in the
@@ -392,18 +410,6 @@ PortalDrop(Portal portal, bool isTopCommit)
 	 * infinite error-recovery loop.
 	 */
 	PortalHashTableDelete(portal);
-
-	if (Gp_role == GP_ROLE_DISPATCH && Debug_print_resource_queue_id)
-	{
-		elog(LOG, "RQ Logging: PortalDrop: dropping portal with portalId = %d, queueId = %d, releaseResLock=%d",
-				portal->portalId, portal->queueId, portal->releaseResLock);
-	}
-
-    if (portal->releaseResLock)
-    {
-        portal->releaseResLock = false;
-        ResUnLockPortal(portal);
-    }
 
 	/* let portalcmds.c clean up the state it knows about */
 	if (portal->cleanup)
