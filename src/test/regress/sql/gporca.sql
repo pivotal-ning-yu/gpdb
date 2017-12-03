@@ -67,6 +67,7 @@ select sum(a) from orca.r group by b having count(*) > 2 order by b+1;
 \! gpfaultinjector -f opt_relcache_translator_catalog_access -y reset --seg_dbid 1
 \! gpfaultinjector -f opt_relcache_translator_catalog_access -y interrupt --seg_dbid 1
 select count(*) from orca.s;
+\! gpfaultinjector -f opt_relcache_translator_catalog_access -y reset --seg_dbid 1
 
 -- constants
 

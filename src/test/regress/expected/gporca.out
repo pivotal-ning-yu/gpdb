@@ -1958,6 +1958,10 @@ select count(*) from orca.s;
     30
 (1 row)
 
+\! gpfaultinjector -f opt_relcache_translator_catalog_access -y reset --seg_dbid 1
+Starting gpfaultinjector with args: -f opt_relcache_translator_catalog_access -y reset --seg_dbid 1
+Injecting fault on content=-1:dbid=1:mode=s:status=u
+DONE
 -- constants
 select 0.001::numeric from orca.r;
  numeric 
