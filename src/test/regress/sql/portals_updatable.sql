@@ -5,6 +5,10 @@
 -- cursors. By definition, these cursors cannot be ordered, yet we will be
 -- issuing UPDATE and DELETE based exclusively on cursor position.
 --
+-- start_ignore
+create schema portals_updatable;
+set search_path=portals_updatable;
+-- end_ignore
 
 CREATE TEMP TABLE uctest(f1 int, f2 int, f3 text) DISTRIBUTED BY (f1);
 CREATE TEMP TABLE uctest2(f1 int, f2 int, f3 text) DISTRIBUTED BY (f1);
