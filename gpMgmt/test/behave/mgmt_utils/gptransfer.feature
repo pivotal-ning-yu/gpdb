@@ -24,6 +24,7 @@ Feature: gptransfer tests
         And the database "gptransfer_testdb5" does not exist
         And the user runs "gptransfer --full --source-port $GPTRANSFER_SOURCE_PORT --source-host $GPTRANSFER_SOURCE_HOST --source-user $GPTRANSFER_SOURCE_USER --dest-user $GPTRANSFER_SOURCE_USER --dest-port $GPTRANSFER_SOURCE_PORT --dest-host $GPTRANSFER_SOURCE_HOST --source-map-file $GPTRANSFER_MAP_FILE --batch-size=10"
         Then gptransfer should return a return code of 2
+        And verify that the utility gptransfer ever does logging into the user's "gpAdminLogs" directory
 
     @T339831
     Scenario: gptransfer full no validator
@@ -1037,8 +1038,9 @@ Feature: gptransfer tests
         And the database "gptransfer_testdb3" does not exist
         And the database "gptransfer_testdb4" does not exist
         And the database "gptransfer_testdb5" does not exist
-        And the user runs "gptransfer --full --source-port $GPTRANSFER_SOURCE_PORT --source-host $GPTRANSFER_SOURCE_HOST --source-user $GPTRANSFER_SOURCE_USER --dest-user $GPTRANSFER_DEST_USER --dest-port $GPTRANSFER_DEST_PORT --dest-host $GPTRANSFER_DEST_HOST --source-map-file $GPTRANSFER_MAP_FILE -l ~/gpAdminLogs/gpAdminLogs --batch-size=10"
+        And the user runs "gptransfer --full --source-port $GPTRANSFER_SOURCE_PORT --source-host $GPTRANSFER_SOURCE_HOST --source-user $GPTRANSFER_SOURCE_USER --dest-user $GPTRANSFER_DEST_USER --dest-port $GPTRANSFER_DEST_PORT --dest-host $GPTRANSFER_DEST_HOST --source-map-file $GPTRANSFER_MAP_FILE -l /tmp/nonexistent-dir --batch-size=10"
         Then gptransfer should return a return code of 0
+        And verify that a log was created by gptransfer in the "/tmp/nonexistent-dir" directory
 
     @T339872
     Scenario: gptransfer --schema-only
@@ -1077,7 +1079,6 @@ Feature: gptransfer tests
         And the user runs "gptransfer -t gptransfer_testdb1.public.t0 -q --source-port $GPTRANSFER_SOURCE_PORT --source-host $GPTRANSFER_SOURCE_HOST --source-user $GPTRANSFER_SOURCE_USER --dest-user $GPTRANSFER_DEST_USER --dest-port $GPTRANSFER_DEST_PORT --dest-host $GPTRANSFER_DEST_HOST --source-map-file $GPTRANSFER_MAP_FILE --batch-size=10"
         Then gptransfer should return a return code of 0
         And gptransfer should not print "Transfering" to stdout
-        And verify that a log was created by gptransfer in the user's "gpAdminLogs" directory
 
     @T339873
     Scenario: gptransfer --skip-existing conflicts with --full
