@@ -1689,6 +1689,7 @@ tmShmemInit(void)
 		for (i = 0; i < max_tm_gxacts; i++)
 		{
 			gxact->debugIndex = i;
+			gxact->index = -1;
 			shmGxactArray[i] = gxact++;
 		}
 	}
@@ -2028,6 +2029,7 @@ redoDistributedCommitRecord(TMGXACT_LOG *gxact_log)
 {
 
 	int			i;
+	int			index;
 
 	/*
 	 * The length check here requires the identifer have a trailing NUL
@@ -2066,7 +2068,10 @@ redoDistributedCommitRecord(TMGXACT_LOG *gxact_log)
 					 errdetail("The global user configuration (GUC) server parameter max_prepared_transactions controls this limit.")));
 		}
 
-		currentGxact = shmGxactArray[(*shmNumGxacts)++];
+		index = (*shmNumGxacts)++;
+		currentGxact = shmGxactArray[index];
+		Assert(currentGxact->index == -1);
+		currentGxact->index = index;
 	}
 
 	restoreGxact(gxact_log, DTX_STATE_CRASH_COMMITTED);
@@ -2611,6 +2616,7 @@ void
 createDtx(DistributedTransactionId *distribXid)
 {
 	TMGXACT    *gxact;
+	int			index;
 
 	MIRRORED_LOCK_DECLARE;
 
@@ -2628,7 +2634,11 @@ createDtx(DistributedTransactionId *distribXid)
 				 errdetail("The global user configuration (GUC) server parameter max_prepared_transactions controls this limit.")));
 	}
 
-	gxact = shmGxactArray[(*shmNumGxacts)++];
+	index = (*shmNumGxacts)++;
+	gxact = shmGxactArray[index];
+	Assert(gxact->index == -1);
+	gxact->index = index;
+
 	initGxact(gxact);
 	generateGID(gxact->gid, &gxact->gxid);
 
@@ -2661,7 +2671,6 @@ createDtx(DistributedTransactionId *distribXid)
 static void
 releaseGxact_UnderLocks(void)
 {
-	int			i;
 	int			curr;
 
 	if (currentGxact == NULL)
@@ -2674,15 +2683,7 @@ releaseGxact_UnderLocks(void)
 		 currentGxact->gid, currentGxact->debugIndex);
 
 	/* find slot of current transaction */
-	curr = *shmNumGxacts;		/* A bad value we can safely test. */
-	for (i = 0; i < *shmNumGxacts; i++)
-	{
-		if (shmGxactArray[i] == currentGxact)
-		{
-			curr = i;
-			break;
-		}
-	}
+	curr = currentGxact->index;
 
 	/* move this to the next available slot */
 	(*shmNumGxacts)--;
@@ -2690,6 +2691,9 @@ releaseGxact_UnderLocks(void)
 	{
 		shmGxactArray[curr] = shmGxactArray[*shmNumGxacts];
 		shmGxactArray[*shmNumGxacts] = currentGxact;
+
+		shmGxactArray[curr]->index = curr;
+		shmGxactArray[*shmNumGxacts]->index = -1;
 	}
 
 	currentGxact = NULL;
