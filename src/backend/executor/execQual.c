@@ -2073,7 +2073,7 @@ ExecMakeTableFunctionResult(ExprState *funcexpr,
 	ReturnSetInfo rsinfo;
 	HeapTupleData tmptup;
 	MemoryContext callerContext;
-	MemoryContext oldcontext;
+	MemoryContext oldcontext = NULL;
 	bool		direct_function_call;
 	bool		first_time = true;
 
