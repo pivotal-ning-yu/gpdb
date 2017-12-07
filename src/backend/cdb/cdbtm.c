@@ -1813,7 +1813,13 @@ isMppTxOptions_ExplicitBegin(int txnOptions)
 void
 getTmLock(void)
 {
+	if (ControlLockCount++ == 0)
+		LWLockAcquire(shmControlLock, LW_SHARED);
+}
 
+void
+getTmLockEx(void)
+{
 	if (ControlLockCount++ == 0)
 		LWLockAcquire(shmControlLock, LW_EXCLUSIVE);
 }
@@ -2607,7 +2613,7 @@ createDtx(DistributedTransactionId *distribXid)
 
 	MIRRORED_LOCK;
 
-	getTmLock();
+	getTmLockEx();
 
 	if (*shmNumGxacts >= max_tm_gxacts)
 	{
@@ -2710,7 +2716,7 @@ insertingDistributedCommitted(void)
 		 "insertingDistributedCommitted entering in state = %s",
 		 DtxStateToString(currentGxact->state));
 
-	getTmLock();
+	getTmLockEx();
 	Assert(currentGxact->state == DTX_STATE_PREPARED);
 	setCurrentGxactState(DTX_STATE_INSERTING_COMMITTED);
 }
