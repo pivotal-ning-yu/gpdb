@@ -67,6 +67,7 @@ extern struct Port *MyProcPort;
 #define UTILITYMODEDTMREDO_FILE "savedtmredo.file"
 
 static LWLockId shmControlLock;
+static slock_t *shmControlSpinLock;
 static volatile bool *shmTmRecoverred;
 static volatile DistributedTransactionTimeStamp *shmDistribTimeStamp;
 static volatile DistributedTransactionId *shmGIDSeq = NULL;
@@ -1648,6 +1649,7 @@ tmShmemInit(void)
 		elog(FATAL, "could not initialize transaction manager share memory");
 
 	shmControlLock = shared->ControlLock;
+	shmControlSpinLock = &shared->ControlSpinLock;
 	shmTmRecoverred = &shared->recoverred;
 	shmDistribTimeStamp = &shared->distribTimeStamp;
 	shmGIDSeq = &shared->seqno;
@@ -1679,6 +1681,8 @@ tmShmemInit(void)
 
 		shared->ControlLock = LWLockAssign();
 		shmControlLock = shared->ControlLock;
+
+		SpinLockInit(shmControlSpinLock);
 
 		/* initialize gxact array */
 		gxact = (TMGXACT *) (shmGxactArray + max_tm_gxacts);
@@ -1814,14 +1818,14 @@ void
 getTmLock(void)
 {
 	if (ControlLockCount++ == 0)
-		LWLockAcquire(shmControlLock, LW_SHARED);
+		SpinLockAcquire(shmControlSpinLock);
 }
 
 void
 getTmLockEx(void)
 {
 	if (ControlLockCount++ == 0)
-		LWLockAcquire(shmControlLock, LW_EXCLUSIVE);
+		SpinLockAcquire(shmControlSpinLock);
 }
 
 /* release tm lw lock */
@@ -1829,8 +1833,7 @@ void
 releaseTmLock(void)
 {
 	if (--ControlLockCount == 0)
-		LWLockRelease(shmControlLock);
-
+		SpinLockRelease(shmControlSpinLock);
 }
 
 /*
