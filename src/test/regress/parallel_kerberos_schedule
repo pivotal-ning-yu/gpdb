@@ -20,8 +20,9 @@ test: column_compression rangefuncs_cdb temp
 test: gphdfs custom_format gpcopy appendonly filter gpctas gpdist matrix gpdtm_plpgsql
 test: notin with_clause eagerfree toast mapred gpparams tidycat tidycat2 aocs
 test: ic gp_numeric_agg foreign_data gp_toolkit
-test: gporca
-test: filespace trig xml auth_constraint role rle portals_updatable plpgsql_cache percentile timeseries resource_queue_function co_nestloop_idxscan pg_stat_last_operation
+test: filespace trig xml auth_constraint role rle portals_updatable plpgsql_cache percentile timeseries resource_queue_function gporca co_nestloop_idxscan pg_stat_last_operation
+# NOTE: gporca_faults uses gp_fault_injector - so do not add to a parallel group
+test: gporca_faults
 test: plan_size partindex_test direct_dispatch partition_pruning_with_fn dsp
 
 # vacuum needs to be serial

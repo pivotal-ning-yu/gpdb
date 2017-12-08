@@ -267,7 +267,7 @@ planner(Query *parse, int cursorOptions,
 	 */
 #ifdef USE_ORCA
 	if (optimizer
-		&& (GP_ROLE_UTILITY != Gp_role)
+		&& (GP_ROLE_DISPATCH == Gp_role)
 		&& (MASTER_CONTENT_ID == GpIdentity.segindex))
 	{
 		if (gp_log_optimization_time)
