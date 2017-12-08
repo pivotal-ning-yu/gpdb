@@ -327,8 +327,7 @@ ResourceOwnerReleaseInternal(ResourceOwner owner,
 			}
 
 			if (isCommit)
-				LockReassignCurrentOwner();
-				//LockReassignCurrentOwner(locks, nlocks);
+				LockReassignCurrentOwner(locks, nlocks);
 			else
 				LockReleaseCurrentOwner(locks, nlocks);
 		}
