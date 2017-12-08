@@ -2703,9 +2703,10 @@ releaseGxact_UnderLocks(void)
 		shmGxactArray[*shmNumGxacts] = currentGxact;
 
 		shmGxactArray[curr]->index = curr;
-		shmGxactArray[*shmNumGxacts]->index = -1;
+		//shmGxactArray[*shmNumGxacts]->index = -1;
 	}
 
+	currentGxact->index = -1;
 	currentGxact = NULL;
 }
 
