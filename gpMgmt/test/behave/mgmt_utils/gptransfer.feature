@@ -1027,7 +1027,7 @@ Feature: gptransfer tests
         And the database "gptransfer_testdb5" does not exist
         And the user runs "gptransfer --full --source-port $GPTRANSFER_SOURCE_PORT --source-host $GPTRANSFER_SOURCE_HOST --source-user $GPTRANSFER_SOURCE_USER --dest-user $GPTRANSFER_DEST_USER --dest-port $GPTRANSFER_DEST_PORT --dest-host $GPTRANSFER_DEST_HOST --source-map-file $GPTRANSFER_MAP_FILE -l /tmp --batch-size=10"
         Then gptransfer should return a return code of 0
-        And verify that a log was created by gptransfer in the user's "/tmp" directory
+        And verify that a log was created by gptransfer in the "/tmp" directory
 
     @T339867
     Scenario: gptransfer with log in nonexistent directory
@@ -1040,7 +1040,7 @@ Feature: gptransfer tests
         And the database "gptransfer_testdb5" does not exist
         And the user runs "gptransfer --full --source-port $GPTRANSFER_SOURCE_PORT --source-host $GPTRANSFER_SOURCE_HOST --source-user $GPTRANSFER_SOURCE_USER --dest-user $GPTRANSFER_DEST_USER --dest-port $GPTRANSFER_DEST_PORT --dest-host $GPTRANSFER_DEST_HOST --source-map-file $GPTRANSFER_MAP_FILE -l /tmp/nonexistent-dir --batch-size=10"
         Then gptransfer should return a return code of 0
-        And verify that the utility gptransfer ever does logging into the user's "/tmp/nonexistent-dir" directory
+        And verify that a log was created by gptransfer in the "/tmp/nonexistent-dir" directory
 
     @T339872
     Scenario: gptransfer --schema-only
