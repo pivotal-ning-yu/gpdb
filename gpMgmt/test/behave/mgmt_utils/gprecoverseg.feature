@@ -82,10 +82,12 @@ Feature: gprecoverseg tests
     @multinode
     Scenario: gprecoverseg with -i and -o option
         Given the database is running
+        And the database "gptest1" does not exist
         And all the segments are running
         And the segments are synchronized
         And the information of a "mirror" segment on a remote host is saved
         And user runs the command "gpfaultinjector  -f filerep_consumer  -m async -y fault" with the saved "mirror" segment option
+        Given database "gptest1" exists
         Then the saved mirror segment is marked down in config
         And the saved mirror segment process is still running on that host
         And user can start transactions
@@ -125,10 +127,12 @@ Feature: gprecoverseg tests
     @multinode
     Scenario: gprecoverseg should not throw exception for empty input file
         Given the database is running
+        And the database "gptest1" does not exist
         And all the segments are running
         And the segments are synchronized
         And the information of a "mirror" segment on a remote host is saved
         And user runs the command "gpfaultinjector  -f filerep_consumer  -m async -y fault" with the saved "mirror" segment option
+        Given database "gptest1" exists
         Then the saved mirror segment is marked down in config
         And the saved mirror segment process is still running on that host
         And user can start transactions
@@ -142,10 +146,12 @@ Feature: gprecoverseg tests
 
     Scenario: gprecoverseg does not recover segments with persistent rebuild inconsistencies
         Given the database is running
+        And the database "gptest1" does not exist
         And all the segments are running
         And the segments are synchronized
         And user runs the command "gpfaultinjector  -f filerep_consumer  -m async -y fault" on segment "0"
         And user runs the command "gpfaultinjector  -f filerep_consumer  -m async -y fault" on segment "1"
+        Given database "gptest1" exists
         Then the mirror with content id "0" is marked down in config
         Then the mirror with content id "1" is marked down in config
         And segment with content "0" has persistent tables that were rebuilt with mirrors disabled
@@ -165,6 +171,7 @@ Feature: gprecoverseg tests
         And the information of a "mirror" segment on any host is saved
         And user runs the command "gpfaultinjector  -f filerep_consumer  -m async -y reset" on segment "0"
         And user runs the command "gpfaultinjector  -f filerep_consumer  -m async -y fault" on segment "0"
+        Given database "gptest1" exists
         Then the mirror with content id "0" is marked down in config
         When the user runs "gprecoverseg -F -a"
         Then gprecoverseg should return a return code of 0
