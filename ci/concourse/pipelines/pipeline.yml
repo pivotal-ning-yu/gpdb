@@ -66,7 +66,7 @@ groups:
   - QP_memory-accounting
   - QP_optimizer-functional
   - mpp-interconnect
-  - pulse_mpp-interconnect-sles
+  - mpp_interconnect_sles
   - compile_gpdb_windows_ccl
   - TINC_pgcrypto
   - MM_analyzedb
@@ -103,11 +103,8 @@ groups:
   - icg_planner_sles
   - ic_externaltable_sles
   - gpdb_rc_packaging_sles
-  - pulse_mpp-interconnect-sles
+  - mpp_interconnect_sles
   - regression_tests_gpfdist_sles
-- name: Pulse
-  jobs:
-  - pulse_mpp-interconnect-sles
 - name: CS
   jobs:
   - cs-fts_centos
@@ -157,6 +154,7 @@ groups:
   - DPM_netbackup_filename_compatibility_part2
   - DPM_netbackup_filename_compatibility_part3
   - DPM_gptransfer-43x-to-43x
+  - mpp_interconnect_sles
 - name: MM
   jobs:
   - MM_analyzedb
@@ -479,12 +477,6 @@ resources:
   source:
     repository: pivotaldata/centos-gpdb-dev
     tag: '7'
-
-- name: pulse-api-image
-  type: docker-image
-  source:
-    repository: ruby
-    tag: 2-slim
 
 - name: bin_gpdb_centos
   type: s3
@@ -3555,49 +3547,41 @@ jobs:
   ensure:
     <<: *ccp_destroy
 
-- name: pulse_mpp-interconnect-sles
+- name: mpp_interconnect_sles
   plan:
-  - get: gpdb_src
-    tags: ["pulse"]
-    params: {submodules: none}
-    passed:
-    - gpdb_src_packaging
-    - gpdb_rc_packaging_sles
-  - get: gpdb_src_archive
-    tags: ["pulse"]
-    passed: [gpdb_src_packaging]
-  - get: installer_gpdb_rc
-    tags: ["pulse"]
-    resource: installer_sles11_gpdb_rc
-    passed: [gpdb_rc_packaging_sles]
-  - get: qautils_tarball
-    tags: ["pulse"]
-    resource: qautils_sles11_tarball
-    passed: [gpdb_rc_packaging_sles]
-  - get: pulse-api-image
-    tags: ["pulse"]
-  - get: nightly-trigger-pulse
-    tags: ["pulse"]
-    trigger: true
-  - task: trigger_pulse
-    tags: ["pulse"]
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/trigger_pulse.yml
+  - aggregate:
+    - get: ccp_src
+      tags: ["ccp"]
+    - get: gpdb_src
+      tags: ["ccp"]
+      passed: [compile_gpdb_sles]
+    - get: gpdb_binary
+      tags: ["ccp"]
+      resource: bin_gpdb_sles
+      passed: [compile_gpdb_sles]
+      trigger: true
+    - get: centos-gpdb-dev-6
+      tags: ["ccp"]
+  - put: terraform
+    tags: ["ccp"]
     params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: mpp-interconnect-sles
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
-  - task: monitor_pulse
-    tags: ["pulse"]
-    attempts: 2
-    image: pulse-api-image
-    file: gpdb_src/ci/pulse/api/monitor_pulse.yml
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+        platform: sles11
+  - task: gen_cluster
+    tags: ["ccp"]
+    file: ccp_src/ci/tasks/gen_cluster.yml
     params:
-      PULSE_URL: {{pulse_url}}
-      PULSE_PROJECT_NAME: mpp-interconnect-sles
-      PULSE_USERNAME: {{pulse_username}}
-      PULSE_PASSWORD: {{pulse_password}}
+      <<: *ccp_gen_cluster_default_params
+      platform: sles11
+    on_failure:
+      <<: *ccp_destroy
+  - task: run_tests
+    <<: *ccp_run_tinc_tests_params
+    params:
+      TINC_TARGET: mpp_interconnect
+  - *ccp_destroy
 
 ## ======================================================================
 ## manual jobs
