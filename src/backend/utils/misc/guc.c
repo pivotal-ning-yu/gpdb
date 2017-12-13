@@ -6611,7 +6611,7 @@ static struct config_int ConfigureNamesInt[] =
 			GUC_NO_SHOW_ALL | GUC_NOT_IN_SAMPLE
 		},
 		&optimizer_join_order_threshold,
-		10, 0, INT_MAX, NULL, NULL
+		10, 0, 12, NULL, NULL
 	},
 
 	{
