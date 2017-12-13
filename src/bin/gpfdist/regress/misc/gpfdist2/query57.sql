@@ -1,1 +1,1 @@
-\! gpfdist -t 7205 &
+\! gpfdist -t 7205

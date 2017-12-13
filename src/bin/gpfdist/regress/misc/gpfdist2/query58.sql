@@ -1,1 +1,2 @@
-\! gpfdist -m 4567 &
+\! gpfdist -m 4567
+

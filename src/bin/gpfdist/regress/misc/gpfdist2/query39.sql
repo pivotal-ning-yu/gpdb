@@ -1,1 +1,1 @@
-\! gpfdist -l invalid_dir/log.log &
+\! gpfdist -l invalid_dir/log.log

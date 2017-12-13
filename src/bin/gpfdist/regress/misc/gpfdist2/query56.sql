@@ -1,1 +1,1 @@
-\! gpfdist -t 1 &
+\! gpfdist -t 1

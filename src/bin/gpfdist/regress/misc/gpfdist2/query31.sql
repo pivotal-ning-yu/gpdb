@@ -1,1 +1,1 @@
-\! gpfdist -p 250000 &
+\! gpfdist -p 250000

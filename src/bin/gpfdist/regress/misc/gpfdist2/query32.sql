@@ -1,1 +1,1 @@
-\! gpfdist -d invalid_dir &
+\! gpfdist -d invalid_dir
