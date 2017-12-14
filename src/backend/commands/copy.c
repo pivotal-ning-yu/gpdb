@@ -135,7 +135,7 @@ uint64
 DoCopyInternal(const CopyStmt *stmt, const char *queryString, CopyState cstate);
 
 static ProgramPipes *open_program_pipes(char *command, bool forwrite);
-static int close_program_pipes(CopyState cstate);
+static void close_program_pipes(CopyState cstate, bool ifThrow);
 
 /* ==========================================================================
  * The follwing macros aid in major refactoring of data processing code (in
@@ -462,7 +462,7 @@ CopySendEndOfRow(CopyState cstate)
 						 * error message from the subprocess' exit code than
 						 * just "Broken Pipe"
 						 */
-						close_program_pipes(cstate);
+						close_program_pipes(cstate, true);
 
 						/*
 						 * If close_program_pipes() didn't throw an error,
@@ -545,7 +545,7 @@ CopyToDispatchFlush(CopyState cstate)
 						 * error message from the subprocess' exit code than
 						 * just "Broken Pipe"
 						 */
-						close_program_pipes(cstate);
+						close_program_pipes(cstate, true);
 
 						/*
 						 * If close_program_pipes() didn't throw an error,
@@ -617,6 +617,30 @@ CopyGetData(CopyState cstate, void *databuf, int datasize)
 			bytesread = fread(databuf, 1, datasize, cstate->copy_file);
 			if (feof(cstate->copy_file))
 				cstate->fe_eof = true;
+			if (ferror(cstate->copy_file))
+			{
+				if (cstate->is_program)
+				{
+					int olderrno = errno;
+
+					close_program_pipes(cstate, true);
+
+					/*
+					 * If close_program_pipes() didn't throw an error,
+					 * the program terminated normally, but closed the
+					 * pipe first. Restore errno, and throw an error.
+					 */
+					errno = olderrno;
+
+					ereport(ERROR,
+							(errcode_for_file_access(),
+							 errmsg("could not read from COPY program: %m")));
+				}
+				else
+					ereport(ERROR,
+						(errcode_for_file_access(),
+						 errmsg("could not read from COPY file: %m")));
+			}
 			break;
 		case COPY_OLD_FE:
 			if (pq_getbytes((char *) databuf, datasize))
@@ -1762,7 +1786,7 @@ DoCopyInternal(const CopyStmt *stmt, const char *queryString, CopyState cstate)
 		{
 			if (cstate->is_program)
 			{
-				close_program_pipes(cstate);
+				close_program_pipes(cstate, true);
 			}
 			else if (FreeFile(cstate->copy_file))
 			{
@@ -1841,6 +1865,14 @@ DoCopy(const CopyStmt *stmt, const char *queryString)
 	}
 	PG_CATCH();
 	{
+		if (!(!cstate->on_segment && Gp_role == GP_ROLE_EXECUTE))
+		{
+			if (cstate->is_program)
+			{
+				close_program_pipes(cstate, false);
+			}
+		}
+
 		if (cstate->queryDesc)
 		{
 			/* should shutdown the mpp stuff such as interconnect and dispatch thread */
@@ -1979,7 +2011,7 @@ DoCopyTo(CopyState cstate)
 	{
 		if (cstate->is_program)
 		{
-			close_program_pipes(cstate);
+			close_program_pipes(cstate, true);
 		}
 		else if (FreeFile(cstate->copy_file))
 		{
@@ -2000,7 +2032,6 @@ static void CopyToCreateDispatchCommand(CopyState cstate,
 										StringInfo cdbcopy_cmd,
 										AttrNumber	num_phys_attrs,
 										Form_pg_attribute *attr)
-
 {
 	ListCell   *cur;
 	bool		is_first_col = true;
@@ -2087,7 +2118,7 @@ static void CopyToCreateDispatchCommand(CopyState cstate,
  * Copy from relation TO file. Starts a COPY TO command on each of
  * the executors and gathers all the results and writes it out.
  */
- void
+void
 CopyToDispatch(CopyState cstate)
 {
 	TupleDesc	tupDesc;
@@ -2224,7 +2255,6 @@ CopyToDispatch(CopyState cstate)
 		/* get error message from CopyStart */
 		appendBinaryStringInfo(&cdbcopy_err, cdbCopy->err_msg.data, cdbCopy->err_msg.len);
 
-		/* TODO: end COPY in all the segdbs in progress */
 		cdbCopyEnd(cdbCopy);
 
 		ereport(LOG,
@@ -4257,8 +4287,23 @@ PROCESS_SEGMENT_DATA:
 	{
 		size_t		bytesread = 0;
 
-		/* read a chunk of data into the buffer */
-		bytesread = CopyGetData(cstate, cstate->raw_buf, RAW_BUF_SIZE);
+		PG_TRY();
+		{
+			/* read a chunk of data into the buffer */
+			bytesread = CopyGetData(cstate, cstate->raw_buf, RAW_BUF_SIZE);
+		}
+		PG_CATCH();
+		{
+			/*
+			 * If we are here, we got some kind of communication error
+			 * with the client or a bad protocol message. clean up and
+			 * re-throw error. Note that we don't handle this error in
+			 * any special way in SREH mode as it's not a data error.
+			 */
+			COPY_HANDLE_ERROR;
+		}
+		PG_END_TRY();
+
 		cstate->raw_buf_done = false;
 
 		/* set buffer pointers to beginning of the buffer */
@@ -4285,19 +4330,13 @@ PROCESS_SEGMENT_DATA:
 				PG_CATCH();
 				{
 					/*
-					 * TODO: use COPY_HANDLE_ERROR here, but make sure to
-					 * ignore this error per the "note:" below.
-					 */
-
-					/*
 					 * got here? encoding conversion error occured on the
 					 * header line (first row).
 					 */
 					if (cstate->errMode == ALL_OR_NOTHING)
 					{
 						/* re-throw error and abort */
-						cdbCopyEnd(cdbCopy);
-						PG_RE_THROW();
+						COPY_HANDLE_ERROR;
 					}
 					else
 					{
@@ -4394,9 +4433,6 @@ PROCESS_SEGMENT_DATA:
 
 						if(cstate->errMode == ALL_OR_NOTHING)
 						{
-							/* report error and abort */
-							cdbCopyEnd(cdbCopy);
-
 							ereport(ERROR,
 									(errcode(ERRCODE_BAD_COPY_FILE_FORMAT),
 									 errmsg("null OID in COPY data.")));
@@ -4597,12 +4633,21 @@ PROCESS_SEGMENT_DATA:
 				if (is_check_distkey && distData.p_nattrs > 0)
 				{
 					target_seg = get_target_seg(distData, values, nulls);
-					/*check distribution key if COPY FROM ON SEGMENT*/
-					if (GpIdentity.segindex != target_seg)
-						ereport(ERROR,
-								(errcode(ERRCODE_INTEGRITY_CONSTRAINT_VIOLATION),
-								 errmsg("value of distribution key doesn't belong to segment with ID %d, it belongs to segment with ID %d",
-										GpIdentity.segindex, target_seg)));
+
+					PG_TRY();
+					{
+						/* check distribution key if COPY FROM ON SEGMENT */
+						if (GpIdentity.segindex != target_seg)
+							ereport(ERROR,
+									(errcode(ERRCODE_INTEGRITY_CONSTRAINT_VIOLATION),
+									 errmsg("value of distribution key doesn't belong to segment with ID %d, it belongs to segment with ID %d",
+											GpIdentity.segindex, target_seg)));
+					}
+					PG_CATCH();
+					{
+						COPY_HANDLE_ERROR;
+					}
+					PG_END_TRY();
 				}
 
 				if (relstorage == RELSTORAGE_AOROWS)
@@ -4816,7 +4861,7 @@ PROCESS_SEGMENT_DATA:
 	/* Done, clean up */
 	if (cstate->on_segment && cstate->is_program)
 	{
-		close_program_pipes(cstate);
+		close_program_pipes(cstate, true);
 	}
 	else if (cstate->on_segment && FreeFile(cstate->copy_file))
 	{
@@ -7423,8 +7468,8 @@ open_program_pipes(char *command, bool forwrite)
 	return program_pipes;
 }
 
-static int
-close_program_pipes(CopyState cstate)
+static void
+close_program_pipes(CopyState cstate, bool ifThrow)
 {
 	Assert(cstate->is_program);
 
@@ -7432,30 +7477,36 @@ close_program_pipes(CopyState cstate)
 	StringInfoData sinfo;
 	initStringInfo(&sinfo);
 
-	fclose(cstate->copy_file);
-	ret = pclose_with_stderr(cstate->program_pipes->pid, cstate->program_pipes->pipes, &sinfo);
-	if (ret == 0)
+	if (cstate->copy_file)
 	{
-		/* pclose() ended successfully; no errors to reflect */
-		;
+		fclose(cstate->copy_file);
+		cstate->copy_file = NULL;
 	}
-	else if (ret == -1)
+
+	if (kill(cstate->program_pipes->pid, 0) == 0) /* process exists */
+	{
+		ret = pclose_with_stderr(cstate->program_pipes->pid, cstate->program_pipes->pipes, &sinfo);
+	}
+
+	if (ret == 0 || !ifThrow)
+	{
+		return;
+	}
+
+	if (ret == -1)
 	{
 		/* pclose()/wait4() ended with an error; errno should be valid */
 		ereport(ERROR,
 				(errcode_for_file_access(),
 				 errmsg("can not close pipe: %m")));
 	}
-	else
+	else if (!WIFSIGNALED(ret))
 	{
 		/*
-		 * pclose() returned the process termination state.  The interpretExitCode() function
-		 * generates a descriptive message from the exit code.
+		 * pclose() returned the process termination state.
 		 */
 		ereport(ERROR,
 				(errcode(ERRCODE_SQL_ROUTINE_EXCEPTION),
 				 errmsg("command error message: %s", sinfo.data)));
 	}
-
-	return ret;
 }
