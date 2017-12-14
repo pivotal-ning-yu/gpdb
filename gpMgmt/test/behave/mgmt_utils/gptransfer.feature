@@ -1056,7 +1056,12 @@ Feature: gptransfer tests
         And verify that there is a "heap" table "public.t0" in "gptransfer_testdb1"
 
     Scenario: gptransfer --schema-only -d
-        Given the gptransfer test is initialized
+        Given the database is running
+        And the database "gptransfer_destdb" does not exist
+        And the database "gptransfer_testdb1" does not exist
+        And the database "gptransfer_testdb3" does not exist
+        And the database "gptransfer_testdb4" does not exist
+        And the database "gptransfer_testdb5" does not exist
         And database "gptransfer_testdb1" exists
         And the user runs "gptransfer --schema-only -d gptransfer_testdb1 --source-port $GPTRANSFER_SOURCE_PORT --source-host $GPTRANSFER_SOURCE_HOST --source-user $GPTRANSFER_SOURCE_USER --dest-user $GPTRANSFER_DEST_USER --dest-port $GPTRANSFER_DEST_PORT --dest-host $GPTRANSFER_DEST_HOST --source-map-file $GPTRANSFER_MAP_FILE --batch-size=10"
         Then gptransfer should return a return code of 0
