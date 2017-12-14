@@ -55,15 +55,3 @@ void TerminateGPOPT()
 {
 	elog(ERROR, "mock implementation of TerminateGPOPT called");
 }
-
-void
-SignalInterruptGPOPT(int iSignal)
-{
-	elog(ERROR, "mock implementation of SignalInterruptGPOPT called");
-}
-
-void
-ResetInterruptsGPOPT()
-{
-	elog(ERROR, "mock implementation of ResetInterruptsGPOPT called");
-}

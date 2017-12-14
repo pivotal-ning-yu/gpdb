@@ -66,6 +66,7 @@ extern "C" {
 #include "utils/selfuncs.h"
 #include "utils/faultinjector.h"
 #include "funcapi.h"
+#include "miscadmin.h"
 
 extern
 Query *preprocess_query_optimizer(Query *pquery, ParamListInfo boundParams);

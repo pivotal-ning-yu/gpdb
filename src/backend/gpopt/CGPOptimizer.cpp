@@ -23,6 +23,7 @@
 #include "naucrates/init.h"
 #include "gpopt/init.h"
 #include "gpos/_api.h"
+#include "gpopt/gpdbwrappers.h"
 
 #include "naucrates/exception.h"
 
@@ -132,11 +133,10 @@ CGPOptimizer::SzDXLPlan
 void
 CGPOptimizer::InitGPOPT ()
 {
-  // Use GPORCA's default allocators
-  struct gpos_init_params params = { NULL, NULL };
-  gpos_init(&params);
-  gpdxl_init();
-  gpopt_init();
+	struct gpos_init_params params = { NULL, NULL, gpdb::FAbortRequested };
+	gpos_init(&params);
+	gpdxl_init();
+	gpopt_init();
 }
 
 //---------------------------------------------------------------------------
@@ -153,29 +153,6 @@ CGPOptimizer::TerminateGPOPT ()
   gpopt_terminate();
   gpdxl_terminate();
   gpos_terminate();
-}
-
-// Signal handler for ORCA
-void
-CGPOptimizer::SignalInterruptGPOPT
-	(
-	int iSignal
-	)
-{
-	if (SIGINT == iSignal || SIGTERM == iSignal)
-	{
-		CWorker::abort_requested = true;
-	}
-	// Other signal handlers shouldn't call this method since some other action
-	// than optimization interruption is required in those cases.
-}
-
-// Reset optimizer state to before SignalInterruptGPOPT() was called.
-// To be called after interrupts have been handled by ORCA.
-void
-CGPOptimizer::ResetInterruptsGPOPT (void)
-{
-	CWorker::abort_requested = false;
 }
 
 //---------------------------------------------------------------------------
@@ -247,25 +224,6 @@ void TerminateGPOPT ()
 {
 	return CGPOptimizer::TerminateGPOPT();
 }
-}
-
-// Signal handler for ORCA
-extern "C"
-{
-void SignalInterruptGPOPT (int signal)
-{
-	CGPOptimizer::SignalInterruptGPOPT(signal);
-}
-}
-
-// Reset optimizer state to before SignalInterruptGPOPT() was called.
-// To be called after interrupts have been handled by ORCA.
-extern "C"
-{
-	void ResetInterruptsGPOPT ()
-	{
-		CGPOptimizer::ResetInterruptsGPOPT();
-	}
 }
 
 // EOF

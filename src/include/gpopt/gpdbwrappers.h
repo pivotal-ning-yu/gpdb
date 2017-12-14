@@ -630,6 +630,9 @@ gpdb::GpdbEreportImpl(xerrcode, severitylevel, xerrmsg, xerrhint , __FILE__, __L
 	// return the number of leaf partition for a given table oid
 	gpos::ULONG UlLeafPartitions(Oid oidRelation);
 
+	// returns true if a query cancel is requested in GPDB
+	bool FAbortRequested(void);
+
 } //namespace gpdb
 
 #define ForEach(cell, l)	\
