@@ -13,12 +13,12 @@ function build_gpbackup() {
 function add_to_tarball() {
     local cwd=$(pwd)
     gunzip gpdb_artifacts/*.tar.gz
-    mv gpdb_artifacts/*.tar gpdb_final
+    mv gpdb_artifacts/bin_gpdb.tar gpdb_final
     pushd gpdb_src/depends/gpbackup
-    tar -f ${cwd}/gpdb_final/*.tar -r bin/*
+    tar -f ${cwd}/gpdb_final/bin_gpdb.tar -r bin/*
     popd
     pushd gpdb_final
-    gzip *.tar
+    gzip bin_gpdb.tar
     popd
 }
 

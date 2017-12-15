@@ -398,14 +398,14 @@ rm -rf rhel62_x86_64
 
 cat  <<EOF >> ${GPDB_INSTALLDIR}/greenplum_path.sh
 
-if [ -z "\${KRB5_LIBS}" ]; then
+if [ -n "\${KRB5_LIBS}" ]; then
    export LD_LIBRARY_PATH=\$KRB5_LIBS:\$LD_LIBRARY_PATH
 fi
 
 EOF
 cat  <<EOF >> ${GPDB_INSTALLDIR}/greenplum_connectivity_path.sh
 
-if [ -z "\${KRB5_LIBS}" ]; then
+if [ -n "\${KRB5_LIBS}" ]; then
    export LD_LIBRARY_PATH=\$KRB5_LIBS:\$LD_LIBRARY_PATH
 fi
 
@@ -514,7 +514,7 @@ rm -rf rhel62_x86_64
 
 cat  <<EOF >> ${CLIENTS_INSTALLDIR}/greenplum_clients_path.sh
 
-if [ -z "\${KRB5_LIBS}" ]; then
+if [ -n "\${KRB5_LIBS}" ]; then
    export LD_LIBRARY_PATH=\$KRB5_LIBS:\$LD_LIBRARY_PATH
 fi
 
@@ -522,7 +522,7 @@ EOF
 
 cat  <<EOF >> ${CLIENTS_INSTALLDIR}/greenplum_loaders_path.sh
 
-if [ -z "\${KRB5_LIBS}" ]; then
+if [ -n "\${KRB5_LIBS}" ]; then
    export LD_LIBRARY_PATH=\$KRB5_LIBS:\$LD_LIBRARY_PATH
 fi
 
@@ -530,7 +530,7 @@ EOF
 
 cat  <<EOF >> ${CLIENTS_INSTALLDIR}/greenplum_connectivity_path.sh
 
-if [ -z "\${KRB5_LIBS}" ]; then
+if [ -n "\${KRB5_LIBS}" ]; then
    export LD_LIBRARY_PATH=\$KRB5_LIBS:\$LD_LIBRARY_PATH
 fi
 
