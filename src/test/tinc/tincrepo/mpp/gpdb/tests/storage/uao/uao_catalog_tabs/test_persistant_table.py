@@ -19,6 +19,7 @@ import tinctest
 import re
 import os
 
+import tempfile
 import time
 
 from datetime import datetime
@@ -157,22 +158,23 @@ class uao_visimap(ScenarioTestCase):
         tinctest.logger.info('test_05 Verify that the visimap truncates with truncate uao table test run')
         tinctest.logger.info("-------------------------------\n")
         out_file = os.path.join(self.outpath,'truncatevisimapinfo_05.out')
-        sql_file = os.path.join(self.sqlpath,'truncatevisimapinfo_05.sql')
         ans_file= os.path.join(self.anspath,'truncatevisimapinfo_05.ans')
         sql_cmd1="drop table if exists uao_visimap_test05;create table uao_visimap_test05 (i int, j varchar(20), k int ) with (appendonly=true) DISTRIBUTED BY (i);\n"
         sql_out=PSQL.run_sql_command(sql_cmd = sql_cmd1)
 	self.assertIsNotNone(re.search('CREATE TABLE', sql_out))
         sql_cmd2="\\pset tuples_only\n\\pset footer off\nSELECT relfilenode FROM pg_class WHERE relname='uao_visimap_test05';\n"
-        with open(sql_file,'w') as f:
-                f.write(sql_cmd2);
-        sql_out=PSQL.run_sql_file(sql_file=sql_file, out_file=out_file,  flags='-q')
+        with tempfile.NamedTemporaryFile(mode='w') as f:
+            f.write(sql_cmd2)
+            f.flush()
+            sql_out=PSQL.run_sql_file(sql_file=f.name, out_file=out_file,  flags='-q')
         with open(out_file, 'r') as f:
             relid = f.read()
 	aovisimap_cmd="select * from gp_dist_random('pg_aoseg.pg_aovisimap_%s');\n" % relid.strip()
 	sql_cmd3="select * from uao_visimap_test05;\n"+aovisimap_cmd+"insert into uao_visimap_test05 select i,'aa'||i,i+10 from generate_series(1,5) as i;\ndelete from uao_visimap_test05 where i=3;\nselect * from uao_visimap_test05;\n"+aovisimap_cmd+"truncate table uao_visimap_test05;\nselect * from uao_visimap_test05;\n"+aovisimap_cmd
-        with open(sql_file,'w') as f:
-                f.write(sql_cmd3);
-	sql_out=PSQL.run_sql_file(sql_file=sql_file, out_file=out_file,  flags='-q')
+        with tempfile.NamedTemporaryFile(mode='w') as f:
+            f.write(sql_cmd3);
+            f.flush()
+            sql_out=PSQL.run_sql_file(sql_file=f.name, out_file=out_file,  flags='-q')
         assert Gpdiff.are_files_equal(out_file, ans_file)
 
     def test_06_deletetable_visimap_for_uao_tables(self):
@@ -180,22 +182,23 @@ class uao_visimap(ScenarioTestCase):
         tinctest.logger.info('test_06 Verify that the visimap updates with delete row in uao table test run')
         tinctest.logger.info("-------------------------------\n")
         out_file = os.path.join(self.outpath,'deletetablevisimapinfo_06.out')
-        sql_file = os.path.join(self.sqlpath,'deletetablevisimapinfo_06.sql')
         ans_file= os.path.join(self.anspath,'deletetablevisimapinfo_06.ans')
         sql_cmd1="drop table if exists uao_visimap_test06 ;create table uao_visimap_test06 (i int, j varchar(20), k int ) with (appendonly=true) DISTRIBUTED BY (i);\n"
         sql_out=PSQL.run_sql_command(sql_cmd = sql_cmd1)
 	self.assertIsNotNone(re.search('CREATE TABLE', sql_out))
         sql_cmd2="\\pset tuples_only\n\\pset footer off\nSELECT relfilenode FROM pg_class WHERE relname='uao_visimap_test06';\n"
-        with open(sql_file,'w') as f:
-                f.write(sql_cmd2);
-        sql_out=PSQL.run_sql_file(sql_file=sql_file, out_file=out_file,  flags='-q')
+        with tempfile.NamedTemporaryFile(mode='w') as f:
+            f.write(sql_cmd2)
+            f.flush()
+            sql_out=PSQL.run_sql_file(sql_file=f.name, out_file=out_file,  flags='-q')
         with open(out_file, 'r') as f:
             relid = f.read()
 	aovisimap_cmd="select * from gp_dist_random('pg_aoseg.pg_aovisimap_%s');\n" % relid.strip()
 	sql_cmd3="select * from uao_visimap_test06;\n"+aovisimap_cmd+"insert into uao_visimap_test06 select i,'aa'||i,i+10 from generate_series(1,5) as i;\ndelete from uao_visimap_test06 where i=3;\nselect * from uao_visimap_test06;\n"+aovisimap_cmd
-        with open(sql_file,'w') as f:
-                f.write(sql_cmd3);
-	sql_out=PSQL.run_sql_file(sql_file=sql_file, out_file=out_file,  flags='-q')
+        with tempfile.NamedTemporaryFile(mode='w') as f:
+            f.write(sql_cmd3)
+            f.flush()
+            sql_out=PSQL.run_sql_file(sql_file=f.name, out_file=out_file,  flags='-q')
         assert Gpdiff.are_files_equal(out_file, ans_file)
 
 
