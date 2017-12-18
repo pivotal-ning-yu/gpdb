@@ -211,7 +211,7 @@ class gpfdist_ssl(unittest.TestCase):
 
     def test_09_ssl_YAML_file_with_SSL(self):
         "gpfdist ssl9: using YAML file"
-        f = open(MYD+'/data/ssl.yml','w')
+        f = open(MYD+'/data/ssl2.yml','w')
         f.write("version: 1.0.0.1")
         f.write("\ndatabase:  "+DBNAME)
         f.write("\nUSER: "+os.environ.get('USER'))
@@ -248,7 +248,7 @@ class gpfdist_ssl(unittest.TestCase):
         f.close()         
 
         f2 = open(MYD+'/query9.sql','w')
-        f2.write('\!'+gpload_command+' -f '+MYD+'/data/ssl.yml')
+        f2.write('\!'+gpload_command+' -f '+MYD+'/data/ssl2.yml')
         f2.close()
         self.doTest(9)
          
