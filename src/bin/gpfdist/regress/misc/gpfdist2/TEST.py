@@ -235,10 +235,10 @@ class gpfdist2(unittest.TestCase):
 
     def testQuery20(self): 
         "gpfdist2: 20  "
-        run("gpssh -h " + hostname + " -e \'chmod 000 %s/data/bad_data/lineitem.tbl.no_read \'" % MYD)
+        run("touch %s/data/bad_data/lineitem.tbl.no_read" % (MYD))
+        run("chmod 000 %s/data/bad_data/lineitem.tbl.no_read" % (MYD))
         self.doTest(20)
-        run("gpssh -h " + hostname + " -e \'chmod 744 %s/data/bad_data/lineitem.tbl.no_read\'" % MYD)
-
+        run("rm -f %s/data/bad_data/lineitem.tbl.no_read" % (MYD))
 
     def testQuery21(self): 
         "gpfdist2: 21  "
