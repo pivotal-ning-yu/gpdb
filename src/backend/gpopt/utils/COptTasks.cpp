@@ -33,6 +33,7 @@
 
 #include "cdb/cdbvars.h"
 #include "utils/guc.h"
+#include "utils/fmgroids.h"
 
 #include "gpos/base.h"
 #include "gpos/error/CException.h"
@@ -115,6 +116,9 @@ using namespace gpdbcost;
 
 // definition of default AutoMemoryPool
 #define AUTO_MEM_POOL(amp) CAutoMemoryPool amp(CAutoMemoryPool::ElcExc, CMemoryPoolManager::EatTracker, false /* fThreadSafe */)
+
+// Oids for rank window functions
+#define F_WINDOW_RANK_OID 7001
 
 // default id for the source system
 const CSystemId sysidDefault(IMDId::EmdidGPDB, GPOS_WSZ_STR_LENGTH("GPDB"));
@@ -828,7 +832,8 @@ COptTasks::PoconfCreate
 								ulJoinOrderThreshold,
 								ulBroadcastThreshold,
 								true /* fEnforceConstraintsOnDML */
-								)
+								),
+						GPOS_NEW(pmp) CWindowOids(OID(F_WINDOW_DUMMY), OID(F_WINDOW_RANK_OID))
 						);
 }
 
