@@ -3101,6 +3101,9 @@ create index g_idx on g(i);
 select * from locktest;
 commit;
 
+-- start_ignore
+analyze g;
+-- end_ignore
 -- test select locking
 begin;
 select * from g where i = 1;
