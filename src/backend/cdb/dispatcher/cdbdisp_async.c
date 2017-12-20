@@ -25,6 +25,9 @@
 #include <sys/poll.h>
 #endif
 
+/* TODO: check for existance of epoll.h */
+#include <sys/epoll.h>
+
 #include "storage/ipc.h"		/* For proc_exit_inprogress  */
 #include "tcop/tcopprot.h"
 #include "cdb/cdbdisp.h"
@@ -424,8 +427,12 @@ checkDispatchResult(CdbDispatcherState *ds,
 	int			timeout = 0;
 	bool		sentSignal = false;
 	int			nfds = 0;
-	struct pollfd fds[db_count];
-	CdbDispatchResult *(results[db_count]);
+	int			epollfd;
+	struct epoll_event ev;
+	struct epoll_event events[db_count];
+
+	epollfd = epoll_create(db_count);
+	Assert(epollfd >= 0);
 
 	/* Fill in poll fds */
 	for (i = 0; i < db_count; i++)
@@ -450,9 +457,10 @@ checkDispatchResult(CdbDispatcherState *ds,
 		 */
 		sock = PQsocket(conn);
 		Assert(sock >= 0);
-		results[nfds] = dispatchResult;
-		fds[nfds].fd = sock;
-		fds[nfds].events = conn->outCount > 0 ? POLLOUT : POLLIN;
+		ev.data.ptr = dispatchResult;
+		ev.events = conn->outCount > 0 ? EPOLLOUT : EPOLLIN;
+		ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, sock, &ev);
+		Assert(ret == 0);
 		nfds++;
 	}
 
@@ -545,10 +553,10 @@ checkDispatchResult(CdbDispatcherState *ds,
 		else
 			timeout = DISPATCH_WAIT_CANCEL_TIMEOUT_MSEC;
 
-		n = poll(fds, nfds, timeout);
+		n = epoll_wait(epollfd, events, db_count, timeout);
 
 		/*
-		 * poll returns with an error, including one due to an interrupted
+		 * epoll returns with an error, including one due to an interrupted
 		 * call
 		 */
 		if (n < 0)
@@ -651,7 +659,7 @@ dispatchCommand(CdbDispatchResult *dispatchResult,
  * NOTE: The cleanup of the connections will be performed by handlePollTimeout().
  */
 static int
-handlePollError(int nfds, struct pollfd fds[], CdbDispatchResult *results[])
+handlePollError(int epollfd, int nevents, struct epoll_event events[])
 {
 	int			i;
 
