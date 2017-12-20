@@ -3737,11 +3737,6 @@ def impl(context, utilname, dirname):
         raise Exception('Logs matching "%s" were not created' % pattern)
 
 
-def get_log_name(utilname, logdir):
-    today = datetime.now()
-    logname = "%s/%s_%s.log" % (logdir, utilname, today.strftime('%Y%m%d'))
-    return logname
-
 @then('verify that a log was created by {utilname} in the "{dirname}" directory')
 def impl(context, utilname, dirname):
     if not os.path.exists(dirname):
@@ -3769,36 +3764,6 @@ def impl(context, tablename, dbconn):
     command = "%s -c \'drop table if exists %s\'"%(dbconn, tablename)
     run_gpcommand(context, command)
 
-# gptransfer must be run in verbose mode (-v) with default log location when using this step
-@then('verify that gptransfer has a sub batch size of "{num}"')
-def impl(context, num):
-    num = int(num)
-    logdir = "%s/gpAdminLogs" % os.path.expanduser("~")
-    if not os.path.exists(logdir):
-        raise Exception('No such directory: %s' % absdirname)
-    logname = get_log_name('gptransfer', logdir)
-
-    full_path = os.path.join(logdir, logname)
-
-    if not os.path.isfile(full_path):
-        raise Exception ("Can not find %s file: %s" % (file_type, full_path))
-
-    contents = ""
-    with open(full_path) as fd:
-        contents = fd.read()
-
-    for i in range(num):
-        worker = "\[DEBUG\]:-\[worker%d\]" % i
-        try:
-            check_stdout_msg(context, worker)
-        except:
-            raise Exception("gptransfer sub batch size should be %d, is %d" % (num, i))
-
-    worker = "\[DEBUG\]:-\[worker%d\]" % num
-    try:
-        check_string_not_present_stdout(context, worker)
-    except:
-        raise Exception("gptransfer sub batch size should be %d, is at least %d" % (num, num+1))
 
 @given('an incomplete map file is created')
 def impl(context):
