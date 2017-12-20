@@ -87,7 +87,7 @@ EOF
   source /usr/local/greenplum-db-devel/greenplum_path.sh
   gpscp -h mdw -h sdw1 -u centos /tmp/install_client.sh =:/tmp/install_client.sh
   gpssh -h mdw -h sdw1 -u centos "bash -c \"\
-    sudo yum install -y expect
+    sudo yum --cacheonly list installed expect
     cd /data/gpdata
     sudo tar -xvf NetBackup_7.7.3_CLIENTS_RHEL_2.6.18.tar.gz
     cd NetBackup_7.7.3_CLIENTS2
