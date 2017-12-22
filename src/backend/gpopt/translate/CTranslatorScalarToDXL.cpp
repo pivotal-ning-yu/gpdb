@@ -27,6 +27,7 @@
 #include "utils/datum.h"
 #include "utils/date.h"
 #include "utils/numeric.h"
+#include "catalog/pg_proc.h"
 
 #include "gpos/base.h"
 #include "gpos/common/CAutoP.h"
@@ -1527,6 +1528,22 @@ CTranslatorScalarToDXL::PdxlnScWindowref
 	if (0 != pwindowref->winlevelsup)
 	{
 		GPOS_RAISE(gpdxl::ExmaDXL, gpdxl::ExmiQuery2DXLUnsupportedFeature, GPOS_WSZ_LIT("Window functions with outer references"));
+	}
+
+	// fallback if window function is not supported
+	if (WINDOW_PERCENT_RANK == pwindowref->winfnoid)
+	{
+		GPOS_RAISE(gpdxl::ExmaDXL, gpdxl::ExmiQuery2DXLUnsupportedFeature, GPOS_WSZ_LIT("PERCENT_RANK Window Functions"));
+	}
+	else if (CUME_DIST_OID == pwindowref->winfnoid)
+	{
+		GPOS_RAISE(gpdxl::ExmaDXL, gpdxl::ExmiQuery2DXLUnsupportedFeature, GPOS_WSZ_LIT("CUME_DIST Window Functions"));
+	}
+	else if (WINDOW_NTILE_INT4 == pwindowref->winfnoid ||
+						WINDOW_NTILE_INT8 == pwindowref->winfnoid ||
+						WINDOW_NTILE_NUMERIC == pwindowref->winfnoid)
+	{
+		GPOS_RAISE(gpdxl::ExmaDXL, gpdxl::ExmiQuery2DXLUnsupportedFeature, GPOS_WSZ_LIT("NTILE Window Functions"));
 	}
 
 	CDXLScalarWindowRef *pdxlopWinref = GPOS_NEW(m_pmp) CDXLScalarWindowRef
