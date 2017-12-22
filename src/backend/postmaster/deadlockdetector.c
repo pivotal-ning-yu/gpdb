@@ -444,7 +444,7 @@ DeadLockDetectorMain(int argc, char *argv[])
 static void
 DeadLockDetectorLoop(void)
 {
-        int sleeptime = 100;   
+	int sleeptime = 1000000;
 	for(;;)
 	{
 		int i = 1;
@@ -457,7 +457,7 @@ DeadLockDetectorLoop(void)
 		if (!PostmasterIsAlive(true))
 			exit(1);
 	
-		usleep(sleeptime);
+		pg_usleep(sleeptime);
 
 		if(i)
 		{
