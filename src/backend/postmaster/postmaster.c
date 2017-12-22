@@ -121,7 +121,6 @@
 #include "postmaster/pgarch.h"
 #include "postmaster/postmaster.h"
 #include "postmaster/seqserver.h"
-#include "postmaster/checkpoint.h"
 #include "postmaster/deadlockdetector.h"
 #include "postmaster/fts.h"
 #include "postmaster/perfmon.h"

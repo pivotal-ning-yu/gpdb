@@ -22,6 +22,7 @@
 #include <sys/time.h>
 #include <netinet/in.h>
 
+#include "access/xact.h"
 #include "miscadmin.h"
 #include "libpq/pqsignal.h"
 #include "cdb/cdbvars.h"
@@ -31,7 +32,6 @@
 #include "postmaster/postmaster.h"
 #include "postmaster/deadlockdetector.h"
 #include "catalog/catalog.h"
-#include "catalog/catquery.h"
 #include "catalog/pg_authid.h"
 #include "catalog/pg_database.h"
 #include "catalog/pg_tablespace.h"
@@ -41,12 +41,16 @@
 #include "storage/procsignal.h"
 #include "storage/sinvaladt.h"
 #include "tcop/tcopprot.h"
+#include "utils/builtins.h"
+#include "utils/fmgroids.h"
 #include "utils/ps_status.h"
 #include "storage/backendid.h"
 #include "utils/syscache.h"
 #include "cdb/cdbdisp.h"
 #include "cdb/cdbvars.h"
-#include "gp-libpq-fe.h"
+#include "cdb/cdbdispatchresult.h"
+#include "cdb/cdbdisp_query.h"
+#include "libpq-fe.h"
 #include "libpq/libpq-be.h"
 #include "executor/spi.h"
 
@@ -459,9 +463,7 @@ static void
 doDeadLockCheck(void)
 {
 	int		i, j;
-	int 	resultCount = 0;
-	struct pg_result **results = NULL;
-	StringInfoData errbuf;
+	CdbPgResults cdb_pgresults = { NULL, 0 };
 	StringInfoData strres;
 	List *lGNode = NULL;
 	int lsegid = -2;
@@ -479,17 +481,13 @@ doDeadLockCheck(void)
                           "  (a.locktype='tuple' and a.database=b.database and a.relation=b.relation and a.page=b.page and a.tuple=b.tuple)  or"
                           "  (a.locktype='relation' and a.database=b.database and a.relation=b.relation))"
                           " order by b.gp_segment_id;"; 
-	initStringInfo(&errbuf);
 	initStringInfo(&strres);
 
-	results = cdbdisp_dispatchRMCommand(sql, false, &errbuf, &resultCount);
+	CdbDispatchCommand(sql, DF_NONE, &cdb_pgresults);
 
-	if (errbuf.len > 0)
-		ereport(ERROR, (errmsg("pg_highest_oid error (gathered %d results from cmd '%s')", resultCount, sql), errdetail("%s", errbuf.data)));
-										
-	for (i = 0; i < resultCount; i++)
+	for (i = 0; i < cdb_pgresults.numResults; i++)
 	{
-		struct pg_result *res = results[i];
+		struct pg_result *res = cdb_pgresults.pg_results[i];
 		if (PQresultStatus(res) != PGRES_TUPLES_OK)
 		{
 			elog(ERROR,"dboid: resultStatus not tuples_Ok");
@@ -555,13 +553,6 @@ doDeadLockCheck(void)
 			}
 		}
 	}
-
-	pfree(errbuf.data);
-
-	for (i = 0; i < resultCount; i++)
-		PQclear(results[i]);
-
-	free(results);
 
 	findCycle();
 }
@@ -841,7 +832,7 @@ static void cancelSession(int sessionId)
 	{
 		if (SPI_OK_CONNECT != SPI_connect())
 		{
-			ereport(ERROR, (errcode(ERRCODE_CDB_INTERNAL_ERROR),
+			ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR),
 					errmsg("Unable to connect to execute internal query.")));
 		}
 		connected = true;
@@ -885,36 +876,33 @@ FindSuperuser(bool try_bootstrap)
 	char *suser = NULL;
 	Relation auth_rel;
 	HeapTuple	auth_tup;
-	cqContext  *pcqCtx;
-	cqContext	cqc;
+	ScanKeyData	scankey[3];
+	SysScanDesc	sscan;
+	int			nkeys;
 	bool	isNull;
 
 	auth_rel = heap_open(AuthIdRelationId, AccessShareLock);
 
-	if (try_bootstrap)
-	{
-		pcqCtx = caql_beginscan(
-				caql_addrel(cqclr(&cqc), auth_rel),
-				cql("SELECT * FROM pg_authid "
-					" WHERE rolsuper = :1 "
-					" AND rolcanlogin = :2 "
-					" AND oid = :3 ",
-					BoolGetDatum(true),
-					BoolGetDatum(true),
-					ObjectIdGetDatum(BOOTSTRAP_SUPERUSERID)));
-	}
-	else
-	{
-		pcqCtx = caql_beginscan(
-				caql_addrel(cqclr(&cqc), auth_rel),
-				cql("SELECT * FROM pg_authid "
-					" WHERE rolsuper = :1 "
-					" AND rolcanlogin = :2 ",
-					BoolGetDatum(true),
-					BoolGetDatum(true)));
-	}
+	ScanKeyInit(&scankey[0],
+				Anum_pg_authid_rolsuper,
+				BTEqualStrategyNumber, F_BOOLEQ,
+				BoolGetDatum(true));
+	ScanKeyInit(&scankey[1],
+				Anum_pg_authid_rolcanlogin,
+				BTEqualStrategyNumber, F_BOOLEQ,
+				BoolGetDatum(true));
+	ScanKeyInit(&scankey[2],
+				ObjectIdAttributeNumber,
+				BTEqualStrategyNumber, F_OIDEQ,
+				ObjectIdGetDatum(BOOTSTRAP_SUPERUSERID));
 
-	while (HeapTupleIsValid(auth_tup = caql_getnext(pcqCtx)))
+	nkeys = try_bootstrap ? 3 : 2;
+
+	/* FIXME: perform indexed scan here? */
+	sscan = systable_beginscan(auth_rel, InvalidOid, false,
+							   SnapshotNow, nkeys, scankey);
+
+	while (HeapTupleIsValid(auth_tup = systable_getnext(sscan)))
 	{
 		Datum	attrName;
 		Oid		userOid;
@@ -937,7 +925,7 @@ FindSuperuser(bool try_bootstrap)
 		break;
 	}
 
-	caql_endscan(pcqCtx);
+	systable_endscan(sscan);
 	heap_close(auth_rel, AccessShareLock);
 	return suser;
 }
