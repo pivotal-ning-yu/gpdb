@@ -169,6 +169,7 @@ CreateSharedMemoryAndSemaphores(bool makePrivate, int port)
 		size = add_size(size, FtsShmemSize());
 		size = add_size(size, tmShmemSize());
 		size = add_size(size, SeqServerShmemSize());
+size = add_size(size, 4096); /* FIXME: for deadlockdetector */
 		size = add_size(size, PersistentFileSysObj_ShmemSize());
 		size = add_size(size, PersistentFilespace_ShmemSize());
 		size = add_size(size, PersistentTablespace_ShmemSize());

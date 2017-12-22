@@ -44,6 +44,7 @@
 #include "utils/builtins.h"
 #include "utils/fmgroids.h"
 #include "utils/ps_status.h"
+#include "utils/snapmgr.h"
 #include "storage/backendid.h"
 #include "utils/syscache.h"
 #include "cdb/cdbdisp.h"
@@ -393,6 +394,14 @@ DeadLockDetectorMain(int argc, char *argv[])
 	RelationCacheInitializePhase2();
 
 	/*
+	 * Start a new transaction here before first access to db, and get a
+	 * snapshot.  We don't have a use for the snapshot itself, but we're
+	 * interested in the secondary effect that it sets RecentGlobalXmin.
+	 */
+	StartTransactionCommand();
+	(void) GetTransactionSnapshot();
+
+	/*
 	 * In order to access the catalog, we need a database, and a
 	 * tablespace; our access to the heap is going to be slightly
 	 * limited, so we'll just use some defaults.
@@ -416,9 +425,11 @@ DeadLockDetectorMain(int argc, char *argv[])
 
 	ddtUser = FindSuperuser(true);
 	MyProcPort = (Port*)malloc(sizeof(Port));
-	MyProcPort->user_name = ddtUser;
+	MyProcPort->user_name = strdup(ddtUser);
 	MyProcPort->database_name = knownDatabase;
 
+	/* close the transaction we started above */
+	CommitTransactionCommand();
 
 	DeadLockDetectorLoop();
 
@@ -470,8 +481,9 @@ doDeadLockCheck(void)
 
 	Assert(glSNode == NULL);
 
+	/* FIXME: is transaction replaced with virtualtransaction? or virtualxid? or sth. else? */
         const char *sql = "select a.*, b.mppsessionid as hold_mppsessionid, b.pid as hold_pid, "
-                          " b.transaction as hold_transaction, b.mode as hold_mode from"	
+                          " b.virtualtransaction as hold_transaction, b.mode as hold_mode from"	
                           " pg_locks a join pg_locks b on"
                           " a.locktype=b.locktype and"
                           " a.granted='f' and b.granted='t' and"
@@ -501,7 +513,7 @@ doDeadLockCheck(void)
 			int i_page = PQfnumber(res, "page");
 			int i_tuple = PQfnumber(res, "tuple");
 			int i_transactionid = PQfnumber(res, "transactionid");
-			int i_transaction = PQfnumber(res, "transaction");
+			int i_transaction = PQfnumber(res, "virtualtransaction");
 			int i_hold_transaction = PQfnumber(res, "hold_transaction");
 			int i_pid = PQfnumber(res, "pid");
 			int i_hold_pid = PQfnumber(res, "hold_pid");
@@ -520,8 +532,12 @@ doDeadLockCheck(void)
 				int page = atol(PQgetvalue(res, j, i_page));
 				int tuple = atol(PQgetvalue(res, j, i_tuple));
 				int transactionId = atol(PQgetvalue(res, j, i_transactionid));
+#if 0
 				int transaction = atol(PQgetvalue(res, j, i_transaction));
 				int holdTransaction = atol(PQgetvalue(res, j, i_hold_transaction));
+#endif
+				int transaction = InvalidOid;
+				int holdTransaction = InvalidOid;
 				int pid = atol(PQgetvalue(res, j, i_pid));
 				int holdPid = atol(PQgetvalue(res, j, i_hold_pid));
 				int mppSessionId = atol(PQgetvalue(res, j, i_mppsessionid));
@@ -809,10 +825,15 @@ static void cancelDeadlockCycles(void)
 		}
 	}
 
+	/* FIXME: how to do this properly? */
+	PushActiveSnapshot(GetTransactionSnapshot());
+
 	Assert(cancelSN != NULL);
 	cancelSession(cancelSN->sessionId);
 	list_free(glSNode);
 	glSNode = NULL;
+
+	PopActiveSnapshot();
 
 	return;
 }
