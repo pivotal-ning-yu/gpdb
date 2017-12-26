@@ -979,6 +979,10 @@ jobs:
         passed: [compile_gpdb_sles11]
       - get: pgcrypto_sles11_gppkg
         passed: [compile_gpdb_sles11]
+      - get: postgis_rhel5_gppkg
+        passed: [compile_gpdb_centos5]
+      - get: postgis_sles11_gppkg
+        passed: [compile_gpdb_sles11]
       - get: osl_gpdb4
       - get: pivnet_client
       - get: gpdb_release
@@ -1013,6 +1017,8 @@ jobs:
         - name: plperl_sles11_gppkg
         - name: pgcrypto_sles11_gppkg
         - name: osl_gpdb4
+        - name: postgis_rhel5_gppkg
+        - name: postgis_sles11_gppkg
 
         params:
           PIVNET_ENDPOINT: {{4_3-release_pivnet_endpoint}}
