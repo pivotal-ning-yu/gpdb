@@ -255,14 +255,14 @@ ccp_gen_cluster_default_params_anchor: &ccp_gen_cluster_default_params
   AWS_ACCESS_KEY_ID: {{gpdb5-pipeline-tf-machine-access-key-id}}
   AWS_SECRET_ACCESS_KEY: {{gpdb5-pipeline-tf-machine-secret-access-key}}
   AWS_DEFAULT_REGION: {{aws-region}}
-  BUCKET_PATH: {{gpdb5-pipeline-tf-bucket-path}}
+  BUCKET_PATH: clusters/
   BUCKET_NAME: {{gpdb5-pipeline-tf-bucket-name}}
 
 dpm_ccp_gen_cluster_default_params_anchor: &dpm_ccp_gen_cluster_default_params
   AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
   AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
   AWS_DEFAULT_REGION: {{aws-region}}
-  BUCKET_PATH: {{tf-bucket-path}}
+  BUCKET_PATH: clusters/
   BUCKET_NAME: {{tf-bucket-name}}
 
 debug_sleep_anchor: &debug_sleep
@@ -400,20 +400,7 @@ resources:
       region_name: {{aws-region}}
       # This is on purpose not parameterized. All tfstates will go to this spot
       bucket: gpdb5-pipeline-dynamic-terraform
-      ###########################################################
-      # Two conventions are allowed for bucket_path:            #
-      # 1) Cluster expected to destroy when done                #
-      #    Toolsmiths will reap old and orphaned                #
-      #                                                         #
-      #      bucket_path: prod/[Pipeline Name]/                 #
-      #                                                         #
-      # 2) Long lived clusters for development.                 #
-      #    The team that creates it is responsible for cluster  #
-      #                                                         #
-      #     bucket_path: dev/[Team Name]/                       #
-      #                                                         #
-      ###########################################################
-      bucket_path: {{gpdb5-pipeline-tf-bucket-path}}
+      bucket_path: clusters/
 
 - name: terraform2
   type: terraform
@@ -426,7 +413,7 @@ resources:
       secret_access_key: {{gpdb5-pipeline-tf-machine-secret-access-key}}
       region_name: {{aws-region}}
       bucket: gpdb5-pipeline-dynamic-terraform
-      bucket_path: {{gpdb5-pipeline-tf-bucket-path}}
+      bucket_path: clusters/
 
 - name: terraform_for_dpm
   type: terraform
@@ -440,20 +427,7 @@ resources:
       region_name: {{aws-region}}
       # This is on purpose not parameterized. All tfstates will go to this spot
       bucket: pivotal-pa-toolsmiths-pipeline-dynamic-terraform
-      ###########################################################
-      # Two conventions are allowed for bucket_path:            #
-      # 1) Cluster expected to destroy when done                #
-      #    Toolsmiths will reap old and orphaned                #
-      #                                                         #
-      #      bucket_path: prod/[Pipeline Name]/                 #
-      #                                                         #
-      # 2) Long lived clusters for development.                 #
-      #    The team that creates it is responsible for cluster  #
-      #                                                         #
-      #     bucket_path: dev/[Team Name]/                       #
-      #                                                         #
-      ###########################################################
-      bucket_path: {{tf-bucket-path}}
+      bucket_path: clusters/
 
 - name: centos-gpdb-dev-5
   type: docker-image
