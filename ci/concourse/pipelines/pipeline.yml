@@ -254,46 +254,63 @@ ccp_destroy_2_cluster_anchor: &ccp_destroy_2_cluster
 ccp_gen_cluster_default_params_anchor: &ccp_gen_cluster_default_params
   AWS_ACCESS_KEY_ID: {{gpdb5-pipeline-tf-machine-access-key-id}}
   AWS_SECRET_ACCESS_KEY: {{gpdb5-pipeline-tf-machine-secret-access-key}}
-  AWS_DEFAULT_REGION: {{aws-region}}
+  AWS_DEFAULT_REGION: {{tf-machine-region}}
   BUCKET_PATH: clusters/
   BUCKET_NAME: {{gpdb5-pipeline-tf-bucket-name}}
 
 dpm_ccp_gen_cluster_default_params_anchor: &dpm_ccp_gen_cluster_default_params
   AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
   AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
-  AWS_DEFAULT_REGION: {{aws-region}}
+  AWS_DEFAULT_REGION: {{tf-machine-region}}
   BUCKET_PATH: clusters/
   BUCKET_NAME: {{tf-bucket-name}}
 
-debug_sleep_anchor: &debug_sleep
+set_failed_anchor: &set_failed
   do:
-  - task: debug_sleep
+  - task: on_failure_set_failed
     tags: ["ccp"]
     config:
       platform: linux
       image_resource:
         type: docker-image
         source:
-          repository: alpine
-          tag: latest
+          repository: pivotaldata/ccp
+          tag: "7"
+      inputs:
+        - name: ccp_src
+        - name: terraform
       run:
-        path: 'sh'
-        args: ['-c', 'sleep 6h']
+        path: 'ccp_src/aws/ccp_failed_test.sh'
+      params:
+        AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
+        AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
+        AWS_DEFAULT_REGION: {{tf-machine-region}}
+        BUCKET_PATH: clusters/
+        BUCKET_NAME: {{tf-bucket-name}}
 
-dpm_debug_sleep_anchor: &dpm_debug_sleep
+set_failed_anchor_2: &set_failed_2_cluster
   do:
-  - task: debug_sleep
+  - *set_failed
+  - task: on_failure_set_failed
     tags: ["ccp"]
     config:
       platform: linux
       image_resource:
         type: docker-image
         source:
-          repository: alpine
-          tag: latest
+          repository: pivotaldata/ccp
+          tag: "7"
+      inputs:
+        - name: ccp_src
+        - name: terraform2
       run:
-        path: 'sh'
-        args: ['-c', 'sleep 6h']
+        path: 'ccp_src/aws/ccp_failed_test.sh'
+      params:
+        AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
+        AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
+        AWS_DEFAULT_REGION: {{tf-machine-region}}
+        BUCKET_PATH: clusters/
+        BUCKET_NAME: {{tf-bucket-name}}
 
 rhel_artifacts_for_pulse_anchor: &rhel_artifacts_for_pulse_release-add-trigger
   - get: gpdb_src
@@ -350,8 +367,10 @@ ccp_run_tinc_tests_params_anchor: &ccp_run_tinc_tests_params
   tags: ["ccp"]
   file: gpdb_src/ci/concourse/run_tinc.yml
   image: centos-gpdb-dev-6
+  on_success:
+    <<: *ccp_destroy
   on_failure:
-    <<: *debug_sleep
+    <<: *set_failed
 
 ## ======================================================================
 ## resource types
@@ -1772,10 +1791,12 @@ jobs:
     image: centos-gpdb-dev-6
     params:
       BEHAVE_FLAGS: --tags=gpcheckcat
+    on_success:
+      <<: *ccp_destroy
     on_failure:
-      <<: *debug_sleep
+      <<: *set_failed
   ensure:
-    <<: *ccp_destroy
+    <<: *set_failed
 
 - name: MM_gprecoverseg
   plan:
@@ -1815,10 +1836,12 @@ jobs:
     image: centos-gpdb-dev-6
     params:
       BEHAVE_FLAGS: --tags=gprecoverseg
+    on_success:
+      <<: *ccp_destroy
     on_failure:
-      <<: *debug_sleep
+      <<: *set_failed
   ensure:
-    <<: *ccp_destroy
+    <<: *set_failed
 
 - name: MM_gpexpand_1
   plan:
@@ -1839,7 +1862,7 @@ jobs:
       CUSTOM_ENV: HOST1=mdw HOST2=sdw1 HOST3=sdw2 HOST4=sdw3 HOST5=sdw4
       PRE_TEST_SCRIPT: bash -c 'ssh-keygen -f ~/.ssh/id_rsa -y > ~/.ssh/id_rsa.pub; for i in mdw sdw{1..4}; do ssh centos@$i "sudo chmod 777 /usr/local"; done'
   ensure:
-    <<: *ccp_destroy
+    <<: *set_failed
 
 - name: MM_gpexpand_2
   plan:
@@ -1860,7 +1883,7 @@ jobs:
       CUSTOM_ENV: HOST1=mdw HOST2=sdw1 HOST3=sdw2 HOST4=sdw3 HOST5=sdw4
       PRE_TEST_SCRIPT: bash -c 'ssh-keygen -f ~/.ssh/id_rsa -y > ~/.ssh/id_rsa.pub; for i in mdw sdw{1..4}; do ssh centos@$i "sudo chmod 777 /usr/local"; done'
   ensure:
-    <<: *ccp_destroy
+    <<: *set_failed
 
 - name: MM_gppkg
   plan:
@@ -1925,10 +1948,12 @@ jobs:
     image: centos-gpdb-dev-6
     params:
       TINC_TARGET: gppkg
+    on_success:
+      <<: *ccp_destroy
     on_failure:
-      <<: *debug_sleep
+      <<: *set_failed
   ensure:
-    <<: *ccp_destroy
+    <<: *set_failed
 
 - name: cs_walrep_1
   plan:
@@ -1942,7 +1967,7 @@ jobs:
     params:
       TINC_TARGET: walrep_1
   ensure:
-    <<: *ccp_destroy
+    <<: *set_failed
 
 - name: cs_walrep_2
   plan:
@@ -1956,7 +1981,7 @@ jobs:
     params:
       TINC_TARGET: walrep_2
   ensure:
-    <<: *ccp_destroy
+    <<: *set_failed
 
 - name: cs_pg_twophase_01_10
   plan:
@@ -1975,7 +2000,7 @@ jobs:
     params:
       TINC_TARGET: test_pg_twophase_01_10
   ensure:
-    <<: *ccp_destroy
+    <<: *set_failed
 
 - name: cs_pg_twophase_11_20
   plan:
@@ -1994,7 +2019,7 @@ jobs:
     params:
       TINC_TARGET: test_pg_twophase_11_20
   ensure:
-    <<: *ccp_destroy
+    <<: *set_failed
 
 - name: cs_pg_twophase_21_30
   plan:
@@ -2013,7 +2038,7 @@ jobs:
     params:
       TINC_TARGET: test_pg_twophase_21_30
   ensure:
-    <<: *ccp_destroy
+    <<: *set_failed
 
 - name: cs_pg_twophase_31_40
   plan:
@@ -2032,7 +2057,7 @@ jobs:
     params:
       TINC_TARGET: test_pg_twophase_31_40
   ensure:
-    <<: *ccp_destroy
+    <<: *set_failed
 
 - name: cs_pg_twophase_41_49
   plan:
@@ -2051,7 +2076,7 @@ jobs:
     params:
       TINC_TARGET: test_pg_twophase_41_49
   ensure:
-    <<: *ccp_destroy
+    <<: *set_failed
 
 - name: cs_pg_twophase_switch
   plan:
@@ -2070,7 +2095,7 @@ jobs:
     params:
       TINC_TARGET: test_switch_01_12
   ensure:
-    <<: *ccp_destroy
+    <<: *set_failed
 
 - name: cs_crash_recovery_schema_topology
   plan:
@@ -2089,7 +2114,7 @@ jobs:
     params:
       TINC_TARGET: crash_recovery_schema_topology
   ensure:
-    <<: *ccp_destroy
+    <<: *set_failed
 
 - name: cs_crash_recovery_04_10
   plan:
@@ -2108,7 +2133,7 @@ jobs:
     params:
       TINC_TARGET: crash_recovery_04_10
   ensure:
-    <<: *ccp_destroy
+    <<: *set_failed
 
 - name: cs_crash_recovery_11_20
   plan:
@@ -2127,7 +2152,7 @@ jobs:
     params:
       TINC_TARGET: crash_recovery_11_20
   ensure:
-    <<: *ccp_destroy
+    <<: *set_failed
 
 - name: cs_crash_recovery_21_30
   plan:
@@ -2146,7 +2171,7 @@ jobs:
     params:
       TINC_TARGET: crash_recovery_21_30
   ensure:
-    <<: *ccp_destroy
+    <<: *set_failed
 
 - name: cs_crash_recovery_31_42
   plan:
@@ -2165,7 +2190,7 @@ jobs:
     params:
       TINC_TARGET: crash_recovery_31_42
   ensure:
-    <<: *ccp_destroy
+    <<: *set_failed
 
 - name: cs_filerep_end_to_end_full_primary
   plan:
@@ -2186,7 +2211,7 @@ jobs:
     params:
       TINC_TARGET: filerep_end_to_end_full_primary
   ensure:
-    <<: *ccp_destroy
+    <<: *set_failed
 
 - name: cs_filerep_end_to_end_incr_primary
   plan:
@@ -2207,7 +2232,7 @@ jobs:
     params:
       TINC_TARGET: filerep_end_to_end_incr_primary
   ensure:
-    <<: *ccp_destroy
+    <<: *set_failed
 
 - name: cs_filerep_end_to_end_full_mirror
   plan:
@@ -2228,7 +2253,7 @@ jobs:
     params:
       TINC_TARGET: filerep_end_to_end_full_mirror
   ensure:
-    <<: *ccp_destroy
+    <<: *set_failed
 
 - name: cs_filerep_end_to_end_incr_mirror
   plan:
@@ -2249,7 +2274,7 @@ jobs:
     params:
       TINC_TARGET: filerep_end_to_end_incr_mirror
   ensure:
-    <<: *ccp_destroy
+    <<: *set_failed
 
 # Stage 3: Packaging of installer file
 # Stage 3a: Packaging the Release Candidate (rc)
@@ -2433,10 +2458,12 @@ jobs:
     image: centos-gpdb-dev-6
     params:
       BEHAVE_FLAGS: --tags=backups,backup_and_restore_backups,backup_and_restore_restores,restores --tags=-nbuonly --tags=-ddonly
+    on_success:
+      <<: *ccp_destroy
     on_failure:
-      <<: *debug_sleep
+      <<: *set_failed
   ensure:
-    <<: *ccp_destroy
+    <<: *set_failed
 
 - name: DPM_backup-restore_filename_compatibility
   plan:
@@ -2478,7 +2505,7 @@ jobs:
     params:
       BEHAVE_FLAGS: --tags=backup_and_restore_backups --tags=-nbuonly --tags=-ddonly --tags=-skip_filename_compatibility
     on_failure:
-      <<: *debug_sleep
+      <<: *set_failed
   - task: setup_new_gpdb4
     tags: ["ccp"]
     file: gpdb_src/ci/concourse/setup_new_gpdb_for_backup_restore.yml
@@ -2486,17 +2513,19 @@ jobs:
       <<: *ccp_gen_cluster_default_params
     image: centos-gpdb-dev-6
     on_failure:
-      <<: *debug_sleep
+      <<: *set_failed
   - task: run_restore_tests
     tags: ["ccp"]
     file: gpdb_src/ci/concourse/terraform_run_behave.yml
     image: centos-gpdb-dev-6
     params:
       BEHAVE_FLAGS: --tags=backup_and_restore_restores --tags=-nbuonly --tags=-ddonly --tags=-skip_filename_compatibility
+    on_success:
+      <<: *ccp_destroy
     on_failure:
-      <<: *debug_sleep
+      <<: *set_failed
   ensure:
-    <<: *ccp_destroy
+    <<: *set_failed
 
 - name: DPM_backup-restore_ddboost_part1
   plan:
@@ -2568,10 +2597,12 @@ jobs:
     params:
       BEHAVE_FLAGS: --tags=ddboostsetup,ddpartI
       CUSTOM_ENV: export DD_SOURCE_HOST={{datadomain_source_host}}; export DD_DEST_HOST={{datadomain_dest_host}}; export DD_USER={{datadomain_user}}; export DD_PASSWORD={{datadomain_password}};
+    on_success:
+      <<: *ccp_destroy
     on_failure:
-      <<: *dpm_debug_sleep
+      <<: *set_failed
   ensure:
-    <<: *dpm_ccp_destroy
+    <<: *set_failed
 
 - name: DPM_backup-restore_ddboost_part2
   plan:
@@ -2643,10 +2674,12 @@ jobs:
     params:
       BEHAVE_FLAGS: --tags=ddboostsetup,ddpartII
       CUSTOM_ENV: export DD_SOURCE_HOST={{datadomain_source_host}}; export DD_DEST_HOST={{datadomain_dest_host}}; export DD_USER={{datadomain_user}}; export DD_PASSWORD={{datadomain_password}};
+    on_success:
+      <<: *ccp_destroy
     on_failure:
-      <<: *dpm_debug_sleep
+      <<: *set_failed
   ensure:
-    <<: *dpm_ccp_destroy
+    <<: *set_failed
 
 - name: DPM_backup-restore_ddboost_part3
   plan:
@@ -2718,10 +2751,12 @@ jobs:
     params:
       BEHAVE_FLAGS: --tags=ddboostsetup,ddpartIII
       CUSTOM_ENV: export DD_SOURCE_HOST={{datadomain_source_host}}; export DD_DEST_HOST={{datadomain_dest_host}}; export DD_USER={{datadomain_user}}; export DD_PASSWORD={{datadomain_password}};
+    on_success:
+      <<: *ccp_destroy
     on_failure:
-      <<: *dpm_debug_sleep
+      <<: *set_failed
   ensure:
-    <<: *dpm_ccp_destroy
+    <<: *set_failed
 
 - name: DPM_gptransfer-43x-to-43x
   plan:
@@ -2814,22 +2849,12 @@ jobs:
     params:
       BEHAVE_FLAGS: --tags=gptransfer
       CUSTOM_ENV: export GPTRANSFER_DEST_HOST=mdw; export GPTRANSFER_DEST_PORT=5432; export GPTRANSFER_DEST_USER=gpadmin; export GPTRANSFER_MAP_FILE=/tmp/source_map_file; export GPTRANSFER_SOURCE_HOST=mdw-2; export GPTRANSFER_SOURCE_PORT=5432; export GPTRANSFER_SOURCE_USER=gpadmin;
+    on_success:
+      <<: *ccp_destroy_2_cluster
     on_failure:
-      do:
-      - task: debug_sleep_2_cluster
-        config:
-          platform: linux
-          image_resource:
-            type: docker-image
-            source:
-              repository: alpine
-              tag: latest
-          run:
-            path: 'sh'
-            args: ['-c', 'sleep 6h']
-  # Similar to the on_failure blocks, the final cleanup needs to be both clusters as well
+      <<: *set_failed_2_cluster
   ensure:
-    <<: *ccp_destroy_2_cluster
+    <<: *set_failed_2_cluster
 
 - name: DPM_backup-restore_netbackup_part1
   plan:
@@ -2882,10 +2907,12 @@ jobs:
     params:
       BEHAVE_FLAGS: --tags=nbusetup77,nbupartI
       CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}};
+    on_success:
+      <<: *ccp_destroy
     on_failure:
-      <<: *dpm_debug_sleep
+      <<: *set_failed
   ensure:
-    <<: *dpm_ccp_destroy
+    <<: *set_failed
 
 - name: DPM_backup-restore_netbackup_part2
   plan:
@@ -2938,10 +2965,12 @@ jobs:
     params:
       BEHAVE_FLAGS: --tags=nbusetup77,nbupartII
       CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}};
+    on_success:
+      <<: *ccp_destroy
     on_failure:
-      <<: *dpm_debug_sleep
+      <<: *set_failed
   ensure:
-    <<: *dpm_ccp_destroy
+    <<: *set_failed
 
 - name: DPM_backup-restore_netbackup_part3
   plan:
@@ -2994,10 +3023,12 @@ jobs:
     params:
       BEHAVE_FLAGS: --tags=nbusetup77,nbupartIII
       CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}};
+    on_success:
+      <<: *ccp_destroy
     on_failure:
-      <<: *dpm_debug_sleep
+      <<: *set_failed
   ensure:
-    <<: *dpm_ccp_destroy
+    <<: *set_failed
 
 - name: DPM_netbackup_filename_compatibility_part1
   plan:
@@ -3050,7 +3081,7 @@ jobs:
       BEHAVE_FLAGS: --tags=backup_and_restore_backups --tags=nbusetup76,nbupartI --tags=-skip_filename_compatibility
       CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}};
     on_failure:
-      <<: *dpm_debug_sleep
+      <<: *set_failed
   - task: setup_new_gpdb4
     tags: ["netbackup"]
     file: gpdb_src/ci/concourse/setup_new_gpdb_for_backup_restore.yml
@@ -3058,7 +3089,7 @@ jobs:
       <<: *dpm_ccp_gen_cluster_default_params
     image: centos-gpdb-dev-6
     on_failure:
-      <<: *dpm_debug_sleep
+      <<: *set_failed
   - task: run_restore_tests
     tags: ["netbackup"]
     file: gpdb_src/ci/concourse/terraform_run_behave.yml
@@ -3066,10 +3097,12 @@ jobs:
     params:
       BEHAVE_FLAGS: --tags=backup_and_restore_restores --tags=nbusetup77,nbupartI --tags=-skip_filename_compatibility
       CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}};
+    on_success:
+      <<: *ccp_destroy
     on_failure:
-      <<: *dpm_debug_sleep
+      <<: *set_failed
   ensure:
-    <<: *dpm_ccp_destroy
+    <<: *set_failed
 
 - name: DPM_netbackup_filename_compatibility_part2
   plan:
@@ -3122,7 +3155,7 @@ jobs:
       BEHAVE_FLAGS: --tags=backup_and_restore_backups --tags=nbusetup76,nbupartII --tags=-skip_filename_compatibility
       CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}};
     on_failure:
-      <<: *dpm_debug_sleep
+      <<: *set_failed
   - task: setup_new_gpdb4
     tags: ["netbackup"]
     file: gpdb_src/ci/concourse/setup_new_gpdb_for_backup_restore.yml
@@ -3130,7 +3163,7 @@ jobs:
       <<: *dpm_ccp_gen_cluster_default_params
     image: centos-gpdb-dev-6
     on_failure:
-      <<: *dpm_debug_sleep
+      <<: *set_failed
   - task: run_restore_tests
     tags: ["netbackup"]
     file: gpdb_src/ci/concourse/terraform_run_behave.yml
@@ -3138,10 +3171,12 @@ jobs:
     params:
       BEHAVE_FLAGS: --tags=backup_and_restore_restores --tags=nbusetup77,nbupartII --tags=-skip_filename_compatibility
       CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}};
+    on_success:
+      <<: *ccp_destroy
     on_failure:
-      <<: *dpm_debug_sleep
+      <<: *set_failed
   ensure:
-    <<: *dpm_ccp_destroy
+    <<: *set_failed
 
 - name: DPM_netbackup_filename_compatibility_part3
   plan:
@@ -3194,7 +3229,7 @@ jobs:
       BEHAVE_FLAGS: --tags=backup_and_restore_backups --tags=nbusetup76,nbupartIII --tags=-skip_filename_compatibility
       CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}};
     on_failure:
-      <<: *dpm_debug_sleep
+      <<: *set_failed
   - task: setup_new_gpdb4
     tags: ["netbackup"]
     file: gpdb_src/ci/concourse/setup_new_gpdb_for_backup_restore.yml
@@ -3202,7 +3237,7 @@ jobs:
       <<: *dpm_ccp_gen_cluster_default_params
     image: centos-gpdb-dev-6
     on_failure:
-      <<: *dpm_debug_sleep
+      <<: *set_failed
   - task: run_restore_tests
     tags: ["netbackup"]
     file: gpdb_src/ci/concourse/terraform_run_behave.yml
@@ -3210,10 +3245,12 @@ jobs:
     params:
       BEHAVE_FLAGS: --tags=backup_and_restore_restores --tags=nbusetup77,nbupartIII --tags=-skip_filename_compatibility
       CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}};
+    on_success:
+      <<: *ccp_destroy
     on_failure:
-      <<: *dpm_debug_sleep
+      <<: *set_failed
   ensure:
-    <<: *dpm_ccp_destroy
+    <<: *set_failed
 
 - name: DPM_ddboost_filename_compatibility_part1
   plan:
@@ -3285,7 +3322,7 @@ jobs:
       BEHAVE_FLAGS: --tags=backup_and_restore_backups --tags=ddboostsetup,ddpartI --tags=-skip_filename_compatibility
       CUSTOM_ENV: export DD_SOURCE_HOST={{datadomain_source_host}}; export DD_DEST_HOST={{datadomain_dest_host}}; export DD_USER={{datadomain_user}}; export DD_PASSWORD={{datadomain_password}};
     on_failure:
-      <<: *dpm_debug_sleep
+      <<: *set_failed
   - task: setup_new_gpdb4
     tags: ["ddboost"]
     file: gpdb_src/ci/concourse/setup_new_gpdb_for_backup_restore.yml
@@ -3293,7 +3330,7 @@ jobs:
       <<: *dpm_ccp_gen_cluster_default_params
     image: centos-gpdb-dev-6
     on_failure:
-      <<: *dpm_debug_sleep
+      <<: *set_failed
   - task: run_restore_tests
     tags: ["ddboost"]
     file: gpdb_src/ci/concourse/terraform_run_behave.yml
@@ -3301,10 +3338,12 @@ jobs:
     params:
       BEHAVE_FLAGS: --tags=backup_and_restore_restores --tags=ddboostsetup,ddpartI --tags=-skip_filename_compatibility
       CUSTOM_ENV: export DD_SOURCE_HOST={{datadomain_source_host}}; export DD_DEST_HOST={{datadomain_dest_host}}; export DD_USER={{datadomain_user}}; export DD_PASSWORD={{datadomain_password}};
+    on_success:
+      <<: *ccp_destroy
     on_failure:
-      <<: *dpm_debug_sleep
+      <<: *set_failed
   ensure:
-    <<: *dpm_ccp_destroy
+    <<: *set_failed
 
 - name: DPM_ddboost_filename_compatibility_part2
   plan:
@@ -3376,7 +3415,7 @@ jobs:
       BEHAVE_FLAGS: --tags=backup_and_restore_backups --tags=ddboostsetup,ddpartII --tags=-skip_filename_compatibility
       CUSTOM_ENV: export DD_SOURCE_HOST={{datadomain_source_host}}; export DD_DEST_HOST={{datadomain_dest_host}}; export DD_USER={{datadomain_user}}; export DD_PASSWORD={{datadomain_password}};
     on_failure:
-      <<: *dpm_debug_sleep
+      <<: *set_failed
   - task: setup_new_gpdb4
     tags: ["ddboost"]
     file: gpdb_src/ci/concourse/setup_new_gpdb_for_backup_restore.yml
@@ -3384,7 +3423,7 @@ jobs:
       <<: *dpm_ccp_gen_cluster_default_params
     image: centos-gpdb-dev-6
     on_failure:
-      <<: *dpm_debug_sleep
+      <<: *set_failed
   - task: run_restore_tests
     tags: ["ddboost"]
     file: gpdb_src/ci/concourse/terraform_run_behave.yml
@@ -3392,10 +3431,12 @@ jobs:
     params:
       BEHAVE_FLAGS: --tags=backup_and_restore_restores --tags=ddboostsetup,ddpartII --tags=-skip_filename_compatibility
       CUSTOM_ENV: export DD_SOURCE_HOST={{datadomain_source_host}}; export DD_DEST_HOST={{datadomain_dest_host}}; export DD_USER={{datadomain_user}}; export DD_PASSWORD={{datadomain_password}};
+    on_success:
+      <<: *ccp_destroy
     on_failure:
-      <<: *dpm_debug_sleep
+      <<: *set_failed
   ensure:
-    <<: *dpm_ccp_destroy
+    <<: *set_failed
 
 - name: DPM_ddboost_filename_compatibility_part3
   plan:
@@ -3467,7 +3508,7 @@ jobs:
       BEHAVE_FLAGS: --tags=backup_and_restore_backups --tags=ddboostsetup,ddpartIII --tags=-skip_filename_compatibility
       CUSTOM_ENV: export DD_SOURCE_HOST={{datadomain_source_host}}; export DD_DEST_HOST={{datadomain_dest_host}}; export DD_USER={{datadomain_user}}; export DD_PASSWORD={{datadomain_password}};
     on_failure:
-      <<: *dpm_debug_sleep
+      <<: *set_failed
   - task: setup_new_gpdb4
     tags: ["ddboost"]
     file: gpdb_src/ci/concourse/setup_new_gpdb_for_backup_restore.yml
@@ -3475,7 +3516,7 @@ jobs:
       <<: *dpm_ccp_gen_cluster_default_params
     image: centos-gpdb-dev-6
     on_failure:
-      <<: *dpm_debug_sleep
+      <<: *set_failed
   - task: run_restore_tests
     tags: ["ddboost"]
     file: gpdb_src/ci/concourse/terraform_run_behave.yml
@@ -3483,10 +3524,12 @@ jobs:
     params:
       BEHAVE_FLAGS: --tags=backup_and_restore_restores --tags=ddboostsetup,ddpartIII --tags=-skip_filename_compatibility
       CUSTOM_ENV: export DD_SOURCE_HOST={{datadomain_source_host}}; export DD_DEST_HOST={{datadomain_dest_host}}; export DD_USER={{datadomain_user}}; export DD_PASSWORD={{datadomain_password}};
+    on_success:
+      <<: *ccp_destroy
     on_failure:
-      <<: *dpm_debug_sleep
+      <<: *set_failed
   ensure:
-    <<: *dpm_ccp_destroy
+    <<: *set_failed
 
 - name: QP_memory-accounting
   plan:
@@ -3559,7 +3602,7 @@ jobs:
       PRE_TEST_SCRIPT_USER: centos
       PRE_TEST_SCRIPT: sudo bash -c 'yum --cacheonly list installed kernel-devel-$(uname -r)'
   ensure:
-    <<: *ccp_destroy
+    <<: *set_failed
 
 - name: mpp_interconnect_sles
   plan:
@@ -3595,7 +3638,6 @@ jobs:
     <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: mpp_interconnect
-  - *ccp_destroy
 
 ## ======================================================================
 ## manual jobs
