@@ -6583,7 +6583,7 @@ static struct config_int ConfigureNamesInt[] =
 			GUC_NOT_IN_SAMPLE
 		},
 		&optimizer_join_arity_for_associativity_commutativity,
-		7, 0, INT_MAX, NULL, NULL
+		18, 0, INT_MAX, NULL, NULL
 	},
     {
 		{"optimizer_penalize_broadcast_threshold", PGC_USERSET, QUERY_TUNING_METHOD,
