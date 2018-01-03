@@ -17,8 +17,7 @@ explain select f.id from co_nestloop_idxscan.foo f, co_nestloop_idxscan.bar b wh
  Gather Motion 2:1  (slice2; segments: 2)  (cost=0.00..431.13 rows=1 width=8)
    ->  Nested Loop  (cost=0.00..431.13 rows=1 width=8)
          Join Filter: true
-         ->  Broadcast Motion 2:2  (slice1; segments: 2)  (cost=0.00..431.00 rows=1 width=8)
-               ->  Table Scan on bar  (cost=0.00..431.00 rows=1 width=8)
+         ->  Table Scan on bar  (cost=0.00..431.00 rows=1 width=8)
          ->  Bitmap Table Scan on foo  (cost=0.00..0.13 rows=1 width=8)
                Recheck Cond: foo.id = bar.id
                ->  Bitmap Index Scan on foo_id_idx  (cost=0.00..0.00 rows=0 width=0)
@@ -47,8 +46,7 @@ explain select f.id from co_nestloop_idxscan.foo f, co_nestloop_idxscan.bar b wh
  Gather Motion 2:1  (slice2; segments: 2)  (cost=0.00..431.13 rows=1 width=8)
    ->  Nested Loop  (cost=0.00..431.13 rows=1 width=8)
          Join Filter: true
-         ->  Broadcast Motion 2:2  (slice1; segments: 2)  (cost=0.00..431.00 rows=1 width=8)
-               ->  Table Scan on bar  (cost=0.00..431.00 rows=1 width=8)
+         ->  Table Scan on bar  (cost=0.00..431.00 rows=1 width=8)
          ->  Bitmap Table Scan on foo  (cost=0.00..0.13 rows=1 width=8)
                Recheck Cond: foo.id = bar.id
                ->  Bitmap Index Scan on foo_id_idx  (cost=0.00..0.00 rows=0 width=0)
@@ -74,8 +72,7 @@ explain select f.id from co_nestloop_idxscan.foo f, co_nestloop_idxscan.bar b wh
  Gather Motion 2:1  (slice2; segments: 2)  (cost=0.00..431.13 rows=1 width=8)
    ->  Nested Loop  (cost=0.00..431.13 rows=1 width=8)
          Join Filter: true
-         ->  Broadcast Motion 2:2  (slice1; segments: 2)  (cost=0.00..431.00 rows=1 width=8)
-               ->  Table Scan on bar  (cost=0.00..431.00 rows=1 width=8)
+         ->  Table Scan on bar  (cost=0.00..431.00 rows=1 width=8)
          ->  Bitmap Table Scan on foo  (cost=0.00..0.13 rows=1 width=8)
                Recheck Cond: foo.id = bar.id
                ->  Bitmap Index Scan on foo_id_idx  (cost=0.00..0.00 rows=0 width=0)
