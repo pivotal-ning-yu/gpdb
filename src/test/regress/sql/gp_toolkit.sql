@@ -375,7 +375,7 @@ create table test as select * from pg_attribute;
 set allow_system_table_mods=dml ;
 update pg_statistic set stawidth=1 where starelid = (select oid from pg_class where relname='test');
 
-select bdinspname, bdirelname, bdirelpages, bdiexppages, bdidiag from gp_toolkit.gp_bloat_diag;
+select bdinspname, bdirelname, bdidiag from gp_toolkit.gp_bloat_diag;
 
 \c regression
 drop database gptoolkit
