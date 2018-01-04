@@ -1,13 +1,12 @@
 set DateStyle="ISO, MDY";
 set gp_create_table_random_default_distribution=off;
--- start_ignore
 set optimizer_print_missing_stats=off;
 create schema qp_misc_jiras;
+-- Test that "INSERT INTO SELECT * FROM <external table>" works.
 create table qp_misc_jiras.tbl3301_foo (c1 int);
 NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column named 'c1' as the Greenplum Database data distribution key for this table.
 HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.
 create external web table qp_misc_jiras.tbl3301_bar(like qp_misc_jiras.tbl3301_foo) execute 'echo 1' on master format 'csv';
--- end_ignore
 insert into qp_misc_jiras.tbl3301_foo select * from qp_misc_jiras.tbl3301_bar;
 select * from qp_misc_jiras.tbl3301_foo;
  c1 
@@ -15,6 +14,8 @@ select * from qp_misc_jiras.tbl3301_foo;
   1
 (1 row)
 
+-- Test that altering the datatype of an indexed column works (or rather,
+-- that it throws an error, because it isn't supported on GPDB).
 create table qp_misc_jiras.tbl1318(dummy integer, aa text not null);
 NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column named 'dummy' as the Greenplum Database data distribution key for this table.
 HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.
@@ -45,6 +46,8 @@ HINT:  DROP the index first, and recreate it after the ALTER
 drop index qp_misc_jiras.tbl1318_daa;
 alter table qp_misc_jiras.tbl1318 alter column aa type integer using  bit_length(aa);
 drop table qp_misc_jiras.tbl1318;
+-- Test for the upstream bug with combocids:
+-- https://www.postgresql.org/message-id/48B87164.4050802%40soe.ucsc.edu
 CREATE TABLE qp_misc_jiras.tbl3403_tab(a INT);
 NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column named 'a' as the Greenplum Database data distribution key for this table.
 HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.
@@ -82,6 +85,7 @@ SELECT a FROM qp_misc_jiras.tbl3403_tab ORDER BY a;
 (3 rows)
 
 drop table qp_misc_jiras.tbl3403_tab;
+-- Check that CTAS chooses a sensible distribution key.
 create table qp_misc_jiras.tbl2788 as select * from generate_series(1, 1000);
 NOTICE:  Table doesn't have 'distributed by' clause. Creating a NULL policy entry.
 \d qp_misc_jiras.tbl2788;
@@ -113,6 +117,9 @@ NOTICE:  resource queue required -- using default resource queue "pg_default"
 alter role tbl3068_testrole set search_path to blahblah1;
 NOTICE:  schema "blahblah1" does not exist
 drop role tbl3068_testrole;
+-- Creating a view with an 'unknown' column produces a WARNING. Check that it's
+-- emitted only once (there used to be a bug that it was emitted from every
+-- segment.)
 create view  qp_misc_jiras.tbl_2517_view  as select foo from (select 'bar' as foo) a;
 WARNING:  column "foo" has type "unknown"
 DETAIL:  Proceeding with relation creation anyway.
@@ -677,13 +684,11 @@ select count(*) from qp_misc_jiras.tbl5028_delete_as_truncate_1_prt_p3; -- shoul
 
 drop table qp_misc_jiras.tbl5028_delete_as_truncate;
 drop table qp_misc_jiras.tbl5028_part_test;
--- start_ignore
 --   MPP-11125: partition p1 start('0') end('25') every 8 (12)
 --   	- it did not work as expected but behaved same as "every (12)"
 --   	- "every 8 (12)" is now an invalid syntax
 --   Modified: "every 8 (12)" to "every (12)"
 --             added an extra "every 8 (12)" to test invalid syntax
--- end_ignore
 create table qp_misc_jiras.tbl5151_customer(C_CUSTKEY INTEGER,
                 C_NAME VARCHAR(25),
                 C_ADDRESS VARCHAR(40),
@@ -725,9 +730,7 @@ NOTICE:  CREATE TABLE will create partition "tbl5151_customer_1_prt_p1_3_2_prt_6
 create table qp_misc_jiras.tbl5151_customer(C_CUSTKEY INTEGER, primary key(c_custkey));
 ERROR:  relation "tbl5151_customer" already exists
 drop table qp_misc_jiras.tbl5151_customer;
--- start_ignore
 --    invalid syntax
--- end_ignore
 create table qp_misc_jiras.tbl5151_customer(C_CUSTKEY INTEGER) partition by range (c_nationkey) (start('0') end('25') every 8 (12));
 ERROR:  syntax error at or near "8"
 LINE 1: ... by range (c_nationkey) (start('0') end('25') every 8 (12));
@@ -2221,9 +2224,7 @@ select count(*) from qp_misc_jiras.tbl7161_co;
 
 drop table qp_misc_jiras.tbl7161_co;
 select i, j into qp_misc_jiras.tbl6535_table from generate_series(1, 200) i, generate_series(1, 201) j;
-NOTICE:  Table doesn't have 'distributed by' clause. Creating a NULL policy entry.
-insert into qp_misc_jiras.tbl6535_table select * from qp_misc_jiras.tbl6535_table ;
-insert into qp_misc_jiras.tbl6535_table select * from qp_misc_jiras.tbl6535_table ;
+NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause. Creating a NULL policy entry.
 insert into qp_misc_jiras.tbl6535_table select * from qp_misc_jiras.tbl6535_table ;
 insert into qp_misc_jiras.tbl6535_table select * from qp_misc_jiras.tbl6535_table ;
 insert into qp_misc_jiras.tbl6535_table select * from qp_misc_jiras.tbl6535_table ;
@@ -2259,10 +2260,11 @@ reset statement_timeout;
 set gp_autostats_mode=none;
 drop table qp_misc_jiras.tbl_6934;
 ERROR:  table "tbl_6934" does not exist
+-- Test for an old bug with ANALYZE (analyze code has been rewritten since).
 create table qp_misc_jiras.tbl_6934(x inet);
 NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column named 'x' as the Greenplum Database data distribution key for this table.
 HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.
-insert into qp_misc_jiras.tbl_6934 select (i%200 || '.' || i%11 || '.' || i%11 || '.' || i%100)::inet from generate_series(1,4000000) i;
+insert into qp_misc_jiras.tbl_6934 select (i%200 || '.' || i%11 || '.' || i%11 || '.' || i%100)::inet from generate_series(1,40000) i;
 analyze qp_misc_jiras.tbl_6934; 
 drop table qp_misc_jiras.tbl_6934;
 drop table if exists qp_misc_jiras.tbl7286_test;
@@ -2527,6 +2529,8 @@ drop table if exists qp_misc_jiras.tbl7268_foo;
 NOTICE:  table "tbl7268_foo" does not exist, skipping
 drop table if exists qp_misc_jiras.tbl7268_bar;
 NOTICE:  table "tbl7268_bar" does not exist, skipping
+-- Check that a table created with CTAS "inherits" the distribution key from
+-- the source table.
 create table qp_misc_jiras.tbl7268_foo (a varchar(15), b varchar(15)) distributed by (b);
 \d qp_misc_jiras.tbl7268_foo;
      Table "qp_misc_jiras.tbl7268_foo"
@@ -2945,9 +2949,8 @@ drop table if exists qp_misc_jiras.tbl_7498_t1, qp_misc_jiras.tbl_7498_t2, qp_mi
 DROP TABLE IF EXISTS qp_misc_jiras.tbl7886_foo;
 NOTICE:  table "tbl7886_foo" does not exist, skipping
 -- end_ignore
-CREATE TABLE qp_misc_jiras.tbl7886_foo (ssn INT, lastName VARCHAR, junk INT) DISTRIBUTED BY (ssn);
-INSERT INTO qp_misc_jiras.tbl7886_foo VALUES (1, 'foo', 1);
-select currtid2('t'::text, '(0,1)'::tid);
+-- currtid2() is not supported in GPDB.
+select currtid2('tbl7886'::text, '(0,1)'::tid);
 ERROR:  Function currtid2 is not supported by GPDB (tid.c:419)
 -- start_ignore
 DROP TABLE qp_misc_jiras.tbl7886_foo;
@@ -3363,13 +3366,13 @@ ERROR:  function qp_misc_jiras.tbl5032_func() does not exist
 CREATE OR REPLACE FUNCTION qp_misc_jiras.tbl5032_func() RETURNS VOID AS
 $$
     BEGIN
-	CREATE TEMP TABLE tbl5032_tt AS SELECT 'hello world!'::text;
-	PERFORM * FROM tbl5032_tt;
-	DROP TABLE tbl5032_tt;
+       CREATE TEMP TABLE tbl5032_tt AS SELECT 'hello world!'::text;
+       PERFORM * FROM tbl5032_tt;
+       DROP TABLE tbl5032_tt;
     END;
 $$ LANGUAGE plpgsql;
 SELECT qp_misc_jiras.tbl5032_func();
-NOTICE:  Table doesn't have 'distributed by' clause. Creating a NULL policy entry.
+NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause. Creating a NULL policy entry.
 CONTEXT:  SQL statement "CREATE TEMP TABLE tbl5032_tt AS SELECT 'hello world!'::text"
 PL/pgSQL function "tbl5032_func" line 2 at SQL statement
  tbl5032_func 
@@ -3378,7 +3381,7 @@ PL/pgSQL function "tbl5032_func" line 2 at SQL statement
 (1 row)
 
 SELECT qp_misc_jiras.tbl5032_func();
-NOTICE:  Table doesn't have 'distributed by' clause. Creating a NULL policy entry.
+NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause. Creating a NULL policy entry.
 CONTEXT:  SQL statement "CREATE TEMP TABLE tbl5032_tt AS SELECT 'hello world!'::text"
 PL/pgSQL function "tbl5032_func" line 2 at SQL statement
  tbl5032_func 
@@ -3396,13 +3399,13 @@ ERROR:  function qp_misc_jiras.tbl5032_func() does not exist
 CREATE FUNCTION qp_misc_jiras.tbl5032_func() RETURNS VOID AS
 $$
     BEGIN
-	CREATE TEMP TABLE tbl5032_tt AS SELECT 'hello world!'::text;
-	execute 'SELECT COUNT(*) FROM tbl5032_tt';
-	DROP TABLE tbl5032_tt;
+       CREATE TEMP TABLE tbl5032_tt AS SELECT 'hello world!'::text;
+       execute 'SELECT COUNT(*) FROM tbl5032_tt';
+       DROP TABLE tbl5032_tt;
     END;
 $$ LANGUAGE plpgsql;
 SELECT qp_misc_jiras.tbl5032_func();
-NOTICE:  Table doesn't have 'distributed by' clause. Creating a NULL policy entry.
+NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause. Creating a NULL policy entry.
 CONTEXT:  SQL statement "CREATE TEMP TABLE tbl5032_tt AS SELECT 'hello world!'::text"
 PL/pgSQL function "tbl5032_func" line 2 at SQL statement
  tbl5032_func 
@@ -3411,7 +3414,7 @@ PL/pgSQL function "tbl5032_func" line 2 at SQL statement
 (1 row)
 
 SELECT qp_misc_jiras.tbl5032_func();
-NOTICE:  Table doesn't have 'distributed by' clause. Creating a NULL policy entry.
+NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause. Creating a NULL policy entry.
 CONTEXT:  SQL statement "CREATE TEMP TABLE tbl5032_tt AS SELECT 'hello world!'::text"
 PL/pgSQL function "tbl5032_func" line 2 at SQL statement
  tbl5032_func 
@@ -3419,6 +3422,7 @@ PL/pgSQL function "tbl5032_func" line 2 at SQL statement
  
 (1 row)
 
+-- start_ignore
 -- start_ignore
 DROP FUNCTION qp_misc_jiras.tbl5032_func();
 -- end_ignore
@@ -3435,7 +3439,7 @@ create table qp_misc_jiras.utable (
     unum numeric
     )
     distributed by (tstart);
-create view uview(period, ctxt, wsum) as
+create view qp_misc_jiras.uview(period, ctxt, wsum) as
 select
     period, 
     utxt,
@@ -3474,7 +3478,7 @@ select
 --    avg( case ctxt when 'a' then wsum end) as "a"
     avg( case ctxt when 'b' then wsum end) as "b"
 from
-    uview 
+    qp_misc_jiras.uview
 group by 1;
    period   |           b            
 ------------+------------------------
@@ -3488,7 +3492,7 @@ select
     avg( case ctxt when 'a' then wsum end) as "a", 
     avg( case ctxt when 'b' then wsum end) as "b"
 from
-    uview 
+    qp_misc_jiras.uview
 group by 1;
    period   |         a          |           b            
 ------------+--------------------+------------------------
@@ -3497,9 +3501,8 @@ group by 1;
 (2 rows)
 
 -- start_ignore
-drop table qp_misc_jiras.utable cascade;
-NOTICE:  drop cascades to rule _RETURN on view uview
-NOTICE:  drop cascades to view uview
+drop view qp_misc_jiras.uview;
+drop table qp_misc_jiras.utable;
 -- end_ignore
 -- start_ignore
 drop table qp_misc_jiras.foo_6325;
@@ -3548,13 +3551,20 @@ drop table qp_misc_jiras.bar_6325;
 DROP TABLE qp_misc_jiras.abc_tbl8621;
 ERROR:  table "abc_tbl8621" does not exist
 -- end_ignore
-create table qp_misc_jiras.abc_tbl8621 (a int, b int) with (appendonly=true, orientation=column) distributed by (a);
-create index abc_idx on qp_misc_jiras.abc_tbl8621 using bitmap(b);
-insert into qp_misc_jiras.abc_tbl8621 select 1, i from generate_series(1,100000)i;
-insert into qp_misc_jiras.abc_tbl8621 select 1, i from generate_series(1,100000)i;
--- start_ignore
-DROP TABLE qp_misc_jiras.abc_tbl8621;
--- end_ignore
+-- Test for an old bug in extending a heap relation beyond RELSEG_SIZE (1 GB).
+-- The insert failed with an error:
+--   could not open segment 1 of relation ...: No such file or directory
+create table qp_misc_jiras.heap_tbl8621 (a int) with (fillfactor=10) distributed by (a);
+insert into qp_misc_jiras.heap_tbl8621 select 1 from generate_series(1, 3100000);
+-- Verify that the table really was larger than 1 GB. Otherwise we wouldn't
+-- test the segment boundary.
+select pg_relation_size('qp_misc_jiras.heap_tbl8621') > 1100000000 as over_1gb;
+ over_1gb 
+----------
+ t
+(1 row)
+
+DROP TABLE qp_misc_jiras.heap_tbl8621;
 -- start_ignore
 drop table if exists qp_misc_jiras.tbl8860_1;
 NOTICE:  table "tbl8860_1" does not exist, skipping
@@ -3913,10 +3923,6 @@ insert into qp_misc_jiras.r
 alter table qp_misc_jiras.r
     set distributed by (c);
 drop table if exists qp_misc_jiras.r cascade;
--- start_ignore
-CREATE LANGUAGE plpgsql;
-NOTICE:  language "plpgsql" already exists, skipping
--- end_ignore
 CREATE TABLE qp_misc_jiras.test_trig(id int, aaa text) DISTRIBUTED BY (id);
 CREATE OR REPLACE FUNCTION fn_trig() RETURNS TRIGGER LANGUAGE plpgsql AS $$
 BEGIN
@@ -4145,24 +4151,22 @@ select  * from qp_misc_jiras.test_co where ctid='(33554432,32769)' and gp_segmen
 drop table if exists qp_misc_jiras.test_tbl10856;
 NOTICE:  table "test_tbl10856" does not exist, skipping
 -- end_ignore
+-- This is to verify MPP-10856: test gp_enable_explain_allstat
 set gp_enable_explain_allstat=on;
-create table qp_misc_jiras.test_tbl10856 (i int, j int);
-NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column named 'i' as the Greenplum Database data distribution key for this table.
-HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.
-insert into qp_misc_jiras.test_tbl10856 select i, i from generate_series(0, 999999) i;
-explain analyze select count(*) from qp_misc_jiras.test_tbl10856;
-                                                                        QUERY PLAN                                                                         
------------------------------------------------------------------------------------------------------------------------------------------------------------
+insert into qp_misc_jiras.test_heap select i, i from generate_series(0, 99999) i;
+explain analyze select count(*) from qp_misc_jiras.test_heap;
+                                                                                  QUERY PLAN                                                                                   
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
  Aggregate  (cost=0.00..431.00 rows=1 width=8)
-   Rows out:  1 rows with 52 ms to end, start offset by 0.192 ms.
+   Rows out:  1 rows with 13 ms to end, start offset by 1.710 ms.
    ->  Gather Motion 3:1  (slice1; segments: 3)  (cost=0.00..431.00 rows=1 width=8)
-         Rows out:  3 rows at destination with 50 ms to first row, 52 ms to end, start offset by 0.193 ms.
+         Rows out:  3 rows at destination with 13 ms to end, start offset by 1.711 ms.
          ->  Aggregate  (cost=0.00..431.00 rows=1 width=8)
-               Rows out:  Avg 1.0 rows x 3 workers.  Max 1 rows (seg0) with 51 ms to end, start offset by 0.470 ms.
-               allstat: seg_firststart_total_ntuples/seg0_0.470 ms_51 ms_1/seg1_0.461 ms_50 ms_1/seg2_0.461 ms_51 ms_1//end
-               ->  Table Scan on test_tbl10856  (cost=0.00..431.00 rows=1 width=1)
-                     Rows out:  Avg 333333.3 rows x 3 workers.  Max 333384 rows (seg2) with 0.029 ms to first row, 25 ms to end, start offset by 0.462 ms.
-                     allstat: seg_firststart_total_ntuples/seg0_0.470 ms_26 ms_333357/seg1_0.462 ms_25 ms_333259/seg2_0.462 ms_25 ms_333384//end
+               Rows out:  Avg 1.0 rows x 3 workers.  Max 1 rows (seg0) with 12 ms to end, start offset by 2.921 ms.
+               allstat: seg_firststart_total_ntuples/seg0_2.921 ms_12 ms_1/seg1_2.947 ms_11 ms_1/seg2_2.953 ms_12 ms_1//end
+               ->  Table Scan on test_heap  (cost=0.00..431.00 rows=1 width=1)
+                     Rows out:  Avg 33333.7 rows x 3 workers.  Max 33350 rows (seg0) with 0.041 ms to first row, 6.325 ms to end, start offset by 2.922 ms.
+                     allstat: seg_firststart_total_ntuples/seg0_2.922 ms_6.325 ms_33350/seg1_2.948 ms_6.267 ms_33336/seg2_2.953 ms_6.350 ms_33315//end
  Slice statistics:
    (slice0)    Executor memory: 159K bytes.
    (slice1)    Executor memory: 163K bytes avg x 3 workers, 163K bytes max (seg0).
@@ -4173,7 +4177,6 @@ explain analyze select count(*) from qp_misc_jiras.test_tbl10856;
  Total runtime: 51.892 ms
 (18 rows)
 
-drop table if exists qp_misc_jiras.test_tbl10856;
 -- start_ignore
 -- This is to verify MPP-8946
 -- ramans2 : Modifying queries to add filter on schema name to remove diffs in multi-node cdbfast runs
@@ -4295,7 +4298,8 @@ create table qp_misc_jiras.s(a int, b int);
 NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column named 'a' as the Greenplum Database data distribution key for this table.
 HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.
 insert into qp_misc_jiras.s select generate_series(1,1000), generate_series(1,1000);
-analyze;
+analyze qp_misc_jiras.r;
+analyze qp_misc_jiras.s;
 explain select * from qp_misc_jiras.r;
                                                             QUERY PLAN                                                             
 -----------------------------------------------------------------------------------------------------------------------------------
@@ -4936,27 +4940,3 @@ select test();
  
 (1 row)
 
--- start_ignore
-drop schema qp_misc_jiras cascade;
-NOTICE:  drop cascades to table qp_misc_jiras._tbl10050_test
-NOTICE:  drop cascades to table qp_misc_jiras.tbl13409_test
-NOTICE:  drop cascades to append only columnar table qp_misc_jiras.test_co
-NOTICE:  drop cascades to append only table qp_misc_jiras.test_ao
-NOTICE:  drop cascades to table qp_misc_jiras.test_heap
-NOTICE:  drop cascades to append only columnar table qp_misc_jiras.tbl9706aoc
-NOTICE:  drop cascades to append only table qp_misc_jiras.tbl9706ao
-NOTICE:  drop cascades to table qp_misc_jiras.tablecc
-NOTICE:  drop cascades to table qp_misc_jiras.tablebb
-NOTICE:  drop cascades to table qp_misc_jiras.tableaa
-NOTICE:  drop cascades to table qp_misc_jiras.tablee
-NOTICE:  drop cascades to table qp_misc_jiras.tabled
-NOTICE:  drop cascades to table qp_misc_jiras.tablec
-NOTICE:  drop cascades to table qp_misc_jiras.tableb
-NOTICE:  drop cascades to table qp_misc_jiras.tablea
-NOTICE:  drop cascades to table qp_misc_jiras.tbl7404_t2
-NOTICE:  drop cascades to table qp_misc_jiras.tbl7404_t1
-NOTICE:  drop cascades to table qp_misc_jiras.foo
-NOTICE:  drop cascades to table qp_misc_jiras.tbl6027_test
-NOTICE:  drop cascades to external table qp_misc_jiras.tbl3301_bar
-NOTICE:  drop cascades to table qp_misc_jiras.tbl3301_foo
--- end_ignore
