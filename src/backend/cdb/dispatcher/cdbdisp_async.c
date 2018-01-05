@@ -1018,13 +1018,20 @@ processSegmentNotify(SegmentDatabaseDescriptor *segdbDesc, PGnotify *notify)
 		dxid = strtoul(notify->extra, NULL, 0);
 
 		xid = GetLocalXidForDistributedTransactionId(dxid);
+		//xid = dxid;
 
 		/* for debugging/demonstration purposes */
 		elog(NOTICE, "Master received wait request for dXID %u (local XID %u)",
 			 dxid, xid);
 
+#if 1
 		if (xid != InvalidTransactionId)
 			XactLockTableWait(xid);
+#endif
+#if 0
+		if (dxid != InvalidTransactionId)
+			XactLockTableWait(dxid);
+#endif
 	}
 	else
 		elog(WARNING, "unexpected NOTIFY message received from segment");

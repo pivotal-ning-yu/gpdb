@@ -64,6 +64,7 @@
 #include "utils/inval.h"
 #include "utils/lsyscache.h"
 #include "utils/relcache.h"
+#include "utils/sharedsnapshot.h"
 #include "utils/snapmgr.h"
 #include "utils/syscache.h"
 #include "utils/tqual.h"
@@ -2710,11 +2711,12 @@ refresh_tuple_wait(void)
 
 	if (newxwait != stashedXwait && newxwait != InvalidTransactionId)
 	{
+#if 1
 		DistributedTransactionId dxwait = BackendXidGetDistributedXid(xwait);
 
 		stashedXwait = newxwait;
 
-		elog(NOTICE, "segment is blocked on dxid %u, notifying master", dxwait);
+		elog(NOTICE, "segment is blocked on xid %u, dxid %u, notifying master", xwait, dxwait);
 		if (dxwait != InvalidDistributedTransactionId)
 			cdbdisp_notifyXidWait(dxwait);
 		else
@@ -2728,6 +2730,27 @@ refresh_tuple_wait(void)
 			 * waiting.
 			 */
 		}
+#endif
+#if 0
+		TransactionId qdxid = GetQDXid(xwait);
+
+		stashedXwait = newxwait;
+
+		elog(NOTICE, "segment is blocked on xid %u, qdxid %u, notifying master", xwait, qdxid);
+		if (qdxid != InvalidTransactionId)
+			cdbdisp_notifyXidWait(qdxid);
+		else
+		{
+			/*
+			 * TODO: if the transaction could not be found in the proc
+			 * array, it presumably means that the transaction has just
+			 * completed. Our LockAcquire call below should fall through
+			 * quickly. But as a sanity check, it would be good to pass
+			 * 'nowait', and check that we indeed got the lock without
+			 * waiting.
+			 */
+		}
+#endif
 	}
 }
 

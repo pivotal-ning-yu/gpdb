@@ -49,6 +49,7 @@ extern VirtualTransactionId *GetCurrentVirtualXIDs(TransactionId limitXmin,
 
 extern DistributedTransactionId BackendXidGetDistributedXid(TransactionId xid);
 extern TransactionId GetLocalXidForDistributedTransactionId(DistributedTransactionId dxid);
+extern int GetPidForXid(TransactionId xid);
 
 extern int	CountActiveBackends(void);
 extern int	CountDBBackends(Oid databaseid);

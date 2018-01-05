@@ -27,6 +27,7 @@
 #include "storage/procarray.h"
 #include "utils/inval.h"
 #include "utils/lsyscache.h"        /* CDB: get_rel_name() */
+#include "utils/sharedsnapshot.h"
 
 #include "catalog/gp_policy.h"     /* CDB: POLICYTYPE_PARTiITIONED */
 #include "cdb/cdbdisp.h"
@@ -600,9 +601,10 @@ XactLockTableWait(TransactionId xid)
 
 		if (Gp_role == GP_ROLE_EXECUTE)
 		{
+#if 1
 			DistributedTransactionId dxid = BackendXidGetDistributedXid(xid);
 
-			elog(NOTICE, "segment is blocking on dxid %u, notifying master", dxid);
+			elog(NOTICE, "segment is blocking on xid %u, dxid %u, notifying master", xid, dxid);
 			if (dxid != InvalidDistributedTransactionId)
 				cdbdisp_notifyXidWait(dxid);
 			else
@@ -616,6 +618,25 @@ XactLockTableWait(TransactionId xid)
 				 * waiting.
 				 */
 			}
+#endif
+#if 0
+			TransactionId qdxid = GetQDXid(xid);
+
+			elog(NOTICE, "segment is blocking on xid %u, qdxid %u, notifying master", xid, qdxid);
+			if (qdxid != InvalidTransactionId)
+				cdbdisp_notifyXidWait(qdxid);
+			else
+			{
+				/*
+				 * TODO: if the transaction could not be found in the proc
+				 * array, it presumably means that the transaction has just
+				 * completed. Our LockAcquire call below should fall through
+				 * quickly. But as a sanity check, it would be good to pass
+				 * 'nowait', and check that we indeed got the lock without
+				 * waiting.
+				 */
+			}
+#endif
 		}
 
 		(void) LockAcquire(&tag, ShareLock, false, false);

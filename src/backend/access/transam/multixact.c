@@ -638,9 +638,19 @@ ConditionalMultiXactIdWait_getXwait(MultiXactId multi, TransactionId *xwait)
 						i, member);
 			if (!TransactionIdIsCurrentTransactionId(member))
 			{
+#if 1
 				result = ConditionalXactLockTableWait(member);
 				if (!result)
+				{
+					*xwait = member;
 					break;
+				}
+#endif
+#if 0
+				result = ConditionalXactLockTableWait_getXwait(member, xwait);
+				if (!result)
+					break;
+#endif
 			}
 		}
 

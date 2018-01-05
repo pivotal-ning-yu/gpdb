@@ -1246,7 +1246,8 @@ CleanUpLock(LOCK *lock, PROCLOCK *proclock,
 	 * If this was my last hold on this lock, delete my entry in the proclock
 	 * table.
 	 */
-	if (proclock->holdMask == 0)
+	if (proclock->holdMask == 0 && proclock->lockLink.next)
+	//if (proclock->holdMask == 0)
 	{
 		uint32		proclock_hashcode;
 

@@ -344,4 +344,6 @@ extern void UtilityModeCloseDtmRedoFile(void);
 
 extern bool doDispatchSubtransactionInternalCmd(DtxProtocolCommand cmdType);
 
+extern int GetSessionIdForDistributedTransactionId(DistributedTransactionId dxid);
+
 #endif   /* CDBTM_H */

@@ -1832,7 +1832,7 @@ BackendXidGetDistributedXid(TransactionId xid)
 		volatile PGPROC *proc = arrayP->procs[index];
 
 		/* Fetch xid just once - see GetNewTransactionId */
-		TransactionId pxid = proc->lxid;
+		TransactionId pxid = proc->xid;
 
 		if (pxid == xid)
 		{
@@ -1840,6 +1840,7 @@ BackendXidGetDistributedXid(TransactionId xid)
 			DistributedTransactionId dxid;
 
 			dxid = proc->localDistribXactData.distribXid;
+			//dxid = proc->mppSessionId;
 
 			LWLockRelease(ProcArrayLock);
 			return dxid;
@@ -1861,13 +1862,18 @@ GetLocalXidForDistributedTransactionId(DistributedTransactionId dxid)
 	ProcArrayStruct *arrayP = procArray;
 	int			index;
 
+	int sessionId = GetSessionIdForDistributedTransactionId(dxid);
+	if (sessionId == 0)
+		return InvalidTransactionId;
+
 	LWLockAcquire(ProcArrayLock, LW_SHARED);
 
 	for (index = 0; index < arrayP->numProcs; index++)
 	{
 		volatile PGPROC *proc = arrayP->procs[index];
 
-		if (proc->localDistribXactData.distribXid == dxid)
+		//if (proc->localDistribXactData.distribXid == dxid)
+		if (proc->mppSessionId == sessionId)
 		{
 			TransactionId pxid = proc->lxid;
 
@@ -1880,6 +1886,37 @@ GetLocalXidForDistributedTransactionId(DistributedTransactionId dxid)
 	LWLockRelease(ProcArrayLock);
 
 	return InvalidTransactionId;
+}
+
+int
+GetPidForXid(TransactionId xid)
+{
+	ProcArrayStruct *arrayP = procArray;
+	int			index;
+
+	LWLockAcquire(ProcArrayLock, LW_SHARED);
+
+	for (index = 0; index < arrayP->numProcs; index++)
+	{
+		volatile PGPROC *proc = arrayP->procs[index];
+
+		/* Fetch xid just once - see GetNewTransactionId */
+		TransactionId pxid = proc->xid;
+
+		if (pxid == xid)
+		{
+			/* Found it! Get its pid. */
+			int pid = proc->pid;
+
+			LWLockRelease(ProcArrayLock);
+			return pid;
+		}
+	}
+
+	/* not found */
+	LWLockRelease(ProcArrayLock);
+
+	return 0;
 }
 
 /*

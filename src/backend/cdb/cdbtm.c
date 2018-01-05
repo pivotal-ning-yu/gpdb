@@ -4103,3 +4103,35 @@ performDtxProtocolCommand(DtxProtocolCommand dtxProtocolCommand,
 	}
 	elog(DTM_DEBUG5, "performDtxProtocolCommand successful return for distributed transaction %s", gid);
 }
+
+int
+GetSessionIdForDistributedTransactionId(DistributedTransactionId dxid)
+{
+	TMGXACT	  **arrayP;
+	int			index;
+	int			arraySize;
+
+	getTmLock();
+
+	arrayP = shmGxactArray;
+	arraySize = *shmNumGxacts;
+
+	for (index = 0; index < arraySize; index++)
+	{
+		TMGXACT *gxact = arrayP[index];
+
+		DistributedTransactionId gxid = gxact->gxid;
+
+		if (gxid == dxid)
+		{
+			int sessionId = gxact->sessionId;
+
+			releaseTmLock();
+			return sessionId;
+		}
+	}
+
+	releaseTmLock();
+
+	return 0;
+}

@@ -150,6 +150,7 @@
 
 #include "access/distributedlog.h"
 #include "access/twophase.h"  /*max_prepared_xacts*/
+#include "access/transam.h"
 #include "access/xact.h"
 #include "cdb/cdbtm.h"
 #include "cdb/cdbvars.h"
@@ -933,4 +934,45 @@ LogDistributedSnapshotInfo(Snapshot snapshot, const char *prefix)
 	}
 
 	elog(LOG, "%s}", message);
+}
+
+/*
+ * Given a QE local XID, look up the corresponding QD XID.
+ * Return invalid, if the transaction is no longer in progress.
+ */
+TransactionId
+GetQDXid(TransactionId xid)
+{
+	volatile SharedSnapshotStruct *arrayP = sharedSnapshotArray;
+	int			index;
+
+	Assert(Gp_role == GP_ROLE_EXECUTE);
+
+	int pid = GetPidForXid(xid);
+	if (pid == 0)
+		return InvalidTransactionId;
+
+	LWLockAcquire(SharedSnapshotLock, LW_SHARED);
+
+	for (index = 0; index < arrayP->numSlots; index++)
+	{
+		volatile SharedSnapshotSlot *slot = &arrayP->slots[index];
+
+		/* Fetch xid just once - see GetNewTransactionId */
+		int ppid = slot->pid;
+
+		if (ppid == pid)
+		{
+			/* Found it! Get its QD XID. */
+			TransactionId qdxid = slot->QDxid;
+
+			LWLockRelease(SharedSnapshotLock);
+			return qdxid;
+		}
+	}
+
+	/* not found */
+	LWLockRelease(SharedSnapshotLock);
+
+	return InvalidTransactionId;
 }

@@ -1116,8 +1116,12 @@ ProcSleep(LOCALLOCK *locallock, LockMethod lockMethodTable)
 		 * on a tuple lock, and therefore might be part of a global
 		 * deadlock. Notify the master of our status, if needed.
 		 */
+		elog(WARNING, "myWaitStatus: %d", myWaitStatus);
 		if (myWaitStatus == STATUS_WAITING)
+		{
 			refresh_tuple_wait();
+			continue;
+		}
 
 		/*
 		 * If we are not deadlocked, but are waiting on an autovacuum-induced
@@ -1455,8 +1459,12 @@ CheckDeadLock(void)
 		 * for has changed. (We cannot do it here directly, because we are
 		 * inside a signal handler.)
 		 */
+		elog(WARNING, "is_tuple_wait(): %d", is_tuple_wait());
 		if (is_tuple_wait())
+		{
 			PGSemaphoreUnlock(&MyProc->sem);
+			//refresh_tuple_wait();
+		}
 
 		goto check_done;
 	}

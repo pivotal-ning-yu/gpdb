@@ -52,6 +52,8 @@ extern void readSharedLocalSnapshot_forCursor(Snapshot snapshot);
 
 extern void AtEOXact_SharedSnapshot(void);
 
+extern TransactionId GetQDXid(TransactionId xid);
+
 #define NUM_SHARED_SNAPSHOT_SLOTS (2 * max_prepared_xacts)
 
 #endif   /* SHAREDSNAPSHOT_H */

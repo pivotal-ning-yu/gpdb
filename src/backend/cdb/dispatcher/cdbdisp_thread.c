@@ -1243,7 +1243,8 @@ processSegmentNotify(SegmentDatabaseDescriptor *segdbDesc, PGnotify *notify)
 		}
 		dxid = strtoul(notify->extra, NULL, 0);
 
-		xid = GetLocalXidForDistributedTransactionId(dxid);
+		//xid = GetLocalXidForDistributedTransactionId(dxid);
+		xid = dxid;
 
 		/* for debugging/demonstration purposes */
 		elog(NOTICE, "Master received wait request for dXID %u (local XID %u)",
