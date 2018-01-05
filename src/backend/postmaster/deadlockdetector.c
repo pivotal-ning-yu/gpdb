@@ -22,6 +22,9 @@
 #include <sys/time.h>
 #include <netinet/in.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+
 #include "access/xact.h"
 #include "miscadmin.h"
 #include "libpq/pqsignal.h"
@@ -444,10 +447,15 @@ DeadLockDetectorMain(int argc, char *argv[])
 static void
 DeadLockDetectorLoop(void)
 {
+#if 0
 	int sleeptime = 1000000;
+#endif
+
+	mkfifo("/tmp/deadlockdetector.fifo", 0644);
+	int fd = open("/tmp/deadlockdetector.fifo", O_RDONLY);
+
 	for(;;)
 	{
-		int i = 1;
 		CHECK_FOR_INTERRUPTS();
 
 		if (shutdown_requested)
@@ -457,10 +465,15 @@ DeadLockDetectorLoop(void)
 		if (!PostmasterIsAlive(true))
 			exit(1);
 	
+#if 0
 		pg_usleep(sleeptime);
-
-		if(i)
+#endif
+		char c = 0;
+		read(fd, &c, 1);
+		if (c == '+')
 		{
+			elog(WARNING, "deadlock detector is triggered");
+
 			StartTransactionCommand();
 			doDeadLockCheck();
 			CommitTransactionCommand();
@@ -470,6 +483,7 @@ DeadLockDetectorLoop(void)
 	return;
 }
 
+#if 1
 static void
 doDeadLockCheck(void)
 {
@@ -513,8 +527,10 @@ doDeadLockCheck(void)
 			int i_page = PQfnumber(res, "page");
 			int i_tuple = PQfnumber(res, "tuple");
 			int i_transactionid = PQfnumber(res, "transactionid");
+#if 0
 			int i_transaction = PQfnumber(res, "virtualtransaction");
 			int i_hold_transaction = PQfnumber(res, "hold_transaction");
+#endif
 			int i_pid = PQfnumber(res, "pid");
 			int i_hold_pid = PQfnumber(res, "hold_pid");
 			int i_mode = PQfnumber(res, "mode");
@@ -572,6 +588,117 @@ doDeadLockCheck(void)
 
 	findCycle();
 }
+#endif
+
+#if 0
+static void
+doDeadLockCheck(void)
+{
+	int		i;
+	StringInfoData strres;
+	List *lGNode = NULL;
+	int lsegid = -2;
+
+	Assert(glSNode == NULL);
+
+	/* FIXME: is transaction replaced with virtualtransaction? or virtualxid? or sth. else? */
+	const char *sql = "select a.*, b.mppsessionid as hold_mppsessionid, b.pid as hold_pid, "
+					  " b.virtualtransaction as hold_transaction, b.mode as hold_mode from"	
+					  " pg_locks a join pg_locks b on"
+					  " a.locktype=b.locktype and"
+					  " a.granted='f' and b.granted='t' and"
+					  " a.gp_segment_id=b.gp_segment_id and"
+					  " a.pid <> b.pid and"
+					  " ((a.locktype='transactionid' and a.transactionid=b.transactionid) or"
+					  "  (a.locktype='tuple' and a.database=b.database and a.relation=b.relation and a.page=b.page and a.tuple=b.tuple)  or"
+					  "  (a.locktype='relation' and a.database=b.database and a.relation=b.relation))"
+					  " order by b.gp_segment_id;"; 
+	initStringInfo(&strres);
+
+	int ret = SPI_execute(sql, true, 0);
+	if (ret <= 0 || SPI_tuptable == NULL)
+	{
+		SPI_finish();
+		elog(ERROR, "cannot execute query, ret=%d, SPI_tuptable=%p",
+			 ret, SPI_tuptable);
+		return;
+	}
+
+	int processed = SPI_processed;
+	SPITupleTable *tuptable = SPI_tuptable;
+	TupleDesc tupdesc = tuptable->tupdesc;
+
+	int i_locktype = SPI_fnumber(tupdesc, "locktype");
+	int i_database = SPI_fnumber(tupdesc, "database");
+	int i_relation = SPI_fnumber(tupdesc, "relation");
+	int i_page = SPI_fnumber(tupdesc, "page");
+	int i_tuple = SPI_fnumber(tupdesc, "tuple");
+	int i_transactionid = SPI_fnumber(tupdesc, "transactionid");
+#if 0
+	int i_transaction = SPI_fnumber(tupdesc, "virtualtransaction");
+	int i_hold_transaction = SPI_fnumber(tupdesc, "hold_transaction");
+#endif
+	int i_pid = SPI_fnumber(tupdesc, "pid");
+	int i_hold_pid = SPI_fnumber(tupdesc, "hold_pid");
+	int i_mode = SPI_fnumber(tupdesc, "mode");
+	int i_mppsessionid = SPI_fnumber(tupdesc, "mppsessionid");
+	int i_hold_mppsessionid = SPI_fnumber(tupdesc, "hold_mppsessionid");
+	int i_hold_mode = SPI_fnumber(tupdesc, "hold_mode");
+	int i_gp_segment_id = SPI_fnumber(tupdesc, "gp_segment_id");
+
+	for (i = 0; i < processed; i++)
+	{
+		HeapTuple tup = tuptable->vals[i];
+		char *lockType = SPI_getvalue(tup, tupdesc, i_locktype);
+		char *mode = SPI_getvalue(tup, tupdesc, i_mode);
+		char *holdMode = SPI_getvalue(tup, tupdesc, i_hold_mode);
+		int database = atol(SPI_getvalue(tup, tupdesc, i_database));
+		int relation = atol(SPI_getvalue(tup, tupdesc, i_relation));
+		int page = atol(SPI_getvalue(tup, tupdesc, i_page));
+		int tuple = atol(SPI_getvalue(tup, tupdesc, i_tuple));
+		int transactionId = atol(SPI_getvalue(tup, tupdesc, i_transactionid));
+#if 0
+		int transaction = atol(SPI_getvalue(tup, tupdesc, i_transaction));
+		int holdTransaction = atol(SPI_getvalue(tup, tupdesc, i_hold_transaction));
+#endif
+		int transaction = InvalidOid;
+		int holdTransaction = InvalidOid;
+		int pid = atol(SPI_getvalue(tup, tupdesc, i_pid));
+		int holdPid = atol(SPI_getvalue(tup, tupdesc, i_hold_pid));
+		int mppSessionId = atol(SPI_getvalue(tup, tupdesc, i_mppsessionid));
+		int holdMppSessionId = atol(SPI_getvalue(tup, tupdesc, i_hold_mppsessionid));
+		int gpSegmentId = atol(SPI_getvalue(tup, tupdesc, i_gp_segment_id));
+
+
+		appendStringInfo(&strres, "nth:%d, locktype:%s, database:%d, relation:%d, page:%d, tuple:%d, transactionid:%d, transaction:%d, pid:%d, session:%d, holdtrans:%d, holdpid:%d, holdesession:%d, segment:%d",
+						 i, lockType, database, relation, page, tuple, transactionId, transaction, pid, mppSessionId, holdTransaction, holdPid, holdMppSessionId, gpSegmentId);
+
+		if (lsegid == -2)
+		{
+			lsegid = gpSegmentId;
+		}
+		else if (lsegid != gpSegmentId)
+		{
+			lsegid = gpSegmentId;	
+			list_free(lGNode);
+			lGNode = NULL;
+			resetStringInfo(&strres);
+		}
+	
+		GNode *pHolder = makeHolder(&lGNode, holdMppSessionId, gpSegmentId, holdPid);
+		Assert(pHolder != NULL);
+		GNode *pRequester = makeRequester(&lGNode, lockType, database, relation, page, 
+										  tuple, transactionId, transaction, pid, mppSessionId, 
+										  holdTransaction, holdPid, holdMppSessionId, gpSegmentId, pHolder);
+		Assert(pRequester != NULL);
+		dummyprint("test", holdMode, mode, pHolder, pRequester);
+	}
+
+	SPI_finish();
+
+	findCycle();
+}
+#endif
 
 GNode *makeHolder(List **lGNode, int mppSessionId, int gpSegmentId, int pid)
 {
@@ -849,6 +976,8 @@ static void cancelSession(int sessionId)
 	const char *sql = "select procpid from pg_stat_activity where sess_id=%d and current_query not like '%<IDLE>%'"; 
 	appendStringInfo(&buffer, sql, sessionId);
 	
+	elog(WARNING, "cancel session %d", sessionId);
+
 	PG_TRY();
 	{
 		if (SPI_OK_CONNECT != SPI_connect())

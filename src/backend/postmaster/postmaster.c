@@ -188,7 +188,6 @@ static Dllist *BackendList;
 typedef enum pmsub_type
 {
 	SeqServerProc = 0,
-	WalRedoServerProc,
 	FtsProbeProc,
 	PerfmonProc,
 	BackoffProc,
@@ -469,12 +468,12 @@ static PMSubProc PMSubProcList[MaxPMSubType] =
 	{0, BackoffProc,
 	(PMSubStartCallback*)&backoff_start,
 	"sweeper process", PMSUBPROC_FLAG_QD_AND_QE, true},
-	{0, DeadLockDetectorProc,
-	(PMSubStartCallback*)&deadlockdetector_start,
-	"dead lock detector process", PMSUBPROC_FLAG_QD, true},
 	{0, PerfmonSegmentInfoProc,
 	(PMSubStartCallback*)&perfmon_segmentinfo_start,
 	"stats sender process", PMSUBPROC_FLAG_QD_AND_QE, true},
+	{0, DeadLockDetectorProc,
+	(PMSubStartCallback*)&deadlockdetector_start,
+	"dead lock detector process", PMSUBPROC_FLAG_QD, true},
 };
 
 bool		ClientAuthInProgress = false;		/* T during new-client

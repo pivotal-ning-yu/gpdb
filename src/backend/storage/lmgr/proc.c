@@ -67,6 +67,9 @@
 #include "port/atomics.h"
 #include "utils/session_state.h"
 
+#include "libpq/libpq.h"
+#include "libpq/pqformat.h"
+
 /* GUC variables */
 int			DeadlockTimeout = 1000;
 int			StatementTimeout = 0;
@@ -1111,6 +1114,25 @@ ProcSleep(LOCALLOCK *locallock, LockMethod lockMethodTable)
 		 */
 		myWaitStatus = MyProc->waitStatus;
 
+		if (myWaitStatus == STATUS_WAITING)
+		{
+			StringInfoData buf;
+
+#if 0
+			Assert(PG_PROTOCOL_MAJOR(FrontendProtocol) >= 3);
+#endif
+
+			pq_beginmessage(&buf, 'A');
+			pq_sendint(&buf, MyProcPid, sizeof(int32));
+			pq_sendstring(&buf, "DIST DEAD LOCK");
+			pq_sendstring(&buf, "0xdeadbeef");
+			pq_endmessage(&buf);
+
+			elog(WARNING, "sending notify to deadlock detector");
+			pq_flush();
+			continue;
+		}
+
 		/*
 		 * If we are not deadlocked, but are waiting on an autovacuum-induced
 		 * task, send a signal to interrupt it.
@@ -1432,6 +1454,13 @@ CheckDeadLock(void)
 
 	/* Run the deadlock check, and set deadlock_state for use by ProcSleep */
 	deadlock_state = DeadLockCheck(MyProc);
+
+	if (deadlock_state == DS_NO_DEADLOCK)
+	{
+		/* TODO: check whether is waiting */
+		elog(WARNING, "segment is blocked, unlock to send notify to deadlock detector");
+		PGSemaphoreUnlock(&MyProc->sem);
+	}
 
 	if (deadlock_state == DS_HARD_DEADLOCK)
 	{

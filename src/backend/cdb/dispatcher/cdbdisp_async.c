@@ -17,6 +17,7 @@
 
 #include "postgres.h"
 #include <limits.h>
+#include <unistd.h>
 
 #ifdef HAVE_POLL_H
 #include <poll.h>
@@ -128,6 +129,9 @@ static void
 
 static void
 			handlePollSuccess(CdbDispatchCmdAsync *pParms, struct pollfd *fds);
+
+static void
+processSegmentNotify(SegmentDatabaseDescriptor *segdbDesc, PGnotify *notify);
 
 /*
  * Check dispatch result.
@@ -831,6 +835,7 @@ processResults(CdbDispatchResult *dispatchResult)
 {
 	SegmentDatabaseDescriptor *segdbDesc = dispatchResult->segdbDesc;
 	char	   *msg;
+	PGnotify   *notify;
 
 	/*
 	 * Receive input from QE.
@@ -970,5 +975,29 @@ processResults(CdbDispatchResult *dispatchResult)
 		}
 	}
 
+	while ((notify = PQnotifies(segdbDesc->conn)) != NULL)
+	{
+		processSegmentNotify(segdbDesc, notify);
+		PQfreemem(notify);
+	}
+
 	return false;				/* we must keep on monitoring this socket */
+}
+
+static void
+processSegmentNotify(SegmentDatabaseDescriptor *segdbDesc, PGnotify *notify)
+{
+	if (strcmp(notify->relname, "DIST DEAD LOCK") != 0)
+	{
+		elog(WARNING, "unexpected NOTIFY message received from segment");
+		return;
+	}
+
+	/* TODO: notify deadlock detector backend */
+	elog(WARNING, "Master received notify for deadlock detector");
+
+	int fd = open("/tmp/deadlockdetector.fifo", O_WRONLY);
+	char c = '+';
+	write(fd, &c, 1);
+	close(fd);
 }
