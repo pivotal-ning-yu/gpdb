@@ -487,7 +487,7 @@ resources:
     bucket: {{snowflakes-bucket}}
     region_name: {{aws-region}}
     secret_access_key: {{bucket-secret-access-key}}
-    versioned_file: gppkg_from_other_team/madlib-ossv1.12_pv1.9.9_gpdb4.3orca-rhel5-x86_64.gppkg
+    versioned_file: gppkg_from_other_team/madlib-1.13-gp4.3orca-rhel5-x86_64.gppkg
 
 - name: mit_krb5_rhel62_tarball
   type: s3
