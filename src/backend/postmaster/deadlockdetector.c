@@ -470,6 +470,8 @@ DeadLockDetectorLoop(void)
 #endif
 		char c = 0;
 		read(fd, &c, 1);
+		close(fd);
+		fd = open("/tmp/deadlockdetector.fifo", O_RDONLY);
 		if (c == '+')
 		{
 			elog(WARNING, "deadlock detector is triggered");
