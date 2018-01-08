@@ -619,6 +619,7 @@ CREATE TABLE typemod_init
 );
 
 insert into typemod_init values ('A');
+-- end_ignore
 
 SELECT A
 FROM
@@ -660,6 +661,28 @@ WHERE (test_subplans2.a=2 or test_subplans2.c = test_subplans2.b)
 AND test_subplans2.b = (SELECT max(b) FROM test_subplans2 WHERE test_subplans1.c = 9);
 DROP TABLE test_subplans1;
 DROP TABLE test_subplans2;
+
+--
+-- Test to ensure that planner generates correct qual when a filter is pushed inside a subquery
+--
+CREATE FUNCTION subq_func(a character varying, b character varying) RETURNS character varying
+AS $$ SELECT $1 || 'abc' || $2 $$
+LANGUAGE SQL;
+
+CREATE TABLE subq_tab1 (id INT, dt DATE) DISTRIBUTED BY (id);
+CREATE TABLE subq_tab2 (id INT, dt DATE) DISTRIBUTED BY (id);
+CREATE TABLE update_tab (id INT, col numeric, dt date)
+DISTRIBUTED BY (id)
+PARTITION BY RANGE(dt)
+    (
+    START ('2017-01-01'::date) END ('2018-01-01'::date) EVERY ('1 year'::interval),
+    DEFAULT PARTITION def
+    );
+INSERT INTO subq_tab1 VALUES (1, '2018-01-01'::DATE);
+INSERT INTO subq_tab2 VALUES (11, '2019-05-01'::DATE);
+INSERT INTO update_tab VALUES (11, 123.45, '2019-05-01'::DATE);
+
+UPDATE update_tab a SET col = a.id FROM (SELECT b.id FROM subq_tab1 b, (SELECT dt, subq_func(id::text, 'abcd') FROM subq_tab2) c WHERE c.dt >= '2017-01-01' )d;
 
 -- start_ignore
 drop schema qp_subquery cascade;

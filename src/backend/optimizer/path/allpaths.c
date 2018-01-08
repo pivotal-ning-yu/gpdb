@@ -614,6 +614,13 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 	bool	   forceDistRand;
 	Path	   *subquery_path;
 
+	/*
+	 * Must copy the Query so that planning doesn't mess up the RTE contents
+	 * (really really need to fix the planner to not scribble on its input,
+	 * someday).
+	 */
+	subquery = copyObject(subquery);
+
 	forceDistRand = rte->forceDistRandom;
 
 	/* CDB: Could be a preplanned subquery from window_planner. */
