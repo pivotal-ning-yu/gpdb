@@ -4543,8 +4543,7 @@ PostgresMain(int argc, char *argv[],
 			/*
 			 * Let's see if the DTM has phase 2 retry work.
 			 */
-			if (Gp_role == GP_ROLE_DISPATCH)
-				doDtxPhase2Retry();
+			doDtxPhase2Retry();
 		}
 
 		/*
@@ -5232,8 +5231,7 @@ PostgresMain(int argc, char *argv[],
 			case 'S':			/* sync */
 				pq_getmsgend(&input_message);
 				finish_xact_command();
-				if (Gp_role == GP_ROLE_DISPATCH)
-					doDtxPhase2Retry();
+				doDtxPhase2Retry();
 				send_ready_for_query = true;
 				break;
 

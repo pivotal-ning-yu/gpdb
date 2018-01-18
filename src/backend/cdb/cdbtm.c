@@ -986,6 +986,9 @@ doDtxPhase2Retry(void)
 
 	CdbDispatchDirectDesc direct=default_dispatch_direct_desc;
 
+	if (Gp_role != GP_ROLE_DISPATCH)
+		return;
+
 	if (currentGxact == NULL)
 	{
 		elog(DTM_DEBUG5, "doDtxPhase2Retry found no work to do (currentGxact == NULL)");

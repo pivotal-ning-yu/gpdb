@@ -774,6 +774,7 @@ vacuumStatement_Relation(VacuumStmt *vacstmt, Oid relid, List *relations)
 			if (onerel == NULL)
 			{
 				CommitTransactionCommand();
+				doDtxPhase2Retry();
 				continue;
 			}
 		}
@@ -864,6 +865,7 @@ vacuumStatement_Relation(VacuumStmt *vacstmt, Oid relid, List *relations)
 							/* Nothing left to do for this relation */
 							relation_close(onerel, NoLock);
 							CommitTransactionCommand();
+							doDtxPhase2Retry();
 							/* don't dispatch this iteration */
 							continue;
 						}
@@ -1052,7 +1054,10 @@ vacuumStatement_Relation(VacuumStmt *vacstmt, Oid relid, List *relations)
 		 * Transaction commit is always executed on QD.
 		 */
 		if (Gp_role != GP_ROLE_EXECUTE)
+		{
 			CommitTransactionCommand();
+			doDtxPhase2Retry();
+		}
 
 		if (relationRound == 0)
 		{

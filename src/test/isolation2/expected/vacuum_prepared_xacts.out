@@ -1,0 +1,20 @@
+SET debug_dtm_action = "fail_begin_command";
+SET
+SET debug_dtm_action_target = "protocol";
+SET
+SET debug_dtm_action_protocol = "commit_prepared";
+SET
+set debug_dtm_action_segment = 0;
+SET
+vacuum pg_depend;
+VACUUM
+RESET debug_dtm_action;
+RESET
+RESET debug_dtm_action_target;
+RESET
+RESET debug_dtm_action_protocol;
+RESET
+2U: select * from pg_prepared_xacts;
+transaction|gid|prepared|owner|database
+-----------+---+--------+-----+--------
+(0 rows)
