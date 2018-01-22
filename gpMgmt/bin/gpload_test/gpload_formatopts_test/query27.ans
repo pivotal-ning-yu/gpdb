@@ -1,0 +1,21 @@
+2018-01-19 08:28:52|INFO|gpload session started 2018-01-19 08:28:52
+2018-01-19 08:28:52|INFO|setting schema 'public' for table 'csvtable'
+2018-01-19 08:28:53|INFO|started gpfdist -p 8081 -P 8082 -f "/gpdb_src/gpMgmt/bin/gpload_test/gpload_formatopts_test/data_file.csv" -t 30
+2018-01-19 08:28:53|ERROR|A gpload control file processing error occurred. gpload:preload:staging_table and gpload:input:error_table are not allowd to use together.
+2018-01-19 08:28:53|INFO|rows Inserted          = 0
+2018-01-19 08:28:53|INFO|rows Updated           = 0
+2018-01-19 08:28:53|INFO|data formatting errors = 0
+2018-01-19 08:28:53|INFO|gpload failed
+2018-01-19 08:28:53|INFO|gpload session started 2018-01-19 08:28:53
+2018-01-19 08:28:53|INFO|setting schema 'public' for table 'csvtable'
+2018-01-19 08:28:53|INFO|started gpfdist -p 8081 -P 8082 -f "/gpdb_src/gpMgmt/bin/gpload_test/gpload_formatopts_test/data_file.csv" -t 30
+2018-01-19 08:28:53|ERROR|A gpload control file processing error occurred. gpload:preload:staging_table and gpload:input:error_table are not allowd to use together.
+2018-01-19 08:28:53|INFO|rows Inserted          = 0
+2018-01-19 08:28:53|INFO|rows Updated           = 0
+2018-01-19 08:28:53|INFO|data formatting errors = 0
+2018-01-19 08:28:53|INFO|gpload failed
+ count 
+-------
+     0
+(1 row)
+
