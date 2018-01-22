@@ -14,10 +14,6 @@ test: update delete cluster dependency table_functions conversion sirv_functions
 # so it needs to be in a group by itself
 test: query_finish_pending
 
-# test workfiles compressed using zlib
-# 'zlib' utilizes fault injectors so it needs to be in a group by itself
-test: zlib
-
 test: qp_gist_indexes2 qp_gist_indexes3 qp_gist_indexes4
 test: qp_query_execution
 
@@ -108,6 +104,12 @@ test: AOCO_Compression2
 
 # deadlock tests run separately - because we don't know which one gets stuck.
 test: deadlock
+
+# test workfiles
+test: workfile/hashagg_spill workfile/hashjoin_spill workfile/materialize_spill workfile/sisc_mat_sort workfile/sisc_sort_spill workfile/sort_spill
+# test workfiles compressed using zlib
+# 'zlib' utilizes fault injectors so it needs to be in a group by itself
+test: zlib
 
 # This test will change the gp_workfile_limit_per_segment and will need to restart the DB.
 # It will also use faultinjector - so it needs to be in a group by itself.

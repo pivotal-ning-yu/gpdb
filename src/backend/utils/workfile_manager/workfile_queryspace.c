@@ -8,7 +8,8 @@
  *-------------------------------------------------------------------------
  */
 
-#include <postgres.h>
+#include "postgres.h"
+
 #include "storage/shmem.h"
 #include "utils/atomic.h"
 #include "utils/workfile_mgr.h"

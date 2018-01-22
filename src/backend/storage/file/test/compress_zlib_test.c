@@ -23,8 +23,6 @@
 
 #include "../compress_zlib.c"
 
-static MemoryContext *compress_zlib_context;
-
 /* ==================== bfz_zlib_init =================== */
 /*
  * Tests that bfz_zlib_init uses palloc() to allocate memory
@@ -80,15 +78,13 @@ test__bfz_zlib_init__palloc_write(void **state)
 	bfz_t bfz;
 
 	bfz.mode = BFZ_MODE_APPEND;
-	bfz.fd = -1;
+	bfz.file = -1;
 
-	Size beforeAlloc = MemoryContextGetPeakSpace(compress_zlib_context);
-	assert_true(compress_zlib_context == CurrentMemoryContext);
+	Size beforeAlloc = MemoryContextGetPeakSpace(CurrentMemoryContext);
 
 	bfz_zlib_init(&bfz);
 
-	Size afterAlloc = MemoryContextGetPeakSpace(compress_zlib_context);
-	assert_true(compress_zlib_context == CurrentMemoryContext);
+	Size afterAlloc = MemoryContextGetPeakSpace(CurrentMemoryContext);
 
 	int memZlib = zlib_memory_needed(true /* isWrite */);
 
@@ -102,15 +98,13 @@ test__bfz_zlib_init__palloc_read(void **state)
 	bfz_t bfz;
 
 	bfz.mode = BFZ_MODE_SCAN;
-	bfz.fd = -1;
+	bfz.file = -1;
 
-	Size beforeAlloc = MemoryContextGetPeakSpace(compress_zlib_context);
-	assert_true(compress_zlib_context == CurrentMemoryContext);
+	Size beforeAlloc = MemoryContextGetPeakSpace(CurrentMemoryContext);
 
 	bfz_zlib_init(&bfz);
 
-	Size afterAlloc = MemoryContextGetPeakSpace(compress_zlib_context);
-	assert_true(compress_zlib_context == CurrentMemoryContext);
+	Size afterAlloc = MemoryContextGetPeakSpace(CurrentMemoryContext);
 
 	int memZlib = zlib_memory_needed(false /* isWrite */);
 
