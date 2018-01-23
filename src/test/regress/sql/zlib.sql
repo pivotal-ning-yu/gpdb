@@ -58,6 +58,7 @@ $body$ language plpgsql;
 --end_ignore
 
 select FuncA();
+SELECT * FROM t WHERE j = 'a';
 
 drop function FuncA();
 drop table t;

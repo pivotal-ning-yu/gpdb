@@ -74,19 +74,13 @@ $body$ language plpgsql;
 -- Inject fault before we close workfile in ExecHashJoinNewBatch
 --start_ignore
 \! gpfaultinjector -f workfile_hashjoin_failure -y reset --seg_dbid 2
-20161206:08:28:57:047522 gpfaultinjector:krajaraman:krajaraman-[INFO]:-Starting gpfaultinjector with args: -f workfile_hashjoin_failure -y reset --seg_dbid 2
-20161206:08:28:57:047522 gpfaultinjector:krajaraman:krajaraman-[INFO]:-local Greenplum Version: 'postgres (Greenplum Database) 4.3.99.00 build dev'
-20161206:08:28:57:047522 gpfaultinjector:krajaraman:krajaraman-[INFO]:-Obtaining Segment details from master...
-20161206:08:28:57:047522 gpfaultinjector:krajaraman:krajaraman-[INFO]:-Injecting fault on 1 segment(s)
-20161206:08:28:57:047522 gpfaultinjector:krajaraman:krajaraman-[INFO]:-Injecting fault on krajaraman:/Users/krajaraman/gitdev/gpdb64/gpAux/gpdemo/datadirs/dbfast1/demoDataDir0:content=0:dbid=2:mode=s:status=u
-20161206:08:28:57:047522 gpfaultinjector:krajaraman:krajaraman-[INFO]:-DONE
+20180123:09:56:12:069258 gpfaultinjector:churchill:pivotal-[INFO]:-Starting gpfaultinjector with args: -f workfile_hashjoin_failure -y reset --seg_dbid 2
+20180123:09:56:12:069258 gpfaultinjector:churchill:pivotal-[INFO]:-Injecting fault on content=0:dbid=2:mode=s:status=u
+20180123:09:56:12:069258 gpfaultinjector:churchill:pivotal-[INFO]:-DONE
 \! gpfaultinjector -f workfile_hashjoin_failure -y error --seg_dbid 2
-20161206:08:28:57:047534 gpfaultinjector:krajaraman:krajaraman-[INFO]:-Starting gpfaultinjector with args: -f workfile_hashjoin_failure -y error --seg_dbid 2
-20161206:08:28:57:047534 gpfaultinjector:krajaraman:krajaraman-[INFO]:-local Greenplum Version: 'postgres (Greenplum Database) 4.3.99.00 build dev'
-20161206:08:28:57:047534 gpfaultinjector:krajaraman:krajaraman-[INFO]:-Obtaining Segment details from master...
-20161206:08:28:57:047534 gpfaultinjector:krajaraman:krajaraman-[INFO]:-Injecting fault on 1 segment(s)
-20161206:08:28:57:047534 gpfaultinjector:krajaraman:krajaraman-[INFO]:-Injecting fault on krajaraman:/Users/krajaraman/gitdev/gpdb64/gpAux/gpdemo/datadirs/dbfast1/demoDataDir0:content=0:dbid=2:mode=s:status=u
-20161206:08:28:57:047534 gpfaultinjector:krajaraman:krajaraman-[INFO]:-DONE
+20180123:09:56:12:069270 gpfaultinjector:churchill:pivotal-[INFO]:-Starting gpfaultinjector with args: -f workfile_hashjoin_failure -y error --seg_dbid 2
+20180123:09:56:12:069270 gpfaultinjector:churchill:pivotal-[INFO]:-Injecting fault on content=0:dbid=2:mode=s:status=u
+20180123:09:56:12:069270 gpfaultinjector:churchill:pivotal-[INFO]:-DONE
 --end_ignore
 select FuncA();
 NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column(s) named 'i' as the Greenplum Database data distribution key for this table.
@@ -98,14 +92,17 @@ PL/pgSQL function "funca" line 2 at SQL statement
  
 (1 row)
 
+SELECT * FROM t WHERE j = 'a';
+    i    | j 
+---------+---
+ 2387283 | a
+(1 row)
+
 drop function FuncA();
 drop table t;
 --start_ignore
 \! gpfaultinjector -f workfile_hashjoin_failure -y reset --seg_dbid 2
-20161206:08:28:59:047553 gpfaultinjector:krajaraman:krajaraman-[INFO]:-Starting gpfaultinjector with args: -f workfile_hashjoin_failure -y reset --seg_dbid 2
-20161206:08:28:59:047553 gpfaultinjector:krajaraman:krajaraman-[INFO]:-local Greenplum Version: 'postgres (Greenplum Database) 4.3.99.00 build dev'
-20161206:08:28:59:047553 gpfaultinjector:krajaraman:krajaraman-[INFO]:-Obtaining Segment details from master...
-20161206:08:28:59:047553 gpfaultinjector:krajaraman:krajaraman-[INFO]:-Injecting fault on 1 segment(s)
-20161206:08:28:59:047553 gpfaultinjector:krajaraman:krajaraman-[INFO]:-Injecting fault on krajaraman:/Users/krajaraman/gitdev/gpdb64/gpAux/gpdemo/datadirs/dbfast1/demoDataDir0:content=0:dbid=2:mode=s:status=u
-20161206:08:28:59:047553 gpfaultinjector:krajaraman:krajaraman-[INFO]:-DONE
+20180123:09:56:14:069284 gpfaultinjector:churchill:pivotal-[INFO]:-Starting gpfaultinjector with args: -f workfile_hashjoin_failure -y reset --seg_dbid 2
+20180123:09:56:14:069284 gpfaultinjector:churchill:pivotal-[INFO]:-Injecting fault on content=0:dbid=2:mode=s:status=u
+20180123:09:56:14:069284 gpfaultinjector:churchill:pivotal-[INFO]:-DONE
 --end_ignore
