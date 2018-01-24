@@ -11,3 +11,4 @@ test: vacuum_after_vacuum_skip_drop_column
 test: uao/vacuum_cleanup_column
 
 test: pt_io_in_progress_deadlock
+test: vacuum_full_recently_dead_tuple_due_to_distributed_snapshot
