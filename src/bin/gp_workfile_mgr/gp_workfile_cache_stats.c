@@ -31,7 +31,7 @@
 #define NUM_CACHE_STATS_ELEM 15
 
 /* The number of columns as defined in gp_workfile_mgr_cache_entries view */
-#define NUM_CACHE_ENTRIES_ELEM 12
+#define NUM_CACHE_ENTRIES_ELEM 13
 
 /* The number of columns as defined in gp_workfile_mgr_diskspace view */
 #define NUM_USED_DISKSPACE_ELEM 2
@@ -127,7 +127,7 @@ gp_workfile_mgr_cache_entries(PG_FUNCTION_ARGS)
 		 */
 		TupleDesc tupdesc = CreateTemplateTupleDesc(NUM_CACHE_ENTRIES_ELEM, false);
 
-		Assert(NUM_CACHE_ENTRIES_ELEM == 12);
+		Assert(NUM_CACHE_ENTRIES_ELEM == 13);
 
 		TupleDescInitEntry(tupdesc, (AttrNumber) 1, "segid",
 				INT4OID, -1 /* typmod */, 0 /* attdim */);
@@ -137,21 +137,23 @@ gp_workfile_mgr_cache_entries(PG_FUNCTION_ARGS)
 				INT4OID, -1 /* typmod */, 0 /* attdim */);
 		TupleDescInitEntry(tupdesc, (AttrNumber) 4, "size",
 				INT8OID, -1 /* typmod */, 0 /* attdim */);
-		TupleDescInitEntry(tupdesc, (AttrNumber) 5, "state",
+		TupleDescInitEntry(tupdesc, (AttrNumber) 5, "utility",
 				INT4OID, -1 /* typmod */, 0 /* attdim */);
-		TupleDescInitEntry(tupdesc, (AttrNumber) 6, "workmem",
+		TupleDescInitEntry(tupdesc, (AttrNumber) 6, "state",
 				INT4OID, -1 /* typmod */, 0 /* attdim */);
-		TupleDescInitEntry(tupdesc, (AttrNumber) 7, "optype",
+		TupleDescInitEntry(tupdesc, (AttrNumber) 7, "workmem",
+				INT4OID, -1 /* typmod */, 0 /* attdim */);
+		TupleDescInitEntry(tupdesc, (AttrNumber) 8, "optype",
 				TEXTOID, -1 /* typmod */, 0 /* attdim */);
-		TupleDescInitEntry(tupdesc, (AttrNumber) 8, "slice",
+		TupleDescInitEntry(tupdesc, (AttrNumber) 9, "slice",
 				INT4OID, -1 /* typmod */, 0 /* attdim */);
-		TupleDescInitEntry(tupdesc, (AttrNumber) 9, "sessionid",
+		TupleDescInitEntry(tupdesc, (AttrNumber) 10, "sessionid",
 				INT4OID, -1 /* typmod */, 0 /* attdim */);
-		TupleDescInitEntry(tupdesc, (AttrNumber) 10, "commandid",
+		TupleDescInitEntry(tupdesc, (AttrNumber) 11, "commandid",
 				INT4OID, -1 /* typmod */, 0 /* attdim */);
-		TupleDescInitEntry(tupdesc, (AttrNumber) 11, "query_start",
+		TupleDescInitEntry(tupdesc, (AttrNumber) 12, "query_start",
 				TIMESTAMPTZOID, -1, 0);
-		TupleDescInitEntry(tupdesc, (AttrNumber) 12, "numfiles",
+		TupleDescInitEntry(tupdesc, (AttrNumber) 13, "numfiles",
 				INT4OID, -1 /* typmod */, 0 /* attdim */);
 
 		funcctx->tuple_desc = BlessTupleDesc(tupdesc);
@@ -216,15 +218,21 @@ gp_workfile_mgr_cache_entries(PG_FUNCTION_ARGS)
 		}
 
 		values[3] = Int64GetDatum(work_set_size);
-		values[4] = UInt32GetDatum(crtEntry->state);
-		values[5] = UInt32GetDatum(work_set->metadata.operator_work_mem);
+		/*
+		 * utility is unused.
+		 * Set to zero to maintain backwards compatibility of the view
+		 * gp_toolkit.gp_workfile_entries
+		 */
+		values[4] = UInt32GetDatum(0);
+		values[5] = UInt32GetDatum(crtEntry->state);
+		values[6] = UInt32GetDatum(work_set->metadata.operator_work_mem);
 
 		work_set_operator_name = gp_workfile_operator_name(work_set->node_type);
-		values[7] = UInt32GetDatum(work_set->slice_id);
-		values[8] = UInt32GetDatum(work_set->session_id);
-		values[9] = UInt32GetDatum(work_set->command_count);
-		values[10] = TimestampTzGetDatum(work_set->session_start_time);
-		values[11] = UInt32GetDatum(work_set->no_files);
+		values[8] = UInt32GetDatum(work_set->slice_id);
+		values[9] = UInt32GetDatum(work_set->session_id);
+		values[10] = UInt32GetDatum(work_set->command_count);
+		values[11] = TimestampTzGetDatum(work_set->session_start_time);
+		values[12] = UInt32GetDatum(work_set->no_files);
 
 		/* Done reading from the payload of the entry, release lock */
 		Cache_UnlockEntry(cache, crtEntry);
@@ -236,7 +244,7 @@ gp_workfile_mgr_cache_entries(PG_FUNCTION_ARGS)
 		 * holding the lock above.
 		 */
 		values[1] = CStringGetTextDatum(work_set_path);
-		values[6] = CStringGetTextDatum(work_set_operator_name);
+		values[7] = CStringGetTextDatum(work_set_operator_name);
 
 		HeapTuple tuple = heap_form_tuple(funcctx->tuple_desc, values, nulls);
 		Datum result = HeapTupleGetDatum(tuple);

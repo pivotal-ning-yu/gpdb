@@ -171,9 +171,7 @@ where prolang = 14;
  gp_skew_idle_fraction           | r
  gp_bloat_diag                   | r
  __gp_aovisimap_hidden_typed     | c
- gp_workfile_cache_clear_segment | c
- gp_workfile_cache_clear         | c
-(66 rows)
+(64 rows)
 
 -- NO SQL
 select proname, prodataaccess from pg_proc 
