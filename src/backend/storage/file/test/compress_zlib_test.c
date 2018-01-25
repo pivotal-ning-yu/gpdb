@@ -124,14 +124,5 @@ main(int argc, char* argv[])
 
 	MemoryContextInit();
 
-	compress_zlib_context =
-		AllocSetContextCreate(TopMemoryContext,
-							  "compress_zlib_context",
-							  ALLOCSET_DEFAULT_MINSIZE,
-							  ALLOCSET_DEFAULT_INITSIZE,
-							  ALLOCSET_DEFAULT_MAXSIZE);
-
-	MemoryContextSwitchTo(compress_zlib_context);
-
 	return run_tests(tests);
 }
