@@ -1148,11 +1148,10 @@ jobs:
       trigger: true
       passed:
       - smoke_test_morgan_stanley
-      - apply_morgan_stanley_specific_patches
     - get: bin_gpdb_clients_ms
       resource: ms_installer_rhel5_gpdb_bundled_clients
       passed:
-      - apply_morgan_stanley_specific_patches
+      - patch_ms
   - task: upload-to-ms_ftp
     file: gpdb_release/concourse/tasks/upload_to_ms_ftp.yml
     image: centos-gpdb-dev-6
