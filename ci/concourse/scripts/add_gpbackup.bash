@@ -6,7 +6,7 @@ set -o pipefail
 function build_gpbackup() {
     pushd gpdb_src/depends
     conan remote add gpdb-oss  https://api.bintray.com/conan/greenplum-db/gpdb-oss
-    conan install -f conanfile_gpbackup.txt --build=missing
+    conan install --build=missing conanfile_gpbackup.txt 
     popd
 }
 
