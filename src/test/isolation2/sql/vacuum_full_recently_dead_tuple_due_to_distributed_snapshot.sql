@@ -1,17 +1,25 @@
 -- Test to validate bug fix for vacuum full and distributed snapshot.
 --
--- Scenarios is where locally on segment tuple's xmin and xmax is lower than
--- OldestXmin and hence safely can be declared DEAD but based on distributed
--- snapshot HeapTupleSatisfiesVacuum() returns HEAPTUPLE_RECENTLY_DEAD. Later
--- though while moving the tuples around as part of vacuum, distributed snapshot
--- was not consulted but instead xmin was only checked against OldestXmin
--- raising the "ERROR: updated tuple is already HEAP_MOVED_OFF".
+-- Scenarios is where locally on segment tuple's xmin and xmax is
+-- lower than OldestXmin and hence safely can be declared DEAD but
+-- based on distributed snapshot HeapTupleSatisfiesVacuum() returns
+-- HEAPTUPLE_RECENTLY_DEAD. Later though while moving the tuples
+-- around as part of vacuum, distributed snapshot was not consulted
+-- but instead xmin was only checked against OldestXmin raising the
+-- "ERROR: updated tuple is already HEAP_MOVED_OFF".
+
+-- NOTE: this is a planner only test, since with ORCA, the update
+-- split into delete with insert, and affecting the hint bits, caused
+-- VACUUM full to move those tuples, which invalidates the intent of
+-- this test.
+set optimizer=off;
 create table test_recently_dead_utility(a int, b int, c text);
 -- Insert enough data that it doesn't all fit in one page.
 insert into test_recently_dead_utility select 1, g, 'foobar' from generate_series(1, 1000) g;
 -- Perform updates to form update chains and deleted tuples.
 update test_recently_dead_utility set b = 1;
 update test_recently_dead_utility set b = 1;
+reset optimizer;
 
 -- Run VACUUM FULL in utility mode. It sees some of the old, updated, tuple
 -- versions as HEAPTUPLE_RECENTLY_DEAD, even though they are safely dead because
