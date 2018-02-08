@@ -11,23 +11,23 @@ mount_cgroups() {
     local options=rw,nosuid,nodev,noexec,relatime
     local groups="cpuset blkio cpuacct cpu memory"
 
-	mkdir -p $basedir
-	mount -t tmpfs tmpfs $basedir
-	for group in $groups; do
-			mkdir -p $basedir/$group
-			mount -t cgroup -o $options,$group cgroup $basedir/$group
-	done
+    mkdir -p $basedir
+    mount -t tmpfs tmpfs $basedir
+    for group in $groups; do
+        mkdir -p $basedir/$group
+        mount -t cgroup -o $options,$group cgroup $basedir/$group
+    done
 }
 
 make_cgroups_dir() {
     local basedir=$CGROUP_BASEDIR
 
-	for comp in cpu cpuacct; do
-		chmod -R 777 $basedir/$comp
-		mkdir -p $basedir/$comp/gpdb
-		chown -R gpadmin:gpadmin $basedir/$comp/gpdb
-		chmod -R 777 $basedir/$comp/gpdb
-	done
+    for comp in cpu cpuacct; do
+        chmod -R 777 $basedir/$comp
+        mkdir -p $basedir/$comp/gpdb
+        chown -R gpadmin:gpadmin $basedir/$comp/gpdb
+        chmod -R 777 $basedir/$comp/gpdb
+    done
 }
 
 function load_transfered_bits_into_install_dir() {
@@ -119,17 +119,17 @@ function _main() {
     time configure
     time setup_gpadmin_user
     time make_cluster
-	if [ "$RESOURCE_MANAGER" = group ]; then
-		time mount_cgroups
-		time make_cgroups_dir
-		time gen_icw_test_script
-		time run_icw_test
-	else
-		time gen_unit_test_script
-		time gen_icw_test_script
-		time run_unit_test
-		time run_icw_test
-	fi
+    if [ "$RESOURCE_MANAGER" = group ]; then
+        time mount_cgroups
+        time make_cgroups_dir
+        time gen_icw_test_script
+        time run_icw_test
+    else
+        time gen_unit_test_script
+        time gen_icw_test_script
+        time run_unit_test
+        time run_icw_test
+    fi
 }
 
 _main "$@"
