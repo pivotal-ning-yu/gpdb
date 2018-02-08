@@ -4,6 +4,34 @@ set -eox pipefail
 
 CWDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 GREENPLUM_INSTALL_DIR=/usr/local/gpdb
+CGROUP_BASEDIR=/sys/fs/cgroup
+
+mount_cgroups() {
+    local basedir=$CGROUP_BASEDIR
+    local options=rw,nosuid,nodev,noexec,relatime
+    local groups="cpuset blkio cpuacct cpu memory"
+
+	# TODO: verify cgroup dirs are already properly mounted
+	return
+
+	mkdir -p $basedir
+	mount -t tmpfs tmpfs $basedir
+	for group in $groups; do
+			mkdir -p $basedir/$group
+			mount -t cgroup -o $options,$group cgroup $basedir/$group
+	done
+}
+
+make_cgroups_dir() {
+    local basedir=$CGROUP_BASEDIR
+
+	for comp in cpu cpuacct; do
+		chmod -R 777 $basedir/$comp
+		mkdir -p $basedir/$comp/gpdb
+		chown -R gpadmin:gpadmin $basedir/$comp/gpdb
+		chmod -R 777 $basedir/$comp/gpdb
+	done
+}
 
 function load_transfered_bits_into_install_dir() {
   mkdir -p $GREENPLUM_INSTALL_DIR
@@ -95,6 +123,8 @@ function _main() {
     time setup_gpadmin_user
     time make_cluster
 	if [ "$RESOURCE_MANAGER" = group ]; then
+		time mount_cgroups
+		time make_cgroups_dir
 		time gen_icw_test_script
 		time run_icw_test
 	else
