@@ -94,12 +94,15 @@ function _main() {
     time configure
     time setup_gpadmin_user
     time make_cluster
-	if [ "$RESOURCE_MANAGER" != group ]; then
+	if [ "$RESOURCE_MANAGER" = group ]; then
+		time gen_icw_test_script
+		time run_icw_test
+	else
 		time gen_unit_test_script
 		time gen_icw_test_script
 		time run_unit_test
+		time run_icw_test
 	fi
-	time run_icw_test
 }
 
 _main "$@"
