@@ -74,6 +74,7 @@ FEOF
   source ${GREENPLUM_INSTALL_DIR}/greenplum_path.sh
   source \${SRC_DIR}/gpAux/gpdemo/gpdemo-env.sh
   cd \${SRC_DIR}
+  make -C src/test/regress
   make -s ${MAKE_TEST_COMMAND}
 
 EOF
