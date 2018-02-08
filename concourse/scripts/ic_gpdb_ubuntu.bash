@@ -11,9 +11,6 @@ mount_cgroups() {
     local options=rw,nosuid,nodev,noexec,relatime
     local groups="cpuset blkio cpuacct cpu memory"
 
-	# TODO: verify cgroup dirs are already properly mounted
-	return
-
 	mkdir -p $basedir
 	mount -t tmpfs tmpfs $basedir
 	for group in $groups; do
