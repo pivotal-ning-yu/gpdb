@@ -3639,7 +3639,6 @@ jobs:
   plan:
   - aggregate:
     - get: madlib_ci
-      trigger: true
     - get: gpdb_src
       passed:
       - icb_orca_centos
@@ -3663,7 +3662,6 @@ jobs:
   plan:
   - aggregate:
     - get: madlib_ci
-      trigger: true
     - get: gpdb_src
       passed:
       - icb_orca_centos
