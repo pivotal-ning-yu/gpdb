@@ -336,12 +336,20 @@ removeDir(Oid group, const char *comp, bool unassign)
 		return true;
 	}
 
+retry:
 	if (unassign)
 		unassignGroup(group, comp, fddir);
 
 	if (rmdir(path))
 	{
 		int err = errno;
+
+		if (err == EBUSY && unassign)
+		{
+			elog(DEBUG1, "can't remove dir, will retry: %s: %s", path, strerror(err));
+			pg_usleep(1000);
+			goto retry;
+		}
 
 		close(fddir);
 
