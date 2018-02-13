@@ -2602,12 +2602,12 @@ createDtxSnapshot(
 		inProgressEntryArray[count].distribXid = inProgressXid;
 		inProgressEntryArray[count].localXid = gxact_candidate->localXid;
 
-		count++;
-
 		elog(DTM_DEBUG5,
-			 "createDtxSnapshot added inProgressXid = %u (and local xid = %u) to distributed snapshot",
+			 "createDtxSnapshot added inProgressXid = %u (and local xid = %u, state=%d) to distributed snapshot",
 			 inProgressEntryArray[count].distribXid,
-			 inProgressEntryArray[count].localXid);
+			 inProgressEntryArray[count].localXid,
+			state);
+		count++;
 	}
 
 	distribSnapshotId = (*shmNextSnapshotId)++;
