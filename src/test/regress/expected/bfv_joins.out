@@ -1,6 +1,8 @@
 --
 -- Set up
 --
+create schema bfv_joins;
+set search_path=bfv_joins;
 drop table if exists x;
 drop table if exists y;
 drop table if exists z;
