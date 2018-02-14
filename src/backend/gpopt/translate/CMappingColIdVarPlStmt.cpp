@@ -136,6 +136,7 @@ CMappingColIdVarPlStmt::PparamFromDXLNodeScId
 		pparam->paramkind = PARAM_EXEC;
 		pparam->paramid = pmecolidparamid->UlParamId();
 		pparam->paramtype = CMDIdGPDB::PmdidConvert(pmecolidparamid->PmdidType())->OidObjectId();
+		pparam->paramtypmod = pmecolidparamid->ITypeModifier();
 	}
 
 	return pparam;
@@ -261,7 +262,7 @@ CMappingColIdVarPlStmt::PvarFromDXLNodeScId
 						idxVarno,
 						attno,
 						CMDIdGPDB::PmdidConvert(pdxlop->PmdidType())->OidObjectId(),
-						-1,	// vartypmod
+						pdxlop->ITypeModifier(),
 						0	// varlevelsup
 						);
 

@@ -797,6 +797,7 @@ CTranslatorRelcacheToDXL::Pdrgpmdcol
 										pmdnameCol,
 										att->attnum,
 										pmdidCol,
+										att->atttypmod,
 										!att->attnotnull,
 										att->attisdropped,
 										pdxlnDefault /* default value */,
@@ -1016,7 +1017,8 @@ CTranslatorRelcacheToDXL::AddSystemColumns
 										(
 										pmdnameCol, 
 										attno, 
-										CTranslatorUtils::PmdidSystemColType(pmp, attno), 
+										CTranslatorUtils::PmdidSystemColType(pmp, attno),
+										IDefaultTypeModifier,
 										false,	// fNullable
 										false,	// fDropped
 										NULL,	// default value
@@ -2098,6 +2100,7 @@ CTranslatorRelcacheToDXL::Pmdcheckconstraint
 										ul + 1 /*ulColId*/,
 										pmdcol->IAttno(),
 										pmdidColType,
+										pmdcol->ITypeModifier(),
 										false /* fColDropped */
 										);
 		pdrgpdxlcd->Append(pdxlcd);
@@ -2775,7 +2778,7 @@ CTranslatorRelcacheToDXL::PimdobjCast
 	pmdidDest->AddRef();
 
 	CMDName *pmdname = CDXLUtils::PmdnameFromSz(pmp, szFuncName);
-	
+
 	return GPOS_NEW(pmp) CMDCastGPDB(pmp, pmdid, pmdname, pmdidSrc, pmdidDest, fBinaryCoercible, GPOS_NEW(pmp) CMDIdGPDB(oidCastFunc));
 }
 
@@ -3199,12 +3202,12 @@ CTranslatorRelcacheToDXL::GetPartKeysAndTypes
 	MemoryContext mcxt = CurrentMemoryContext;
 	PartitionNode *pn = gpdb::PpnParts(oid, 0 /*level*/, 0 /*parent*/, false /*inctemplate*/, mcxt, true /*includesubparts*/);
 	GPOS_ASSERT(NULL != pn);
-	
+
 	if (gpdb::FHashPartitioned(pn->part->parkind))
 	{
 		GPOS_RAISE(gpdxl::ExmaMD, gpdxl::ExmiMDObjUnsupported, GPOS_WSZ_LIT("Hash partitioning"));
 	}
-	
+
 	List *plPartKeys = NIL;
 	List *plPartTypes = NIL;
 	gpdb::GetOrderedPartKeysAndKinds(oid, &plPartKeys, &plPartTypes);
@@ -3447,6 +3450,7 @@ CTranslatorRelcacheToDXL::PmdpartcnstrIndex
 										ul + 1, // ulColId
 										pmdcol->IAttno(),
 										pmdidColType,
+										pmdcol->ITypeModifier(),
 										false // fColDropped
 										);
 		pdrgpdxlcd->Append(pdxlcd);
@@ -3535,6 +3539,7 @@ CTranslatorRelcacheToDXL::PmdpartcnstrRelation
 											ul + 1, // ulColId
 											pmdcol->IAttno(),
 											pmdidColType,
+											pmdcol->ITypeModifier(),
 											false // fColDropped
 											);
 			pdrgpdxlcd->Append(pdxlcd);
