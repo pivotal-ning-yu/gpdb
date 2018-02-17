@@ -996,6 +996,7 @@ jobs:
             repository: ruby
             tag: '2.3'
         inputs:
+        - name: gpdb_src
         - name: gpdb_release
         - name: pivnet_client
         - name: installer_rhel5_gpdb_rc
@@ -1037,9 +1038,12 @@ jobs:
           args:
           - -exc
           - |
+            cd gpdb_src
+            GPDB_VERSION=`./getversion --short`
+            cd ..
             cd pivnet_client/
             bundle install
-            bundle exec pivnet_client upload --verbose --metadata ../gpdb_release/pivnet/metadata_gp43.yml --search_path ../
+            bundle exec pivnet_client upload --verbose --metadata ../gpdb_release/pivnet/metadata_gp43.yml --search_path ../ --gpdb_version ${GPDB_VERSION}
 
 - name: patch_ms
   plan:
