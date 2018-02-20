@@ -1493,7 +1493,7 @@ ProcessUtility(Node *parsetree,
 
 					appendStringInfo(&buffer, "RESET %s", n->name);
 
-					CdbDoCommand(buffer.data, false, /*no txn*/ false);
+					CdbSetGucOnAllGangs(buffer.data, false, /*no txn*/ false);
 				}
 			}
 			break;
