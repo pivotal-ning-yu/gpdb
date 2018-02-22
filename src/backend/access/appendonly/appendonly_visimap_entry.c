@@ -382,7 +382,7 @@ AppendOnlyVisimapEntry_CoversTuple(
 		AppendOnlyVisimapEntry *visiMapEntry,
 		AOTupleId *tupleId)
 {
-	int rowNum;
+	int64 rowNum;
 
 	Assert(visiMapEntry);
 	Assert(tupleId);
@@ -410,8 +410,8 @@ AppendOnlyVisimapEntry_GetFirstRowNum(
 		AppendOnlyVisimapEntry *visiMapEntry,
 		AOTupleId *tupleId)
 {
-	(void)visiMapEntry;
-	int rowNum;
+	(void) visiMapEntry;
+	int64 rowNum;
 
 	rowNum = AOTupleIdGet_rowNum(tupleId);
 	return (rowNum / APPENDONLY_VISIMAP_MAX_RANGE) * APPENDONLY_VISIMAP_MAX_RANGE;
