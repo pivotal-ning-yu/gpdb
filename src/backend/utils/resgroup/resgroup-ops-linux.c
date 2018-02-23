@@ -579,7 +579,7 @@ getCgMemoryInfo(uint64 *cgram, uint64 *cgmemsw)
 	}
 	else
 	{
-		elog(LOG, "swap memory is unlimited");
+		elog(DEBUG1, "swap memory is unlimited");
 		*cgmemsw = (uint64) -1LL;
 	}
 }
