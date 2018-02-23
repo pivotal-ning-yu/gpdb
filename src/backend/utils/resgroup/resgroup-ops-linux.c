@@ -735,13 +735,13 @@ ResGroupOps_CreateGroup(Oid group)
 	 * although the group dir is created the interface files may not be
 	 * created yet, so we check them repeatedly until everything is ready.
 	 */
-	while (++retry <= 10 && !checkPermission(group, false))
+	while (++retry <= MAX_RETRY && !checkPermission(group, false))
 		pg_usleep(1000);
 
-	if (retry > 10)
+	if (retry > MAX_RETRY)
 	{
 		/*
-		 * still not ready after 10 retries, might be a real error,
+		 * still not ready after MAX_RETRY retries, might be a real error,
 		 * raise the error.
 		 */
 		checkPermission(group, true);
