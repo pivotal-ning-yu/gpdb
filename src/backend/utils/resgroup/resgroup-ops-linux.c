@@ -49,6 +49,7 @@
 
 #define PROC_MOUNTS "/proc/self/mounts"
 #define MAX_INT_STRING_LEN 20
+#define MAX_RETRY 10
 
 static char * buildPath(Oid group, const char *base, const char *comp, const char *prop, char *path, size_t pathsize);
 static int lockDir(const char *path, bool block);
@@ -321,6 +322,7 @@ removeDir(Oid group, const char *comp, bool unassign)
 {
 	char path[MAXPGPATH];
 	size_t pathsize = sizeof(path);
+	int retry = 0;
 	int fddir;
 
 	buildPath(group, NULL, comp, "", path, pathsize);
@@ -336,32 +338,36 @@ removeDir(Oid group, const char *comp, bool unassign)
 		return true;
 	}
 
-retry:
-	if (unassign)
-		unassignGroup(group, comp, fddir);
-
-	if (rmdir(path))
+	while (++retry <= MAX_RETRY)
 	{
-		int err = errno;
+		if (unassign)
+			unassignGroup(group, comp, fddir);
 
-		if (err == EBUSY && unassign)
+		if (rmdir(path))
 		{
-			elog(DEBUG1, "can't remove dir, will retry: %s: %s", path, strerror(err));
-			pg_usleep(1000);
-			goto retry;
+			int err = errno;
+
+			if (err == EBUSY && unassign && retry < MAX_RETRY)
+			{
+				elog(DEBUG1, "can't remove dir, will retry: %s: %s",
+					 path, strerror(err));
+				pg_usleep(1000);
+				continue;
+			}
+
+			/*
+			 * we don't check for ENOENT again as we already accquired the lock
+			 * on this dir and the dir still exist at that time, so if then
+			 * it's removed by other processes then it's a bug.
+			 */
+			elog(DEBUG1, "can't remove dir, ignore the error: %s: %s",
+				 path, strerror(err));
 		}
-
-		close(fddir);
-
-		/*
-		 * we don't check for ENOENT again as we already accquired the lock
-		 * on this dir and the dir still exist at that time, so if then
-		 * it's removed by other processes then it's a bug.
-		 */
-		CGROUP_ERROR("can't remove dir: %s: %s", path, strerror(err));
+		break;
 	}
 
-	elog(DEBUG1, "cgroup dir '%s' removed", path);
+	if (retry <= MAX_RETRY)
+		elog(DEBUG1, "cgroup dir '%s' removed", path);
 
 	/* close() also releases the lock */
 	close(fddir);
