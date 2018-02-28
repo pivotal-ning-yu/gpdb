@@ -423,7 +423,7 @@ class GPLoad_FormatOpts_TestCase(unittest.TestCase):
 
     def test_00_gpload_formatOpts_setup(self):
         "0  gpload setup"
-        for num in range(1,28):
+        for num in range(1,29):
            f = open(mkpath('query%d.sql' % num),'w')
            f.write("\! gpload -f "+mkpath('config/config_file')+ " -d reuse_gptest\n"+"\! gpload -f "+mkpath('config/config_file')+ " -d reuse_gptest\n")
            f.close()
@@ -633,6 +633,15 @@ class GPLoad_FormatOpts_TestCase(unittest.TestCase):
         copy_data('external_file_13.csv','data_file.csv')
         write_config_file(reuse_flag='true',formatOpts='csv',file='data_file.csv',table='csvtable',format='csv',delimiter="','",staging_table='staging_table',error_table='err')
         self.doTest(27)
+    def test_28_gpload_reuse_table_insert_mode_with_reuse_and_null(self):
+        "28  gpload insert mode with reuse and null"
+        runfile(mkpath('setup.sql'))
+        f = open(mkpath('query28.sql'),'a')
+        f.write("\! psql -d reuse_gptest -c 'select count(*) from texttable where n2 is null;'")
+        f.close()
+        copy_data('external_file_14.txt','data_file.txt')
+        write_config_file(mode='insert',reuse_flag='true',file='data_file.txt',log_errors=True, error_limit='100')
+        self.doTest(28)
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(GPLoad_FormatOpts_TestCase)
