@@ -676,6 +676,7 @@ jobs:
     - get: ccache_snapshot
       resource: ccache_gpdb_sles11
       trigger: false
+    - get: centos-gpdb-dev-6
   - task: build_gpdb
     file: gpdb_src/ci/concourse/compile_gpdb_sles11.yml
     params:
@@ -686,10 +687,13 @@ jobs:
       TARGET_OS: sles
       TARGET_OS_VERSION: 11
       BLD_TARGETS: clients connectivity loaders
+  - task: add_gpbackup
+    file: gpdb_src/ci/concourse/add_gpbackup.yml
+    image: centos-gpdb-dev-6
   - aggregate:
     - put: bin_gpdb_sles11
       params:
-        file: gpdb_artifacts/bin_gpdb.tar.gz
+        file: gpdb_final/bin_gpdb.tar.gz
     - put: installer_sles11_gpdb_clients
       params:
         file: gpdb_artifacts/greenplum-clients-*-sles11-x86_64.zip
