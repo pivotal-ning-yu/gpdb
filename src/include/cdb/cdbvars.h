@@ -308,6 +308,8 @@ extern bool Debug_print_plannedstmt;
  */
 extern bool Debug_print_resource_queue_id;
 
+extern bool Debug_burn_xids;
+
 /*
  * gp_backup_directIO
  *

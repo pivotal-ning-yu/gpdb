@@ -78,6 +78,7 @@ bool            gp_backup_directIO = false;     /* disable\enable direct I/O dum
 int             gp_backup_directIO_read_chunk_mb = 20; /* size of readChunk buffer for directIO dump */
 
 bool		gp_external_enable_exec = true; /* allow ext tables with EXECUTE */
+bool		Debug_burn_xids; /* Burn xids faster to test xid wraparound */
 
 bool		gp_external_grant_privileges = false; /* allow creating http/gpfdist/gpfdists for non-su */
 
