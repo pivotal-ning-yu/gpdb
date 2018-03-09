@@ -312,8 +312,6 @@ vacuum(VacuumStmt *vacstmt, List *relids)
 	bool doAnalyze = vacstmt->analyze;
 	bool doVacuum = vacstmt->vacuum;
 
-	Assert(!(vacstmt != NULL && relids != NULL));
-
 	if (doVacuum)
 	{
 		if (vacstmt->rootonly)
@@ -328,7 +326,7 @@ vacuum(VacuumStmt *vacstmt, List *relids)
 			 */
 			vacstmt->analyze = false;
 			vacstmt->vacuum = true;
-			vacuumStatement(vacstmt, NIL);
+			vacuumStatement(vacstmt, relids);
 		}
 	}
 
@@ -337,6 +335,7 @@ vacuum(VacuumStmt *vacstmt, List *relids)
 		/**
 		 * Perform ANALYZE.
 		 */
+		Assert(relids == NULL);
 		analyzeStmt->analyze = true;
 		analyzeStmt->vacuum = false;
 		analyzeStatement(analyzeStmt, NIL);
@@ -1012,7 +1011,7 @@ vacuumStatement_Relation(VacuumStmt *vacstmt, Oid relid, List *relations)
 			{
 				char *vsubtype = ""; /* NOFULL */
 
-				if (IsAutoVacuumWorkerProcess())
+				if (IsAutoVacuumProcess())
 					vsubtype = "AUTO";
 				else
 				{
@@ -1415,7 +1414,10 @@ vacuum_set_xid_limits(VacuumStmt *vacstmt, bool sharedRel,
 	 * vacuums on a full vacuum, but keep in mind that only one vacuum process
 	 * can be working on a particular table at any time, and that each vacuum
 	 * is always an independent transaction.
+	 *
+	 * GPDB: if template0, we always ignore other databases.
 	 */
+	AssertImply(IsMyDatabaseTemplate0, sharedRel == false);
 	*oldestXmin = GetOldestXmin(sharedRel);
 
 	Assert(TransactionIdIsNormal(*oldestXmin));
@@ -1679,9 +1681,16 @@ vac_update_datfrozenxid(void)
 	 * Initialize the "min" calculation with GetOldestXmin, which is a
 	 * reasonable approximation to the minimum relfrozenxid for not-yet-
 	 * committed pg_class entries for new tables; see AddNewRelationTuple().
-	 * Se we cannot produce a wrong minimum by starting with this.
+	 * So we cannot produce a wrong minimum by starting with this.
+	 *
+	 * GPDB: template0 is read-only and autovacuum excludes shared objects,
+	 * hence, we only need to get the oldest xmin for the template0, instead of
+	 * all the databases.
 	 */
-	newFrozenXid = GetOldestXmin(true);
+	if (IsMyDatabaseTemplate0)
+		newFrozenXid = GetOldestXmin(false);
+	else
+		newFrozenXid = GetOldestXmin(true);
 
 	/*
 	 * We must seqscan pg_class to find the minimum Xid, because there is no
@@ -1715,6 +1724,11 @@ vac_update_datfrozenxid(void)
 
 		/* exclude persistent tables, as all updates to it are frozen */
 		if (GpPersistent_IsPersistentRelation(HeapTupleGetOid(classTup)))
+			continue;
+
+		/* GPDB: skip shared object in template0 in order to bring down its
+		 * age */
+		if (IsMyDatabaseTemplate0 && classForm->relisshared)
 			continue;
 
 		Assert(TransactionIdIsNormal(classForm->relfrozenxid));
@@ -1827,19 +1841,12 @@ vac_truncate_clog(TransactionId frozenXID)
 
 		Assert(TransactionIdIsNormal(dbform->datfrozenxid));
 
-		/*
-		 * MPP-20053: Skip databases that cannot be connected to in computing
-		 * the oldest database.
-		 */
-		if (dbform->datallowconn)
+		if (TransactionIdPrecedes(myXID, dbform->datfrozenxid))
+			frozenAlreadyWrapped = true;
+		else if (TransactionIdPrecedes(dbform->datfrozenxid, frozenXID))
 		{
-			if (TransactionIdPrecedes(myXID, dbform->datfrozenxid))
-				frozenAlreadyWrapped = true;
-			else if (TransactionIdPrecedes(dbform->datfrozenxid, frozenXID))
-			{
-				frozenXID = dbform->datfrozenxid;
-				namecpy(&oldest_datname, &dbform->datname);
-			}
+			frozenXID = dbform->datfrozenxid;
+			namecpy(&oldest_datname, &dbform->datname);
 		}
 	}
 

@@ -37,15 +37,11 @@ extern int	Log_autovacuum_min_duration;
 /* Status inquiry functions */
 extern bool AutoVacuumingActive(void);
 extern bool IsAutoVacuumProcess(void); // OLD interface
-extern bool IsAutoVacuumLauncherProcess(void);
-extern bool IsAutoVacuumWorkerProcess(void);
 
 /* Functions to start autovacuum process, called from postmaster */
 extern void autovac_init(void);
 extern int	autovac_start(void);  // OLD interface
 extern void autovac_stopped(void);  // OLD interface
-extern int	StartAutoVacLauncher(void);
-extern int	StartAutoVacWorker(void);
 
 /* called from postmaster when a worker could not be forked */
 extern void AutoVacWorkerFailed(void);
@@ -55,10 +51,6 @@ extern void AutoVacuumUpdateDelay(void);
 
 #ifdef EXEC_BACKEND
 extern void AutoVacMain(int argc, char *argv[]); // OLD interface
-extern void AutoVacLauncherMain(int argc, char *argv[]);
-extern void AutoVacWorkerMain(int argc, char *argv[]);
-extern void AutovacuumWorkerIAm(void);
-extern void AutovacuumLauncherIAm(void);
 #endif
 
 /* shared memory stuff */

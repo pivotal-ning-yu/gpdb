@@ -28,8 +28,6 @@ typedef enum
 	PMSIGNAL_PASSWORD_CHANGE,	/* pg_auth file has changed */
 	PMSIGNAL_WAKEN_ARCHIVER,	/* send a NOTIFY signal to xlog archiver */
 	PMSIGNAL_ROTATE_LOGFILE,	/* send SIGUSR1 to syslogger to rotate logfile */
-	PMSIGNAL_START_AUTOVAC_LAUNCHER,	/* start an autovacuum launcher */
-	PMSIGNAL_START_AUTOVAC_WORKER,		/* start an autovacuum worker */
 
 	PMSIGNAL_START_AUTOVAC,
 	PMSIGNAL_START_WALRECEIVER, /* start a walreceiver */

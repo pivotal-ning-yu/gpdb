@@ -80,7 +80,7 @@ int			autovacuum_freeze_max_age;
 int			autovacuum_vac_cost_delay;
 int			autovacuum_vac_cost_limit;
 
-int			Log_autovacuum_min_duration = -1;
+int			Log_autovacuum_min_duration = 0;
 
 /* Flag to tell if we are in the autovacuum daemon process */
 static bool am_autovacuum = false;
@@ -215,7 +215,6 @@ static void test_rel_for_autovac(Oid relid, PgStat_StatTabEntry *tabentry,
 static void autovacuum_do_vac_analyze(Oid relid, bool dovacuum,
 						  bool doanalyze, int freeze_min_age);
 static void autovac_report_activity(VacuumStmt *vacstmt, Oid relid);
-
 
 /*
  * Main entry point for autovacuum controller process.
@@ -576,6 +575,15 @@ autovac_get_database_list(void)
 	{
 		autovac_dbase *db;
 
+		/*
+		 * In GPDB, autovacuum is currently disabled, except for the
+		 * anti-wraparound vacuum of template0. The administrator is expected
+		 * to do all VACUUMing manually, except for template0, which you cannot
+		 * VACUUM manually because you cannot connect to it.
+		 */
+		if (strcmp(thisname, TEMPLATE0_DATABASE_NAME))
+			continue;
+
 		db = (autovac_dbase *) palloc(sizeof(autovac_dbase));
 
 		db->oid = db_id;
@@ -585,6 +593,9 @@ autovac_get_database_list(void)
 		db->entry = NULL;
 
 		dblist = lappend(dblist, db);
+
+		/* In GPDB, we only look for template0 so we can break after we find it. */
+		break;
 	}
 
 	FreeFile(db_file);
@@ -615,6 +626,8 @@ do_autovacuum(PgStat_StatDBEntry *dbentry)
 	List	   *toast_table_ids = NIL;
 	ListCell   *volatile cell;
 	PgStat_StatDBEntry *shared;
+
+	Assert(IsMyDatabaseTemplate0);
 
 	/* Start a transaction so our commands have one to play into. */
 	StartTransactionCommand();
@@ -703,6 +716,13 @@ do_autovacuum(PgStat_StatDBEntry *dbentry)
 		 * process other backends' temp tables.
 		 */
 		if (isAnyTempNamespace(classForm->relnamespace))
+			continue;
+
+		/*
+		 * GPDB: it's safe to skip the shared objects in template0 because
+		 * another database will consider the age of the shared objects.
+		 */
+		if (IsMyDatabaseTemplate0 && classForm->relisshared)
 			continue;
 
 		relid = HeapTupleGetOid(tuple);
@@ -1135,24 +1155,6 @@ IsAutoVacuumProcess(void)
 {
 	return am_autovacuum;
 }
-
-/*
- * IsAutoVacuum functions
- *		Return whether this is either a launcher autovacuum process or a worker
- *		process.
- */
-bool
-IsAutoVacuumLauncherProcess(void)
-{
-	return false; // am_autovacuum_launcher;
-}
-
-bool
-IsAutoVacuumWorkerProcess(void)
-{
-	return false; // am_autovacuum_worker;
-}
-
 
 /*
  * AutoVacuumShmemSize

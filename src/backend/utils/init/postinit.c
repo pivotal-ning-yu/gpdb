@@ -751,6 +751,7 @@ InitPostgres(const char *in_dbname, Oid dboid, const char *username,
 		MyDatabaseTableSpace = dbform->dattablespace;
 		/* take database name from the caller, just for paranoia */
 		strlcpy(dbname, in_dbname, sizeof(dbname));
+		IsMyDatabaseTemplate0 = strcmp(dbname, TEMPLATE0_DATABASE_NAME) == 0;
 		pfree(tuple);
 	}
 	else
@@ -772,6 +773,7 @@ InitPostgres(const char *in_dbname, Oid dboid, const char *username,
 		/* pass the database name back to the caller */
 		if (out_dbname)
 			strcpy(out_dbname, dbname);
+		IsMyDatabaseTemplate0 = strcmp(dbname, TEMPLATE0_DATABASE_NAME) == 0;
 		pfree(tuple);
 	}
 
@@ -913,7 +915,8 @@ InitPostgres(const char *in_dbname, Oid dboid, const char *username,
 	 * protect ourselves from normal clients who might be trying to connect to
 	 * the system while we startup.
 	 */
-	if ((Gp_role == GP_ROLE_UTILITY) && (Gp_session_role != GP_ROLE_UTILITY))
+	if ((Gp_role == GP_ROLE_UTILITY) && (Gp_session_role != GP_ROLE_UTILITY) &&
+		!IsAutoVacuumProcess())
 	{
 		ereport(FATAL,
 				(errcode(ERRCODE_CANNOT_CONNECT_NOW),
