@@ -70,6 +70,9 @@ extern Datum checkResourceQueueMemoryLimits(PG_FUNCTION_ARGS);
 
 extern Datum checkRelationAfterInvalidation(PG_FUNCTION_ARGS);
 
+/* XID wraparound */
+extern Datum test_consume_xids(PG_FUNCTION_ARGS);
+
 extern Datum udf_setenv(PG_FUNCTION_ARGS);
 extern Datum udf_unsetenv(PG_FUNCTION_ARGS);
 
@@ -2423,4 +2426,36 @@ udf_unsetenv(PG_FUNCTION_ARGS)
 	const char *name = (const char *) PG_GETARG_CSTRING(0);
 	int ret = unsetenv(name);
 	PG_RETURN_BOOL(ret == 0);
+}
+
+/*
+ * test_consume_xids(int4), for rapidly consuming XIDs, to test wraparound.
+ *
+ * Used by the 'autovacuum-template0' test.
+ */
+PG_FUNCTION_INFO_V1(test_consume_xids);
+Datum
+test_consume_xids(PG_FUNCTION_ARGS)
+{
+	int32		nxids = PG_GETARG_INT32(0);
+	TransactionId topxid;
+	TransactionId xid;
+	TransactionId targetxid;
+
+	/* make sure we have a top-XID first */
+	topxid = GetCurrentTransactionId();
+
+	xid = ReadNewTransactionId();
+
+	targetxid = xid + nxids;
+	while (targetxid < FirstNormalTransactionId)
+		targetxid++;
+
+	while (TransactionIdPrecedes(xid, targetxid))
+	{
+		elog(DEBUG1, "xid: %u", xid);
+		xid = GetNewTransactionId(true, true);
+	}
+
+	PG_RETURN_VOID();
 }

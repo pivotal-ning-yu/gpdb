@@ -79,3 +79,4 @@ test: gpic
 test: gpic_bigtup
 test: filter
 test: gpctas
+test: autovacuum-template0
