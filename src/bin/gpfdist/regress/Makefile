@@ -17,6 +17,7 @@ misc_test:
 	make -C misc/gpfdist2
 	make -C misc/gpfdist_end_of_line
 	make -C misc/gpfdist_ssl
+	make -C misc/gpfdist_watchdog
 
 distclean: clean
 
