@@ -199,7 +199,7 @@ ccp_default_params_anchor: &ccp_default_params
   action: create
   delete_on_failure: true
   generate_random_name: true
-  terraform_source: ccp_src/aws/
+  terraform_source: ccp_src/google/
 
 dpm_ccp_create_params_anchor: &dpm_ccp_default_params
   action: create
@@ -208,17 +208,20 @@ dpm_ccp_create_params_anchor: &dpm_ccp_default_params
   terraform_source: ccp_src/aws-pivotal-pa-toolsmiths/
 
 ccp_vars_anchor: &ccp_default_vars
+  instance_type: n1-standard-1
+  PLATFORM: centos6
+
+ccp_aws_vars_anchor: &ccp_aws_default_vars
   aws_instance-node-instance_type: t2.medium
   aws_ebs_volume_type: standard
-  platform: centos6
+  PLATFORM: centos6
 
 ccp_destroy_anchor: &ccp_destroy
   put: terraform
-  tags: ["ccp"]
   params:
     action: destroy
     env_name_file: terraform/name
-    terraform_source: ccp_src/aws/
+    terraform_source: ccp_src/google/
     vars:
       aws_instance-node-instance_type: t2.micro
   get_params:
@@ -236,6 +239,18 @@ dpm_ccp_destroy_anchor: &dpm_ccp_destroy
   get_params:
     action: destroy
 
+ccp_nvme_destroy_anchor: &ccp_destroy_nvme
+  put: terraform
+  params:
+    action: destroy
+    env_name_file: terraform/name
+    terraform_source: ccp_src/google-nvme-block-device/
+    vars:
+      aws_instance-node-instance_type: t2.micro
+      instance_type: n1-standard-1
+  get_params:
+    action: destroy
+
 ccp_destroy_2_cluster_anchor: &ccp_destroy_2_cluster
   do:
   - *ccp_destroy
@@ -243,9 +258,9 @@ ccp_destroy_2_cluster_anchor: &ccp_destroy_2_cluster
     params:
       action: destroy
       env_name_file: terraform2/name
-      terraform_source: ccp_src/aws/
+      terraform_source: ccp_src/google/
       vars:
-        platform: centos6
+        PLATFORM: centos6
         aws_instance-node-instance_type: t2.micro
         cluster_suffix: "-2"
     get_params:
@@ -255,20 +270,47 @@ ccp_gen_cluster_default_params_anchor: &ccp_gen_cluster_default_params
   AWS_ACCESS_KEY_ID: {{gpdb5-pipeline-tf-machine-access-key-id}}
   AWS_SECRET_ACCESS_KEY: {{gpdb5-pipeline-tf-machine-secret-access-key}}
   AWS_DEFAULT_REGION: {{tf-machine-region}}
-  BUCKET_PATH: clusters/
+  BUCKET_PATH: clusters-google/
   BUCKET_NAME: {{gpdb5-pipeline-tf-bucket-name}}
+  CLOUD_PROVIDER: google
 
 dpm_ccp_gen_cluster_default_params_anchor: &dpm_ccp_gen_cluster_default_params
   AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
   AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
   AWS_DEFAULT_REGION: {{tf-machine-region}}
-  BUCKET_PATH: clusters/
+  BUCKET_PATH: clusters-aws/
   BUCKET_NAME: {{tf-bucket-name}}
+  CLOUD_PROVIDER: aws
 
 set_failed_anchor: &set_failed
   do:
   - task: on_failure_set_failed
-    tags: ["ccp"]
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source:
+          repository: pivotaldata/ccp
+          tag: "7"
+      inputs:
+        - name: ccp_src
+        - name: terraform
+      run:
+        path: 'ccp_src/google/ccp_failed_test.sh'
+      params:
+        GOOGLE_CREDENTIALS: {{google-service-account-key}}
+        GOOGLE_PROJECT_ID: {{google-project-id}}
+        GOOGLE_ZONE: {{google-zone}}
+        GOOGLE_SERVICE_ACCOUNT: {{google-service-account}}
+        AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
+        AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
+        AWS_DEFAULT_REGION: {{tf-machine-region}}
+        BUCKET_PATH: clusters-google/
+        BUCKET_NAME: {{tf-bucket-name}}
+
+set_failed_anchor: &set_failed_dpm
+  do:
+  - task: on_failure_set_failed
     config:
       platform: linux
       image_resource:
@@ -285,14 +327,13 @@ set_failed_anchor: &set_failed
         AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
         AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
         AWS_DEFAULT_REGION: {{tf-machine-region}}
-        BUCKET_PATH: clusters/
+        BUCKET_PATH: clusters-aws/
         BUCKET_NAME: {{tf-bucket-name}}
 
 set_failed_anchor_2: &set_failed_2_cluster
   do:
   - *set_failed
   - task: on_failure_set_failed
-    tags: ["ccp"]
     config:
       platform: linux
       image_resource:
@@ -304,12 +345,16 @@ set_failed_anchor_2: &set_failed_2_cluster
         - name: ccp_src
         - name: terraform2
       run:
-        path: 'ccp_src/aws/ccp_failed_test.sh'
+        path: 'ccp_src/google/ccp_failed_test.sh'
       params:
+        GOOGLE_CREDENTIALS: {{google-service-account-key}}
+        GOOGLE_PROJECT_ID: {{google-project-id}}
+        GOOGLE_ZONE: {{google-zone}}
+        GOOGLE_SERVICE_ACCOUNT: {{google-service-account}}
         AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
         AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
         AWS_DEFAULT_REGION: {{tf-machine-region}}
-        BUCKET_PATH: clusters/
+        BUCKET_PATH: clusters-google/
         BUCKET_NAME: {{tf-bucket-name}}
 
 rhel_artifacts_for_pulse_anchor: &rhel_artifacts_for_pulse_release-add-trigger
@@ -329,6 +374,21 @@ rhel_artifacts_for_pulse_anchor: &rhel_artifacts_for_pulse_release-add-trigger
 
 ccp_aggregate_gets_anchor: &ccp_aggregate_gets
   - get: gpdb_src
+    params: {submodules: none}
+    passed: [compile_gpdb_centos]
+  - get: sync_tools_gpdb
+    resource: sync_tools_gpdb_centos
+    passed: [compile_gpdb_centos]
+  - get: gpdb_binary
+    resource: bin_gpdb_centos
+    passed: [compile_gpdb_centos]
+    trigger: true
+  - get: ccp_src
+  - get: centos-gpdb-dev-6
+
+
+ccp_aws_aggregate_gets_anchor: &ccp_aws_aggregate_gets
+  - get: gpdb_src
     tags: ["ccp"]
     params: {submodules: none}
     passed: [compile_gpdb_centos]
@@ -347,8 +407,7 @@ ccp_aggregate_gets_anchor: &ccp_aggregate_gets
     tags: ["ccp"]
 
 ccp_terraform_bigger_vars_anchor: &ccp_terraform_bigger_vars
-  aws_instance-node-instance_type: m4.large
-  aws_ebs_volume_type: gp2
+  instance_type: n1-standard-2
 
 cs_ccp_terraform_params_anchor: &cs_ccp_terraform_params
   params:
@@ -358,13 +417,11 @@ cs_ccp_terraform_params_anchor: &cs_ccp_terraform_params
       <<: *ccp_terraform_bigger_vars
 
 ccp_gen_cluster_params_anchor: &ccp_gen_cluster_params
-  tags: ["ccp"]
   file: ccp_src/ci/tasks/gen_cluster.yml
   params:
     <<: *ccp_gen_cluster_default_params
 
 ccp_run_tinc_tests_params_anchor: &ccp_run_tinc_tests_params
-  tags: ["ccp"]
   file: gpdb_src/ci/concourse/run_tinc.yml
   image: centos-gpdb-dev-6
   on_success:
@@ -405,7 +462,6 @@ resources:
     branch: {{ccp-git-branch}}
     private_key: {{ccp-git-key}}
     uri: {{ccp-git-remote}}
-    tag_filter: {{ccp-tag-filter}}
 
 - name: terraform
   type: terraform
@@ -413,13 +469,16 @@ resources:
     env:
       AWS_ACCESS_KEY_ID: {{gpdb5-pipeline-tf-machine-access-key-id}}
       AWS_SECRET_ACCESS_KEY: {{gpdb5-pipeline-tf-machine-secret-access-key}}
+      GOOGLE_CREDENTIALS: {{google-service-account-key}}
+    vars:
+      project_id: {{google-project-id}}
     storage:
       access_key_id: {{gpdb5-pipeline-tf-machine-access-key-id}}
       secret_access_key: {{gpdb5-pipeline-tf-machine-secret-access-key}}
       region_name: {{aws-region}}
       # This is on purpose not parameterized. All tfstates will go to this spot
       bucket: gpdb5-pipeline-dynamic-terraform
-      bucket_path: clusters/
+      bucket_path: clusters-google/
 
 - name: terraform2
   type: terraform
@@ -427,12 +486,15 @@ resources:
     env:
       AWS_ACCESS_KEY_ID: {{gpdb5-pipeline-tf-machine-access-key-id}}
       AWS_SECRET_ACCESS_KEY: {{gpdb5-pipeline-tf-machine-secret-access-key}}
+      GOOGLE_CREDENTIALS: {{google-service-account-key}}
+    vars:
+      project_id: {{google-project-id}}
     storage:
       access_key_id: {{gpdb5-pipeline-tf-machine-access-key-id}}
       secret_access_key: {{gpdb5-pipeline-tf-machine-secret-access-key}}
       region_name: {{aws-region}}
       bucket: gpdb5-pipeline-dynamic-terraform
-      bucket_path: clusters/
+      bucket_path: clusters-google/
 
 - name: terraform_for_dpm
   type: terraform
@@ -446,7 +508,7 @@ resources:
       region_name: {{aws-region}}
       # This is on purpose not parameterized. All tfstates will go to this spot
       bucket: pivotal-pa-toolsmiths-pipeline-dynamic-terraform
-      bucket_path: clusters/
+      bucket_path: clusters-aws/
 
 - name: centos-gpdb-dev-5
   type: docker-image
@@ -1757,44 +1819,36 @@ jobs:
   plan:
   - aggregate:
     - get: ccp_src
-      tags: ["ccp"]
     - get: gpdb_src
-      tags: ["ccp"]
       passed: [compile_gpdb_centos]
     - get: sync_tools_gpdb
-      tags: ["ccp"]
       resource: sync_tools_gpdb_centos
       passed: [compile_gpdb_centos]
     - get: bin_gpdb
-      tags: ["ccp"]
       resource: bin_gpdb_centos
       passed: [compile_gpdb_centos]
       trigger: true
     - get: centos-gpdb-dev-6
-      tags: ["ccp"]
   - put: terraform
-    tags: ["ccp"]
     params:
       <<: *ccp_default_params
       vars:
         <<: *ccp_default_vars
   - task: gen_cluster
-    tags: ["ccp"]
     file: ccp_src/ci/tasks/gen_cluster.yml
     params:
       <<: *ccp_gen_cluster_default_params
     input_mapping:
       gpdb_binary: bin_gpdb
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: run_tests
-    tags: ["ccp"]
     file: gpdb_src/ci/concourse/terraform_run_behave.yml
     image: centos-gpdb-dev-6
     params:
       BEHAVE_FLAGS: --tags=gpcheckcat
     on_success:
       <<: *ccp_destroy
-    on_failure:
-      <<: *set_failed
   ensure:
     <<: *set_failed
 
@@ -1802,50 +1856,42 @@ jobs:
   plan:
   - aggregate:
     - get: ccp_src
-      tags: ["ccp"]
     - get: gpdb_src
-      tags: ["ccp"]
       passed: [compile_gpdb_centos]
     - get: sync_tools_gpdb
-      tags: ["ccp"]
       resource: sync_tools_gpdb_centos
       passed: [compile_gpdb_centos]
     - get: bin_gpdb
-      tags: ["ccp"]
       resource: bin_gpdb_centos
       passed: [compile_gpdb_centos]
       trigger: true
     - get: centos-gpdb-dev-6
-      tags: ["ccp"]
   - put: terraform
-    tags: ["ccp"]
     params:
       <<: *ccp_default_params
       vars:
         <<: *ccp_default_vars
   - task: gen_cluster
-    tags: ["ccp"]
     file: ccp_src/ci/tasks/gen_cluster.yml
     params:
       <<: *ccp_gen_cluster_default_params
     input_mapping:
       gpdb_binary: bin_gpdb
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: run_tests
-    tags: ["ccp"]
     file: gpdb_src/ci/concourse/terraform_run_behave.yml
     image: centos-gpdb-dev-6
     params:
       BEHAVE_FLAGS: --tags=gprecoverseg
     on_success:
       <<: *ccp_destroy
-    on_failure:
-      <<: *set_failed
   ensure:
     <<: *set_failed
 
 - name: MM_gpexpand_1
   plan:
-  - aggregate: *ccp_aggregate_gets
+  - aggregate: *ccp_aws_aggregate_gets
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -1855,6 +1901,8 @@ jobs:
         number_of_nodes: 5
   - task: gen_cluster
     <<: *ccp_gen_cluster_params
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: run_tests
     <<: *ccp_run_tinc_tests_params
     params:
@@ -1866,7 +1914,7 @@ jobs:
 
 - name: MM_gpexpand_2
   plan:
-  - aggregate: *ccp_aggregate_gets
+  - aggregate: *ccp_aws_aggregate_gets
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -1876,6 +1924,8 @@ jobs:
         number_of_nodes: 5
   - task: gen_cluster
     <<: *ccp_gen_cluster_params
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: run_tests
     <<: *ccp_run_tinc_tests_params
     params:
@@ -1889,79 +1939,65 @@ jobs:
   plan:
   - aggregate:
     - get: ccp_src
-      tags: ["ccp"]
     - get: gpdb_src
-      tags: ["ccp"]
       passed: [compile_gpdb_centos]
     - get: sync_tools_gpdb
-      tags: ["ccp"]
       resource: sync_tools_gpdb_centos
       passed: [compile_gpdb_centos]
     - get: bin_gpdb
-      tags: ["ccp"]
       resource: bin_gpdb_centos
       passed: [compile_gpdb_centos]
       trigger: true
     - get: centos-gpdb-dev-6
-      tags: ["ccp"]
     - get: pgcrypto_gppkg
-      tags: ["ccp"]
       resource: pgcrypto_rhel5_gppkg
     - get: postgis_gppkg
-      tags: ["ccp"]
       resource: postgis_rhel5_gppkg
     - get: plperl_gppkg
-      tags: ["ccp"]
       resource: plperl_rhel6_gppkg
     - get: pljava_gppkg
-      tags: ["ccp"]
       resource: released_pljava_rhel5_gppkg
     - get: plr_gppkg
-      tags: ["ccp"]
       resource: released_plr_rhel5_gppkg
     - get: libgppc_gppkg
-      tags: ["ccp"]
       resource: libgppc_rhel5_gppkg
     - get: before_orca_plperl_gppkg
-      tags: ["ccp"]
       resource: before_orca_plperl_rhel6_gppkg
   - put: terraform
-    tags: ["ccp"]
     params:
       <<: *ccp_default_params
       vars:
         <<: *ccp_default_vars
   - task: gen_cluster
-    tags: ["ccp"]
     file: ccp_src/ci/tasks/gen_cluster.yml
     params:
       <<: *ccp_gen_cluster_default_params
     input_mapping:
       gpdb_binary: bin_gpdb
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: get_gppkgs
-    tags: ["ccp"]
     file: gpdb_src/ci/concourse/get_gppkgs.yml
     image: centos-gpdb-dev-6
   - task: run_tests
-    tags: ["ccp"]
     file: gpdb_src/ci/concourse/run_tinc.yml
     image: centos-gpdb-dev-6
     params:
       TINC_TARGET: gppkg
     on_success:
       <<: *ccp_destroy
-    on_failure:
-      <<: *set_failed
   ensure:
     <<: *set_failed
 
 - name: cs_walrep_1
   plan:
-  - aggregate: *ccp_aggregate_gets
+  - aggregate: *ccp_aws_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
   - task: gen_cluster
     <<: *ccp_gen_cluster_params
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: run_tests
     <<: *ccp_run_tinc_tests_params
     params:
@@ -1971,11 +2007,13 @@ jobs:
 
 - name: cs_walrep_2
   plan:
-  - aggregate: *ccp_aggregate_gets
+  - aggregate: *ccp_aws_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
   - task: gen_cluster
     <<: *ccp_gen_cluster_params
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: run_tests
     <<: *ccp_run_tinc_tests_params
     params:
@@ -1985,7 +2023,7 @@ jobs:
 
 - name: cs_pg_twophase_01_10
   plan:
-  - aggregate: *ccp_aggregate_gets
+  - aggregate: *ccp_aws_aggregate_gets
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -1995,6 +2033,8 @@ jobs:
         number_of_nodes: 1
   - task: gen_cluster
     <<: *ccp_gen_cluster_params
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: run_tests
     <<: *ccp_run_tinc_tests_params
     params:
@@ -2004,7 +2044,7 @@ jobs:
 
 - name: cs_pg_twophase_11_20
   plan:
-  - aggregate: *ccp_aggregate_gets
+  - aggregate: *ccp_aws_aggregate_gets
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -2014,6 +2054,8 @@ jobs:
         number_of_nodes: 1
   - task: gen_cluster
     <<: *ccp_gen_cluster_params
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: run_tests
     <<: *ccp_run_tinc_tests_params
     params:
@@ -2023,7 +2065,7 @@ jobs:
 
 - name: cs_pg_twophase_21_30
   plan:
-  - aggregate: *ccp_aggregate_gets
+  - aggregate: *ccp_aws_aggregate_gets
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -2033,6 +2075,8 @@ jobs:
         number_of_nodes: 1
   - task: gen_cluster
     <<: *ccp_gen_cluster_params
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: run_tests
     <<: *ccp_run_tinc_tests_params
     params:
@@ -2042,7 +2086,7 @@ jobs:
 
 - name: cs_pg_twophase_31_40
   plan:
-  - aggregate: *ccp_aggregate_gets
+  - aggregate: *ccp_aws_aggregate_gets
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -2052,6 +2096,8 @@ jobs:
         number_of_nodes: 1
   - task: gen_cluster
     <<: *ccp_gen_cluster_params
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: run_tests
     <<: *ccp_run_tinc_tests_params
     params:
@@ -2061,7 +2107,7 @@ jobs:
 
 - name: cs_pg_twophase_41_49
   plan:
-  - aggregate: *ccp_aggregate_gets
+  - aggregate: *ccp_aws_aggregate_gets
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -2071,6 +2117,8 @@ jobs:
         number_of_nodes: 1
   - task: gen_cluster
     <<: *ccp_gen_cluster_params
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: run_tests
     <<: *ccp_run_tinc_tests_params
     params:
@@ -2080,7 +2128,7 @@ jobs:
 
 - name: cs_pg_twophase_switch
   plan:
-  - aggregate: *ccp_aggregate_gets
+  - aggregate: *ccp_aws_aggregate_gets
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -2090,6 +2138,8 @@ jobs:
         number_of_nodes: 1
   - task: gen_cluster
     <<: *ccp_gen_cluster_params
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: run_tests
     <<: *ccp_run_tinc_tests_params
     params:
@@ -2099,7 +2149,7 @@ jobs:
 
 - name: cs_crash_recovery_schema_topology
   plan:
-  - aggregate: *ccp_aggregate_gets
+  - aggregate: *ccp_aws_aggregate_gets
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -2109,6 +2159,8 @@ jobs:
         number_of_nodes: 1
   - task: gen_cluster
     <<: *ccp_gen_cluster_params
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: run_tests
     <<: *ccp_run_tinc_tests_params
     params:
@@ -2118,7 +2170,7 @@ jobs:
 
 - name: cs_crash_recovery_04_10
   plan:
-  - aggregate: *ccp_aggregate_gets
+  - aggregate: *ccp_aws_aggregate_gets
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -2128,6 +2180,8 @@ jobs:
         number_of_nodes: 1
   - task: gen_cluster
     <<: *ccp_gen_cluster_params
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: run_tests
     <<: *ccp_run_tinc_tests_params
     params:
@@ -2137,7 +2191,7 @@ jobs:
 
 - name: cs_crash_recovery_11_20
   plan:
-  - aggregate: *ccp_aggregate_gets
+  - aggregate: *ccp_aws_aggregate_gets
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -2147,6 +2201,8 @@ jobs:
         number_of_nodes: 1
   - task: gen_cluster
     <<: *ccp_gen_cluster_params
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: run_tests
     <<: *ccp_run_tinc_tests_params
     params:
@@ -2156,7 +2212,7 @@ jobs:
 
 - name: cs_crash_recovery_21_30
   plan:
-  - aggregate: *ccp_aggregate_gets
+  - aggregate: *ccp_aws_aggregate_gets
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -2166,6 +2222,8 @@ jobs:
         number_of_nodes: 1
   - task: gen_cluster
     <<: *ccp_gen_cluster_params
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: run_tests
     <<: *ccp_run_tinc_tests_params
     params:
@@ -2175,7 +2233,7 @@ jobs:
 
 - name: cs_crash_recovery_31_42
   plan:
-  - aggregate: *ccp_aggregate_gets
+  - aggregate: *ccp_aws_aggregate_gets
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -2185,6 +2243,8 @@ jobs:
         number_of_nodes: 1
   - task: gen_cluster
     <<: *ccp_gen_cluster_params
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: run_tests
     <<: *ccp_run_tinc_tests_params
     params:
@@ -2194,85 +2254,101 @@ jobs:
 
 - name: cs_filerep_end_to_end_full_primary
   plan:
-  - aggregate: *ccp_aggregate_gets
+  - aggregate: *ccp_aws_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
       <<: *ccp_default_params
-      terraform_source: ccp_src/aws-nvme-block-device/
+      terraform_source: ccp_src/google-nvme-block-device/
       vars:
         <<: *ccp_default_vars
-        aws_instance-node-instance_type: i3.xlarge
+        instance_type: n1-highmem-4
         number_of_nodes: 2
   - task: gen_cluster
     <<: *ccp_gen_cluster_params
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: run_tests
     <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: filerep_end_to_end_full_primary
+    on_success:
+      <<: *ccp_destroy_nvme
   ensure:
     <<: *set_failed
 
 - name: cs_filerep_end_to_end_incr_primary
   plan:
-  - aggregate: *ccp_aggregate_gets
+  - aggregate: *ccp_aws_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
       <<: *ccp_default_params
-      terraform_source: ccp_src/aws-nvme-block-device/
+      terraform_source: ccp_src/google-nvme-block-device/
       vars:
         <<: *ccp_default_vars
-        aws_instance-node-instance_type: i3.xlarge
+        instance_type: n1-highmem-4
         number_of_nodes: 2
   - task: gen_cluster
     <<: *ccp_gen_cluster_params
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: run_tests
     <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: filerep_end_to_end_incr_primary
+    on_success:
+      <<: *ccp_destroy_nvme
   ensure:
     <<: *set_failed
 
 - name: cs_filerep_end_to_end_full_mirror
   plan:
-  - aggregate: *ccp_aggregate_gets
+  - aggregate: *ccp_aws_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
       <<: *ccp_default_params
-      terraform_source: ccp_src/aws-nvme-block-device/
+      terraform_source: ccp_src/google-nvme-block-device/
       vars:
         <<: *ccp_default_vars
-        aws_instance-node-instance_type: i3.xlarge
+        instance_type: n1-highmem-4
         number_of_nodes: 2
   - task: gen_cluster
     <<: *ccp_gen_cluster_params
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: run_tests
     <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: filerep_end_to_end_full_mirror
+    on_success:
+      <<: *ccp_destroy_nvme
   ensure:
     <<: *set_failed
 
 - name: cs_filerep_end_to_end_incr_mirror
   plan:
-  - aggregate: *ccp_aggregate_gets
+  - aggregate: *ccp_aws_aggregate_gets
   - put: terraform
     <<: *cs_ccp_terraform_params
     params:
       <<: *ccp_default_params
-      terraform_source: ccp_src/aws-nvme-block-device/
+      terraform_source: ccp_src/google-nvme-block-device/
       vars:
         <<: *ccp_default_vars
-        aws_instance-node-instance_type: i3.xlarge
+        instance_type: n1-highmem-4
         number_of_nodes: 2
   - task: gen_cluster
     <<: *ccp_gen_cluster_params
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: run_tests
     <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: filerep_end_to_end_incr_mirror
+    on_success:
+      <<: *ccp_destroy_nvme
   ensure:
     <<: *set_failed
 
@@ -2424,106 +2500,84 @@ jobs:
   plan:
   - aggregate:
     - get: ccp_src
-      tags: ["ccp"]
     - get: gpdb_src
-      tags: ["ccp"]
       passed: [compile_gpdb_centos]
     - get: sync_tools_gpdb
-      tags: ["ccp"]
       resource: sync_tools_gpdb_centos
       passed: [compile_gpdb_centos]
     - get: bin_gpdb
-      tags: ["ccp"]
       resource: bin_gpdb_centos
       passed: [compile_gpdb_centos]
       trigger: true
     - get: centos-gpdb-dev-6
-      tags: ["ccp"]
   - put: terraform
-    tags: ["ccp"]
     params:
       <<: *ccp_default_params
       vars:
         <<: *ccp_default_vars
   - task: gen_cluster
-    tags: ["ccp"]
     file: ccp_src/ci/tasks/gen_cluster.yml
     params:
       <<: *ccp_gen_cluster_default_params
     input_mapping:
       gpdb_binary: bin_gpdb
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: run_tests
-    tags: ["ccp"]
     file: gpdb_src/ci/concourse/terraform_run_behave.yml
     image: centos-gpdb-dev-6
     params:
       BEHAVE_FLAGS: --tags=backups,backup_and_restore_backups,backup_and_restore_restores,restores --tags=-nbuonly --tags=-ddonly
     on_success:
       <<: *ccp_destroy
-    on_failure:
-      <<: *set_failed
   ensure:
     <<: *set_failed
 
 - name: DPM_backup-restore_filename_compatibility
   plan:
   - get: nightly-trigger-pulse
-    tags: ["ccp"]
     trigger: true
   - aggregate:
     - get: gpdb_src
-      tags: ["ccp"]
       passed: [compile_gpdb_centos]
     - get: bin_gpdb
-      tags: ["ccp"]
       resource: bin_gpdb_centos
       passed: [compile_gpdb_centos]
     - get: bin_gpdb4-3-11-3
-      tags: ["ccp"]
       resource: bin_gpdb4-3-11-3_centos
     - get: ccp_src
-      tags: ["ccp"]
     - get: centos-gpdb-dev-6
-      tags: ["ccp"]
   - put: terraform
-    tags: ["ccp"]
     params:
       <<: *ccp_default_params
       vars:
         <<: *ccp_default_vars
   - task: setup_gpdb4-3-11-3
-    tags: ["ccp"]
     file: ccp_src/ci/tasks/gen_cluster.yml
     params:
       <<: *ccp_gen_cluster_default_params
     input_mapping:
       gpdb_binary: bin_gpdb4-3-11-3
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: run_backup_tests
-    tags: ["ccp"]
     file: gpdb_src/ci/concourse/terraform_run_behave.yml
     image: centos-gpdb-dev-6
     params:
       BEHAVE_FLAGS: --tags=backup_and_restore_backups --tags=-nbuonly --tags=-ddonly --tags=-skip_filename_compatibility
-    on_failure:
-      <<: *set_failed
   - task: setup_new_gpdb4
-    tags: ["ccp"]
     file: gpdb_src/ci/concourse/setup_new_gpdb_for_backup_restore.yml
     params:
       <<: *ccp_gen_cluster_default_params
-    image: centos-gpdb-dev-6
-    on_failure:
-      <<: *set_failed
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: run_restore_tests
-    tags: ["ccp"]
     file: gpdb_src/ci/concourse/terraform_run_behave.yml
     image: centos-gpdb-dev-6
     params:
       BEHAVE_FLAGS: --tags=backup_and_restore_restores --tags=-nbuonly --tags=-ddonly --tags=-skip_filename_compatibility
     on_success:
       <<: *ccp_destroy
-    on_failure:
-      <<: *set_failed
   ensure:
     <<: *set_failed
 
@@ -2556,7 +2610,7 @@ jobs:
     params:
       <<: *dpm_ccp_default_params
       vars:
-        <<: *ccp_default_vars
+        <<: *ccp_aws_default_vars
   - task: gen_cluster
     tags: ["ddboost"]
     file: ccp_src/ci/tasks/gen_cluster.yml
@@ -2564,6 +2618,9 @@ jobs:
       <<: *dpm_ccp_gen_cluster_default_params
     input_mapping:
       gpdb_binary: bin_gpdb
+  - task: gpinitsystem
+    tags: ["ddboost"]
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: ddboost_pre_test_setup
     tags: ["ddboost"]
     config:
@@ -2584,7 +2641,7 @@ jobs:
         - -c
         - |
           set -ex
-          ccp_src/aws/setup_ssh_to_cluster.sh
+          ccp_src/scripts/setup_ssh_to_cluster.sh
           scp cluster_env_files/terraform/name mdw:/tmp/terraform_name
           scp ddboost_rpm/compat-libstdc-33-3.2.3-69.el6.x86_64.rpm mdw:/tmp/compat-libstdc-33-3.2.3-69.el6.x86_64.rpm
           scp ddboost_rpm/compat-libstdc-33-3.2.3-69.el6.x86_64.rpm sdw1:/tmp/compat-libstdc-33-3.2.3-69.el6.x86_64.rpm
@@ -2599,10 +2656,8 @@ jobs:
       CUSTOM_ENV: export DD_SOURCE_HOST={{datadomain_source_host}}; export DD_DEST_HOST={{datadomain_dest_host}}; export DD_USER={{datadomain_user}}; export DD_PASSWORD={{datadomain_password}};
     on_success:
       <<: *ccp_destroy
-    on_failure:
-      <<: *set_failed
   ensure:
-    <<: *set_failed
+    <<: *set_failed_dpm
 
 - name: DPM_backup-restore_ddboost_part2
   plan:
@@ -2633,7 +2688,7 @@ jobs:
     params:
       <<: *dpm_ccp_default_params
       vars:
-        <<: *ccp_default_vars
+        <<: *ccp_aws_default_vars
   - task: gen_cluster
     tags: ["ddboost"]
     file: ccp_src/ci/tasks/gen_cluster.yml
@@ -2641,6 +2696,9 @@ jobs:
       <<: *dpm_ccp_gen_cluster_default_params
     input_mapping:
       gpdb_binary: bin_gpdb
+  - task: gpinitsystem
+    tags: ["ddboost"]
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: ddboost_pre_test_setup
     tags: ["ddboost"]
     config:
@@ -2661,7 +2719,7 @@ jobs:
         - -c
         - |
           set -ex
-          ccp_src/aws/setup_ssh_to_cluster.sh
+          ccp_src/scripts/setup_ssh_to_cluster.sh
           scp cluster_env_files/terraform/name mdw:/tmp/terraform_name
           scp ddboost_rpm/compat-libstdc-33-3.2.3-69.el6.x86_64.rpm mdw:/tmp/compat-libstdc-33-3.2.3-69.el6.x86_64.rpm
           scp ddboost_rpm/compat-libstdc-33-3.2.3-69.el6.x86_64.rpm sdw1:/tmp/compat-libstdc-33-3.2.3-69.el6.x86_64.rpm
@@ -2676,10 +2734,8 @@ jobs:
       CUSTOM_ENV: export DD_SOURCE_HOST={{datadomain_source_host}}; export DD_DEST_HOST={{datadomain_dest_host}}; export DD_USER={{datadomain_user}}; export DD_PASSWORD={{datadomain_password}};
     on_success:
       <<: *ccp_destroy
-    on_failure:
-      <<: *set_failed
   ensure:
-    <<: *set_failed
+    <<: *set_failed_dpm
 
 - name: DPM_backup-restore_ddboost_part3
   plan:
@@ -2710,7 +2766,7 @@ jobs:
     params:
       <<: *dpm_ccp_default_params
       vars:
-        <<: *ccp_default_vars
+        <<: *ccp_aws_default_vars
   - task: gen_cluster
     tags: ["ddboost"]
     file: ccp_src/ci/tasks/gen_cluster.yml
@@ -2718,6 +2774,9 @@ jobs:
       <<: *dpm_ccp_gen_cluster_default_params
     input_mapping:
       gpdb_binary: bin_gpdb
+  - task: gpinitsystem
+    tags: ["ddboost"]
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: ddboost_pre_test_setup
     tags: ["ddboost"]
     config:
@@ -2738,7 +2797,7 @@ jobs:
         - -c
         - |
           set -ex
-          ccp_src/aws/setup_ssh_to_cluster.sh
+          ccp_src/scripts/setup_ssh_to_cluster.sh
           scp cluster_env_files/terraform/name mdw:/tmp/terraform_name
           scp ddboost_rpm/compat-libstdc-33-3.2.3-69.el6.x86_64.rpm mdw:/tmp/compat-libstdc-33-3.2.3-69.el6.x86_64.rpm
           scp ddboost_rpm/compat-libstdc-33-3.2.3-69.el6.x86_64.rpm sdw1:/tmp/compat-libstdc-33-3.2.3-69.el6.x86_64.rpm
@@ -2753,55 +2812,59 @@ jobs:
       CUSTOM_ENV: export DD_SOURCE_HOST={{datadomain_source_host}}; export DD_DEST_HOST={{datadomain_dest_host}}; export DD_USER={{datadomain_user}}; export DD_PASSWORD={{datadomain_password}};
     on_success:
       <<: *ccp_destroy
-    on_failure:
-      <<: *set_failed
   ensure:
-    <<: *set_failed
+    <<: *set_failed_dpm
 
 - name: DPM_gptransfer-43x-to-43x
   plan:
   - aggregate:
     - get: ccp_src
-      tags: ["ccp"]
     - get: bin_gpdb
-      tags: ["ccp"]
       resource: bin_gpdb_centos
       passed: [compile_gpdb_centos]
       trigger: true
     - get: gpdb_src
-      tags: ["ccp"]
       passed: [compile_gpdb_centos]
     - get: centos-gpdb-dev-6
-      tags: ["ccp"]
   # The separate clusters can be created in parallel with the aggregate and do blocks
   #  The terraform put and gen cluster that correspond must still happen serially
   - aggregate:
     - do:
       - put: terraform
-        tags: ["ccp"]
         params:
           <<: *ccp_default_params
           vars:
             <<: *ccp_default_vars
-            aws_instance-node-instance_type: m4.large
+            instance_type: n1-standard-2
       - task: gen_cluster1
-        tags: ["ccp"]
         file: ccp_src/ci/tasks/gen_cluster.yml
         params:
           <<: *ccp_gen_cluster_default_params
         input_mapping:
           gpdb_binary: bin_gpdb
+      - task: gpinitsystem
+        config:
+          platform: linux
+          image_resource:
+            type: docker-image
+            source:
+              repository: pivotaldata/ccp
+              tag: "7"
+          inputs:
+          - name: terraform
+          - name: ccp_src
+          - name: cluster_env_files
+          run:
+            path: ccp_src/scripts/gpinitsystem.sh
     - do:
       - put: terraform2
-        tags: ["ccp"]
         params:
           <<: *ccp_default_params
           vars:
             <<: *ccp_default_vars
-            aws_instance-node-instance_type: m4.large
+            instance_type: n1-standard-2
             cluster_suffix: "-2"
       - task: gen_cluster2
-        tags: ["ccp"]
         file: ccp_src/ci/tasks/gen_cluster.yml
         params:
           <<: *ccp_gen_cluster_default_params
@@ -2812,18 +2875,31 @@ jobs:
           cluster_env_files: cluster_env_files2
         on_failure:
           put: terraform2
-          tags: ["ccp"]
           params:
             action: destroy
             env_name_file: terraform2/name
-            terraform_source: ccp_src/aws/
+            terraform_source: ccp_src/google/
             vars:
               <<: *ccp_default_vars
               cluster_suffix: "-2"
           get_params:
             action: destroy
+      - task: gpinitsystem
+        config:
+          platform: linux
+          image_resource:
+            type: docker-image
+            source:
+              repository: pivotaldata/ccp
+              tag: "7"
+          inputs:
+          - name: terraform
+          - name: ccp_src
+          - name: cluster_env_files2
+            path: cluster_env_files
+          run:
+            path: ccp_src/scripts/gpinitsystem.sh
   - task: gptransfer_pre_test_setup
-    tags: ["ccp"]
     config:
       platform: linux
       inputs:
@@ -2843,7 +2919,6 @@ jobs:
         - |
           source gpdb_src/ci/concourse/scripts/transfer_utils.sh; setup_gptransfer
   - task: run_gptransfer_tests
-    tags: ["ccp"]
     file: gpdb_src/ci/concourse/terraform_run_behave.yml
     image: centos-gpdb-dev-6
     params:
@@ -2886,7 +2961,7 @@ jobs:
     params:
       <<: *dpm_ccp_default_params
       vars:
-        <<: *ccp_default_vars
+        <<: *ccp_aws_default_vars
   - task: gen_cluster
     tags: ["netbackup"]
     file: ccp_src/ci/tasks/gen_cluster.yml
@@ -2894,6 +2969,9 @@ jobs:
       <<: *dpm_ccp_gen_cluster_default_params
     input_mapping:
       gpdb_binary: bin_gpdb
+  - task: gpinitsystem
+    tags: ["netbackup"]
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: netbackup_pre_test_setup
     tags: ["netbackup"]
     file: gpdb_src/ci/concourse/setup_netbackup.yml
@@ -2909,10 +2987,8 @@ jobs:
       CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}};
     on_success:
       <<: *ccp_destroy
-    on_failure:
-      <<: *set_failed
   ensure:
-    <<: *set_failed
+    <<: *set_failed_dpm
 
 - name: DPM_backup-restore_netbackup_part2
   plan:
@@ -2944,7 +3020,7 @@ jobs:
     params:
       <<: *dpm_ccp_default_params
       vars:
-        <<: *ccp_default_vars
+        <<: *ccp_aws_default_vars
   - task: gen_cluster
     tags: ["netbackup"]
     file: ccp_src/ci/tasks/gen_cluster.yml
@@ -2952,6 +3028,9 @@ jobs:
       <<: *dpm_ccp_gen_cluster_default_params
     input_mapping:
       gpdb_binary: bin_gpdb
+  - task: gpinitsystem
+    tags: ["netbackup"]
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: netbackup_pre_test_setup
     tags: ["netbackup"]
     file: gpdb_src/ci/concourse/setup_netbackup.yml
@@ -2967,10 +3046,8 @@ jobs:
       CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}};
     on_success:
       <<: *ccp_destroy
-    on_failure:
-      <<: *set_failed
   ensure:
-    <<: *set_failed
+    <<: *set_failed_dpm
 
 - name: DPM_backup-restore_netbackup_part3
   plan:
@@ -3002,7 +3079,7 @@ jobs:
     params:
       <<: *dpm_ccp_default_params
       vars:
-        <<: *ccp_default_vars
+        <<: *ccp_aws_default_vars
   - task: gen_cluster
     tags: ["netbackup"]
     file: ccp_src/ci/tasks/gen_cluster.yml
@@ -3010,6 +3087,9 @@ jobs:
       <<: *dpm_ccp_gen_cluster_default_params
     input_mapping:
       gpdb_binary: bin_gpdb
+  - task: gpinitsystem
+    tags: ["netbackup"]
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: netbackup_pre_test_setup
     tags: ["netbackup"]
     file: gpdb_src/ci/concourse/setup_netbackup.yml
@@ -3025,10 +3105,8 @@ jobs:
       CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}};
     on_success:
       <<: *ccp_destroy
-    on_failure:
-      <<: *set_failed
   ensure:
-    <<: *set_failed
+    <<: *set_failed_dpm
 
 - name: DPM_netbackup_filename_compatibility_part1
   plan:
@@ -3059,7 +3137,7 @@ jobs:
     params:
       <<: *dpm_ccp_default_params
       vars:
-        <<: *ccp_default_vars
+        <<: *ccp_aws_default_vars
   - task: setup_gpdb4-3-11-3
     tags: ["netbackup"]
     file: ccp_src/ci/tasks/gen_cluster.yml
@@ -3067,6 +3145,9 @@ jobs:
       <<: *dpm_ccp_gen_cluster_default_params
     input_mapping:
       gpdb_binary: bin_gpdb4-3-11-3
+  - task: gpinitsystem
+    tags: ["netbackup"]
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: netbackup_pre_test_setup
     tags: ["netbackup"]
     file: gpdb_src/ci/concourse/setup_netbackup.yml
@@ -3080,16 +3161,11 @@ jobs:
     params:
       BEHAVE_FLAGS: --tags=backup_and_restore_backups --tags=nbusetup76,nbupartI --tags=-skip_filename_compatibility
       CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}};
-    on_failure:
-      <<: *set_failed
   - task: setup_new_gpdb4
     tags: ["netbackup"]
     file: gpdb_src/ci/concourse/setup_new_gpdb_for_backup_restore.yml
     params:
       <<: *dpm_ccp_gen_cluster_default_params
-    image: centos-gpdb-dev-6
-    on_failure:
-      <<: *set_failed
   - task: run_restore_tests
     tags: ["netbackup"]
     file: gpdb_src/ci/concourse/terraform_run_behave.yml
@@ -3099,10 +3175,8 @@ jobs:
       CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}};
     on_success:
       <<: *ccp_destroy
-    on_failure:
-      <<: *set_failed
   ensure:
-    <<: *set_failed
+    <<: *set_failed_dpm
 
 - name: DPM_netbackup_filename_compatibility_part2
   plan:
@@ -3133,7 +3207,7 @@ jobs:
     params:
       <<: *dpm_ccp_default_params
       vars:
-        <<: *ccp_default_vars
+        <<: *ccp_aws_default_vars
   - task: setup_gpdb4-3-11-3
     tags: ["netbackup"]
     file: ccp_src/ci/tasks/gen_cluster.yml
@@ -3141,6 +3215,9 @@ jobs:
       <<: *dpm_ccp_gen_cluster_default_params
     input_mapping:
       gpdb_binary: bin_gpdb4-3-11-3
+  - task: gpinitsystem
+    tags: ["netbackup"]
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: netbackup_pre_test_setup
     tags: ["netbackup"]
     file: gpdb_src/ci/concourse/setup_netbackup.yml
@@ -3154,16 +3231,11 @@ jobs:
     params:
       BEHAVE_FLAGS: --tags=backup_and_restore_backups --tags=nbusetup76,nbupartII --tags=-skip_filename_compatibility
       CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}};
-    on_failure:
-      <<: *set_failed
   - task: setup_new_gpdb4
     tags: ["netbackup"]
     file: gpdb_src/ci/concourse/setup_new_gpdb_for_backup_restore.yml
     params:
       <<: *dpm_ccp_gen_cluster_default_params
-    image: centos-gpdb-dev-6
-    on_failure:
-      <<: *set_failed
   - task: run_restore_tests
     tags: ["netbackup"]
     file: gpdb_src/ci/concourse/terraform_run_behave.yml
@@ -3173,10 +3245,8 @@ jobs:
       CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}};
     on_success:
       <<: *ccp_destroy
-    on_failure:
-      <<: *set_failed
   ensure:
-    <<: *set_failed
+    <<: *set_failed_dpm
 
 - name: DPM_netbackup_filename_compatibility_part3
   plan:
@@ -3207,7 +3277,7 @@ jobs:
     params:
       <<: *dpm_ccp_default_params
       vars:
-        <<: *ccp_default_vars
+        <<: *ccp_aws_default_vars
   - task: setup_gpdb4-3-11-3
     tags: ["netbackup"]
     file: ccp_src/ci/tasks/gen_cluster.yml
@@ -3215,6 +3285,9 @@ jobs:
       <<: *dpm_ccp_gen_cluster_default_params
     input_mapping:
       gpdb_binary: bin_gpdb4-3-11-3
+  - task: gpinitsystem
+    tags: ["netbackup"]
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: netbackup_pre_test_setup
     tags: ["netbackup"]
     file: gpdb_src/ci/concourse/setup_netbackup.yml
@@ -3228,16 +3301,11 @@ jobs:
     params:
       BEHAVE_FLAGS: --tags=backup_and_restore_backups --tags=nbusetup76,nbupartIII --tags=-skip_filename_compatibility
       CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}};
-    on_failure:
-      <<: *set_failed
   - task: setup_new_gpdb4
     tags: ["netbackup"]
     file: gpdb_src/ci/concourse/setup_new_gpdb_for_backup_restore.yml
     params:
       <<: *dpm_ccp_gen_cluster_default_params
-    image: centos-gpdb-dev-6
-    on_failure:
-      <<: *set_failed
   - task: run_restore_tests
     tags: ["netbackup"]
     file: gpdb_src/ci/concourse/terraform_run_behave.yml
@@ -3247,10 +3315,8 @@ jobs:
       CUSTOM_ENV: export NETBACKUP_SERVER={{netbackup_host}};
     on_success:
       <<: *ccp_destroy
-    on_failure:
-      <<: *set_failed
   ensure:
-    <<: *set_failed
+    <<: *set_failed_dpm
 
 - name: DPM_ddboost_filename_compatibility_part1
   plan:
@@ -3280,7 +3346,7 @@ jobs:
     params:
       <<: *dpm_ccp_default_params
       vars:
-        <<: *ccp_default_vars
+        <<: *ccp_aws_default_vars
   - task: setup_gpdb4-3-11-3
     tags: ["ddboost"]
     file: ccp_src/ci/tasks/gen_cluster.yml
@@ -3288,6 +3354,9 @@ jobs:
       <<: *dpm_ccp_gen_cluster_default_params
     input_mapping:
       gpdb_binary: bin_gpdb4-3-11-3
+  - task: gpinitsystem
+    tags: ["ddboost"]
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: ddboost_pre_test_setup
     tags: ["ddboost"]
     config:
@@ -3308,7 +3377,7 @@ jobs:
         - -c
         - |
           set -ex
-          ccp_src/aws/setup_ssh_to_cluster.sh
+          ccp_src/scripts/setup_ssh_to_cluster.sh
           scp cluster_env_files/terraform/name mdw:/tmp/terraform_name
           scp ddboost_rpm/compat-libstdc-33-3.2.3-69.el6.x86_64.rpm mdw:/tmp/compat-libstdc-33-3.2.3-69.el6.x86_64.rpm
           scp ddboost_rpm/compat-libstdc-33-3.2.3-69.el6.x86_64.rpm sdw1:/tmp/compat-libstdc-33-3.2.3-69.el6.x86_64.rpm
@@ -3321,16 +3390,11 @@ jobs:
     params:
       BEHAVE_FLAGS: --tags=backup_and_restore_backups --tags=ddboostsetup,ddpartI --tags=-skip_filename_compatibility
       CUSTOM_ENV: export DD_SOURCE_HOST={{datadomain_source_host}}; export DD_DEST_HOST={{datadomain_dest_host}}; export DD_USER={{datadomain_user}}; export DD_PASSWORD={{datadomain_password}};
-    on_failure:
-      <<: *set_failed
   - task: setup_new_gpdb4
     tags: ["ddboost"]
     file: gpdb_src/ci/concourse/setup_new_gpdb_for_backup_restore.yml
     params:
       <<: *dpm_ccp_gen_cluster_default_params
-    image: centos-gpdb-dev-6
-    on_failure:
-      <<: *set_failed
   - task: run_restore_tests
     tags: ["ddboost"]
     file: gpdb_src/ci/concourse/terraform_run_behave.yml
@@ -3340,10 +3404,8 @@ jobs:
       CUSTOM_ENV: export DD_SOURCE_HOST={{datadomain_source_host}}; export DD_DEST_HOST={{datadomain_dest_host}}; export DD_USER={{datadomain_user}}; export DD_PASSWORD={{datadomain_password}};
     on_success:
       <<: *ccp_destroy
-    on_failure:
-      <<: *set_failed
   ensure:
-    <<: *set_failed
+    <<: *set_failed_dpm
 
 - name: DPM_ddboost_filename_compatibility_part2
   plan:
@@ -3373,7 +3435,7 @@ jobs:
     params:
       <<: *dpm_ccp_default_params
       vars:
-        <<: *ccp_default_vars
+        <<: *ccp_aws_default_vars
   - task: setup_gpdb4-3-11-3
     tags: ["ddboost"]
     file: ccp_src/ci/tasks/gen_cluster.yml
@@ -3381,6 +3443,9 @@ jobs:
       <<: *dpm_ccp_gen_cluster_default_params
     input_mapping:
       gpdb_binary: bin_gpdb4-3-11-3
+  - task: gpinitsystem
+    tags: ["ddboost"]
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: ddboost_pre_test_setup
     tags: ["ddboost"]
     config:
@@ -3401,7 +3466,7 @@ jobs:
         - -c
         - |
           set -ex
-          ccp_src/aws/setup_ssh_to_cluster.sh
+          ccp_src/scripts/setup_ssh_to_cluster.sh
           scp cluster_env_files/terraform/name mdw:/tmp/terraform_name
           scp ddboost_rpm/compat-libstdc-33-3.2.3-69.el6.x86_64.rpm mdw:/tmp/compat-libstdc-33-3.2.3-69.el6.x86_64.rpm
           scp ddboost_rpm/compat-libstdc-33-3.2.3-69.el6.x86_64.rpm sdw1:/tmp/compat-libstdc-33-3.2.3-69.el6.x86_64.rpm
@@ -3414,16 +3479,11 @@ jobs:
     params:
       BEHAVE_FLAGS: --tags=backup_and_restore_backups --tags=ddboostsetup,ddpartII --tags=-skip_filename_compatibility
       CUSTOM_ENV: export DD_SOURCE_HOST={{datadomain_source_host}}; export DD_DEST_HOST={{datadomain_dest_host}}; export DD_USER={{datadomain_user}}; export DD_PASSWORD={{datadomain_password}};
-    on_failure:
-      <<: *set_failed
   - task: setup_new_gpdb4
     tags: ["ddboost"]
     file: gpdb_src/ci/concourse/setup_new_gpdb_for_backup_restore.yml
     params:
       <<: *dpm_ccp_gen_cluster_default_params
-    image: centos-gpdb-dev-6
-    on_failure:
-      <<: *set_failed
   - task: run_restore_tests
     tags: ["ddboost"]
     file: gpdb_src/ci/concourse/terraform_run_behave.yml
@@ -3433,10 +3493,8 @@ jobs:
       CUSTOM_ENV: export DD_SOURCE_HOST={{datadomain_source_host}}; export DD_DEST_HOST={{datadomain_dest_host}}; export DD_USER={{datadomain_user}}; export DD_PASSWORD={{datadomain_password}};
     on_success:
       <<: *ccp_destroy
-    on_failure:
-      <<: *set_failed
   ensure:
-    <<: *set_failed
+    <<: *set_failed_dpm
 
 - name: DPM_ddboost_filename_compatibility_part3
   plan:
@@ -3466,7 +3524,7 @@ jobs:
     params:
       <<: *dpm_ccp_default_params
       vars:
-        <<: *ccp_default_vars
+        <<: *ccp_aws_default_vars
   - task: setup_gpdb4-3-11-3
     tags: ["ddboost"]
     file: ccp_src/ci/tasks/gen_cluster.yml
@@ -3474,6 +3532,9 @@ jobs:
       <<: *dpm_ccp_gen_cluster_default_params
     input_mapping:
       gpdb_binary: bin_gpdb4-3-11-3
+  - task: gpinitsystem
+    tags: ["ddboost"]
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: ddboost_pre_test_setup
     tags: ["ddboost"]
     config:
@@ -3494,7 +3555,7 @@ jobs:
         - -c
         - |
           set -ex
-          ccp_src/aws/setup_ssh_to_cluster.sh
+          ccp_src/scripts/setup_ssh_to_cluster.sh
           scp cluster_env_files/terraform/name mdw:/tmp/terraform_name
           scp ddboost_rpm/compat-libstdc-33-3.2.3-69.el6.x86_64.rpm mdw:/tmp/compat-libstdc-33-3.2.3-69.el6.x86_64.rpm
           scp ddboost_rpm/compat-libstdc-33-3.2.3-69.el6.x86_64.rpm sdw1:/tmp/compat-libstdc-33-3.2.3-69.el6.x86_64.rpm
@@ -3507,16 +3568,11 @@ jobs:
     params:
       BEHAVE_FLAGS: --tags=backup_and_restore_backups --tags=ddboostsetup,ddpartIII --tags=-skip_filename_compatibility
       CUSTOM_ENV: export DD_SOURCE_HOST={{datadomain_source_host}}; export DD_DEST_HOST={{datadomain_dest_host}}; export DD_USER={{datadomain_user}}; export DD_PASSWORD={{datadomain_password}};
-    on_failure:
-      <<: *set_failed
   - task: setup_new_gpdb4
     tags: ["ddboost"]
     file: gpdb_src/ci/concourse/setup_new_gpdb_for_backup_restore.yml
     params:
       <<: *dpm_ccp_gen_cluster_default_params
-    image: centos-gpdb-dev-6
-    on_failure:
-      <<: *set_failed
   - task: run_restore_tests
     tags: ["ddboost"]
     file: gpdb_src/ci/concourse/terraform_run_behave.yml
@@ -3526,10 +3582,8 @@ jobs:
       CUSTOM_ENV: export DD_SOURCE_HOST={{datadomain_source_host}}; export DD_DEST_HOST={{datadomain_dest_host}}; export DD_USER={{datadomain_user}}; export DD_PASSWORD={{datadomain_password}};
     on_success:
       <<: *ccp_destroy
-    on_failure:
-      <<: *set_failed
   ensure:
-    <<: *set_failed
+    <<: *set_failed_dpm
 
 - name: QP_memory-accounting
   plan:
@@ -3595,6 +3649,8 @@ jobs:
         <<: *ccp_default_vars
   - task: gen_cluster
     <<: *ccp_gen_cluster_params
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: run_tests
     <<: *ccp_run_tinc_tests_params
     params:
@@ -3608,36 +3664,33 @@ jobs:
   plan:
   - aggregate:
     - get: ccp_src
-      tags: ["ccp"]
     - get: gpdb_src
-      tags: ["ccp"]
       passed: [compile_gpdb_sles]
     - get: gpdb_binary
-      tags: ["ccp"]
       resource: bin_gpdb_sles
       passed: [compile_gpdb_sles]
       trigger: true
     - get: centos-gpdb-dev-6
-      tags: ["ccp"]
   - put: terraform
-    tags: ["ccp"]
     params:
       <<: *ccp_default_params
       vars:
         <<: *ccp_default_vars
-        platform: sles11
+        PLATFORM: sles11
+        default_image_user: root
   - task: gen_cluster
-    tags: ["ccp"]
     file: ccp_src/ci/tasks/gen_cluster.yml
     params:
       <<: *ccp_gen_cluster_default_params
-      platform: sles11
-    on_failure:
-      <<: *ccp_destroy
+      PLATFORM: sles11
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: run_tests
     <<: *ccp_run_tinc_tests_params
     params:
       TINC_TARGET: mpp_interconnect
+  ensure:
+    <<: *set_failed
 
 ## ======================================================================
 ## manual jobs

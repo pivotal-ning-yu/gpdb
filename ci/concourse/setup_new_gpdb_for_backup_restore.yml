@@ -1,25 +1,30 @@
+---
+
 platform: linux
 image_resource:
   type: docker-image
   source:
-    repository: pivotaldata/ccp
+    repository: toolsmiths/ccp
     tag: "7"
+
 inputs:
 - name: terraform
 - name: bin_gpdb
 - name: ccp_src
 - name: gpdb_src
 - name: cluster_env_files
+
 run:
   path: bash
   args:
   - -c
   - |
     set -ex
-    ccp_src/aws/setup_ssh_to_cluster.sh
+    ccp_src/scripts/setup_ssh_to_cluster.sh
     scp cluster_env_files/hostfile_all mdw:/home/gpadmin/hostfile_all
     ssh -t mdw "source /home/gpadmin/gpdb_src/ci/concourse/scripts/backup_utils.sh; copy_backup_files"
     ssh -t mdw "source /home/gpadmin/gpdb_src/ci/concourse/scripts/backup_utils.sh; destroy_gpdb"
-    ccp_src/aws/install_gpdb.sh 2 bin_gpdb
+    ccp_src/scripts/install_gpdb.sh 2 bin_gpdb
+    ccp_src/scripts/gpinitsystem.sh
     ssh -t mdw "source /home/gpadmin/gpdb_src/ci/concourse/scripts/backup_utils.sh; restore_backup_files"
 
