@@ -6,6 +6,7 @@
 *.sl
 *.sl.[0-9]
 *.sl.[0-9].[0-9]
+*.swp
 *.dylib
 *.dll
 *.a
@@ -34,7 +35,6 @@ config.cache
 config.status.lineno
 autom4te.cache
 configure.lineno
-.config.log.swp
 Debug
 pgsql.sln
 cscope.*
