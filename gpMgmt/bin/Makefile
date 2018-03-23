@@ -28,7 +28,7 @@ SERVER_SBIN=$(SERVER_SRC)/../sbin
 LIB_DIR=$(SRC)/lib
 PYLIB_DIR=$(SRC)/ext
 
-all: lockfile paramiko pycrypto pygresql stream pychecker psi psutil unittest2 subprocess32
+all: lockfile ecdsa paramiko pycrypto pygresql stream pychecker psi psutil unittest2 subprocess32
 
 #
 # Python Libraries
@@ -78,13 +78,25 @@ pygresql:
 #
 # PARAMIKO
 #
-PARAMIKO_VERSION=1.7.6-9
+PARAMIKO_VERSION=1.18.4
 PARAMIKO_DIR=paramiko-$(PARAMIKO_VERSION)
 paramiko:
 	@echo "--- paramiko"
 	cd $(PYLIB_SRC)/ && $(TAR) xzf $(PARAMIKO_DIR).tar.gz
 	cd $(PYLIB_SRC)/$(PARAMIKO_DIR)/ && python setup.py build
-	cp -r $(PYLIB_SRC)/$(PARAMIKO_DIR)/build/lib/paramiko  $(PYLIB_DIR)/
+	cp -r $(PYLIB_SRC)/$(PARAMIKO_DIR)/build/lib*/paramiko  $(PYLIB_DIR)/
+
+#
+# ECDSA
+#
+ECDSA_VERSION=0.13
+ECDSA_DIR=ecdsa-$(ECDSA_VERSION)
+ecdsa:
+	@echo "--- ecdsa"
+	cd $(PYLIB_SRC)/ && $(TAR) xzf $(ECDSA_DIR).tar.gz
+	cd $(PYLIB_SRC)/$(ECDSA_DIR)/ && python setup.py build
+	cp -r $(PYLIB_SRC)/$(ECDSA_DIR)/build/lib*/ecdsa  $(PYLIB_DIR)/
+
 
 #
 # LOCKFILE
