@@ -1710,14 +1710,6 @@ jobs:
         MAKE_TEST_COMMAND: storage_queryfinish_and_transactionmanagement
         BLDWRAP_POSTGRES_CONF_ADDONS: "fsync=off"
         TEST_OS: centos
-    - task: storage_vacuum_xidlimits
-      timeout: 3h
-      file: gpdb_src/ci/concourse/tinc_gpdb.yml
-      image: centos-gpdb-dev-5
-      params:
-        MAKE_TEST_COMMAND: storage_vacuum_xidlimits
-        BLDWRAP_POSTGRES_CONF_ADDONS: "fsync=off"
-        TEST_OS: centos
 
 - name: cs-subtransaction_centos
   plan:

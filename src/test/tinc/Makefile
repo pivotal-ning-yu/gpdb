@@ -64,15 +64,10 @@ non_discover_targets: aoco_compression filerep_end_to_end fts
 # Refer to the properties of the pulse project and individual build
 # stages for configuration requirements.
 
-storage: storage_vacuum_xidlimits aocoalter_catalog_loaders \
+storage: aocoalter_catalog_loaders \
 	storage_queryfinish_and_transactionmanagement \
 	storage_persistent_filerep_accessmethods_and_vacuum \
 	filerep_end_to_end_xlog_ctlog_cons
-
-storage_vacuum_xidlimits:
-	$(TESTER) $(DISCOVER) \
-	-s tincrepo/mpp/gpdb/tests/storage/vacuum \
-	-q "class=XidlimitsTests"
 
 aocoalter_catalog_loaders:
 	$(TESTER) $(DISCOVER) -t tincrepo/mpp/gpdb/tests \
