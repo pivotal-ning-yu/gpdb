@@ -491,6 +491,16 @@ tail -n +${SKIP} ${LOADERS_BIN} | tar zxf - -C ${CLIENTS_INSTALLDIR}
 ## Save original installer
 mv ${LOADERS_BIN} ${LOADERS_BIN}.orig
 
+echo ""
+echo "----------------------------------------------------------------------"
+echo "Remove libcurl - GPDB Clients"
+echo "----------------------------------------------------------------------"
+echo ""
+
+pushd ${CLIENTS_INSTALLDIR} > /dev/null
+  rm lib/libcurl*
+  rm -rf include/curl
+popd > /dev/null
 
 echo ""
 echo "----------------------------------------------------------------------"
