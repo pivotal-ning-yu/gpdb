@@ -827,6 +827,7 @@ bool 		optimizer_parallel_union;
 bool		optimizer_array_constraints;
 bool		optimizer_cte_inlining;
 bool		optimizer_enable_space_pruning;
+bool		optimizer_enable_associativity;
 
 /* Analyze related GUCs for Optimizer */
 bool		optimizer_analyze_root_partition;
@@ -4588,6 +4589,14 @@ static struct config_bool ConfigureNamesBool[] =
 		},
 		&gp_enable_segment_copy_checking,
 		true, NULL, NULL
+	},
+	{
+		{"optimizer_enable_associativity", PGC_USERSET, QUERY_TUNING_METHOD,
+			gettext_noop("Enables Join Associativity in optimizer"),
+			NULL
+		},
+		&optimizer_enable_associativity,
+		false, NULL, NULL
 	},
 	/* End-of-list marker */
 	{
