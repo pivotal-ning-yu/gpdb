@@ -57,6 +57,16 @@ class gpfdist1(unittest.TestCase):
 
     def setUp(self):
         self.p = subprocess.Popen('gpfdist -v -d %s >> %s 2>&1' % (_dataPath, mkpath('gpfdist.out')), shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        ok = False
+        for x in range (0, 5):
+            (ok, out) = run('curl http://localhost:8080/')
+            if ok:
+                break
+            else:
+                time.sleep(1)
+        if not ok:
+            print 'Time limit exceeded'
+            sys.exit(1)
         if not os.path.exists('%s/lineitem.tbl' % _dataPath):
             (ok, out) = run('cd %s && gzip -d -c lineitem.tbl.gz > lineitem.tbl' % _dataPath)
             if not ok:
