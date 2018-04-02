@@ -893,7 +893,6 @@ sub format_explain
 
     {
         use IO::File;
-        use POSIX qw(tmpnam);
 
         my ($tmpnam, $tmpfh);
 

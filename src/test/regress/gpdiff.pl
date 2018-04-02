@@ -16,6 +16,7 @@ use strict;
 use warnings;
 use POSIX;
 use File::Spec;
+use File::Temp;
 use Config;
 
 =head1 NAME
@@ -165,13 +166,10 @@ sub gpdiff_files
     {
         my $tmpnam;
 
-        for (;;) 
-        {
-            my $tmpfh;
+        my $tmpfh;
         
-            $tmpnam = tmpnam();
-            sysopen($tmpfh, $tmpnam, O_RDWR | O_CREAT | O_EXCL) && last;
-        }
+        $tmpfh = File::Temp->new();
+        $tmpnam = $tmpfh->filename;
 
         push @tmpfils, $tmpnam;
         
