@@ -10,6 +10,7 @@ grant usage on language plpgsql to group mdt_group1 with grant option;
 
 grant all privileges on language sql to public;
 
+revoke grant option for usage on language plperl from mdt_user1;
 drop language plperl;
 drop user mdt_user1;
 REVOKE  usage on language plpgsql from group mdt_group1 cascade;

@@ -16,6 +16,8 @@ grant usage on language plpgsql to group mdt_group1 with grant option;
 GRANT
 grant all privileges on language sql to public;
 GRANT
+revoke grant option for usage on language plperl from mdt_user1;
+REVOKE
 select classname  , schemaname , objname  , usestatus , usename , actionname , subtype from pg_stat_operations  where statime > ( select statime from pg_stat_operations where objname ='my_first_table' and actionname ='CREATE') and objname  not in ('pg_stat_operations','pg_stat_partition_operations') order by statime;
   classname  | schemaname |  objname   | usestatus | usename  | actionname | subtype  
 -------------+------------+------------+-----------+----------+------------+----------

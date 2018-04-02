@@ -1,7 +1,7 @@
 -- start_ignore
-drop table if exists partitioned_t; 
 drop function if exists plperl_prep();
 drop function if exists plperl_run();
+drop table if exists partitioned_t;
 -- end_ignore
 
 create table partitioned_t

@@ -2,6 +2,7 @@
 drop table testuserscards;
 drop table data;
 drop table keys;
+drop table test;
 -- end_ignore
 
 create table keys (key bytea);
