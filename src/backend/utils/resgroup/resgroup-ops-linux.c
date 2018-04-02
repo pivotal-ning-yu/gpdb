@@ -42,10 +42,9 @@
  * So far these operations are mainly for CPU rate limitation and accounting.
  */
 
-#define CGROUP_ERROR_PREFIX "cgroup is not properly configured: "
-#define CGROUP_ERROR(...) do { \
-	elog(ERROR, CGROUP_ERROR_PREFIX __VA_ARGS__); \
-} while (false)
+#define CGROUP_ERROR(...) elog(ERROR, __VA_ARGS__)
+#define CGROUP_CONFIG_ERROR(...) \
+	CGROUP_ERROR("cgroup is not properly configured: " __VA_ARGS__)
 
 #define PROC_MOUNTS "/proc/self/mounts"
 #define MAX_INT_STRING_LEN 20
@@ -524,10 +523,10 @@ checkPermission(Oid group, bool report)
 	{ \
 		if (report) \
 		{ \
-			CGROUP_ERROR("can't access %s '%s': %s", \
-						 prop[0] ? "file" : "directory", \
-						 path, \
-						 strerror(errno)); \
+			CGROUP_CONFIG_ERROR("can't access %s '%s': %s", \
+								prop[0] ? "file" : "directory", \
+								path, \
+								strerror(errno)); \
 		} \
 		return false; \
 	} \
@@ -657,7 +656,7 @@ detectCgroupMountPoint(void)
 
 	fp = setmntent(PROC_MOUNTS, "r");
 	if (fp == NULL)
-		CGROUP_ERROR("can not open '%s' for read", PROC_MOUNTS);
+		CGROUP_CONFIG_ERROR("can not open '%s' for read", PROC_MOUNTS);
 
 
 	while ((me = getmntent(fp)))
@@ -671,7 +670,7 @@ detectCgroupMountPoint(void)
 
 		p = strrchr(cgdir, '/');
 		if (p == NULL)
-			CGROUP_ERROR("cgroup mount point parse error: %s", cgdir);
+			CGROUP_CONFIG_ERROR("cgroup mount point parse error: %s", cgdir);
 		else
 			*p = 0;
 		break;
@@ -680,7 +679,7 @@ detectCgroupMountPoint(void)
 	endmntent(fp);
 
 	if (!cgdir[0])
-		CGROUP_ERROR("can not find cgroup mount point");
+		CGROUP_CONFIG_ERROR("can not find cgroup mount point");
 }
 
 /* Return the name for the OS group implementation */
