@@ -53,6 +53,8 @@ class cgroup(object):
         self.validate_permission("cpuacct/gpdb/cpuacct.usage", "r")
         self.validate_permission("cpuacct/gpdb/cpuacct.stat", "r")
 
+        # TODO: how to get the gpdb version here?
+        # We need the version to decide whether to make below check
         self.validate_permission("memory/memory.limit_in_bytes", "r")
 
     def die(self, msg):
