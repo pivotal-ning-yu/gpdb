@@ -1231,6 +1231,16 @@ relation_close(Relation relation, LOCKMODE lockmode)
 
 	if (lockmode != NoLock)
 		UnlockRelationId(&relid, lockmode);
+	else
+	{
+		LOCKTAG		tag;
+		LOCKMODE	mode;
+
+		SET_LOCKTAG_RELATION(tag, relid.dbId, relid.relId);
+
+		for (mode = 1; mode <= 8; mode++)
+			LockSetPersistent(&tag, mode);
+	}
 }
 
 
