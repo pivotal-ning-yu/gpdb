@@ -868,6 +868,29 @@ checkResgroupMemAuditor(ResGroupCaps *caps)
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				errmsg("resource group concurrency must be 0 when group memory_auditor is %s",
 					ResGroupMemAuditorName[RESGROUP_MEMORY_AUDITOR_CGROUP])));
+
+	if (caps->memAuditor == RESGROUP_MEMORY_AUDITOR_CGROUP &&
+		!gp_resource_group_enable_cgroup_memory)
+	{
+		/*
+		 * Suppose the user has reconfigured the cgroup dirs by following
+		 * the gpdb documents, could it take effect at runtime (e.g. create
+		 * the resgroup again) without restart the cluster?
+		 *
+		 * It's possible but might not be reliable, as the user might
+		 * introduced unwanted changes to other cgroup dirs during the
+		 * reconfiguration (e.g. changed the permissions, moved processes
+		 * in/out).
+		 *
+		 * So we do not recheck the permissions here.
+		 */
+
+		ereport(ERROR,
+				(errcode(ERRCODE_GP_FEATURE_NOT_CONFIGURED),
+				 errmsg("cgroup is not properly configured for the 'cgroup' memory auditor"),
+				 errhint("Extra cgroup configurations are required to enable this feature, "
+						 "please refer to the Greenplum Documentations for details")));
+	}
 }
 
 /*
