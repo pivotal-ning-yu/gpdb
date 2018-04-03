@@ -389,22 +389,17 @@ ccp_aggregate_gets_anchor: &ccp_aggregate_gets
 
 ccp_aws_aggregate_gets_anchor: &ccp_aws_aggregate_gets
   - get: gpdb_src
-    tags: ["ccp"]
     params: {submodules: none}
     passed: [compile_gpdb_centos]
   - get: sync_tools_gpdb
-    tags: ["ccp"]
     resource: sync_tools_gpdb_centos
     passed: [compile_gpdb_centos]
   - get: gpdb_binary
-    tags: ["ccp"]
     resource: bin_gpdb_centos
     passed: [compile_gpdb_centos]
     trigger: true
   - get: ccp_src
-    tags: ["ccp"]
   - get: centos-gpdb-dev-6
-    tags: ["ccp"]
 
 ccp_terraform_bigger_vars_anchor: &ccp_terraform_bigger_vars
   instance_type: n1-standard-2
