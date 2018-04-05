@@ -1005,6 +1005,84 @@ jobs:
       params:
         file: rc_bin_gpdb/QAUtils-rhel5-x86_64.tar.gz
 
+- name: component-testing-centos5-binary-installer
+  plan:
+  - aggregate:
+    - get: gpdb_src
+      passed:
+      - gpdb_rc_packaging_centos5
+    - get: installer_rhel5_gpdb_rc
+      passed:
+      - gpdb_rc_packaging_centos5
+      trigger: true
+    - get: gpdb_release_src
+  - task: install-test-for-components
+    config:
+      platform: linux
+      inputs:
+      - name: installer_rhel5_gpdb_rc
+      - name: gpdb_release_src
+      image_resource:
+        type: docker-image
+        source:
+          repository: chef/inspec
+          tag: 'latest'
+      run:
+        path: "sh"
+        args:
+        - -exc
+        - |
+          set -x
+          GPDB_INSTALLER_FILE=$(echo installer_rhel5_gpdb_rc/*.zip)
+          cp ${GPDB_INSTALLER_FILE} .
+          GPDB_BIN=$( basename "${GPDB_INSTALLER_FILE}" .zip ).bin
+          unzip $( basename "${GPDB_INSTALLER_FILE}" ) "${GPDB_BIN}"
+          SKIP=$(awk '/^__END_HEADER__/ {print NR + 1; exit 0; }'  "${GPDB_BIN}")
+          GPDB_VERSION=$(basename "${GPDB_BIN}" |  awk -F"-" '{ print $3 }')
+          GPDB_INSTALLDIR="/usr/local/greenplum-db-${GPDB_VERSION}"
+          mkdir -p "${GPDB_INSTALLDIR}"
+          tail -n "+${SKIP}" "${GPDB_BIN}" | tar zxf - -C "${GPDB_INSTALLDIR}"
+          GPDB_VERSION="${GPDB_VERSION}" inspec exec gpdb_release_src/concourse/tests/component_gpbackup/ --reporter documentation
+
+- name: component-testing-sles11-binary-installer
+  plan:
+  - aggregate:
+    - get: gpdb_src
+      passed:
+      - gpdb_rc_packaging_sles11
+    - get: installer_sles11_gpdb_rc
+      passed:
+      - gpdb_rc_packaging_sles11
+      trigger: true
+    - get: gpdb_release_src
+  - task: install-test-for-components
+    config:
+      platform: linux
+      inputs:
+      - name: installer_sles11_gpdb_rc
+      - name: gpdb_release_src
+      image_resource:
+        type: docker-image
+        source:
+          repository: chef/inspec
+          tag: 'latest'
+      run:
+        path: "sh"
+        args:
+        - -exc
+        - |
+          set -x
+          GPDB_INSTALLER_FILE=$(echo installer_sles11_gpdb_rc/*.zip)
+          cp ${GPDB_INSTALLER_FILE} .
+          GPDB_BIN=$( basename "${GPDB_INSTALLER_FILE}" .zip ).bin
+          unzip $( basename "${GPDB_INSTALLER_FILE}" ) "${GPDB_BIN}"
+          SKIP=$(awk '/^__END_HEADER__/ {print NR + 1; exit 0; }'  "${GPDB_BIN}")
+          GPDB_VERSION=$(basename "${GPDB_BIN}" |  awk -F"-" '{ print $3 }')
+          GPDB_INSTALLDIR="/usr/local/greenplum-db-${GPDB_VERSION}"
+          mkdir -p "${GPDB_INSTALLDIR}"
+          tail -n "+${SKIP}" "${GPDB_BIN}" | tar zxf - -C "${GPDB_INSTALLDIR}"
+          GPDB_VERSION="${GPDB_VERSION}" inspec exec gpdb_release_src/concourse/tests/component_gpbackup/ --reporter documentation
+
 - name: push-to-pivnet
   plan:
     - aggregate:
@@ -1013,7 +1091,7 @@ jobs:
         - gpdb_rc_packaging_centos5
         - compile_gpdb_centos5
       - get: installer_rhel5_gpdb_rc
-        passed: [gpdb_rc_packaging_centos5]
+        passed: [component-testing-centos5-binary-installer]
       - get: installer_appliance_rhel5_gpdb_rc
         passed: [gpdb_rc_packaging_centos5]
       - get: installer_rhel5_gpdb_clients
@@ -1023,7 +1101,7 @@ jobs:
       - get: installer_rhel5_gpdb_loaders
         passed: [compile_gpdb_centos5]
       - get: installer_sles11_gpdb_rc
-        passed: [gpdb_rc_packaging_sles11]
+        passed: [component-testing-sles11-binary-installer]
       - get: installer_sles11_gpdb_loaders
         passed: [compile_gpdb_sles11]
       - get: installer_sles11_gpdb_connectivity
