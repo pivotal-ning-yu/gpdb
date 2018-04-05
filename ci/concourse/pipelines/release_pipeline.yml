@@ -60,6 +60,15 @@ resources:
     secret_access_key: {{bucket-secret-access-key}}
     versioned_file: bin_gpdb_centos5/bin_gpdb.tar.gz
 
+- name: bin_gpdb_centos5_with_components
+  type: s3
+  source:
+    access_key_id: {{bucket-access-key-id}}
+    bucket: {{bucket-name}}
+    region_name: {{aws-region}}
+    secret_access_key: {{bucket-secret-access-key}}
+    versioned_file: bin_gpdb_centos5_with_components/bin_gpdb.tar.gz
+
 - name: bin_gpdb_sles11
   type: s3
   source:
@@ -68,6 +77,15 @@ resources:
     region_name: {{aws-region}}
     secret_access_key: {{bucket-secret-access-key}}
     versioned_file: bin_gpdb_sles11/bin_gpdb.tar.gz
+
+- name: bin_gpdb_sles11_with_components
+  type: s3
+  source:
+    access_key_id: {{bucket-access-key-id}}
+    bucket: {{bucket-name}}
+    region_name: {{aws-region}}
+    secret_access_key: {{bucket-secret-access-key}}
+    versioned_file: bin_gpdb_sles11_with_components/bin_gpdb.tar.gz
 
 - name: sync_tools_gpdb_centos
   type: s3
@@ -149,6 +167,15 @@ resources:
     region_name: {{aws-region}}
     secret_access_key: {{bucket-secret-access-key}}
     regexp: deliverables/greenplum-loaders-4.(.*)-WinXP-x86_32.msi
+
+- name: component_gpbackup
+  type: s3
+  source:
+    access_key_id: {{gpdb5-pipeline-bucket-access-key-id}}
+    bucket: {{component-bucket-name}}
+    region_name: {{gpdb5-pipeline-aws-region}}
+    secret_access_key: {{gpdb5-pipeline-bucket-secret-access-key}}
+    regexp: components/gpbackup/gpbackup-(.*).tar.gz
 
 - name: sync_tools_gpdb_sles
   type: s3
@@ -687,13 +714,10 @@ jobs:
       TARGET_OS: sles
       TARGET_OS_VERSION: 11
       BLD_TARGETS: clients connectivity loaders
-  - task: add_gpbackup
-    file: gpdb_src/ci/concourse/add_gpbackup.yml
-    image: centos-gpdb-dev-6
   - aggregate:
     - put: bin_gpdb_sles11
       params:
-        file: gpdb_final/bin_gpdb.tar.gz
+        file: gpdb_artifacts/bin_gpdb.tar.gz
     - put: installer_sles11_gpdb_clients
       params:
         file: gpdb_artifacts/greenplum-clients-*-sles11-x86_64.zip
@@ -731,6 +755,26 @@ jobs:
       params:
         file: gpdb_artifacts/ccache_gpdb.tar.gz
 
+- name: gpdb_component_packaging_sles
+  plan:
+  - aggregate:
+    - get: bin_gpdb_sles11
+      passed: [compile_gpdb_sles11]
+      trigger: true
+    - get: gpdb_src
+    - get: component_gpbackup
+  - aggregate:
+    - do:
+      - task: add_components_to_bin_gpdb_sles11
+        file: gpdb_src/ci/concourse/add_components_sles.yml
+        input_mapping:
+          bin_gpdb: bin_gpdb_sles11
+        output_mapping:
+          bin_gpdb_with_components: bin_gpdb_sles11_with_components
+      - put: bin_gpdb_sles11_with_components
+        params:
+          file: bin_gpdb_sles11_with_components/bin_gpdb.tar.gz
+
 - name: gpdb_rc_packaging_sles11
   plan:
   - aggregate:
@@ -738,8 +782,8 @@ jobs:
       passed:
       - compile_gpdb_sles11
     - get: bin_gpdb
-      resource: bin_gpdb_sles11
-      passed: [compile_gpdb_sles11]
+      resource: bin_gpdb_sles11_with_components
+      passed: [gpdb_component_packaging_sles]
       trigger: true
   - task: separate_qautils_files_for_rc
     file: gpdb_src/ci/concourse/separate_qautils_files_for_rc_sles11.yml
@@ -841,13 +885,10 @@ jobs:
       IVYREPO_REALM: {{ivyrepo_realm}}
       IVYREPO_USER: {{ivyrepo_user}}
       IVYREPO_PASSWD: {{ivyrepo_passwd}}
-  - task: add_gpbackup
-    file: gpdb_src/ci/concourse/add_gpbackup.yml
-    image: centos-gpdb-dev-6
   - aggregate:
     - put: bin_gpdb_centos5
       params:
-        file: gpdb_final/bin_gpdb.tar.gz
+        file: gpdb_artifacts/bin_gpdb.tar.gz
     - put: installer_rhel5_gpdb_clients
       params:
         file: gpdb_artifacts/greenplum-clients-*-rhel5-x86_64.zip
@@ -885,6 +926,30 @@ jobs:
       params:
         file: gpdb_artifacts/ccache_gpdb.tar.gz
 
+# Component Addition Stage
+
+- name: gpdb_component_packaging_centos
+  plan:
+  - aggregate:
+    - get: gpdb_src
+    - get: bin_gpdb_centos5
+      passed: [compile_gpdb_centos5]
+      trigger: true
+    - get: centos-gpdb-dev-5
+    - get: component_gpbackup
+  - aggregate:
+    - do:
+      - task: add_components_to_bin_gpdb_centos5
+        file: gpdb_src/ci/concourse/add_components.yml
+        image: centos-gpdb-dev-5
+        input_mapping:
+          bin_gpdb: bin_gpdb_centos5
+        output_mapping:
+          bin_gpdb_with_components: bin_gpdb_centos5_with_components
+      - put: bin_gpdb_centos5_with_components
+        params:
+          file: bin_gpdb_centos5_with_components/bin_gpdb.tar.gz
+
 - name: gpdb_rc_packaging_centos5
   plan:
   - aggregate:
@@ -892,8 +957,8 @@ jobs:
       passed:
       - compile_gpdb_centos5
     - get: bin_gpdb
-      resource: bin_gpdb_centos5
-      passed: [compile_gpdb_centos5]
+      resource: bin_gpdb_centos5_with_components
+      passed: [gpdb_component_packaging_centos]
       trigger: true
     - get: centos-gpdb-dev-5
   - task: separate_qautils_files_for_rc

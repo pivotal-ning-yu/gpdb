@@ -1,0 +1,17 @@
+---
+platform: linux
+
+image_resource:
+  type: docker-image
+
+inputs:
+  - name: gpdb_src
+  - name: bin_gpdb
+  - name: component_gpbackup
+
+outputs:
+  - name: bin_gpdb_with_components
+
+run:
+  path: gpdb_src/ci/concourse/scripts/add_components.sh
+
