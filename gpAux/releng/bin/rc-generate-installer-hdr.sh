@@ -394,7 +394,7 @@ generate_gpdb_installer_header() {
 		Greenplum Database is installed in \${installPath}
 
 		Pivotal Greenplum documentation is available
-		for download at http://docs.gopivotal.com/gpdb
+		for download at https://gpdb.docs.pivotal.io
 		********************************************************************************
 		EOF
 
