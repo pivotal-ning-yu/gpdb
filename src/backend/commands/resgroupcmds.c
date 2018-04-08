@@ -882,8 +882,6 @@ checkResgroupMemAuditor(int32 memAuditor)
 	if (memAuditor == RESGROUP_MEMORY_AUDITOR_CGROUP &&
 		!gp_resource_group_enable_cgroup_memory)
 	{
-		const char *url = "https://gpdb.docs.pivotal.io/560/relnotes/GPDB_561_README.html#topic_jww_p5n_scb";
-
 		/*
 		 * Suppose the user has reconfigured the cgroup dirs by following
 		 * the gpdb documents, could it take effect at runtime (e.g. create
@@ -901,7 +899,7 @@ checkResgroupMemAuditor(int32 memAuditor)
 				(errcode(ERRCODE_GP_FEATURE_NOT_CONFIGURED),
 				 errmsg("cgroup is not properly configured for the 'cgroup' memory auditor"),
 				 errhint("Extra cgroup configurations are required to enable this feature, "
-						 "please refer to %s for details", url)));
+						 "please refer to the Greenplum Documentations for details")));
 	}
 }
 
