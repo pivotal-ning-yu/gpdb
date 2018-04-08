@@ -619,7 +619,7 @@ permListCheck(const PermList *permlist, Oid group, bool report)
 	size_t pathsize = sizeof(path);
 	int i;
 
-	if (permlist->presult)
+	if (group == RESGROUP_ROOT_ID && permlist->presult)
 		*permlist->presult = false;
 
 	foreach_perm_item(i, permlist->items)
@@ -645,7 +645,7 @@ permListCheck(const PermList *permlist, Oid group, bool report)
 		}
 	}
 
-	if (permlist->presult)
+	if (group == RESGROUP_ROOT_ID && permlist->presult)
 		*permlist->presult = true;
 
 	return true;
@@ -765,6 +765,31 @@ ResGroupOps_Name(void)
 	return "cgroup";
 }
 
+/*
+ * Probe the configuration for the OS group implementation.
+ *
+ * Return true if everything is OK, or false is some requirements are not
+ * satisfied.  Will not fail in either case.
+ */
+bool
+ResGroupOps_Probe(void)
+{
+	/*
+	 * We only have to do these checks and initialization once on each host,
+	 * so only let postmaster do the job.
+	 */
+	if (IsUnderPostmaster)
+		return true;
+
+	detectCgroupMountPoint();
+
+	/*
+	 * Probe for optional features like the 'cgroup' memory auditor,
+	 * do not raise any errors.
+	 */
+	return checkPermission(RESGROUP_ROOT_ID, false);
+}
+
 /* Check whether the OS group implementation is available and useable */
 void
 ResGroupOps_Bless(void)
@@ -776,7 +801,9 @@ ResGroupOps_Bless(void)
 	if (IsUnderPostmaster)
 		return;
 
-	detectCgroupMountPoint();
+	/*
+	 * Check again, this time we will fail on unmet requirements.
+	 */
 	checkPermission(RESGROUP_ROOT_ID, true);
 
 	/*

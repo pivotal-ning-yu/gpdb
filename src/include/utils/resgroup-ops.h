@@ -20,6 +20,7 @@
  */
 
 extern const char * ResGroupOps_Name(void);
+extern bool ResGroupOps_Probe(void);
 extern void ResGroupOps_Bless(void);
 extern void ResGroupOps_Init(void);
 extern void ResGroupOps_AdjustGUCs(void);

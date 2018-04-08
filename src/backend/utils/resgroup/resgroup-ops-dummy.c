@@ -36,6 +36,19 @@ ResGroupOps_Name(void)
 	return "unsupported";
 }
 
+/*
+ * Probe the configuration for the OS group implementation.
+ *
+ * Return true if everything is OK, or false is some requirements are not
+ * satisfied.  Will not fail in either case.
+ */
+bool
+ResGroupOps_Probe(void)
+{
+	unsupported_system();
+	return false;
+}
+
 /* Check whether the OS group implementation is available and useable */
 void
 ResGroupOps_Bless(void)
