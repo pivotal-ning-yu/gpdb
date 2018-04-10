@@ -105,7 +105,8 @@ extern bool TransactionIdFollowsOrEquals(TransactionId id1, TransactionId id2);
 /* in transam/varsup.c */
 extern TransactionId GetNewTransactionId(bool isSubXact, bool setProcXid);
 extern TransactionId ReadNewTransactionId(void);
-extern void SetTransactionIdLimit(TransactionId oldest_datfrozenxid,
+extern void SetTransactionIdLimit(TransactionId oldest_datfrozenxid_connectabledbs,
+					  TransactionId oldest_datfrozenxid,
 					  Name oldest_datname);
 extern Oid	GetNewObjectId(void);
 

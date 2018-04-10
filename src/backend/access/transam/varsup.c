@@ -238,7 +238,8 @@ ReadNewTransactionId(void)
  * of our cluster).
  */
 void
-SetTransactionIdLimit(TransactionId oldest_datfrozenxid,
+SetTransactionIdLimit(TransactionId oldest_connectable_datfrozenxid,
+					  TransactionId oldest_datfrozenxid,
 					  Name oldest_datname)
 {
 	TransactionId xidVacLimit;
@@ -247,7 +248,7 @@ SetTransactionIdLimit(TransactionId oldest_datfrozenxid,
 	TransactionId xidWrapLimit;
 	TransactionId curXid;
 
-	Assert(TransactionIdIsNormal(oldest_datfrozenxid));
+	Assert(TransactionIdIsNormal(oldest_connectable_datfrozenxid));
 
 	/*
 	 * The place where we actually get into deep trouble is halfway around
@@ -256,7 +257,7 @@ SetTransactionIdLimit(TransactionId oldest_datfrozenxid,
 	 * size of the loop a little bit.  But we throw in plenty of slop below,
 	 * so it doesn't matter.)
 	 */
-	xidWrapLimit = oldest_datfrozenxid + (MaxTransactionId >> 1);
+	xidWrapLimit = oldest_connectable_datfrozenxid + (MaxTransactionId >> 1);
 	if (xidWrapLimit < FirstNormalTransactionId)
 		xidWrapLimit += FirstNormalTransactionId;
 

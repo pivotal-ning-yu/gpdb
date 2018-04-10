@@ -214,6 +214,7 @@ write_database_file(Relation drel, bool startup)
 	HeapTuple	tuple;
 	NameData	oldest_datname;
 	TransactionId oldest_datfrozenxid = InvalidTransactionId;
+	TransactionId oldest_connectable_datfrozenxid = InvalidTransactionId;
 	MirroredFlatFileOpen mirroredOpen;
 
 	initStringInfo(&buffer);
@@ -247,17 +248,20 @@ write_database_file(Relation drel, bool startup)
 		/*
 		 * Identify the oldest datfrozenxid.  This must match
 		 * the logic in vac_truncate_clog() in vacuum.c.
-		 *
-		 * MPP-20053: Skip databases that cannot be connected to in computing
-		 * the oldest database.
 		 */
-		if (dbform->datallowconn && TransactionIdIsNormal(datfrozenxid))
+		if (TransactionIdIsNormal(datfrozenxid))
 		{
 			if (oldest_datfrozenxid == InvalidTransactionId ||
 				TransactionIdPrecedes(datfrozenxid, oldest_datfrozenxid))
 			{
 				oldest_datfrozenxid = datfrozenxid;
 				namestrcpy(&oldest_datname, datname);
+			}
+			if (dbform->datallowconn &&
+			    (oldest_connectable_datfrozenxid == InvalidTransactionId ||
+			     TransactionIdPrecedes(datfrozenxid, oldest_connectable_datfrozenxid)))
+			{
+				oldest_connectable_datfrozenxid = datfrozenxid;
 			}
 		}
 
@@ -310,8 +314,10 @@ write_database_file(Relation drel, bool startup)
 	/*
 	 * Set the transaction ID wrap limit using the oldest datfrozenxid
 	 */
-	if (oldest_datfrozenxid != InvalidTransactionId)
-		SetTransactionIdLimit(oldest_datfrozenxid, &oldest_datname);
+	if (oldest_datfrozenxid != InvalidTransactionId &&
+	    oldest_connectable_datfrozenxid != InvalidTransactionId)
+		SetTransactionIdLimit(oldest_connectable_datfrozenxid,
+				      oldest_datfrozenxid, &oldest_datname);
 }
 
 

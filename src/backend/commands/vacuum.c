@@ -1874,7 +1874,7 @@ vac_truncate_clog(TransactionId frozenXID)
 	 * Update the wrap limit for GetNewTransactionId.  Note: this function
 	 * will also signal the postmaster for an(other) autovac cycle if needed.
 	 */
-	SetTransactionIdLimit(frozenXID, &oldest_datname);
+	SetTransactionIdLimit(frozenXID, frozenXID, &oldest_datname);
 }
 
 
