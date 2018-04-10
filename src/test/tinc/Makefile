@@ -352,7 +352,23 @@ basic_exttab:
 
 # gppkg language package tests:
 gppkg:
-	$(TESTER) $(DISCOVER) -s mpp/gpdb/tests/package
+	$(TESTER) $(DISCOVER) -s mpp/gpdb/tests/package/etablefunc_gppc
+	$(TESTER) $(DISCOVER) -s mpp/gpdb/tests/package/mapreduce
+	$(TESTER) $(DISCOVER) -s mpp/gpdb/tests/package/spi
+	$(TESTER) $(DISCOVER) -s mpp/gpdb/tests/package/compat
+	$(TESTER) $(DISCOVER) -s mpp/gpdb/tests/package/procedural_language/plpgsql_caching
+	$(TESTER) $(DISCOVER) -s mpp/gpdb/tests/package/procedural_language/pljava
+	$(TESTER) $(DISCOVER) -s mpp/gpdb/tests/package/procedural_language/plperl
+	$(TESTER) $(DISCOVER) -s mpp/gpdb/tests/package/procedural_language/plr
+	$(TESTER) $(DISCOVER) -s mpp/gpdb/tests/package/system_catalog
+	$(TESTER) $(DISCOVER) -s mpp/gpdb/tests/package/contrib/postgis
+	$(TESTER) $(DISCOVER) -s mpp/gpdb/tests/package/contrib/pgcrypto
+	$(TESTER) $(DISCOVER) -s mpp/gpdb/tests/package/plperl
+	$(TESTER) $(DISCOVER) -s mpp/gpdb/tests/package/metadata_track
+	$(TESTER) $(DISCOVER) -s mpp/gpdb/tests/package/subt_limit_sanity
+	$(TESTER) $(DISCOVER) -s mpp/gpdb/tests/package/language
+	$(TESTER) $(DISCOVER) -s mpp/gpdb/tests/package/oid_inconsistency
+	$(TESTER) $(DISCOVER) -s mpp/gpdb/tests/package/gppc
 
 # gpexpand test
 gpexpand_1:
