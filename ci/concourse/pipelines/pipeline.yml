@@ -2518,11 +2518,21 @@ jobs:
       gpdb_binary: bin_gpdb
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
-  - task: run_tests
+  - task: run_independent_backup_restore_tests
     file: gpdb_src/ci/concourse/terraform_run_behave.yml
     image: centos-gpdb-dev-6
     params:
-      BEHAVE_FLAGS: --tags=backups,backup_and_restore_backups,backup_and_restore_restores,restores --tags=-nbuonly --tags=-ddonly
+      BEHAVE_FLAGS: --tags=backups,restores --tags=-nbuonly --tags=-ddonly
+  - task: run_backup_tests
+    file: gpdb_src/ci/concourse/terraform_run_behave.yml
+    image: centos-gpdb-dev-6
+    params:
+      BEHAVE_FLAGS: --tags=backup_and_restore_backups --tags=-nbuonly --tags=-ddonly
+  - task: run_restore_tests
+    file: gpdb_src/ci/concourse/terraform_run_behave.yml
+    image: centos-gpdb-dev-6
+    params:
+      BEHAVE_FLAGS: --tags=backup_and_restore_restores --tags=-nbuonly --tags=-ddonly
     on_success:
       <<: *ccp_destroy
   ensure:
