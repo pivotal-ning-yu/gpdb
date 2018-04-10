@@ -82,10 +82,11 @@ ResGroupOps_CreateGroup(Oid group)
 /*
  * Destroy the OS group for group.
  *
- * Fail if any process is running under it.
+ * One OS group can not be dropped if there are processes running under it,
+ * if migrate is true these processes will be moved out automatically.
  */
 void
-ResGroupOps_DestroyGroup(Oid group)
+ResGroupOps_DestroyGroup(Oid group, bool migrate)
 {
 	unsupported_system();
 }

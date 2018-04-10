@@ -894,15 +894,16 @@ ResGroupOps_CreateGroup(Oid group)
 /*
  * Destroy the OS group for group.
  *
- * Fail if any process is running under it.
+ * One OS group can not be dropped if there are processes running under it,
+ * if migrate is true these processes will be moved out automatically.
  */
 void
-ResGroupOps_DestroyGroup(Oid group)
+ResGroupOps_DestroyGroup(Oid group, bool migrate)
 {
-	if (!removeDir(group, "cpu", "cpu.shares", true)
-		|| !removeDir(group, "cpuacct", NULL, true)
+	if (!removeDir(group, "cpu", "cpu.shares", migrate)
+		|| !removeDir(group, "cpuacct", NULL, migrate)
 		|| (gp_resource_group_enable_cgroup_memory &&
-			!removeDir(group, "memory", "memory.limit_in_bytes", true)))
+			!removeDir(group, "memory", "memory.limit_in_bytes", migrate)))
 	{
 		CGROUP_ERROR("can't remove cgroup for resgroup '%d': %s",
 			 group, strerror(errno));
