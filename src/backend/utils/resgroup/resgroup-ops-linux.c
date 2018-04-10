@@ -423,7 +423,7 @@ removeDir(Oid group, const char *comp, const char *prop, bool unassign)
 {
 	char path[MAXPGPATH];
 	size_t pathsize = sizeof(path);
-	int retry = 0;
+	int retry = unassign ? 0 : MAX_RETRY - 1;
 	int fddir;
 
 	buildPath(group, NULL, comp, "", path, pathsize);
