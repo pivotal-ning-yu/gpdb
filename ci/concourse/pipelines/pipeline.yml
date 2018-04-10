@@ -302,11 +302,11 @@ set_failed_anchor: &set_failed
         GOOGLE_PROJECT_ID: {{google-project-id}}
         GOOGLE_ZONE: {{google-zone}}
         GOOGLE_SERVICE_ACCOUNT: {{google-service-account}}
-        AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
-        AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
+        AWS_ACCESS_KEY_ID: {{gpdb5-pipeline-bucket-access-key-id}}
+        AWS_SECRET_ACCESS_KEY: {{gpdb5-pipeline-bucket-secret-access-key}}
         AWS_DEFAULT_REGION: {{tf-machine-region}}
         BUCKET_PATH: clusters-google/
-        BUCKET_NAME: {{tf-bucket-name}}
+        BUCKET_NAME: {{gpdb5-pipeline-tf-bucket-name}}
 
 set_failed_anchor: &set_failed_dpm
   do:
