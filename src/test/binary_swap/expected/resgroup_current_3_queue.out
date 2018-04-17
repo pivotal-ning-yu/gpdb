@@ -10,9 +10,12 @@ select * from pg_resgroup
 ---------------+--------
  default_group |      0
  admin_group   |      0
+ rg_dump_test1 |      0
+ rg_dump_test2 |      0
+ rg_dump_test3 |      0
  rg2           |      0
  rg1           |      0
-(4 rows)
+(7 rows)
 
 select min(reslimittype)
   from pg_resgroupcapability
@@ -24,7 +27,10 @@ select min(reslimittype)
    1
    1
    1
-(4 rows)
+   1
+   1
+   1
+(7 rows)
 
 select groupname from gp_toolkit.gp_resgroup_config
   order by groupid;
@@ -32,9 +38,12 @@ select groupname from gp_toolkit.gp_resgroup_config
 ---------------
  default_group
  admin_group
+ rg_dump_test1
+ rg_dump_test2
+ rg_dump_test3
  rg2
  rg1
-(4 rows)
+(7 rows)
 
 select rsgname from gp_toolkit.gp_resgroup_status
   order by groupid;
