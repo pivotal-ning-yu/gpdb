@@ -90,8 +90,41 @@ EOF1
 EOF
 }
 
+run_binary_swap_test() {
+    local gpdb_master_alias=$1
+
+    if [ "${TEST_BINARY_SWAP}" != "true" ]; then
+        return 0
+    fi
+
+    ssh $gpdb_master_alias bash -ex <<EOF
+        source /usr/local/greenplum-db-devel/greenplum_path.sh
+        export PGPORT=5432
+        export MASTER_DATA_DIRECTORY=/data/gpdata/master/gpseg-1
+        export BINARY_SWAP_VARIANT=_resgroup
+
+        cd /home/gpadmin/gpdb_src
+        time ./concourse/scripts/test_binary_swap_gpdb.bash || (
+            errcode=\$?
+            find src/test/binary_swap -name regression.diffs \
+            | while read diff; do
+                cat <<EOF1
+
+======================================================================
+DIFF FILE: \$diff
+----------------------------------------------------------------------
+
+EOF1
+                cat \$diff
+              done
+            exit \$errcode
+        )
+EOF
+}
+
 mount_cgroups ccp-${CLUSTER_NAME}-0
 mount_cgroups ccp-${CLUSTER_NAME}-1
 make_cgroups_dir ccp-${CLUSTER_NAME}-0
 make_cgroups_dir ccp-${CLUSTER_NAME}-1
 run_resgroup_test mdw
+run_binary_swap_test mdw

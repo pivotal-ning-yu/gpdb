@@ -7,7 +7,8 @@ function gen_env() {
         source /usr/local/greenplum-db-devel/greenplum_path.sh
         source \${1}/gpdb_src/gpAux/gpdemo/gpdemo-env.sh
         cd "\${1}/gpdb_src/src/test/binary_swap"
-        ./test_binary_swap.sh -b /tmp/local/greenplum-db-devel
+        ./test_binary_swap.sh -b /tmp/local/greenplum-db-devel \
+			-v "${BINARY_SWAP_VARIANT}"
 EOF
 
     chmod a+x /opt/run_test.sh
