@@ -842,6 +842,9 @@ bool gp_plpgsql_clear_cache_always = false;
 /* copy */
 bool		gp_enable_segment_copy_checking = true;
 
+/* GUCs for slice table*/
+int			gp_max_slices;
+
 /*
  * Default storage options GUC.  Value is comma-separated name=value
  * pairs.  E.g. "appendonly=true,orientation=column"
@@ -6160,6 +6163,16 @@ static struct config_int ConfigureNamesInt[] =
 		 GUC_NOT_IN_SAMPLE | GUC_NO_SHOW_ALL | GUC_GPDB_ADDOPT
 		},
 		&gp_motion_slice_noop,
+		0, 0, INT_MAX, NULL, NULL
+	},
+
+	{
+		{"gp_max_slices", PGC_USERSET, PRESET_OPTIONS,
+			gettext_noop("Maximum slices for a single query"),
+			NULL,
+			GUC_GPDB_ADDOPT | GUC_NOT_IN_SAMPLE
+		},
+		&gp_max_slices,
 		0, 0, INT_MAX, NULL, NULL
 	},
 

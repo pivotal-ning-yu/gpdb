@@ -1624,6 +1624,13 @@ InitSliceTable(EState *estate, int nMotions, int nSubplans)
 	table->ic_instance_id = ++gp_interconnect_id;
 
 	n = 1 + nMotions + nSubplans;
+
+	if (gp_max_slices > 0 && n > gp_max_slices)
+		ereport(ERROR,
+				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+				 errmsg("at most %d slices are allowed in a query, current number: %d", gp_max_slices, n),
+				 errhint("rewrite your query or adjust GUC gp_max_slices")));
+
 	for (i = 0; i < n; i++)
 	{
 		slice = makeNode(Slice);
