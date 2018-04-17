@@ -8,7 +8,21 @@ function gen_env() {
         source \${1}/gpdb_src/gpAux/gpdemo/gpdemo-env.sh
         cd "\${1}/gpdb_src/src/test/binary_swap"
         ./test_binary_swap.sh -b /tmp/local/greenplum-db-devel \
-			-v "${BINARY_SWAP_VARIANT}"
+			-v "${BINARY_SWAP_VARIANT}" || (
+            errcode=\$?
+            find . -name regression.diffs \
+            | while read diff; do
+                cat <<EOF1
+
+======================================================================
+DIFF FILE: \$diff
+----------------------------------------------------------------------
+
+EOF1
+                cat \$diff
+              done
+            exit \$errcode
+        )
 EOF
 
     chmod a+x /opt/run_test.sh

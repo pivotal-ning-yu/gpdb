@@ -104,21 +104,7 @@ run_binary_swap_test() {
         export BINARY_SWAP_VARIANT=_resgroup
 
         cd /home/gpadmin/gpdb_src
-        time ./concourse/scripts/test_binary_swap_gpdb.bash || (
-            errcode=\$?
-            find src/test/binary_swap -name regression.diffs \
-            | while read diff; do
-                cat <<EOF1
-
-======================================================================
-DIFF FILE: \$diff
-----------------------------------------------------------------------
-
-EOF1
-                cat \$diff
-              done
-            exit \$errcode
-        )
+        time ./concourse/scripts/test_binary_swap_gpdb.bash
 EOF
 }
 
