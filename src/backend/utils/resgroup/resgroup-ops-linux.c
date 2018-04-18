@@ -94,7 +94,7 @@ static bool checkPermission(Oid group, bool report);
 static void getMemoryInfo(unsigned long *ram, unsigned long *swap);
 static void getCgMemoryInfo(uint64 *cgram, uint64 *cgmemsw);
 static int getOvercommitRatio(void);
-static void detectCgroupMountPoint(void);
+static bool detectCgroupMountPoint(void);
 
 static Oid currentGroupIdInCGroup = InvalidOid;
 static char cgdir[MAXPGPATH];
@@ -721,14 +721,14 @@ getOvercommitRatio(void)
 }
 
 /* detect cgroup mount point */
-static void
+static bool
 detectCgroupMountPoint(void)
 {
 	struct mntent *me;
 	FILE *fp;
 
 	if (cgdir[0])
-		return;
+		return true;
 
 	fp = setmntent(PROC_MOUNTS, "r");
 	if (fp == NULL)
@@ -754,8 +754,7 @@ detectCgroupMountPoint(void)
 
 	endmntent(fp);
 
-	if (!cgdir[0])
-		CGROUP_CONFIG_ERROR("can not find cgroup mount point");
+	return !!cgdir[0];
 }
 
 /* Return the name for the OS group implementation */
@@ -774,20 +773,30 @@ ResGroupOps_Name(void)
 bool
 ResGroupOps_Probe(void)
 {
+	bool result = true;
+
 	/*
 	 * We only have to do these checks and initialization once on each host,
 	 * so only let postmaster do the job.
 	 */
 	if (IsUnderPostmaster)
-		return true;
+		return result;
 
-	detectCgroupMountPoint();
+	/*
+	 * Ignore the error even if cgroup mount point can not be successfully
+	 * probed, the error will be reported in Bless() later.
+	 */
+	if (!detectCgroupMountPoint())
+		result = false;
 
 	/*
 	 * Probe for optional features like the 'cgroup' memory auditor,
 	 * do not raise any errors.
 	 */
-	return checkPermission(RESGROUP_ROOT_ID, false);
+	if (!checkPermission(RESGROUP_ROOT_ID, false))
+		return result;
+
+	return result;
 }
 
 /* Check whether the OS group implementation is available and useable */
@@ -800,6 +809,15 @@ ResGroupOps_Bless(void)
 	 */
 	if (IsUnderPostmaster)
 		return;
+
+	/*
+	 * We should have already detected for cgroup mount point in Probe(),
+	 * it was not an error if the detection failed at that step.  But once
+	 * we call Bless() we know we want to make use of cgroup then we must
+	 * know the mount point, otherwise it's a critical error.
+	 */
+	if (!cgdir[0])
+		CGROUP_CONFIG_ERROR("can not find cgroup mount point");
 
 	/*
 	 * Check again, this time we will fail on unmet requirements.
