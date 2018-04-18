@@ -1,14 +1,16 @@
 show gp_resource_manager;
 
 select * from pg_resgroup
+  where rsgname not like 'rg_dump_test%'
   order by oid;
-select min(reslimittype)
+select avg(reslimittype)
   from pg_resgroupcapability
-  group by resgroupid
-  order by resgroupid;
+  where reslimittype <= 1;
 select groupname from gp_toolkit.gp_resgroup_config
+  where groupname not like 'rg_dump_test%'
   order by groupid;
 select rsgname from gp_toolkit.gp_resgroup_status
+  where rsgname not like 'rg_dump_test%'
   order by groupid;
 
 create resource group rg1 with (cpu_rate_limit=10, memory_limit=10);

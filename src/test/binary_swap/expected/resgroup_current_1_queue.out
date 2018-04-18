@@ -5,41 +5,33 @@ show gp_resource_manager;
 (1 row)
 
 select * from pg_resgroup
+  where rsgname not like 'rg_dump_test%'
   order by oid;
     rsgname    | parent 
 ---------------+--------
  default_group |      0
  admin_group   |      0
- rg_dump_test1 |      0
- rg_dump_test2 |      0
- rg_dump_test3 |      0
-(5 rows)
+(2 rows)
 
-select min(reslimittype)
+select avg(reslimittype)
   from pg_resgroupcapability
-  group by resgroupid
-  order by resgroupid;
- min 
+  where reslimittype <= 1;
+ avg 
 -----
    1
-   1
-   1
-   1
-   1
-(5 rows)
+(1 row)
 
 select groupname from gp_toolkit.gp_resgroup_config
+  where groupname not like 'rg_dump_test%'
   order by groupid;
    groupname   
 ---------------
  default_group
  admin_group
- rg_dump_test1
- rg_dump_test2
- rg_dump_test3
-(5 rows)
+(2 rows)
 
 select rsgname from gp_toolkit.gp_resgroup_status
+  where rsgname not like 'rg_dump_test%'
   order by groupid;
  rsgname 
 ---------
