@@ -94,7 +94,7 @@ keep_minimal_cgroup_dirs() {
     local gpdb_master_alias=$1
     local basedir=$CGROUP_BASEDIR
 
-    ssh -t $gpdb_host_alias sudo bash -ex <<EOF
+    ssh -t $gpdb_master_alias sudo bash -ex <<EOF
         rmdir $basedir/memory/*/ || :
         rmdir $basedir/memory
 EOF
