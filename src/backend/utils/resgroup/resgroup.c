@@ -641,9 +641,10 @@ ResGroupDropFinish(Oid groupId, bool isCommit)
 	{
 		savedInterruptHoldoffCount = InterruptHoldoffCount;
 
+		group = groupHashFind(groupId, true);
+
 		if (Gp_role == GP_ROLE_DISPATCH)
 		{
-			group = groupHashFind(groupId, true);
 			wakeupSlots(group, false);
 			unlockResGroupForDrop(group);
 		}
@@ -652,10 +653,10 @@ ResGroupDropFinish(Oid groupId, bool isCommit)
 		{
 			bool		migrate;
 
-			removeGroup(groupId);
-
 			/* Only migrate processes out of vmtracker groups */
 			migrate = group->memAuditor == RESGROUP_MEMORY_AUDITOR_VMTRACKER;
+
+			removeGroup(groupId);
 
 			ResGroupOps_DestroyGroup(groupId, migrate);
 		}
