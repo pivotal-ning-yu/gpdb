@@ -232,6 +232,9 @@ struct ResGroupControl
 	ResGroupData	groups[1];
 };
 
+bool gp_resource_group_enable_cgroup_memory = false;
+bool gp_resource_group_enable_cgroup_swap = false;
+
 /* hooks */
 resgroup_assign_hook_type resgroup_assign_hook = NULL;
 
