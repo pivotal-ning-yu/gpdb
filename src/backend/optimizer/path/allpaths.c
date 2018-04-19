@@ -1435,10 +1435,22 @@ qual_contains_winref(Query *subquery, RangeTblEntry *rte, Index rti, Node *qual)
  * safe to push it down.
  */
 static bool
-qual_is_pushdown_safe_set_operation(RangeTblEntry *rte, Index rti, Node *qual)
+qual_is_pushdown_safe_set_operation(Query *query, RangeTblEntry *rte, Index rti, Node *qual)
 {
 
-	Query *subquery = rte->subquery;
+	Query *subquery = NULL;
+	/* 
+	 * In case of CTE, cte->query is passed in as query, so the vars
+	 * should be resolved via the input query
+	 */
+	if (rte->rtekind == RTE_CTE)
+	{
+		subquery = query;
+	}
+	else
+	{
+		subquery = rte->subquery;
+	}
 	Assert(subquery);
 
 	SetOperationStmt *setop = (SetOperationStmt *)subquery->setOperations;
@@ -1524,7 +1536,7 @@ qual_is_pushdown_safe(Query *subquery, RangeTblEntry *rte, Index rti, Node *qual
 	 * sure that qual is pushable to below set operation children
 	 */
 	if (NULL != subquery->setOperations &&
-		!qual_is_pushdown_safe_set_operation(rte, rti, qual))
+		!qual_is_pushdown_safe_set_operation(subquery, rte, rti, qual))
 	{
 		return false;
 	}
