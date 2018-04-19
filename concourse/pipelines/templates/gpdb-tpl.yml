@@ -1696,7 +1696,7 @@ jobs:
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: run_tests
-    file: gpdb_src/concourse/tasks/ic_gpdb_resgroup_sles.yml
+    file: gpdb_src/concourse/tasks/ic_gpdb_resgroup.yml
     image: centos-gpdb-dev-6
     params:
       TEST_OS: sles12
