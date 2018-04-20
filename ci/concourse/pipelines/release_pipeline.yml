@@ -510,11 +510,11 @@ resources:
 - name: madlib_rhel5_gppkg
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{snowflakes-bucket}}
+    bucket: {{madlib-bucket-name}}
     region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
-    versioned_file: gppkg_from_other_team/madlib-ossv1.13_pv1.9.9_gpdb4.3orca-rhel5-x86_64.gppkg
+    access_key_id: {{gpdb5-pipeline-bucket-access-key-id}}
+    secret_access_key: {{gpdb5-pipeline-bucket-secret-access-key}}
+    versioned_file: release/gpdb4/madlib-1.13-gp4.3orca-rhel5-x86_64.gppkg
 
 - name: mit_krb5_rhel62_tarball
   type: s3
