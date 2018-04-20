@@ -562,6 +562,11 @@ aggregate_leaf_partition_histograms
 	if (0 == numNotNullParts)
 	{
 		/* if all the parts histograms are empty, we return nothing */
+		for (int iParts = 0; iParts < nParts; iParts++)
+		{
+			pfree(histSlot[iParts]);
+		}
+
 		result = NULL;
 		return;
 	}
@@ -646,6 +651,7 @@ aggregate_leaf_partition_histograms
 	for (int j = 0; j < nParts; j++)
 	{
 		free_attstatsslot(histSlot[j]);
+		pfree(histSlot[j]);
 	}
 
 	*result = out;

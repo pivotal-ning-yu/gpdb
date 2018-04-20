@@ -177,13 +177,12 @@ Datum geometry_gist_joinsel_2d(PG_FUNCTION_ARGS)
 
 	HeapTuple stats1_tuple, stats2_tuple, class_tuple;
 	GEOM_STATS *geomstats1, *geomstats2;
+	AttStatsSlot sslot1, sslot2;
 	/*
 	* These are to avoid casting the corresponding
 	* "type-punned" pointers, which would break
 	* "strict-aliasing rules".
 	*/
-	GEOM_STATS **gs1ptr=&geomstats1, **gs2ptr=&geomstats2;
-	int geomstats1_nvalues = 0, geomstats2_nvalues = 0;
 	float8 selectivity1 = 0.0, selectivity2 = 0.0;
 	float4 num1_tuples = 0.0, num2_tuples = 0.0;
 	float4 total_tuples = 0.0, rows_returned = 0.0;
@@ -241,11 +240,11 @@ Datum geometry_gist_joinsel_2d(PG_FUNCTION_ARGS)
 
 
 
-	if ( ! get_attstatsslot(stats1_tuple, 0, 0, STATISTIC_KIND_GEOMETRY, InvalidOid, NULL, NULL,
+	if ( ! get_attstatsslot(&sslot1, stats1_tuple, STATISTIC_KIND_GEOMETRY, InvalidOid,
 #if POSTGIS_PGSQL_VERSION > 84
-	                        NULL,
+				NULL,
 #endif
-	                        (float4 **)gs1ptr, &geomstats1_nvalues) )
+				ATTSTATSSLOT_NUMBERS))
 	{
 		POSTGIS_DEBUG(3, " STATISTIC_KIND_GEOMETRY stats not found - returning default geometry join selectivity");
 
@@ -260,28 +259,27 @@ Datum geometry_gist_joinsel_2d(PG_FUNCTION_ARGS)
 	{
 		POSTGIS_DEBUG(3, " No statistics, returning default geometry join selectivity");
 
-		free_attstatsslot(0, NULL, 0, (float *)geomstats1,
-		                  geomstats1_nvalues);
+		free_attstatsslot(&sslot1);
 		ReleaseSysCache(stats1_tuple);
 		PG_RETURN_FLOAT8(DEFAULT_GEOMETRY_JOINSEL);
 	}
 
-
-	if ( ! get_attstatsslot(stats2_tuple, 0, 0, STATISTIC_KIND_GEOMETRY, InvalidOid, NULL, NULL,
+	if ( ! get_attstatsslot(&sslot2, stats2_tuple, STATISTIC_KIND_GEOMETRY, InvalidOid,
 #if POSTGIS_PGSQL_VERSION > 84
-	                        NULL,
+				NULL,
 #endif
-	                        (float4 **)gs2ptr, &geomstats2_nvalues) )
+				ATTSTATSSLOT_NUMBERS))
 	{
 		POSTGIS_DEBUG(3, " STATISTIC_KIND_GEOMETRY stats not found - returning default geometry join selectivity");
 
-		free_attstatsslot(0, NULL, 0, (float *)geomstats1,
-		                  geomstats1_nvalues);
+		free_attstatsslot(&sslot1);
 		ReleaseSysCache(stats2_tuple);
 		ReleaseSysCache(stats1_tuple);
 		PG_RETURN_FLOAT8(DEFAULT_GEOMETRY_JOINSEL);
 	}
 
+	geomstats1 = (GEOM_STATS *) sslot1.numbers;
+	geomstats2 = (GEOM_STATS *) sslot2.numbers;
 
 	/**
 	* Setup the search box - this is the intersection of the two column
@@ -301,10 +299,10 @@ Datum geometry_gist_joinsel_2d(PG_FUNCTION_ARGS)
 	POSTGIS_DEBUGF(3, "selectivity1: %.15g   selectivity2: %.15g", selectivity1, selectivity2);
 
 	/* Free the statistic tuples */
-	free_attstatsslot(0, NULL, 0, (float *)geomstats1, geomstats1_nvalues);
+	free_attstatsslot(&sslot1);
 	ReleaseSysCache(stats1_tuple);
 
-	free_attstatsslot(0, NULL, 0, (float *)geomstats2, geomstats2_nvalues);
+	free_attstatsslot(&sslot2);
 	ReleaseSysCache(stats2_tuple);
 
 	/*
@@ -635,13 +633,8 @@ Datum geometry_gist_sel_2d(PG_FUNCTION_ARGS)
 	Oid relid;
 	HeapTuple stats_tuple;
 	GEOM_STATS *geomstats;
-	/*
-	 * This is to avoid casting the corresponding
-	 * "type-punned" pointer, which would break
-	 * "strict-aliasing rules".
-	 */
-	GEOM_STATS **gsptr=&geomstats;
-	int geomstats_nvalues=0;
+	AttStatsSlot sslot;
+	int rv=0;
 	Node *other;
 	Var *self;
 	GBOX search_box;
@@ -680,14 +673,14 @@ Datum geometry_gist_sel_2d(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	* We don't have a nice <const> && <var> or <var> && <const> 
+	* We don't have a nice <const> && <var> or <var> && <const>
 	* situation here. <const> && <const> would probably get evaluated
 	* away by PgSQL earlier on. <func> && <const> is harder, and the
-	* case we get often is <const> && ST_Expand(<var>), which does 
+	* case we get often is <const> && ST_Expand(<var>), which does
 	* actually have a subtly different selectivity than a bae
 	* <const> && <var> call. It's calculatable though, by expanding
 	* every cell in the histgram appropriately.
-	* 
+	*
 	* Discussion: http://trac.osgeo.org/postgis/ticket/1828
 	*
 	* To do? Do variable selectivity based on the <func> node.
@@ -725,12 +718,12 @@ Datum geometry_gist_sel_2d(PG_FUNCTION_ARGS)
 		PG_RETURN_FLOAT8(DEFAULT_GEOMETRY_SEL);
 	}
 
-
-	if ( ! get_attstatsslot(stats_tuple, 0, 0, STATISTIC_KIND_GEOMETRY, InvalidOid, NULL, NULL,
+	rv = get_attstatsslot(&sslot, stats_tuple, STATISTIC_KIND_GEOMETRY, InvalidOid,
 #if POSTGIS_PGSQL_VERSION >= 85
-	                        NULL,
+				NULL,
 #endif
-	                        (float4 **)gsptr, &geomstats_nvalues) )
+				ATTSTATSSLOT_NUMBERS);
+	if(!rv)
 	{
 		POSTGIS_DEBUG(3, " STATISTIC_KIND_GEOMETRY stats not found - returning default geometry selectivity");
 
@@ -738,7 +731,8 @@ Datum geometry_gist_sel_2d(PG_FUNCTION_ARGS)
 		PG_RETURN_FLOAT8(DEFAULT_GEOMETRY_SEL);
 	}
 
-	POSTGIS_DEBUGF(4, " %d read from stats", geomstats_nvalues);
+	geomstats = (GEOM_STATS *)sslot.numbers;
+	POSTGIS_DEBUGF(4, " %d read from stats", sslot.nnumbers);
 
 	POSTGIS_DEBUGF(4, " histo: xmin,ymin: %f,%f",
 	               geomstats->xmin, geomstats->ymin);
@@ -757,7 +751,7 @@ Datum geometry_gist_sel_2d(PG_FUNCTION_ARGS)
 
 	POSTGIS_DEBUGF(3, " returning computed value: %f", selectivity);
 
-	free_attstatsslot(0, NULL, 0, (float *)geomstats, geomstats_nvalues);
+	free_attstatsslot(&sslot);
 	ReleaseSysCache(stats_tuple);
 	PG_RETURN_FLOAT8(selectivity);
 
@@ -1475,7 +1469,7 @@ Datum geometry_estimated_extent(PG_FUNCTION_ARGS)
 	/* Return the stats data */
 	if ( txnsp )
 	{
-	  sprintf(query, 
+	  sprintf(query,
 	    "SELECT s.stanumbers1[5:8], c.reltuples FROM pg_class c"
 	    " LEFT OUTER JOIN pg_namespace n ON (n.oid = c.relnamespace)"
 	    " LEFT OUTER JOIN pg_attribute a ON (a.attrelid = c.oid )"
@@ -1487,7 +1481,7 @@ Datum geometry_estimated_extent(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-	  sprintf(query, 
+	  sprintf(query,
 	    "SELECT s.stanumbers1[5:8], c.reltuples FROM pg_class c"
 	    " LEFT OUTER JOIN pg_namespace n ON (n.oid = c.relnamespace)"
 	    " LEFT OUTER JOIN pg_attribute a ON (a.attrelid = c.oid )"
@@ -1540,7 +1534,7 @@ Datum geometry_estimated_extent(PG_FUNCTION_ARGS)
 	{
 		POSTGIS_DEBUG(3, "table has estimated zero rows");
 
-		/* 
+		/*
 		 * TODO: distinguish between empty and not analyzed ?
 		 */
 		elog(NOTICE, "\"%s\".\"%s\".\"%s\" is empty or not analyzed",

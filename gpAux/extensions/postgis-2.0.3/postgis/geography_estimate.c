@@ -443,14 +443,10 @@ Datum geography_gist_selectivity(PG_FUNCTION_ARGS)
 	/* int varRelid = PG_GETARG_INT32(3); */
 	Oid relid;
 	HeapTuple stats_tuple;
+	AttStatsSlot sslot;
 	GEOG_STATS *geogstats;
-	/*
-	 * This is to avoid casting the corresponding
-	 * "type-punned" pointer, which would break
-	 * "strict-aliasing rules".
-	 */
-	GEOG_STATS **gsptr=&geogstats;
-	int geogstats_nvalues = 0;
+
+	int rv = 0;
 	Node *other;
 	Var *self;
 	GBOX search_box;
@@ -492,14 +488,14 @@ Datum geography_gist_selectivity(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	* We don't have a nice <const> && <var> or <var> && <const> 
+	* We don't have a nice <const> && <var> or <var> && <const>
 	* situation here. <const> && <const> would probably get evaluated
 	* away by PgSQL earlier on. <func> && <const> is harder, and the
-	* case we get often is <const> && ST_Expand(<var>), which does 
+	* case we get often is <const> && ST_Expand(<var>), which does
 	* actually have a subtly different selectivity than a bae
 	* <const> && <var> call. It's calculatable though, by expanding
 	* every cell in the histgram appropriately.
-	* 
+	*
 	* Discussion: http://trac.osgeo.org/postgis/ticket/1828
 	*
 	* To do? Do variable selectivity based on the <func> node.
@@ -521,8 +517,8 @@ Datum geography_gist_selectivity(PG_FUNCTION_ARGS)
 	}
 
 	POSTGIS_DEBUGF(4, " requested search box is : %.15g %.15g %.15g, %.15g %.15g %.15g",
-	               search_box.xmin, search_box.ymin, search_box.zmin,
-	               search_box.xmax, search_box.ymax, search_box.zmax);
+			search_box.xmin, search_box.ymin, search_box.zmin,
+			search_box.xmax, search_box.ymax, search_box.zmax);
 
 	/*
 	 * Get pg_statistic row
@@ -536,13 +532,12 @@ Datum geography_gist_selectivity(PG_FUNCTION_ARGS)
 
 		PG_RETURN_FLOAT8(DEFAULT_GEOGRAPHY_SEL);
 	}
-
-
-	if ( ! get_attstatsslot(stats_tuple, 0, 0, STATISTIC_KIND_GEOGRAPHY, InvalidOid, NULL, NULL,
+	rv =  get_attstatsslot(&sslot, stats_tuple, STATISTIC_KIND_GEOGRAPHY, InvalidOid,
 #if POSTGIS_PGSQL_VERSION >= 85
-	                        NULL,
+				NULL,
 #endif
-	                        (float4 **)gsptr, &geogstats_nvalues) )
+				ATTSTATSSLOT_NUMBERS);
+	if (!rv)
 	{
 		POSTGIS_DEBUG(3, " STATISTIC_KIND_GEOGRAPHY stats not found - returning default geography selectivity");
 
@@ -550,7 +545,9 @@ Datum geography_gist_selectivity(PG_FUNCTION_ARGS)
 		PG_RETURN_FLOAT8(DEFAULT_GEOGRAPHY_SEL);
 	}
 
-	POSTGIS_DEBUGF(4, " %d read from stats", geogstats_nvalues);
+	geogstats = (GEOG_STATS *) sslot.numbers;
+
+	POSTGIS_DEBUGF(4, " %d read from stats", sslot.nnumbers);
 
 	POSTGIS_DEBUGF(4, " histo: xmin,ymin,zmin: %f,%f,%f", geogstats->xmin, geogstats->ymin, geogstats->zmin);
 	POSTGIS_DEBUGF(4, " histo: xmax,ymax: %f,%f,%f", geogstats->xmax, geogstats->ymax, geogstats->zmax);
@@ -567,7 +564,7 @@ Datum geography_gist_selectivity(PG_FUNCTION_ARGS)
 
 	POSTGIS_DEBUGF(3, " returning computed value: %f", selectivity);
 
-	free_attstatsslot(0, NULL, 0, (float *)geogstats, geogstats_nvalues);
+	free_attstatsslot(&sslot);
 	ReleaseSysCache(stats_tuple);
 	PG_RETURN_FLOAT8(selectivity);
 }
@@ -589,6 +586,7 @@ Datum geography_gist_join_selectivity(PG_FUNCTION_ARGS)
 	Node *arg1, *arg2;
 	Var *var1, *var2;
 	Oid relid1, relid2;
+	AttStatsSlot sslot1, sslot2;
 
 	HeapTuple stats1_tuple, stats2_tuple;
 	GEOG_STATS *geogstats1, *geogstats2;
@@ -597,8 +595,6 @@ Datum geography_gist_join_selectivity(PG_FUNCTION_ARGS)
 	* "type-punned" pointers, which would break
 	* "strict-aliasing rules".
 	*/
-	GEOG_STATS **gs1ptr=&geogstats1, **gs2ptr=&geogstats2;
-	int geogstats1_nvalues = 0, geogstats2_nvalues = 0;
 	float8 selectivity1 = 0.0, selectivity2 = 0.0;
 	float4 num1_tuples = 0.0, num2_tuples = 0.0;
 	float4 total_tuples = 0.0, rows_returned = 0.0;
@@ -653,11 +649,11 @@ Datum geography_gist_join_selectivity(PG_FUNCTION_ARGS)
 		PG_RETURN_FLOAT8(DEFAULT_GEOGRAPHY_SEL);
 	}
 
-	if ( ! get_attstatsslot(stats1_tuple, 0, 0, STATISTIC_KIND_GEOGRAPHY, InvalidOid, NULL, NULL,
+	if ( ! get_attstatsslot(&sslot1, stats1_tuple, STATISTIC_KIND_GEOGRAPHY, InvalidOid,
 #if POSTGIS_PGSQL_VERSION >= 85
-	                        NULL,
+				NULL,
 #endif
-	                        (float4 **)gs1ptr, &geogstats1_nvalues) )
+				ATTSTATSSLOT_NUMBERS))
 	{
 		POSTGIS_DEBUG(3, " STATISTIC_KIND_GEOGRAPHY stats not found - returning default geometry join selectivity");
 
@@ -672,26 +668,27 @@ Datum geography_gist_join_selectivity(PG_FUNCTION_ARGS)
 	{
 		POSTGIS_DEBUG(3, " No statistics, returning default geometry join selectivity");
 
-		free_attstatsslot(0, NULL, 0, (float *)geogstats1, geogstats1_nvalues);
+		free_attstatsslot(&sslot1);
 		ReleaseSysCache(stats1_tuple);
 		PG_RETURN_FLOAT8(DEFAULT_GEOGRAPHY_SEL);
 	}
 
-	if ( ! get_attstatsslot(stats2_tuple, 0, 0, STATISTIC_KIND_GEOGRAPHY, InvalidOid, NULL, NULL,
+	if ( ! get_attstatsslot(&sslot2, stats2_tuple, STATISTIC_KIND_GEOGRAPHY, InvalidOid,
 #if POSTGIS_PGSQL_VERSION >= 85
-	                        NULL,
+				NULL,
 #endif
-	                        (float4 **)gs2ptr, &geogstats2_nvalues) )
+				ATTSTATSSLOT_NUMBERS))
 	{
 		POSTGIS_DEBUG(3, " STATISTIC_KIND_GEOGRAPHY stats not found - returning default geometry join selectivity");
 
-		free_attstatsslot(0, NULL, 0, (float *)geogstats1, geogstats1_nvalues);
+		free_attstatsslot(&sslot1);
 		ReleaseSysCache(stats2_tuple);
 		ReleaseSysCache(stats1_tuple);
 		PG_RETURN_FLOAT8(DEFAULT_GEOGRAPHY_SEL);
 	}
 
-
+	geogstats1 = (GEOG_STATS *)sslot1.numbers;
+	geogstats2 = (GEOG_STATS *)sslot2.numbers;
 	/**
 	* Setup the search box - this is the intersection of the two column
 	* extents.
@@ -705,8 +702,15 @@ Datum geography_gist_join_selectivity(PG_FUNCTION_ARGS)
 
 	/* If the extents of the two columns don't intersect, return zero */
 	if (search_box.xmin > search_box.xmax || search_box.ymin > search_box.ymax ||
-	        search_box.zmin > search_box.zmax)
+		search_box.zmin > search_box.zmax)
+	{
+		POSTGIS_DEBUG(3, "Returning 0 since columns don't intersect");
+		free_attstatsslot(&sslot1);
+		ReleaseSysCache(stats1_tuple);
+		free_attstatsslot(&sslot2);
+		ReleaseSysCache(stats2_tuple);
 		PG_RETURN_FLOAT8(0.0);
+	}
 
 	POSTGIS_DEBUGF(3, " -- geomstats1 box: %.15g %.15g %.15g, %.15g %.15g %.15g", geogstats1->xmin, geogstats1->ymin, geogstats1->zmin, geogstats1->xmax, geogstats1->ymax, geogstats1->zmax);
 	POSTGIS_DEBUGF(3, " -- geomstats2 box: %.15g %.15g %.15g, %.15g %.15g %.15g", geogstats2->xmin, geogstats2->ymin, geogstats2->zmin, geogstats2->xmax, geogstats2->ymax, geogstats2->zmax);
@@ -729,10 +733,10 @@ Datum geography_gist_join_selectivity(PG_FUNCTION_ARGS)
 	num2_tuples = geogstats2->totalrows;
 
 	/* Free the statistic tuples */
-	free_attstatsslot(0, NULL, 0, (float *)geogstats1, geogstats1_nvalues);
+	free_attstatsslot(&sslot1);
 	ReleaseSysCache(stats1_tuple);
 
-	free_attstatsslot(0, NULL, 0, (float *)geogstats2, geogstats2_nvalues);
+	free_attstatsslot(&sslot2);
 	ReleaseSysCache(stats2_tuple);
 
 	/*
