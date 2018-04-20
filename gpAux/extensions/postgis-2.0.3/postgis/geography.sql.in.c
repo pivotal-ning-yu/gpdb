@@ -242,7 +242,7 @@ CREATE OR REPLACE FUNCTION geography_gist_selectivity (internal, oid, internal, 
 -- Availability: 1.5.0
 CREATE OR REPLACE FUNCTION geography_gist_join_selectivity(internal, oid, internal, smallint)
 	RETURNS float8
-	AS 'MODULE_PATHNAME', 'geography_gist_selectivity'
+	AS 'MODULE_PATHNAME', 'geography_gist_join_selectivity'
 	LANGUAGE 'c';
 
 -- Availability: 1.5.0
