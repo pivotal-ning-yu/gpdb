@@ -257,3 +257,41 @@ SELECT ST_AsText(geog), geog && ST_GeogFromText('LINESTRING(1 1, 5 1, 10 2, 2 5)
 
 DROP TABLE geography_test;
 DROP TABLE
+-- Test the operator && with restrict (geography_gist_selectivity) and join (geography_gist_join_selectivity) functions
+DROP TABLE IF EXISTS airports;
+DROP TABLE
+CREATE TABLE airports(code VARCHAR(3),geog GEOGRAPHY);
+CREATE TABLE
+INSERT INTO airports VALUES ('LAX', 'POINT(-118.4079 33.9434)');
+INSERT 0 1
+INSERT INTO airports VALUES ('CDG', 'POINT(2.5559 49.0083)');
+INSERT 0 1
+INSERT INTO airports VALUES ('KEF', 'POINT(-22.6056 63.9850)');
+INSERT 0 1
+-- Update pg_statistic manually because calling `analyze airports(geog)` does not call geography_analyze as expected
+SET allow_system_table_mods='DML';
+SET
+UPDATE pg_statistic SET stanumbers1='{3,0,0,0,0,-0.399923,-0.733488,0.556672,0,0.660547,0.0330462,0.900381,0,3,3,3,3,0,3}' WHERE starelid ='airports'::regclass AND staattnum=2;
+UPDATE 1
+UPDATE pg_statistic SET stakind1=101 WHERE starelid ='airports'::regclass AND staattnum=2;
+UPDATE 1
+-- Test restrict (geography_gist_selectivity) function
+SELECT * FROM airports WHERE geog && '0101000020E61000006DC5FEB27B720440454772F90F814840'::geography;
+ code |                        geog
+------+----------------------------------------------------
+ CDG  | 0101000020E61000006DC5FEB27B720440454772F90F814840
+(1 row)
+
+-- Test join (geography_gist_join_selectivity) function
+SELECT * FROM airports a1  JOIN airports a2  ON a1.geog && a2.geog;
+ code |                        geog                        | code |                        geog
+------+----------------------------------------------------+------+----------------------------------------------------
+ LAX  | 0101000020E610000075029A081B9A5DC0F085C954C1F84040 | LAX  | 0101000020E610000075029A081B9A5DC0F085C954C1F84040
+ CDG  | 0101000020E61000006DC5FEB27B720440454772F90F814840 | CDG  | 0101000020E61000006DC5FEB27B720440454772F90F814840
+ KEF  | 0101000020E61000002575029A089B36C0AE47E17A14FE4F40 | KEF  | 0101000020E61000002575029A089B36C0AE47E17A14FE4F40
+(3 rows)
+
+DROP TABLE airports;
+DROP TABLE
+RESET allow_system_table_mods;
+RESET

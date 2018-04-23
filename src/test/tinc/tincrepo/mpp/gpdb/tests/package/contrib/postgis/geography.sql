@@ -74,3 +74,21 @@ SELECT ST_AsText(geog), geog && ST_GeogFromText('LINESTRING(1 1, 5 1, 10 2, 2 5)
 
 DROP TABLE geography_test;
 
+
+-- Test the operator && with restrict (geography_gist_selectivity) and join (geography_gist_join_selectivity) functions
+DROP TABLE IF EXISTS airports;
+CREATE TABLE airports(code VARCHAR(3),geog GEOGRAPHY);
+INSERT INTO airports VALUES ('LAX', 'POINT(-118.4079 33.9434)');
+INSERT INTO airports VALUES ('CDG', 'POINT(2.5559 49.0083)');
+INSERT INTO airports VALUES ('KEF', 'POINT(-22.6056 63.9850)');
+
+-- Update pg_statistic manually because calling `analyze airports(geog)` does not call geography_analyze as expected
+SET allow_system_table_mods='DML';
+UPDATE pg_statistic SET stanumbers1='{3,0,0,0,0,-0.399923,-0.733488,0.556672,0,0.660547,0.0330462,0.900381,0,3,3,3,3,0,3}' WHERE starelid ='airports'::regclass AND staattnum=2;
+UPDATE pg_statistic SET stakind1=101 WHERE starelid ='airports'::regclass AND staattnum=2;
+-- Test restrict (geography_gist_selectivity) function
+SELECT * FROM airports WHERE geog && '0101000020E61000006DC5FEB27B720440454772F90F814840'::geography;
+-- Test join (geography_gist_join_selectivity) function
+SELECT * FROM airports a1  JOIN airports a2  ON a1.geog && a2.geog;
+DROP TABLE airports;
+RESET allow_system_table_mods;

@@ -137,3 +137,6 @@ class PostgisTestCase(MPPTestCase):
         """postgis: Datatypes - GEOMETRYCOLLECTION"""
         self.do_test()
 
+    def test_geography(self):
+        """postgis: Datatypes - GEOMETRYCOLLECTION"""
+        self.do_test()
