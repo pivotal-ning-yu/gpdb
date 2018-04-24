@@ -72,7 +72,6 @@
 /*
  * GUC variables.
  */
-char                		*gp_resgroup_memory_policy_str = NULL;
 int							gp_resgroup_memory_policy = RESMANAGER_MEMORY_POLICY_NONE;
 bool						gp_log_resgroup_memory = false;
 int							gp_resgroup_memory_policy_auto_fixed_mem;
