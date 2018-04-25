@@ -114,7 +114,7 @@ resources:
     bucket: {{bucket-name}}
     region_name: {{aws-region}}
     secret_access_key: {{bucket-secret-access-key}}
-    versioned_file: outputs/postgis-ossv2.0.3_pv2.0.1_gpdb4.3orca-rhel5-x86_64.gppkg
+    versioned_file: outputs/postgis-ossv2.0.3_pv2.0.2_gpdb4.3orca-rhel5-x86_64.gppkg
 
 - name: ddboost_rhel5_gppkg
   type: s3
@@ -284,7 +284,7 @@ jobs:
         file: gpdb_artifacts/greenplum-loaders-*-rhel5-x86_64.zip
     - put: postgis_rhel5_gppkg
       params:
-        file: gpdb_artifacts/postgis-ossv2.0.3_pv2.0.1_gpdb4.3orca-rhel5-x86_64.gppkg
+        file: gpdb_artifacts/postgis-ossv2.0.3_pv2.0.2_gpdb4.3orca-rhel5-x86_64.gppkg
     - put: pgcrypto_rhel5_gppkg
       params:
         file: gpdb_artifacts/pgcrypto-ossv1.1_pv1.2_gpdb4.3orca-rhel5-x86_64.gppkg

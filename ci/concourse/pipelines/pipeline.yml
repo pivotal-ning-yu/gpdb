@@ -855,7 +855,7 @@ resources:
     bucket: {{bucket-name}}
     region_name: {{aws-region}}
     secret_access_key: {{bucket-secret-access-key}}
-    versioned_file: deliverables/postgis-ossv2.0.3_pv2.0.1_gpdb4.3orca-rhel5-x86_64.gppkg
+    versioned_file: deliverables/postgis-ossv2.0.3_pv2.0.2_gpdb4.3orca-rhel5-x86_64.gppkg
 
 - name: postgis_sles11_gppkg
   type: s3
@@ -864,7 +864,7 @@ resources:
     bucket: {{bucket-name}}
     region_name: {{aws-region}}
     secret_access_key: {{bucket-secret-access-key}}
-    versioned_file: deliverables/postgis-ossv2.0.3_pv2.0.1_gpdb4.3orca-sles11-x86_64.gppkg
+    versioned_file: deliverables/postgis-ossv2.0.3_pv2.0.2_gpdb4.3orca-sles11-x86_64.gppkg
 
 - name: ddboost_rhel5_gppkg
   type: s3
@@ -1114,7 +1114,7 @@ jobs:
         file: gpdb_artifacts/greenplum-loaders-*-rhel5-x86_64.zip.sha256
     - put: postgis_rhel5_gppkg
       params:
-        file: gpdb_artifacts/postgis-ossv2.0.3_pv2.0.1_gpdb4.3orca-rhel5-x86_64.gppkg
+        file: gpdb_artifacts/postgis-ossv2.0.3_pv2.0.2_gpdb4.3orca-rhel5-x86_64.gppkg
     - put: pgcrypto_rhel5_gppkg
       params:
         file: gpdb_artifacts/pgcrypto-ossv1.1_pv1.3_gpdb4.3orca-rhel5-x86_64.gppkg
@@ -1239,7 +1239,7 @@ jobs:
         file: gpdb_artifacts/greenplum-loaders-*-sles11-x86_64.zip.sha256
     - put: postgis_sles11_gppkg
       params:
-        file: gpdb_artifacts/postgis-ossv2.0.3_pv2.0.1_gpdb4.3orca-sles11-x86_64.gppkg
+        file: gpdb_artifacts/postgis-ossv2.0.3_pv2.0.2_gpdb4.3orca-sles11-x86_64.gppkg
     - put: pgcrypto_sles11_gppkg
       params:
         file: gpdb_artifacts/pgcrypto-ossv1.1_pv1.3_gpdb4.3orca-sles11-x86_64.gppkg
