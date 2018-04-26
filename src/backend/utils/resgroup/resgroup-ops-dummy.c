@@ -45,7 +45,6 @@ ResGroupOps_Name(void)
 bool
 ResGroupOps_Probe(void)
 {
-	unsupported_system();
 	return false;
 }
 
