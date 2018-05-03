@@ -1087,8 +1087,14 @@ jobs:
   plan:
     - aggregate:
       - get: gpdb_src
+        trigger: true
         passed:
-        - gpdb_rc_packaging_centos5
+        - component-testing-sles11-binary-installer
+        - component-testing-centos5-binary-installer
+        - compile_gpdb_windows_ccl
+        - compile_gpdb_sles11
+        - compile_gpdb_centos7
+        - compile_gpdb_centos6
         - compile_gpdb_centos5
       - get: installer_rhel5_gpdb_rc
         passed: [component-testing-centos5-binary-installer]
