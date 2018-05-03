@@ -2014,11 +2014,21 @@ parruleord_reset_rank(Oid partid, int2 level, Oid parent, int2 ruleord,
  */
 void
 parruleord_open_gap(Oid partid, int2 level, Oid parent, int2 ruleord,
-					int stopkey,
+					int2 stopkey,
 					MemoryContext mcxt, bool closegap)
 {
 	HeapTuple tuple;
 	cqContext	*pcqCtx;
+
+	/*
+	 * Ensure that ruleord argument did not wrap around due to int2
+	 * typecast. We check if ruleord is less than 1 to also ensure that 0
+	 * (default partition) is not given as an argument.
+	 */
+	if (ruleord < 1)
+		ereport(ERROR,
+			(errcode(ERRCODE_INVALID_TABLE_DEFINITION),
+			errmsg("too many partitions, parruleord overflow")));
 
 	/* XXX XXX: should be an ORDER BY DESC */
 	pcqCtx = caql_beginscan(
@@ -2035,7 +2045,6 @@ parruleord_open_gap(Oid partid, int2 level, Oid parent, int2 ruleord,
 
 	while (HeapTupleIsValid(tuple = caql_getprev(pcqCtx)))
 	{
-		int old_ruleord;
 		Form_pg_partition_rule rule_desc;
 
 		Insist(HeapTupleIsValid(tuple));
@@ -2045,13 +2054,12 @@ parruleord_open_gap(Oid partid, int2 level, Oid parent, int2 ruleord,
 		rule_desc =
 		(Form_pg_partition_rule)GETSTRUCT(tuple);
 
-		old_ruleord = rule_desc->parruleord;
+		if (rule_desc->parruleord < stopkey)
+			break;
+
 		closegap ? rule_desc->parruleord-- : rule_desc->parruleord++;
 
 		caql_update_current(pcqCtx, tuple);
-
-		if (old_ruleord <= stopkey)
-			break;
 	}
 	caql_endscan(pcqCtx);
 
@@ -6630,9 +6638,11 @@ atpxPartAddList(Relation rel,
 		}
 	}
 
-	if (maxpartno < 0)
+	if (maxpartno < 0 || maxpartno > PG_INT16_MAX)
 	{
-		elog(ERROR, "too many partitions, parruleord overflow");
+		ereport(ERROR,
+			(errcode(ERRCODE_INVALID_TABLE_DEFINITION),
+			errmsg("too many partitions, parruleord overflow")));
 	}
 	/* create the partition - change the table name from "fake_partition_name" to
 	 * name of the parent relation
