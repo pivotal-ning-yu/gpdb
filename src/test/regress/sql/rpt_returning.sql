@@ -21,6 +21,22 @@ DELETE FROM foo WHERE f1 > 2 RETURNING f3, f2, f1, least(f1,f3);
 
 SELECT * FROM foo;
 
+-- Subplans and initplans in the RETURNING list
+
+INSERT INTO foo SELECT f1+10, f2, f3+99 FROM foo
+  RETURNING *, f1+112 IN (SELECT q1 FROM int8_tbl) AS subplan,
+    EXISTS(SELECT * FROM int4_tbl) AS initplan;
+
+UPDATE foo SET f3 = f3 * 2
+  WHERE f1 > 10
+  RETURNING *, f1+112 IN (SELECT q1 FROM int8_tbl) AS subplan,
+    EXISTS(SELECT * FROM int4_tbl) AS initplan;
+
+DELETE FROM foo
+  WHERE f1 > 10
+  RETURNING *, f1+112 IN (SELECT q1 FROM int8_tbl) AS subplan,
+    EXISTS(SELECT * FROM int4_tbl) AS initplan;
+
 -- Joins
 
 UPDATE foo SET f3 = f3*2
