@@ -1105,6 +1105,13 @@ ExplainNode(Plan *plan, PlanState *planstate,
 							sname = "Broadcast Motion";
 							motion_recv = getgpsegmentCount();
 						}
+						else if (plan->lefttree &&
+								 plan->lefttree->flow &&
+								 plan->lefttree->flow->locustype == CdbLocusType_Replicated)
+						{
+							sname = "Explicit Gather Motion";
+							scaleFactor = 1;
+						}
 						else
 						{
 							sname = "Gather Motion";

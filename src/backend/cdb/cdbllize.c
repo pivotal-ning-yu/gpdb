@@ -1026,10 +1026,6 @@ focusPlan(Plan *plan, bool stable, bool rescannable)
 		plan->flow->locustype != CdbLocusType_SegmentGeneral)
 		return true;
 
-	/* TODO How specify deep-six? */
-	if (plan->flow->flotype == FLOW_REPLICATED)
-		return false;
-
 	return adjustPlanFlow(plan, stable, rescannable, MOVEMENT_FOCUS, NIL);
 }
 
