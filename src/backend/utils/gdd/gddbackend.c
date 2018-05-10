@@ -66,7 +66,7 @@ static int  doDeadLockCheck(void);
 static void buildWaitGraph(GddCtx *ctx);
 static void breakDeadLock(GddCtx *ctx);
 static void dumpCancelResult(StringInfo str, List *xids);
-static char *findSuperuser(bool try_bootstrap);
+static void findSuperuser(char *superuser, bool try_bootstrap);
 
 static MemoryContext	gddContext;
 static MemoryContext    oldContext;
@@ -159,8 +159,8 @@ GlobalDeadLockDetectorMain(int argc, char *argv[])
 {
 	sigjmp_buf	local_sigjmp_buf;
 	Port		portbuf;
+	char		superuser[NAMEDATALEN + 1];
 	char	   *fullpath;
-	char	   *ddtUser;
 	char	   *knownDatabase = "postgres";
 
 	IsUnderPostmaster = true;
@@ -305,11 +305,11 @@ GlobalDeadLockDetectorMain(int argc, char *argv[])
 
 	RelationCacheInitializePhase3();
 
-	ddtUser = findSuperuser(true);
 	memset(&portbuf, 0, sizeof(portbuf));
+	findSuperuser(superuser, true);
 
 	MyProcPort = &portbuf;
-	MyProcPort->user_name = strdup(ddtUser);
+	MyProcPort->user_name = superuser;
 	MyProcPort->database_name = knownDatabase;
 
 	/* close the transaction we started above */
@@ -372,16 +372,22 @@ GlobalDeadLockDetectorLoop(void)
 	return;
 }
 
-static char *
-findSuperuser(bool try_bootstrap)
+/*
+ * Find a super user.
+ *
+ * superuser is used to store the username, its size should be >= NAMEDATALEN+1.
+ */
+static void
+findSuperuser(char *superuser, bool try_bootstrap)
 {
-	char *suser = NULL;
 	Relation auth_rel;
 	HeapTuple	auth_tup;
 	ScanKeyData	scankey[3];
 	SysScanDesc	sscan;
 	int			nkeys;
 	bool	isNull;
+
+	*superuser = 0;
 
 	auth_rel = heap_open(AuthIdRelationId, AccessShareLock);
 
@@ -419,7 +425,8 @@ findSuperuser(bool try_bootstrap)
 		attrName = heap_getattr(auth_tup, Anum_pg_authid_rolname,
 								RelationGetDescr(auth_rel), &isNull);
 		Assert(!isNull);
-		suser = pstrdup(DatumGetCString(attrName));
+		strncpy(superuser, DatumGetCString(attrName), NAMEDATALEN + 1);
+		superuser[NAMEDATALEN] = 0;
 
 		userOid = HeapTupleGetOid(auth_tup);
 		SetSessionUserId(userOid, true);
@@ -429,7 +436,11 @@ findSuperuser(bool try_bootstrap)
 
 	systable_endscan(sscan);
 	heap_close(auth_rel, AccessShareLock);
-	return suser;
+
+	if (!*superuser)
+		ereport(FATAL,
+				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+				 errmsg("no super user is found")));
 }
 
 static int
