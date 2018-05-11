@@ -9513,12 +9513,9 @@ addDistributedBy(PQExpBuffer q, TableInfo *tbinfo, int actual_atts)
 	char	   *policycol = NULL;
 
 	appendPQExpBuffer(query,
-					  "SELECT attrnums from pg_namespace as n, pg_class as c, gp_distribution_policy as p "
-					  "WHERE c.relname = '%s' "
-					  "AND n.nspname='%s' "
-					  "AND c.relnamespace=n.oid "
-					  "AND c.oid = p.localoid",
-					  tbinfo->dobj.name, (tbinfo->dobj.namespace->dobj.name != NULL ? tbinfo->dobj.namespace->dobj.name : "public"));
+					  "SELECT attrnums FROM gp_distribution_policy as p "
+					  "WHERE p.localoid = %u",
+					  tbinfo->dobj.catId.oid);
 
 	res = PQexec(g_conn, query->data);
 	check_sql_result(res, g_conn, query->data, PGRES_TUPLES_OK);
