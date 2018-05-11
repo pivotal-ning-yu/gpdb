@@ -439,7 +439,7 @@ findSuperuser(char *superuser, bool try_bootstrap)
 
 	if (!*superuser)
 		ereport(FATAL,
-				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+				(errcode(ERRCODE_INVALID_NAME),
 				 errmsg("no super user is found")));
 }
 
