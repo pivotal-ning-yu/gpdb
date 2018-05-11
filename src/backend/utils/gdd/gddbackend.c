@@ -159,7 +159,7 @@ GlobalDeadLockDetectorMain(int argc, char *argv[])
 {
 	sigjmp_buf	local_sigjmp_buf;
 	Port		portbuf;
-	char		superuser[NAMEDATALEN + 1];
+	char		superuser[NAMEDATALEN];
 	char	   *fullpath;
 	char	   *knownDatabase = "postgres";
 
@@ -375,7 +375,9 @@ GlobalDeadLockDetectorLoop(void)
 /*
  * Find a super user.
  *
- * superuser is used to store the username, its size should be >= NAMEDATALEN+1.
+ * superuser is used to store the username, its size should be >= NAMEDATALEN.
+ *
+ * This functions is derived from getSuperuser() @cdbtm.c
  */
 static void
 findSuperuser(char *superuser, bool try_bootstrap)
@@ -387,7 +389,7 @@ findSuperuser(char *superuser, bool try_bootstrap)
 	int			nkeys;
 	bool	isNull;
 
-	*superuser = 0;
+	*superuser = '\0';
 
 	auth_rel = heap_open(AuthIdRelationId, AccessShareLock);
 
@@ -425,8 +427,8 @@ findSuperuser(char *superuser, bool try_bootstrap)
 		attrName = heap_getattr(auth_tup, Anum_pg_authid_rolname,
 								RelationGetDescr(auth_rel), &isNull);
 		Assert(!isNull);
-		strncpy(superuser, DatumGetCString(attrName), NAMEDATALEN + 1);
-		superuser[NAMEDATALEN] = 0;
+		strncpy(superuser, DatumGetCString(attrName), NAMEDATALEN);
+		superuser[NAMEDATALEN - 1] = 0;
 
 		userOid = HeapTupleGetOid(auth_tup);
 		SetSessionUserId(userOid, true);
