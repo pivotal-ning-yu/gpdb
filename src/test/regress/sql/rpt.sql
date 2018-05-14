@@ -65,6 +65,21 @@ drop table if exists foo;
 drop table if exists bar;
 
 --
+-- CREATE TABLE with both PRIMARY KEY and UNIQUE constraints
+--
+create table foo (id int primary key, name text unique) distributed replicated;
+
+-- success
+insert into foo values (1,'aaa');
+insert into foo values (2,'bbb');
+
+-- fail
+insert into foo values (1,'ccc');
+insert into foo values (3,'aaa');
+
+drop table if exists foo;
+
+--
 -- CREATE TABLE
 --
 --
