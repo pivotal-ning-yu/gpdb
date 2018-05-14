@@ -79,7 +79,7 @@ pqParseInput3(PGconn *conn)
 	int			msgLength;
 	int			avail;
 	int			numRejected  = 0;
-	int			numCompleted = 0;
+	int64		numCompleted = 0;
 
 	/*
 	 * Loop to parse successive complete messages available in the buffer.
@@ -503,7 +503,7 @@ pqParseInput3(PGconn *conn)
 					conn->result->numRejected += numRejected;
 
 					/* Optionally receive completed number when COPY FROM ON SEGMENT */
-					if (msgLength >= 8 && !pqGetInt(&numCompleted, 4, conn))
+					if (msgLength >= 8 && !pqGetInt64(&numCompleted, conn))
 					{
 						conn->result->numCompleted += numCompleted;
 					}

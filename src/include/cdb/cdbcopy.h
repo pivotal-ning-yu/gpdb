@@ -66,6 +66,6 @@ void		cdbCopySendDataSingle(CdbCopy *c, int target_seg, const char *buffer, int 
 bool		cdbCopyGetData(CdbCopy *c, bool cancel, uint64 *rows_processed);
 int			cdbCopyEnd(CdbCopy *c);
 void		cdbCopyStartTransaction(void);
-int			cdbCopyEndAndFetchRejectNum(CdbCopy *c, int *total_rows_completed);
+int			cdbCopyEndAndFetchRejectNum(CdbCopy *c, int64 *total_rows_completed);
 
 #endif   /* CDBCOPY_H */

@@ -99,7 +99,7 @@ extern CdbSreh *makeCdbSreh(bool is_keep, bool reusing_existing_errtable,
 extern void destroyCdbSreh(CdbSreh *cdbsreh);
 extern void HandleSingleRowError(CdbSreh *cdbsreh);
 extern void ReportSrehResults(CdbSreh *cdbsreh, int total_rejected);
-extern void SendNumRows(int numrejected, int numcompleted);
+extern void SendNumRows(int numrejected, int64 numcompleted);
 extern void SendNumRowsRejected(int numrejected);
 extern void ValidateErrorTableMetaData(Relation rel);
 extern bool IsErrorTable(Relation rel);
