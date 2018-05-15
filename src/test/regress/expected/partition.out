@@ -10679,3 +10679,20 @@ select tablename,partitiontablename, partitionname from pg_partitions where tabl
 -- SPLIT partition
 alter table mpp14613_range alter partition others split partition subothers at (10) into (partition b1, partition b2);
 ERROR:  AT clause cannot be used when splitting a default RANGE partition
+-- Check unused partition functions error out
+SELECT * FROM gp_partition_propagation(3, 0000::oid);
+ERROR:  Function "gp_partition_propagation" not supported
+LINE 1: SELECT * FROM gp_partition_propagation(3, 0000::oid);
+                      ^
+SELECT * FROM gp_partition_selection(0000::oid, 3);
+ERROR:  Function "gp_partition_selection" not supported
+LINE 1: SELECT * FROM gp_partition_selection(0000::oid, 3);
+                      ^
+SELECT * FROM gp_partition_expansion(0000::oid);
+ERROR:  Function "gp_partition_expansion" not supported
+LINE 1: SELECT * FROM gp_partition_expansion(0000::oid);
+                      ^
+SELECT gp_partition_inverse(0000::oid);
+ERROR:  Function "gp_partition_inverse" not supported
+LINE 1: SELECT gp_partition_inverse(0000::oid);
+               ^

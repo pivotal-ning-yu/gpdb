@@ -5349,3 +5349,10 @@ select tablename,partitiontablename, partitionname from pg_partitions where tabl
 
 -- SPLIT partition
 alter table mpp14613_range alter partition others split partition subothers at (10) into (partition b1, partition b2);
+
+-- Check unused partition functions error out
+SELECT * FROM gp_partition_propagation(3, 0000::oid);
+SELECT * FROM gp_partition_selection(0000::oid, 3);
+SELECT * FROM gp_partition_expansion(0000::oid);
+SELECT gp_partition_inverse(0000::oid);
+

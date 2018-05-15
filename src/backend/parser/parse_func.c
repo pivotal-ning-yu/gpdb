@@ -53,6 +53,11 @@ typedef struct
 static bool 
 checkTableFunctions_walker(Node *node, check_table_func_context *context);
 
+#define GP_PARTITION_PROPAGATION_OID 6083
+#define GP_PARTITION_SELECTION_OID 6084
+#define GP_PARTITION_EXPANSION_OID 6085
+#define GP_PARTITION_INVERSE_OID 6086
+
 /*
  *	Parse a function call
  *
@@ -243,6 +248,21 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 	fdresult = func_get_detail(funcname, fargs, nargs, actual_arg_types,
 							   &funcid, &rettype, &retset, &retstrict,
 							   &retordered, &declared_arg_types);
+	/*
+	 * gp_partition_* functions not supported
+	 */
+	if ((GP_PARTITION_PROPAGATION_OID == funcid) ||
+		(GP_PARTITION_SELECTION_OID == funcid) ||
+		(GP_PARTITION_EXPANSION_OID == funcid) ||
+		(GP_PARTITION_INVERSE_OID == funcid))
+
+	{
+		ereport(ERROR,
+				(errcode(ERRCODE_SYNTAX_ERROR),
+				 errmsg("Function \"%s\" not supported", NameListToString(funcname)),
+				 parser_errposition(pstate, location)));
+	}
+
 	if (fdresult == FUNCDETAIL_COERCION)
 	{
 		/*
