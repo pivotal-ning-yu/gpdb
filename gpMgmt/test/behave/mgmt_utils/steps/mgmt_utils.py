@@ -4810,3 +4810,11 @@ def impl(context):
     if context.ret_code != 0:
         raise Exception('%s' % context.error_message)
 
+@then('verify that sequence "{seq_name}" last value is "{last_value}" in database "{dbname}"')
+@when('verify that sequence "{seq_name}" last value is "{last_value}" in database "{dbname}"')
+@given('verify that sequence "{seq_name}" last value is "{last_value}" in database "{dbname}"')
+def impl(context, seq_name, last_value, dbname):
+    SQL = """SELECT last_value FROM %s;""" % seq_name
+    lv = getRows(dbname, SQL)[0][0]
+    if lv != int(last_value):
+        raise Exception('Sequence %s last value is not %s in %s"' % (seq_name, last_value, dbname))

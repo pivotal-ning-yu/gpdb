@@ -23,6 +23,7 @@ import sys
 import os
 import re
 import time
+import tempfile
 import signal
 import inspect
 import hashlib
@@ -1422,7 +1423,7 @@ class GpSchemaDump(Command):
     """
 
     def __init__(self, name, host, port, user, full=True, database=None,
-                 schema=None, table=None, ctxt=LOCAL, remoteHost=None):
+                 schema=None, table=None, ctxt=LOCAL, remoteHost=None, include_data = False):
         """
         name: name of the command
         host: GPDB host
@@ -1445,6 +1446,10 @@ class GpSchemaDump(Command):
                      % (host, port, user)
         else:
             cmdStr = 'pg_dump -s -x -O --gp-syntax -h %s -p %d -U %s -t ' \
+                     '\'\"%s\".\"%s\"\' %s' % (host, port, user, schema, table, database)
+
+        if include_data:
+            cmdStr = 'pg_dump -x -O --gp-syntax -h %s -p %d -U %s -t ' \
                      '\'\"%s\".\"%s\"\' %s' % (host, port, user, schema, table, database)
 
         Command.__init__(self, name, cmdStr, ctxt, remoteHost)
@@ -1589,6 +1594,9 @@ class GpTransferCommand(Command):
         self._cleanup_named_pipes_needed = False
         self._src_ready = Event()
         self._dest_ready = Event()
+        self.seqs = []
+        self.create_seqs_before_table = []
+        self.update_seqs_after_table = []
 
         Command.__init__(self, name, None, LOCAL, None)
 
@@ -1614,6 +1622,10 @@ class GpTransferCommand(Command):
                 url = DbURL(self._dest_host, self._dest_port,
                             self._table_pair.dest.database, self._dest_user)
                 self._dest_conn = connect(url)
+
+                self.seqs = self._get_sequences()
+                self.create_seqs_before_table = []
+                self.update_seqs_after_table = []
 
                 if not self._dest_exists:
                     self._create_target_table()
@@ -1672,6 +1684,18 @@ class GpTransferCommand(Command):
             if self._dest_conn:
                 self._dest_conn.commit(
                 ) if self._success else self._dest_conn.rollback()
+
+                if self._success:
+                    # reset_sequence_nextval() must run by the psql command to set the sequence's last value force.
+                    # but the psql just can run out side of a transaction.
+                    # The reset_sequence_nextval() also used the worker pool to execute the command,
+                    # So the reset_sequence_nextval() must run before close the worker pool.
+                    if len(self.create_seqs_before_table) == 0 \
+                            and len(self.update_seqs_after_table) == 0:
+                        self._reset_sequence_nextval(self.seqs)
+                    else:
+                        self._reset_sequence_nextval(self.update_seqs_after_table)
+
                 self._dest_conn.close()
 
             if self._pool:
@@ -1734,6 +1758,31 @@ FROM (
         """
         logger.info('Creating target table %s...', self._table_pair.dest)
         schema_sql = self._get_source_table_schema()
+
+        # find out the sequence that not included in schema_sql
+        for index, seq in enumerate(self.seqs):
+            if not doesSchemaExist(self._dest_conn, seq.schema):
+                execSQL(self._dest_conn, "CREATE SCHEMA %s" % seq.schema)
+
+            if self._doesSequenceExist(self._dest_conn, seq.schema, seq.table):
+                self.update_seqs_after_table.append(seq)
+                continue
+
+            if seq.schema.lower() == 'public':
+                target_str = "CREATE SEQUENCE %s" % seq.table
+            else:
+                target_str = "CREATE SEQUENCE %s.%s" % (seq.schema, seq.table)
+
+            if schema_sql.find(target_str) == -1:
+                self.create_seqs_before_table.append(seq)
+            else:
+                self.update_seqs_after_table.append(seq)
+
+        # create the sequence in create_seqs_before_table
+        if len(self.create_seqs_before_table) > 0:
+            sequence_dump_sql = self._get_sequence_dump_sql(self.create_seqs_before_table)
+            self._create_sequences(sequence_dump_sql, use_psql_client=False)
+
         cur = execSQL(self._dest_conn, schema_sql)
         cur.close()
 
@@ -1783,6 +1832,139 @@ FROM (
         self._pool.join()
         self._pool.check_results()
         return cmd.get_schema_sql()
+
+    def _doesSequenceExist(self, conn, schema_name, seq_name):
+        sql = '''
+    select 
+        a.relname
+    from 
+        pg_class a, pg_namespace b  
+    where
+        a.relnamespace = b.oid 
+        and b.nspname='%s'
+        and a.relname='%s'
+        and a.relkind = 'S'; 
+        ''' % (schema_name, seq_name)
+        cursor=None
+        try:
+            cursor=dbconn.execSQL(conn,sql)
+            numrows = cursor.rowcount
+            if numrows == 0:
+                return False
+            elif numrows == 1:
+                return True
+        finally:
+            if cursor:
+                cursor.close()
+
+    def _get_sequences(self):
+        """
+        Gets the dependent sequence including implicit (serial column type) and
+        explicit sequence from the source GPDB system.
+        """
+        sequences = set()
+
+        # escape '%' to '%%' in below sql string
+        # funcid:1574 is the oid of nextval function, which can get from pg_proc table
+        get_depend_obj_sql = """
+            select
+                nspname, relname
+            from pg_class,pg_namespace
+            where  pg_class.relnamespace = pg_namespace.oid
+                and relkind='S'
+                and pg_class.oid in (
+                    select
+                        substring(adsrc from '%%nextval#(''#"%%#"''::regclass#)' for '#')::regclass::oid
+                    from pg_attrdef
+                    where adrelid='%s.%s'::regclass
+                        and adsrc like '%%nextval(%%'
+                        and adbin like '%%FUNCEXPR :funcid 1574%%'
+                );""" % (
+            pg.escape_string(self._table_pair.source.schema),
+            pg.escape_string(self._table_pair.source.table))
+
+        cursor = execSQL(self._src_conn, get_depend_obj_sql)
+        for row in list(cursor.fetchall()):
+            sequences.add(GpTransferTable(self._table_pair.source.database, row[0], row[1], False))
+
+        return sequences
+
+    def _get_sequence_dump_sql(self, sequences):
+        if len(sequences) == 0:
+            return ""
+
+        ret = list()
+        for seq in sequences:
+            self._pool.empty_completed_items()
+
+            logger.info('Checking sequences for table %s...',
+                        self._table_pair.source)
+
+            # Just dump the sequence metadata and data,
+            # then import them into the destination cluster
+            cmd = GpSchemaDump(
+                'schema dump of %s' % self._table_pair.source,
+                self._src_host,
+                self._src_port,
+                self._src_user,
+                False,
+                self._table_pair.source.database,
+                seq.schema,
+                seq.table,
+                ctxt=REMOTE,
+                remoteHost=self._src_host,
+                include_data=True
+            )
+
+            self._pool.addCommand(cmd)
+            self._pool.join()
+            self._pool.check_results()
+
+            ret.append(cmd.get_schema_sql())
+
+        query = '\\n'.join(ret)
+
+        return query
+
+    def _create_sequences(self, sequence_dump_sql, use_psql_client=False):
+        """
+        Gets the SQL to create the dependent sequence from the source GPDB system.
+        use_psql_client will use psql to execute sql
+        """
+        if len(sequence_dump_sql.strip()) == 0:
+            return
+
+        if use_psql_client:
+            _, temp_seq_file = tempfile.mkstemp(suffix='.sql')
+
+            with open(temp_seq_file, 'w') as f:
+                f.write(sequence_dump_sql)
+
+            # In case of --full option, sequence will be created at the second time
+            # So here execute sql (e.g. setval()) with psql even if the sequence exists.
+            psql_cmd = PsqlFile('Create sequence with data',
+                                self._dest_host,
+                                self._dest_port,
+                                self._dest_user,
+                                self._table_pair.dest.database,
+                                temp_seq_file)
+
+            self._pool.addCommand(psql_cmd)
+            self._pool.join()
+            self._pool.check_results()
+
+            os.unlink(temp_seq_file)
+            if os.path.isfile(temp_seq_file):
+                logger.warn(
+                    'Failed to remove temp sequence sql file %s.', temp_seq_file)
+                logger.warn('This file should be removed manually.')
+        else:
+            execSQL(self._dest_conn, sequence_dump_sql)
+
+    def _reset_sequence_nextval(self, sequences):
+        if len(sequences) > 0:
+            sequence_dump_sql = self._get_sequence_dump_sql(sequences)
+            self._create_sequences(sequence_dump_sql, use_psql_client=True)
 
     def _get_named_pipes(self):
         """
