@@ -8,6 +8,11 @@ resource_types:
   source:
     repository: pivotaldata/s3-resource
 
+- name: email
+  type: docker-image
+  source:
+    repository: pcfseceng/email-resource
+
 ## ======================================================================
 ## resources
 ## ======================================================================
@@ -485,6 +490,32 @@ resources:
     private_key: {{pivnet-client-remote-deploy-key}}
     uri: {{pivnet-client-git-remote}}
 
+- name: commit_log_email
+  type: email
+  source:
+    smtp:
+      host: {{smtp-host}}
+      port: {{smpt-port}} # this must be a string
+      username: {{smtp-username}}
+      password: {{smtp-password}}
+    from: "pa-toolsmiths@pivotal.io"
+    to:
+      - {{commit-log-smtp-receiver-1}}
+      - {{commit-log-smtp-receiver-2}}
+
+- name: staged_on_pivnet_email
+  type: email
+  source:
+    smtp:
+      host: {{smtp-host}}
+      port: {{smpt-port}} # this must be a string
+      username: {{smtp-username}}
+      password: {{smtp-password}}
+    from: "pa-toolsmiths@pivotal.io"
+    to:
+      - {{pivnet-smtp-receiver-1}}
+      - {{pivnet-smtp-receiver-2}}
+
 ## ============================
 ## Resources for Morgan Stanley
 ## ============================
@@ -614,6 +645,19 @@ resources:
     region_name: {{aws-region}}
     secret_access_key: {{bucket-secret-access-key}}
     versioned_file: osl/open_source_license_GPDB_-_4.3_-_GA.pdf
+
+- name: ms_email
+  type: email
+  source:
+    smtp:
+      host: {{smtp-host}}
+      port: {{smpt-port}} # this must be a string
+      username: {{smtp-username}}
+      password: {{smtp-password}}
+    from: "pa-toolsmiths@pivotal.io"
+    to:
+      - {{ms-smtp-receiver-1}}
+      - {{ms-smtp-receiver-2}}
 
 ## ======================================================================
 ## jobs
@@ -1198,6 +1242,32 @@ jobs:
             bundle install
             bundle exec pivnet_client upload --verbose --metadata ../gpdb_release/pivnet/metadata_gp43.yml --search_path ../ --gpdb_version ${GPDB_VERSION}
 
+- name: send_staged_on_pivnet_email
+  plan:
+  - aggregate:
+    - get: gpdb_src
+      passed: ['push-to-pivnet']
+      trigger: true
+  - task: generate_staged_on_pivnet_email
+    file: gpdb_src/ci/concourse/generate_staged_on_pivnet_email.yml
+  - put: staged_on_pivnet_email
+    params:
+      subject: staged_on_pivnet_email/subject
+      body: staged_on_pivnet_email/body
+
+- name: send_commit_log_email
+  plan:
+  - aggregate:
+    - get: gpdb_src
+      passed: ['push-to-pivnet']
+      trigger: true
+  - task: generate_commit_log_email
+    file: gpdb_src/ci/concourse/generate_commit_log_email.yml
+  - put: commit_log_email
+    params:
+      subject: commit_log_email/subject
+      body: commit_log_email/body
+
 - name: patch_ms
   plan:
   - aggregate:
@@ -1309,6 +1379,9 @@ jobs:
       resource: ms_installer_rhel5_gpdb_bundled_clients
       passed:
       - patch_ms
+    # Unused, passed for lineage to trigger send_ms_email
+    - get: gpdb_src
+      passed: ['smoke_test_morgan_stanley']
   - task: upload-to-ms_ftp
     file: gpdb_release/concourse/tasks/upload_to_ms_ftp.yml
     image: centos-gpdb-dev-6
@@ -1317,3 +1390,17 @@ jobs:
       FTP_USERNAME: {{ftp_username}}
       FTP_PASSWORD: {{ftp_password}}
       FTP_PATH: {{ftp_path}}
+
+- name: send_ms_email
+  plan:
+  - aggregate:
+    - get: gpdb_src
+      trigger: true
+      passed: ['upload_to_ms_ftp']
+  - task: generate_ms_email
+    file: gpdb_src/ci/concourse/generate_ms_email.yml
+  - put: ms_email
+    params:
+      subject: ms_email/subject
+      body: ms_email/body
+
