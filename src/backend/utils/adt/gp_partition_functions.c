@@ -150,7 +150,9 @@ PG_FUNCTION_INFO_V1(gp_partition_propagation);
 Datum
 gp_partition_propagation(PG_FUNCTION_ARGS)
 {
-	elog(ERROR, "Function \"gp_partition_propagation\" not supported");
+	ereport(ERROR,
+			(errcode(ERRCODE_GP_FEATURE_NOT_SUPPORTED),
+			 errmsg("Function \"gp_partition_propagation\" not supported")));
 	PG_RETURN_VOID();
 }
 
@@ -164,7 +166,9 @@ PG_FUNCTION_INFO_V1(gp_partition_selection);
 Datum
 gp_partition_selection(PG_FUNCTION_ARGS)
 {
-	elog(ERROR, "Function \"gp_partition_selection\" not supported");
+	ereport(ERROR,
+			(errcode(ERRCODE_GP_FEATURE_NOT_SUPPORTED),
+			 errmsg("Function \"gp_partition_selection\" not supported")));
 	PG_RETURN_VOID();
 }
 
@@ -178,7 +182,9 @@ PG_FUNCTION_INFO_V1(gp_partition_expansion);
 Datum
 gp_partition_expansion(PG_FUNCTION_ARGS)
 {
-	elog(ERROR, "Function \"gp_partition_expansion\" not supported");
+	ereport(ERROR,
+			(errcode(ERRCODE_GP_FEATURE_NOT_SUPPORTED),
+			 errmsg("Function \"gp_partition_expansion\" not supported")));
 	PG_RETURN_VOID();
 }
 
@@ -190,7 +196,9 @@ gp_partition_expansion(PG_FUNCTION_ARGS)
 Datum
 gp_partition_inverse(PG_FUNCTION_ARGS)
 {
-	elog(ERROR, "Function \"gp_partition_inverse\" not supported");
+	ereport(ERROR,
+			(errcode(ERRCODE_GP_FEATURE_NOT_SUPPORTED),
+			 errmsg("Function \"gp_partition_inverse\" not supported")));
 	PG_RETURN_VOID();}
 
 /*

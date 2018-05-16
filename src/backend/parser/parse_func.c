@@ -258,7 +258,7 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 
 	{
 		ereport(ERROR,
-				(errcode(ERRCODE_SYNTAX_ERROR),
+				(errcode(ERRCODE_GP_FEATURE_NOT_SUPPORTED),
 				 errmsg("Function \"%s\" not supported", NameListToString(funcname)),
 				 parser_errposition(pstate, location)));
 	}
