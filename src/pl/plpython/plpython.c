@@ -104,6 +104,7 @@ typedef int Py_ssize_t;
 #include "tcop/tcopprot.h"
 #include "access/transam.h"
 #include "access/xact.h"
+#include "libpq/pqsignal.h"
 #include "utils/builtins.h"
 #include "utils/hsearch.h"
 #include "utils/lsyscache.h"
@@ -296,6 +297,12 @@ typedef struct PLyExceptionEntry
 	PyObject   *exc;			/* corresponding exception */
 } PLyExceptionEntry;
 
+static cancel_pending_hook_type prev_cancel_pending_hook;
+
+static void PLy_handle_cancel_interrupt(void);
+
+/* flag to indicate whether is embed python is running */
+static bool PLy_enter_python_intepreter = false;
 
 /* function declarations */
 
@@ -446,7 +453,6 @@ static char PLy_result_doc[] = {
 static char PLy_subtransaction_doc[] = {
 	"PostgreSQL subtransaction context manager"
 };
-
 
 /*
  * the function definitions
@@ -1323,6 +1329,7 @@ PLy_procedure_call(PLyProcedure *proc, char *kargs, PyObject *vargs)
 
 	PG_TRY();
 	{
+	PLy_enter_python_intepreter = true;
 #if PY_VERSION_HEX >= 0x03020000
 		rv = PyEval_EvalCode(proc->code,
 							 proc->globals, proc->globals);
@@ -1330,6 +1337,7 @@ PLy_procedure_call(PLyProcedure *proc, char *kargs, PyObject *vargs)
 		rv = PyEval_EvalCode((PyCodeObject *) proc->code,
 							 proc->globals, proc->globals);
 #endif
+	PLy_enter_python_intepreter = false;
 
 		/*
 		 * Since plpy will only let you close subtransactions that you
@@ -1340,13 +1348,14 @@ PLy_procedure_call(PLyProcedure *proc, char *kargs, PyObject *vargs)
 	}
 	PG_CATCH();
 	{
+		PLy_enter_python_intepreter = false;
 		PLy_abort_open_subtransactions(save_subxact_level);
 		PG_RE_THROW();
 	}
 	PG_END_TRY();
 
 	PLy_abort_open_subtransactions(save_subxact_level);
-
+	
 	/* If the Python code returned an error, propagate it */
 	if (rv == NULL)
 		PLy_elog(ERROR, NULL);
@@ -3449,6 +3458,7 @@ PLy_spi_prepare(PyObject *self __attribute__((unused)), PyObject *args)
 
 	volatile int nargs;
 
+	PLy_enter_python_intepreter = false;
 	if (!PyArg_ParseTuple(args, "s|O", &query, &list))
 		return NULL;
 
@@ -3456,11 +3466,15 @@ PLy_spi_prepare(PyObject *self __attribute__((unused)), PyObject *args)
 	{
 		PLy_exception_set(PyExc_TypeError,
 					   "second argument of plpy.prepare must be a sequence");
+		PLy_enter_python_intepreter = true;
 		return NULL;
 	}
 
 	if ((plan = (PLyPlanObject *) PLy_plan_new()) == NULL)
+	{
+		PLy_enter_python_intepreter = true;
 		return NULL;
+	}
 
 	nargs = list ? PySequence_Length(list) : 0;
 
@@ -3599,11 +3613,13 @@ PLy_spi_prepare(PyObject *self __attribute__((unused)), PyObject *args)
 		exc = entry ? entry->exc : PLy_exc_spi_error;
 		/* Make Python raise the exception */
 		PLy_spi_exception_set(exc, edata);
+		PLy_enter_python_intepreter = true;
 		return NULL;
 	}
 	PG_END_TRY();
 
 	Assert(plan->plan != NULL);
+	PLy_enter_python_intepreter = true; 
 	return (PyObject *) plan;
 }
 
@@ -3617,17 +3633,28 @@ PLy_spi_execute(PyObject *self __attribute__((unused)), PyObject *args)
 	PyObject   *plan;
 	PyObject   *list = NULL;
 	long		limit = 0;
+	PyObject   *ret;
+	PLy_enter_python_intepreter = false;
 
 	if (PyArg_ParseTuple(args, "s|l", &query, &limit))
-		return PLy_spi_execute_query(query, limit);
+	{
+		ret = PLy_spi_execute_query(query, limit);
+		PLy_enter_python_intepreter = true;
+		return ret;
+	}
 
 	PyErr_Clear();
 
 	if (PyArg_ParseTuple(args, "O|Ol", &plan, &list, &limit) &&
 		is_PLyPlanObject(plan))
-		return PLy_spi_execute_plan(plan, list, limit);
+	{
+		ret = PLy_spi_execute_plan(plan, list, limit);
+		PLy_enter_python_intepreter = true;
+		return ret;
+	}
 
 	PLy_exception_set(PLy_exc_error, "plpy.execute expected a query or a plan");
+	PLy_enter_python_intepreter = true;
 	return NULL;
 }
 
@@ -3962,7 +3989,11 @@ PLy_spi_execute_fetch_result(SPITupleTable *tuptable, int rows, int status)
 static PyObject *
 PLy_subtransaction(PyObject *self, PyObject *unused)
 {
-	return PLy_subtransaction_new();
+	PyObject   *ret;
+	PLy_enter_python_intepreter = false;
+	ret = PLy_subtransaction_new();
+	PLy_enter_python_intepreter = true;
+	return ret;
 }
 
 /* Allocate and initialize a PLySubtransactionObject */
@@ -4201,7 +4232,6 @@ PyInit_plpy(void)
 }
 #endif
 
-
 static const int plpython_python_version = PY_MAJOR_VERSION;
 
 /*
@@ -4233,6 +4263,10 @@ _PG_init(void)
 							   **version_ptr, plpython_python_version),
 					 errhint("Start a new session to use a different Python major version.")));
 	}
+	
+	/* Register SIGINT handler for python */
+	prev_cancel_pending_hook = cancel_pending_hook;
+	cancel_pending_hook = PLy_handle_cancel_interrupt;
 
 	pg_bindtextdomain(TEXTDOMAIN);
 
@@ -4266,6 +4300,43 @@ _PG_init(void)
 
 	inited = true;
 }
+
+
+/*
+ * Raise a KeyboardInterrupt exception, to simulate a SIGINT.
+ */
+static int
+PLy_python_cancel_handler(void *arg)
+{
+       PyErr_SetNone(PyExc_KeyboardInterrupt);
+
+       /* return -1 to indicate that we set an exception. */
+       return -1;
+}
+
+/*
+ * Hook function, called when current query is being cancelled
+ * (on e.g. SIGINT or SIGTERM)
+ *
+ * NB: This is called from a signal handler!
+ */
+static void
+PLy_handle_cancel_interrupt(void)
+{
+       /*
+        * We can't do much in a signal handler, so just tell the Python
+        * interpreter to call us back when possible.
+        *
+        * We don't bother to check the return value, as there's nothing we could
+        * do if it fails for some reason.
+        */
+    if (PLy_enter_python_intepreter)
+        (void) Py_AddPendingCall(PLy_python_cancel_handler, NULL);
+
+       if (prev_cancel_pending_hook)
+               prev_cancel_pending_hook();
+}
+
 
 static void
 PLy_init_interp(void)
@@ -4378,6 +4449,7 @@ PLy_output(volatile int level, PyObject *self __attribute__((unused)), PyObject 
 	char	   *volatile sv;
 	volatile MemoryContext oldcontext;
 
+	PLy_enter_python_intepreter = false;
 	if (PyTuple_Size(args) == 1)
 	{
 		/*
@@ -4419,6 +4491,7 @@ PLy_output(volatile int level, PyObject *self __attribute__((unused)), PyObject 
 
 		/* Make Python raise the exception */
 		PLy_exception_set(PLy_exc_error, "%s", edata->message);
+		PLy_enter_python_intepreter = true;
 		return NULL;
 	}
 	PG_END_TRY();
@@ -4429,6 +4502,7 @@ PLy_output(volatile int level, PyObject *self __attribute__((unused)), PyObject 
 	 * return a legal object so the interpreter will continue on its merry way
 	 */
 	Py_INCREF(Py_None);
+	PLy_enter_python_intepreter = true;
 	return Py_None;
 }
 
@@ -4440,13 +4514,18 @@ PLy_quote_literal(PyObject *self, PyObject *args)
 	char	   *quoted;
 	PyObject   *ret;
 
+	PLy_enter_python_intepreter = false;
 	if (!PyArg_ParseTuple(args, "s", &str))
+	{
+		PLy_enter_python_intepreter = true;
 		return NULL;
+	}	
 
 	quoted = quote_literal_cstr(str);
 	ret = PyString_FromString(quoted);
 	pfree(quoted);
 
+	PLy_enter_python_intepreter = true;
 	return ret;
 }
 
@@ -4457,16 +4536,24 @@ PLy_quote_nullable(PyObject *self, PyObject *args)
 	char	   *quoted;
 	PyObject   *ret;
 
+	PLy_enter_python_intepreter = false;
 	if (!PyArg_ParseTuple(args, "z", &str))
+	{
+		PLy_enter_python_intepreter = true;
 		return NULL;
+	}
 
 	if (str == NULL)
+	{
+		PLy_enter_python_intepreter = true;
 		return PyString_FromString("NULL");
+	}
 
 	quoted = quote_literal_cstr(str);
 	ret = PyString_FromString(quoted);
 	pfree(quoted);
-
+	
+	PLy_enter_python_intepreter = true;
 	return ret;
 }
 
@@ -4477,12 +4564,17 @@ PLy_quote_ident(PyObject *self, PyObject *args)
 	const char *quoted;
 	PyObject   *ret;
 
+	PLy_enter_python_intepreter = false;
 	if (!PyArg_ParseTuple(args, "s", &str))
+	{
+		PLy_enter_python_intepreter = true;
 		return NULL;
+	{
 
 	quoted = quote_identifier(str);
 	ret = PyString_FromString(quoted);
 
+	PLy_enter_python_intepreter = true;
 	return ret;
 }
 */ 
@@ -4603,6 +4695,14 @@ PLy_elog(int elevel, const char *fmt,...)
 	char	   *query = NULL;
 	int			position = 0;
 
+	/*
+	*  If the error was a KeyboardException that we raised because
+	*  of query cancellation, then CHECK_FOR_INTERRUPTS() will throw
+	*  a better error message than we do here, with
+	*  "canceling statement due to user request" or similar message.
+	*  Give it a chance.
+	*/
+	CHECK_FOR_INTERRUPTS();
 	PyErr_Fetch(&exc, &val, &tb);
 	if (exc != NULL)
 	{

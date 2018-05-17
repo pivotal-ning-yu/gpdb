@@ -32,6 +32,9 @@ s/\(CTranslatorUtils\.cpp:\d+\)//
 m/\(cdbdisp\.c:\d+\)/
 s/\(cdbdisp\.c:\d+\)//
 
+m/\(plpython\.c:\d+\)/
+s/\(plpython\.c:\d+\)//
+
 m/.*NOTICE.*TransactionInProgress.*can't shrink relation.*/
 s/.*NOTICE.*TransactionInProgress.*can't shrink relation.*/TransactionInProgress can't shrink relation/
 

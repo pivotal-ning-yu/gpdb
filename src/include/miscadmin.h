@@ -91,6 +91,10 @@ extern void ProcessInterrupts(const char* filename, int lineno);
 extern void BackoffBackendTick(void);
 extern bool gp_enable_resqueue_priority;
 
+/* Hook get notified when QueryCancelPending or ProcDiePending is raised */
+typedef void (*cancel_pending_hook_type) (void);
+extern PGDLLIMPORT cancel_pending_hook_type cancel_pending_hook;
+
 /*
  * We don't want to include the entire vmem_tracker.h, and so,
  * declare the only function we use from vmem_tracker.h.
