@@ -450,7 +450,7 @@ findSuperuser(char *superuser, bool try_bootstrap)
 								RelationGetDescr(auth_rel), &isNull);
 		Assert(!isNull);
 		strncpy(superuser, DatumGetCString(attrName), NAMEDATALEN);
-		superuser[NAMEDATALEN - 1] = 0;
+		superuser[NAMEDATALEN - 1] = '\0';
 
 		userOid = HeapTupleGetOid(auth_tup);
 		SetSessionUserId(userOid, true);
