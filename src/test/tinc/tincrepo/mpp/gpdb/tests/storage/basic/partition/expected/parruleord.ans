@@ -738,15 +738,20 @@ NOTICE:  CREATE TABLE will create partition "test_partitioned_table_never_decrem
 NOTICE:  CREATE TABLE will create partition "test_partitioned_table_never_decrements_parruleord__1_prt_part1" for table "test_partitioned_table_never_decrements_parruleord_to_zero"
 NOTICE:  CREATE TABLE will create partition "test_partitioned_table_never_decrements_parruleord__1_prt_part4" for table "test_partitioned_table_never_decrements_parruleord_to_zero"
 NOTICE:  CREATE TABLE will create partition "test_partitioned_table_never_decrements_parruleord__1_prt_part5" for table "test_partitioned_table_never_decrements_parruleord_to_zero"
+CREATE TABLE
 -- create gap such that parruleord sequence is [1,4,5,6,7]
 ALTER TABLE test_partitioned_table_never_decrements_parruleord_to_zero ADD PARTITION partnew3 START(3) END(4);
 NOTICE:  CREATE TABLE will create partition "test_partitioned_table_never_decrements_parruleo_1_prt_partnew3" for table "test_partitioned_table_never_decrements_parruleord_to_zero"
+ALTER TABLE
 ALTER TABLE test_partitioned_table_never_decrements_parruleord_to_zero ADD PARTITION partnew4 START(4) END(5);
 NOTICE:  CREATE TABLE will create partition "test_partitioned_table_never_decrements_parruleo_1_prt_partnew4" for table "test_partitioned_table_never_decrements_parruleord_to_zero"
+ALTER TABLE
 ALTER TABLE test_partitioned_table_never_decrements_parruleord_to_zero DROP PARTITION FOR (RANK(2));
 NOTICE:  dropped partition "part0" for relation "test_partitioned_table_never_decrements_parruleord_to_zero"
+ALTER TABLE
 ALTER TABLE test_partitioned_table_never_decrements_parruleord_to_zero DROP PARTITION FOR (RANK(2));
 NOTICE:  dropped partition "partnew3" for relation "test_partitioned_table_never_decrements_parruleord_to_zero"
+ALTER TABLE
 SELECT parchildrelid::regclass, parname, parruleord
    FROM pg_partition_rule r LEFT JOIN pg_partition p
    ON p.oid = r.paroid
@@ -764,6 +769,7 @@ SELECT parchildrelid::regclass, parname, parruleord
 -- insert a partition that will take existing parruleord 4
 -- partition partnew4 should decrement to 3 to close gap and partition starter should stay at 1
 ALTER TABLE test_partitioned_table_never_decrements_parruleord_to_zero ADD PARTITION partnew5 START(5) END(6);
+ALTER TABLE
 NOTICE:  CREATE TABLE will create partition "test_partitioned_table_never_decrements_parruleo_1_prt_partnew5" for table "test_partitioned_table_never_decrements_parruleord_to_zero"
 SELECT parchildrelid::regclass, parname, parruleord
    FROM pg_partition_rule r LEFT JOIN pg_partition p

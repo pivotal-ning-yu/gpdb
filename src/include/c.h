@@ -298,6 +298,11 @@ typedef unsigned long long int uint64;
 #define UINT64CONST(x) ((uint64) x)
 #endif
 
+/*
+ * stdint.h limits aren't guaranteed to be present and aren't guaranteed to
+ * have compatible types with our fixed width types. So just define our own.
+ */
+#define PG_INT16_MAX    (0x7FFF)
 
 /* Select timestamp representation (float8 or int64) */
 #ifdef USE_INTEGER_DATETIMES
