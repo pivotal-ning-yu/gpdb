@@ -171,8 +171,22 @@ GlobalDeadLockDetectorMain(int argc, char *argv[])
 	/* reset MyProcPid */
 	MyProcPid = getpid();
 
+	/* record Start Time for logging */
+	MyStartTime = time(NULL);
+
 	/* Lose the postmaster's on-exit routines */
 	on_exit_reset();
+
+	/*
+	 * If possible, make this process a group leader, so that the postmaster
+	 * can signal any child processes too.	(gdd probably never has any
+	 * child processes, but for consistency we make all postmaster child
+	 * processes do this.)
+	 */
+#ifdef HAVE_SETSID
+	if (setsid() < 0)
+		elog(FATAL, "setsid() failed: %m");
+#endif
 
 	/* Identify myself via ps */
 	init_ps_display("global deadlock detector process", "", "", "");
@@ -192,15 +206,36 @@ GlobalDeadLockDetectorMain(int argc, char *argv[])
 	pqsignal(SIGFPE, FloatExceptionHandler);
 	pqsignal(SIGCHLD, SIG_DFL);
 
+	/*
+	 * Create a resource owner to keep track of our resources (currently only
+	 * buffer pins).
+	 */
+	CurrentResourceOwner = ResourceOwnerCreate(NULL, "GlobalDeadLockDetector");
+
 	/* Early initialization */
 	BaseInit();
 
 	/* See InitPostgres()... */
+	/*
+	 * Create a per-backend PGPROC struct in shared memory, except in the
+	 * EXEC_BACKEND case where this was done in SubPostmasterMain. We must do
+	 * this before we can use LWLocks (and in the EXEC_BACKEND case we already
+	 * had to do some stuff with LWLocks).
+	 */
+#ifndef EXEC_BACKEND
 	InitProcess();
+#endif
 	InitBufferPoolBackend();
 	InitXLOGAccess();
 
 	SetProcessingMode(NormalProcessing);
+
+	/* Allocate MemoryContext */
+	gddContext = AllocSetContextCreate(TopMemoryContext,
+									   "GddContext",
+									   ALLOCSET_DEFAULT_MINSIZE,
+									   ALLOCSET_DEFAULT_INITSIZE,
+									   ALLOCSET_DEFAULT_MAXSIZE);
 
 	/*
 	 * If an exception is encountered, processing resumes here.
@@ -233,12 +268,6 @@ GlobalDeadLockDetectorMain(int argc, char *argv[])
 	/*
 	 * The following additional initialization allows us to call the persistent meta-data modules.
 	 */
-
-	/*
-	 * Create a resource owner to keep track of our resources (currently only
-	 * buffer pins).
-	 */
-	CurrentResourceOwner = ResourceOwnerCreate(NULL, "GlobalDeadLockDetector");
 
 	/*
 	 * Add my PGPROC struct to the ProcArray.
@@ -314,13 +343,6 @@ GlobalDeadLockDetectorMain(int argc, char *argv[])
 
 	/* close the transaction we started above */
 	CommitTransactionCommand();
-
-	/* Allocate MemoryContext */
-	gddContext = AllocSetContextCreate(TopMemoryContext,
-									   "GddContext",
-									   ALLOCSET_DEFAULT_MINSIZE,
-									   ALLOCSET_DEFAULT_INITSIZE,
-									   ALLOCSET_DEFAULT_MAXSIZE);
 
 	/* disable orca here */
 	extern bool optimizer;
