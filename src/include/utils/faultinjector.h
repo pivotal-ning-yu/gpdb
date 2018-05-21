@@ -218,6 +218,8 @@ typedef enum FaultInjectorIdentifier_e {
 	BeforeTransactionIdCommit,
 	FsyncCounter,
 
+	CopyFromHighProcessed,
+
 	/* INSERT has to be done before that line */
 	FaultInjectorIdMax,
 	

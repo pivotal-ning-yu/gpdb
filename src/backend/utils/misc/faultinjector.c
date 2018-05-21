@@ -325,6 +325,8 @@ FaultInjectorIdentifierEnumToString[] = {
 		/* inject fault in interconnect to skip sending the stop ack */
 	_("fsync_counter"),
 		/* inject fault to count buffers fsync'ed by checkpoint process */
+	_("copy_from_high_processed"),
+		/* inject fault to pretend copying from very high number of processed rows */
 	_("not recognized"),
 };
 
@@ -1013,6 +1015,7 @@ FaultInjector_NewHashEntry(
 			case FinishPreparedTransactionAbortPass1AbortingCreateNeeded:
 			case FinishPreparedTransactionAbortPass2AbortingCreateNeeded:
 			case InterconnectStopAckIsLost:
+			case CopyFromHighProcessed:
 
 				break;
 			default:

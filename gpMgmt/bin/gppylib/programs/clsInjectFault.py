@@ -421,6 +421,7 @@ class GpInjectFaultProgram:
 			      "interconnect_stop_ack_is_lost (inject fault in interconnect to skip sending the stop ack), " \
 			      "before_transaction_id_commit (inject fault before commit status is recorded in clog), " \
 			      "fsync_counter (inject fault to count buffers fsync'ed by checkpoint process), " \
+                  "copy_from_high_processed (inject fault to pretend copying from very high number of processed rows), " \
 			      "all (affects all faults injected, used for 'status' and 'reset'), ") 
         addTo.add_option("-c", "--ddl_statement", dest="ddlStatement", type="string",
                          metavar="ddlStatement",
