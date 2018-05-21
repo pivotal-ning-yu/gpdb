@@ -483,6 +483,15 @@ resources:
     secret_access_key: {{gpdb5-pipeline-bucket-secret-access-key}}
     regexp: release/gpdb4/plr/plr-(.*)-GPDB4.3-rhel5-x86_64.gppkg
 
+- name: libgppc_rhel5_gppkg
+  type: s3
+  source:
+    access_key_id: {{bucket-access-key-id}}
+    bucket: {{bucket-name}}
+    region_name: {{aws-region}}
+    secret_access_key: {{bucket-secret-access-key}}
+    versioned_file: deliverables/libgppc-pv1.2_gpdb4.3orca-rhel5-x86_64.gppkg
+
 - name: pivnet_client
   type: git
   source:
@@ -1184,6 +1193,7 @@ jobs:
       - get: pivnet_client
       - get: gpdb_release
         resource: gpdb_release_src
+      - get: libgppc_rhel5_gppkg
     - task: push-to-pivnet
       config:
         platform: linux
@@ -1217,6 +1227,7 @@ jobs:
         - name: osl_gpdb4
         - name: postgis_rhel5_gppkg
         - name: postgis_sles11_gppkg
+        - name: libgppc_rhel5_gppkg
 
         params:
           PIVNET_ENDPOINT: {{4_3-release_pivnet_endpoint}}
