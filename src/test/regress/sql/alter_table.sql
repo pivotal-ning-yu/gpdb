@@ -1566,3 +1566,37 @@ ALTER TABLE split_tupdesc_leak SPLIT DEFAULT PARTITION AT ('201412')
 	INTO (PARTITION p_split_tupdesc_leak_ym, PARTITION p_split_tupdesc_leak_ym_201412);
 
 DROP TABLE split_tupdesc_leak;
+
+-- Test for splitting after dropping a column
+DROP TABLE IF EXISTS test_part;
+CREATE TABLE test_part (
+    field_part timestamp without time zone,
+    field1 int,
+    field2 text,
+    field3 int
+) PARTITION BY RANGE(field_part) 
+          (
+          PARTITION p2017 START ('2017-01-01'::date) END ('2018-01-01'::date) WITH (appendonly=false ), 
+          DEFAULT PARTITION p_overflow  WITH (appendonly=false )
+          );
+
+DROP TABLE IF EXISTS test_ref;
+CREATE TABLE test_ref (
+    field1 text,
+    field2 text
+) DISTRIBUTED BY (field1);
+
+INSERT INTO test_part select '2017-01-01'::date + interval '1 days' * mod (id,1000) , mod(id,50), 'test ' || mod(id,5) ,mod(id,2) from generate_series(1,10000) id;
+INSERT INTO test_ref select 'test ' || id , 'values' from generate_series(1,10) id;
+
+ALTER TABLE test_part DROP COLUMN field1;
+ALTER TABLE test_part   SPLIT DEFAULT PARTITION
+START('2018-01-01'::date) 
+       END( '2018-02-01'::date);	
+ANALYZE test_part;
+ANALYZE test_ref;
+
+SELECT * FROM test_part WHERE field2 IN (SELECT field1 FROM test_ref) ORDER BY 1 LIMIT 10;
+
+DROP TABLE test_ref;
+DROP TABLE test_part;
