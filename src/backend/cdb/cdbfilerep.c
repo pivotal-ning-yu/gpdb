@@ -4223,7 +4223,7 @@ FileRepStats_GpmonSend(int sig)
 #endif
 			 if(bytesSent != sizeof(gpmon_packet_t))
 			 {
-				 elog(WARNING, "FileRepStats_GpmonSend: Error when sending file rep stats to perfmon - \
+				 elog(DEBUG1, "FileRepStats_GpmonSend: Error when sending file rep stats to perfmon - \
 								only %d bytes of %lu sent - cannot send to localhost by loopback;\n",
 								bytesSent, (unsigned long)sizeof(gpmon_packet_t));
 			 }
@@ -4231,7 +4231,7 @@ FileRepStats_GpmonSend(int sig)
 		 }
 		 else
 		 {
-			 elog(WARNING, "FileRepStats_GpmonSend: Error when sending file rep stats to perfmon - \
+			 elog(DEBUG1, "FileRepStats_GpmonSend: Error when sending file rep stats to perfmon - \
                             only %d bytes of %lu sent; %s\n",
 				  bytesSent, (unsigned long)sizeof(gpmon_packet_t),
 				  strerror(errno)
