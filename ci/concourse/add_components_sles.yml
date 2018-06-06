@@ -11,6 +11,7 @@ inputs:
   - name: gpdb_src
   - name: bin_gpdb
   - name: component_gpbackup
+  - name: component_gpcopy_helper
 
 outputs:
   - name: bin_gpdb_with_components

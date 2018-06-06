@@ -182,6 +182,15 @@ resources:
     secret_access_key: {{gpdb5-pipeline-bucket-secret-access-key}}
     regexp: components/gpbackup/gpbackup-(1\.2\.2).tar.gz
 
+- name: component_gpcopy_helper
+  type: s3
+  source:
+    access_key_id: {{gpdb5-pipeline-bucket-access-key-id}}
+    bucket: {{component-bucket-name}}
+    region_name: {{gpdb5-pipeline-aws-region}}
+    secret_access_key: {{gpdb5-pipeline-bucket-secret-access-key}}
+    regexp: components/gpcopy/gpcopy_helper-(1\.0\.0).tar.gz
+
 - name: sync_tools_gpdb_sles
   type: s3
   source:
@@ -816,6 +825,7 @@ jobs:
       trigger: true
     - get: gpdb_src
     - get: component_gpbackup
+    - get: component_gpcopy_helper
   - aggregate:
     - do:
       - task: add_components_to_bin_gpdb_sles11
@@ -990,6 +1000,7 @@ jobs:
       trigger: true
     - get: centos-gpdb-dev-5
     - get: component_gpbackup
+    - get: component_gpcopy_helper
   - aggregate:
     - do:
       - task: add_components_to_bin_gpdb_centos5
