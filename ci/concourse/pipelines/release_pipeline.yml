@@ -180,7 +180,7 @@ resources:
     bucket: {{component-bucket-name}}
     region_name: {{gpdb5-pipeline-aws-region}}
     secret_access_key: {{gpdb5-pipeline-bucket-secret-access-key}}
-    regexp: components/gpbackup/gpbackup-(1\.2\.1).tar.gz
+    regexp: components/gpbackup/gpbackup-(1\.2\.2).tar.gz
 
 - name: sync_tools_gpdb_sles
   type: s3
