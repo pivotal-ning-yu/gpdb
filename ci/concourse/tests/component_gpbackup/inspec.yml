@@ -1,0 +1,8 @@
+name: gpdb_components
+title: GPDB components
+maintainer: PA-Toolsmiths
+copyright: PA-Toolsmiths
+copyright_email: pa-toolsmiths@pivotal.io
+license: All Rights Reserved
+summary: Test GPDB component installation
+version: 0.1.0

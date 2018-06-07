@@ -1079,13 +1079,12 @@ jobs:
       passed:
       - gpdb_rc_packaging_centos5
       trigger: true
-    - get: gpdb_release_src
   - task: install-test-for-components
     config:
       platform: linux
       inputs:
       - name: installer_rhel5_gpdb_rc
-      - name: gpdb_release_src
+      - name: gpdb_src
       image_resource:
         type: docker-image
         source:
@@ -1106,7 +1105,7 @@ jobs:
           GPDB_INSTALLDIR="/usr/local/greenplum-db-${GPDB_VERSION}"
           mkdir -p "${GPDB_INSTALLDIR}"
           tail -n "+${SKIP}" "${GPDB_BIN}" | tar zxf - -C "${GPDB_INSTALLDIR}"
-          GPDB_VERSION="${GPDB_VERSION}" inspec exec gpdb_release_src/concourse/tests/component_gpbackup/ --reporter documentation
+          GPDB_VERSION="${GPDB_VERSION}" inspec exec gpdb_src/ci/concourse/tests/component_gpbackup/ --reporter documentation
 
 - name: component-testing-sles11-binary-installer
   plan:
@@ -1118,13 +1117,12 @@ jobs:
       passed:
       - gpdb_rc_packaging_sles11
       trigger: true
-    - get: gpdb_release_src
   - task: install-test-for-components
     config:
       platform: linux
       inputs:
       - name: installer_sles11_gpdb_rc
-      - name: gpdb_release_src
+      - name: gpdb_src
       image_resource:
         type: docker-image
         source:
@@ -1145,7 +1143,7 @@ jobs:
           GPDB_INSTALLDIR="/usr/local/greenplum-db-${GPDB_VERSION}"
           mkdir -p "${GPDB_INSTALLDIR}"
           tail -n "+${SKIP}" "${GPDB_BIN}" | tar zxf - -C "${GPDB_INSTALLDIR}"
-          GPDB_VERSION="${GPDB_VERSION}" inspec exec gpdb_release_src/concourse/tests/component_gpbackup/ --reporter documentation
+          GPDB_VERSION="${GPDB_VERSION}" inspec exec gpdb_src/ci/concourse/tests/component_gpbackup/ --reporter documentation
 
 - name: push-to-pivnet
   plan:
