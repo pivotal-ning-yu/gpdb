@@ -5,4 +5,4 @@
 [submodule "gpAux/extensions/pgbouncer/source"]
 	path = gpAux/extensions/pgbouncer/source
 	url = git@github.com:greenplum-db/pgbouncer.git
-	branch = 4.3_STABLE
+	branch = 4.3_STABLE_1_8_1
