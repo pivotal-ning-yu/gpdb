@@ -684,6 +684,39 @@ INSERT INTO update_tab VALUES (11, 123.45, '2019-05-01'::DATE);
 
 UPDATE update_tab a SET col = a.id FROM (SELECT b.id FROM subq_tab1 b, (SELECT dt, subq_func(id::text, 'abcd') FROM subq_tab2) c WHERE c.dt >= '2017-01-01' )d;
 
+--
+-- Check for correct results for subqueries nested inside a scalar expression
+--
+-- start_ignore
+create table subselect_tab1 (a int, b bool, c int);
+create table subselect_tab2 (a int, b int, c int);
+create table subselect_tab3 (a int, b text, c int);
+
+insert into subselect_tab1 VALUES (100, 'false', 1);
+insert into subselect_tab1 VALUES (200, 'true', 2);
+insert into subselect_tab2 VALUES (2,2,2);
+insert into subselect_tab3 VALUES (200, 'falseg', 1);
+-- end_ignore
+
+-- scalar subquery in a null test expression
+select * from subselect_tab1 where (select b from subselect_tab2) is null;
+
+-- ANY subquery nested in a scalar comparison expression
+select * from subselect_tab1 where b::bool = ( c = any(select c from subselect_tab2));
+
+-- EXISTS subquery nested in a boolean expression
+select * from subselect_tab1 where b::bool = (exists(select c from subselect_tab2) and not exists (select c from subselect_tab3));
+
+-- ALL and EXISTS nested in a CASE-WHEN-THEN expression
+select * from subselect_tab1 where case when b is not null then (subselect_tab1.c < all(select c from subselect_tab2 where exists (select * from subselect_tab3))) else false end;
+
+-- EXISTS subquery nested in a scalar comparison expression
+select * from subselect_tab1 where b::bool = exists(select c from subselect_tab2);
+
+-- a few more complex combinations..
+SELECT * FROM subselect_tab3 WHERE (EXISTS(SELECT c FROM subselect_tab2) AND NOT EXISTS (SELECT c from subselect_tab3)) IN (SELECT b::BOOL from subselect_tab1);
+SELECT * FROM subselect_tab3 WHERE (NOT EXISTS(SELECT c FROM subselect_tab2)) IN (SELECT b::boolean  from subselect_tab1);
+
 -- start_ignore
 drop schema qp_subquery cascade;
 -- end_ignore
