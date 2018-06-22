@@ -9,6 +9,7 @@ test: uao/select_while_delete_column
 test: uao/vacuum_cleanup_row
 test: add_column_after_vacuum_skip_drop_column
 test: vacuum_after_vacuum_skip_drop_column
+test: reorganize_after_ao_vacuum_skip_drop
 
 # Tests on Append-Optimized tables (column-oriented).
 test: uao/vacuum_cleanup_column
