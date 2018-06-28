@@ -4,6 +4,7 @@ platform: linux
 inputs:
 - name: gpdb_src
 - name: ccache_snapshot
+- name: gpAux_ext
 
 outputs:
 - name: gpdb_artifacts
@@ -16,7 +17,3 @@ params:
   TARGET_OS_VERSION:
   BLD_TARGETS: clients connectivity loaders
   OUTPUT_ARTIFACT_DIR: gpdb_artifacts
-  IVYREPO_HOST:
-  IVYREPO_REALM:
-  IVYREPO_USER:
-  IVYREPO_PASSWD:

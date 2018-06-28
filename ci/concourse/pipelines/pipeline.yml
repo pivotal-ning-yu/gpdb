@@ -1079,6 +1079,19 @@ jobs:
     - get: ccache_snapshot
       resource: ccache_gpdb_centos5
       trigger: false
+    - get: centos-gpdb-dev-6
+  - task: sync_tools
+    file: gpdb_src/ci/concourse/sync_tools.yml
+    image: centos-gpdb-dev-6
+    params:
+      IVYREPO_HOST: {{ivyrepo_host}}
+      IVYREPO_REALM: {{ivyrepo_realm}}
+      IVYREPO_USER: {{ivyrepo_user}}
+      IVYREPO_PASSWD: {{ivyrepo_passwd}}
+      TASK_OS: centos
+      TASK_OS_VERSION: 6
+      TARGET_OS: centos
+      TARGET_OS_VERSION: 5
   - task: compile_gpdb
     file: gpdb_src/ci/concourse/compile_gpdb.yml
     image: centos-gpdb-dev-5
@@ -1086,10 +1099,6 @@ jobs:
       TARGET_OS: centos
       TARGET_OS_VERSION: 5
       BLD_TARGETS: clients connectivity loaders
-      IVYREPO_HOST: {{ivyrepo_host}}
-      IVYREPO_REALM: {{ivyrepo_realm}}
-      IVYREPO_USER: {{ivyrepo_user}}
-      IVYREPO_PASSWD: {{ivyrepo_passwd}}
   - aggregate:
     - put: bin_gpdb_centos
       params:
@@ -1171,6 +1180,19 @@ jobs:
     - get: ccache_snapshot
       tags: ["wix"]
       resource: ccache_empty
+    - get: centos-gpdb-dev-6
+  - task: sync_tools
+    file: gpdb_src/ci/concourse/sync_tools.yml
+    image: centos-gpdb-dev-6
+    params:
+      IVYREPO_HOST: {{ivyrepo_host}}
+      IVYREPO_REALM: {{ivyrepo_realm}}
+      IVYREPO_USER: {{ivyrepo_user}}
+      IVYREPO_PASSWD: {{ivyrepo_passwd}}
+      TASK_OS: centos
+      TASK_OS_VERSION: 6
+      TARGET_OS: win32
+      TARGET_OS_VERSION:
   - task: compile_gpdb
     tags: ["wix"]
     file: gpdb_src/ci/concourse/compile_gpdb.yml
@@ -1179,10 +1201,6 @@ jobs:
       TARGET_OS: win32
       TARGET_OS_VERSION:
       BLD_TARGETS: clients connectivity loaders
-      IVYREPO_HOST: {{ivyrepo_host}}
-      IVYREPO_REALM: {{ivyrepo_realm}}
-      IVYREPO_USER: {{ivyrepo_user}}
-      IVYREPO_PASSWD: {{ivyrepo_passwd}}
   - aggregate:
     - put: bin_gpdb_windows_clients
       tags: ["wix"]
@@ -1205,13 +1223,22 @@ jobs:
     - get: ccache_snapshot
       resource: ccache_gpdb_sles11
       trigger: false
-  - task: build_gpdb
-    file: gpdb_src/ci/concourse/compile_gpdb_sles11.yml
+    - get: centos-gpdb-dev-6
+  - task: sync_tools
+    file: gpdb_src/ci/concourse/sync_tools.yml
+    image: centos-gpdb-dev-6
     params:
       IVYREPO_HOST: {{ivyrepo_host}}
       IVYREPO_REALM: {{ivyrepo_realm}}
       IVYREPO_USER: {{ivyrepo_user}}
       IVYREPO_PASSWD: {{ivyrepo_passwd}}
+      TASK_OS: centos
+      TASK_OS_VERSION: 6
+      TARGET_OS: sles
+      TARGET_OS_VERSION: 11
+  - task: build_gpdb
+    file: gpdb_src/ci/concourse/compile_gpdb_sles11.yml
+    params:
       TARGET_OS: sles
       TARGET_OS_VERSION: 11
       BLD_TARGETS: clients connectivity loaders
@@ -1272,14 +1299,22 @@ jobs:
     - get: ccache_snapshot
       resource: ccache_gpdb_centos6
       trigger: false
-  - task: compile_gpdb
-    file: gpdb_src/ci/concourse/compile_gpdb.yml
+  - task: sync_tools
+    file: gpdb_src/ci/concourse/sync_tools.yml
     image: centos-gpdb-dev-6
     params:
       IVYREPO_HOST: {{ivyrepo_host}}
       IVYREPO_REALM: {{ivyrepo_realm}}
       IVYREPO_USER: {{ivyrepo_user}}
       IVYREPO_PASSWD: {{ivyrepo_passwd}}
+      TASK_OS: centos
+      TASK_OS_VERSION: 6
+      TARGET_OS: centos
+      TARGET_OS_VERSION: 6
+  - task: compile_gpdb
+    file: gpdb_src/ci/concourse/compile_gpdb.yml
+    image: centos-gpdb-dev-6
+    params:
       TARGET_OS: centos
       TARGET_OS_VERSION: 6
       BLD_TARGETS: ''
@@ -1300,14 +1335,23 @@ jobs:
     - get: ccache_snapshot
       resource: ccache_gpdb_centos7
       trigger: false
-  - task: compile_gpdb
-    file: gpdb_src/ci/concourse/compile_gpdb.yml
-    image: centos-gpdb-dev-7
+    - get: centos-gpdb-dev-6
+  - task: sync_tools
+    file: gpdb_src/ci/concourse/sync_tools.yml
+    image: centos-gpdb-dev-6
     params:
       IVYREPO_HOST: {{ivyrepo_host}}
       IVYREPO_REALM: {{ivyrepo_realm}}
       IVYREPO_USER: {{ivyrepo_user}}
       IVYREPO_PASSWD: {{ivyrepo_passwd}}
+      TASK_OS: centos
+      TASK_OS_VERSION: 6
+      TARGET_OS: centos
+      TARGET_OS_VERSION: 7
+  - task: compile_gpdb
+    file: gpdb_src/ci/concourse/compile_gpdb.yml
+    image: centos-gpdb-dev-7
+    params:
       TARGET_OS: centos
       TARGET_OS_VERSION: 7
       BLD_TARGETS: ''

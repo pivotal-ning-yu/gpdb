@@ -5,6 +5,7 @@ CONCURRENCY="--jobs=8 --load-average=16"
 GREENPLUM_INSTALL_DIR=/usr/local/greenplum-db-devel
 export GPDB_ARTIFACTS_DIR
 GPDB_ARTIFACTS_DIR=$(pwd)/$OUTPUT_ARTIFACT_DIR
+GPDB_SRC_PATH=${GPDB_SRC_PATH:=gpdb_src}
 
 CWDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "${CWDIR}/common.bash"
@@ -94,7 +95,10 @@ function _main() {
       ;;
   esac
 
-  make_sync_tools
+  # Copy input ext dir; assuming ext doesnt exist
+  mv gpAux_ext/ext ${GPDB_SRC_PATH}/gpAux
+  tar_sync_tools
+
   prep_ccache
 
   # By default, only GPDB Server binary is build.
