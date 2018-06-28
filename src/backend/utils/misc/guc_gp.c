@@ -3385,7 +3385,7 @@ struct config_int ConfigureNamesInt_gp[] =
 	},
 
 	{
-		{"gp_num_contents_in_cluster", PGC_POSTMASTER, PRESET_OPTIONS,
+		{"gp_num_contents_in_cluster", PGC_USERSET, PRESET_OPTIONS,
 			gettext_noop("Sets the number of segments in the cluster."),
 			NULL,
 			GUC_NOT_IN_SAMPLE | GUC_DISALLOW_IN_FILE

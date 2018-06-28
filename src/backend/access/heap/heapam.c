@@ -53,6 +53,7 @@
 #include "access/xlogutils.h"
 #include "catalog/catalog.h"
 #include "catalog/namespace.h"
+#include "catalog/pg_namespace.h"
 #include "miscadmin.h"
 #include "pgstat.h"
 #include "storage/bufmgr.h"
@@ -74,6 +75,10 @@
 #include "utils/guc.h"
 #include "utils/visibility_summary.h"
 #include "utils/faultinjector.h"
+
+#include <sys/file.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 
 /* GUC variable */
@@ -2183,6 +2188,16 @@ heap_insert(Relation relation, HeapTuple tup, CommandId cid,
 
 	Insist(RelationIsHeap(relation));
 
+	if (Gp_role == GP_ROLE_DISPATCH &&
+		RelationGetNamespace(relation) == PG_CATALOG_NAMESPACE)
+	{
+		/* potential catalog change */
+		int fd = open("/tmp/catalog.lock", O_RDONLY);
+		flock(fd, LOCK_SH);
+		flock(fd, LOCK_UN);
+		close(fd);
+	}
+
 	if (relation->rd_rel->relhasoids)
 	{
 #ifdef NOT_USED
@@ -2493,6 +2508,16 @@ heap_delete(Relation relation, ItemPointer tid,
 
 	Assert(ItemPointerIsValid(tid));
 	Assert(RelationIsHeap(relation));
+
+	if (Gp_role == GP_ROLE_DISPATCH &&
+		RelationGetNamespace(relation) == PG_CATALOG_NAMESPACE)
+	{
+		/* potential catalog change */
+		int fd = open("/tmp/catalog.lock", O_RDONLY);
+		flock(fd, LOCK_SH);
+		flock(fd, LOCK_UN);
+		close(fd);
+	}
 
 	buffer = ReadBuffer(relation, ItemPointerGetBlockNumber(tid));
 	LockBuffer(buffer, BUFFER_LOCK_EXCLUSIVE);
@@ -2832,6 +2857,16 @@ heap_update_internal(Relation relation, ItemPointer otid, HeapTuple newtup,
 
 	Assert(ItemPointerIsValid(otid));
 	Assert(!RelationIsAppendOptimized(relation));
+
+	if (Gp_role == GP_ROLE_DISPATCH &&
+		RelationGetNamespace(relation) == PG_CATALOG_NAMESPACE)
+	{
+		/* potential catalog change */
+		int fd = open("/tmp/catalog.lock", O_RDONLY);
+		flock(fd, LOCK_SH);
+		flock(fd, LOCK_UN);
+		close(fd);
+	}
 
 	/*
 	 * Fetch the list of attributes to be checked for HOT update.  This is

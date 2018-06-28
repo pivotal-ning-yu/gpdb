@@ -223,6 +223,26 @@ AllocateWriterGang()
 		elog(FATAL, "dispatch process called with role %d", Gp_role);
 	}
 
+	if (primaryWriterGang)
+	{
+		if (GangContext == NULL)
+		{
+			GangContext = AllocSetContextCreate(TopMemoryContext,
+												"Gang Context",
+												ALLOCSET_DEFAULT_MINSIZE,
+												ALLOCSET_DEFAULT_INITSIZE,
+												ALLOCSET_DEFAULT_MAXSIZE);
+		}
+		Assert(GangContext != NULL);
+		oldContext = MemoryContextSwitchTo(GangContext);
+
+		extern bool resizeGang_async(Gang *gang, int size);
+		if (!resizeGang_async(primaryWriterGang, getgpsegmentCount()))
+			primaryWriterGang = NULL;
+
+		MemoryContextSwitchTo(oldContext);
+	}
+
 	/*
 	 * First, we look for an unallocated but created gang of the right type if
 	 * it exists, we return it. Else, we create a new gang
@@ -375,6 +395,12 @@ getComponentDatabases(void)
 	uint8		ftsVersion = getFtsVersion();
 	MemoryContext oldContext = MemoryContextSwitchTo(GangContext);
 
+	if (cdb_component_dbs)
+	{
+		freeCdbComponentDatabases(cdb_component_dbs);
+		cdb_component_dbs = NULL;
+	}
+
 	if (cdb_component_dbs == NULL)
 	{
 		cdb_component_dbs = getCdbComponentDatabases();
@@ -439,6 +465,121 @@ findDatabaseInfoBySegIndex(
 	}
 
 	return cdbInfo;
+}
+
+extern bool resizeGangDefinition(Gang *gang, int size);
+bool
+resizeGangDefinition(Gang *gang, int size)
+{
+	CdbComponentDatabaseInfo *cdbinfo = NULL;
+	CdbComponentDatabaseInfo *cdbInfoCopy = NULL;
+	SegmentDatabaseDescriptor *segdbDesc = NULL;
+	MemoryContext perGangContext = gang->perGangContext;
+
+	int			oldsize = gang->size;
+	int			segCount = oldsize;
+	int			i = 0;
+
+	ELOG_DISPATCHER_DEBUG("resizeGangDefinition:Resizing %d->%d qExec processes for %s gang",
+						  oldsize, size, gangTypeToString(gang->type));
+
+	Assert(CurrentMemoryContext == GangContext);
+#if 0
+	Assert(size == 1 || size == getgpsegmentCount());
+#endif
+
+	if (oldsize >= size)
+	{
+		for (i = size; i < oldsize; i++)
+		{
+			SegmentDatabaseDescriptor *segdbDesc = &(gang->db_descriptors[i]);
+
+			Assert(segdbDesc != NULL);
+			cdbconn_disconnect(segdbDesc);
+			cdbconn_termSegmentDescriptor(segdbDesc);
+		}
+		gang->size = size;
+		return true;
+	}
+
+	/* read gp_segment_configuration and build CdbComponentDatabases */
+	cdb_component_dbs = getComponentDatabases();
+
+	if (cdb_component_dbs == NULL ||
+		cdb_component_dbs->total_segments <= 0 ||
+		cdb_component_dbs->total_segment_dbs <= 0)
+		insist_log(false, "schema not populated while building segworker group");
+
+	Assert(perGangContext != NULL);
+	MemoryContextSwitchTo(perGangContext);
+
+	/* resize db_descriptors */
+	gang->db_descriptors =
+		(SegmentDatabaseDescriptor *) repalloc(gang->db_descriptors,
+											   size * sizeof(SegmentDatabaseDescriptor));
+	memset(&gang->db_descriptors[oldsize], 0,
+		   (size - oldsize) * sizeof(SegmentDatabaseDescriptor));
+	gang->size = size;
+
+	/* initialize db_descriptors */
+	switch (gang->type)
+	{
+		case GANGTYPE_ENTRYDB_READER:
+#if 0
+			cdbinfo = &cdb_component_dbs->entry_db_info[0];
+			cdbInfoCopy = copyCdbComponentDatabaseInfo(cdbinfo);
+			segdbDesc = &gang->db_descriptors[0];
+			cdbconn_initSegmentDescriptor(segdbDesc, cdbInfoCopy);
+			setQEIdentifier(segdbDesc, -1, perGangContext);
+#endif
+			break;
+
+		case GANGTYPE_SINGLETON_READER:
+#if 0
+			cdbinfo = findDatabaseInfoBySegIndex(cdb_component_dbs, content);
+			cdbInfoCopy = copyCdbComponentDatabaseInfo(cdbinfo);
+			segdbDesc = &gang->db_descriptors[0];
+			cdbconn_initSegmentDescriptor(segdbDesc, cdbInfoCopy);
+			setQEIdentifier(segdbDesc, -1, perGangContext);
+#endif
+			break;
+
+		case GANGTYPE_PRIMARY_READER:
+		case GANGTYPE_PRIMARY_WRITER:
+
+			/*
+			 * We loop through the segment_db_info.  Each item has a segindex.
+			 * They are sorted by segindex, and there can be > 1
+			 * segment_db_info for a given segindex (currently, there can be 1
+			 * or 2)
+			 */
+			for (i = oldsize; i < cdb_component_dbs->total_segment_dbs; i++)
+			{
+				cdbinfo = &cdb_component_dbs->segment_db_info[i];
+				if (SEGMENT_IS_ACTIVE_PRIMARY(cdbinfo))
+				{
+					segdbDesc = &gang->db_descriptors[segCount];
+					cdbInfoCopy = copyCdbComponentDatabaseInfo(cdbinfo);
+					cdbconn_initSegmentDescriptor(segdbDesc, cdbInfoCopy);
+					setQEIdentifier(segdbDesc, -1, perGangContext);
+					segCount++;
+				}
+			}
+
+			if (size != segCount)
+			{
+				DisconnectAndDestroyAllGangs(true);
+				elog(ERROR, "Not all primary segment instances are active and connected");
+			}
+			break;
+
+		default:
+			Assert(false);
+	}
+
+	ELOG_DISPATCHER_DEBUG("resizeGangDefinition done");
+	MemoryContextSwitchTo(GangContext);
+	return true;
 }
 
 /*
