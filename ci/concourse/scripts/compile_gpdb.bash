@@ -99,6 +99,9 @@ function _main() {
   mv gpAux_ext/ext ${GPDB_SRC_PATH}/gpAux
   tar_sync_tools
 
+  # Copy .ant dir
+  mv gphdfs_dist/.ant /root/
+
   prep_ccache
 
   # By default, only GPDB Server binary is build.

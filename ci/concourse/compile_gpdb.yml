@@ -5,6 +5,7 @@ inputs:
 - name: gpdb_src
 - name: ccache_snapshot
 - name: gpAux_ext
+- name: gphdfs_dist
 
 outputs:
 - name: gpdb_artifacts

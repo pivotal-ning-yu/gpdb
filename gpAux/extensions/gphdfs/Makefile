@@ -31,6 +31,9 @@ IVY_HTTPAUTH = -Divyrepo.host="$(IVYREPO_HOST)" \
 
 all: $(JAR_FILES) unittest $(JAVADOC_TARS)
 
+.PHONY: dist
+dist: $(JAR_FILES)
+
 dist/gphd-1.0-gnet-1.0.0.1.jar:
 	$(ANT) clean
 	ANT_OPTS=$(ANT_OPTS) $(ANT) dist -Dorg=apache \

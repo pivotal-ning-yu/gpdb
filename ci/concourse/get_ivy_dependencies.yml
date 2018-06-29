@@ -9,9 +9,10 @@ inputs:
 
 outputs:
 - name: gpAux_ext
+- name: gphdfs_dist
 
 run:
-  path: gpdb_src/ci/concourse/scripts/sync_tools.bash
+  path: gpdb_src/ci/concourse/scripts/get_ivy_dependencies.bash
 
 params:
   TARGET_OS:

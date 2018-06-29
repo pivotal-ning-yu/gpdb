@@ -4,10 +4,15 @@ set -exo pipefail
 CWDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 GPDB_SRC_PATH=${GPDB_SRC_PATH:=gpdb_src}
 
-
 function make_sync_tools() {
   pushd gpdb_src/gpAux
     make IVYREPO_HOST="$IVYREPO_HOST" IVYREPO_REALM="$IVYREPO_REALM" IVYREPO_USER="$IVYREPO_USER" IVYREPO_PASSWD="$IVYREPO_PASSWD" sync_tools
+  popd
+}
+
+function make_gphdfs_dist() {
+  pushd gpdb_src/gpAux/extensions/gphdfs
+    make IVYREPO_HOST="$IVYREPO_HOST" IVYREPO_REALM="$IVYREPO_REALM" IVYREPO_USER="$IVYREPO_USER" IVYREPO_PASSWD="$IVYREPO_PASSWD" dist
   popd
 }
 
@@ -72,6 +77,12 @@ function _main() {
 
   # Move ext directory to output dir
   mv ${GPDB_SRC_PATH}/gpAux/ext gpAux_ext/
+
+  make_gphdfs_dist
+
+  # Move hdfs output directory to output dir
+  mv ${GPDB_SRC_PATH}/gpAux/extensions/gphdfs/dist gphdfs_dist/
+  mv /root/.ant gphdfs_dist/
 
 }
 

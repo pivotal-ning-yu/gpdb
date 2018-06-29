@@ -1080,8 +1080,8 @@ jobs:
       resource: ccache_gpdb_centos5
       trigger: false
     - get: centos-gpdb-dev-6
-  - task: sync_tools
-    file: gpdb_src/ci/concourse/sync_tools.yml
+  - task: get_ivy_dependencies
+    file: gpdb_src/ci/concourse/get_ivy_dependencies.yml
     image: centos-gpdb-dev-6
     params:
       IVYREPO_HOST: {{ivyrepo_host}}
@@ -1181,8 +1181,8 @@ jobs:
       tags: ["wix"]
       resource: ccache_empty
     - get: centos-gpdb-dev-6
-  - task: sync_tools
-    file: gpdb_src/ci/concourse/sync_tools.yml
+  - task: get_ivy_dependencies
+    file: gpdb_src/ci/concourse/get_ivy_dependencies.yml
     image: centos-gpdb-dev-6
     params:
       IVYREPO_HOST: {{ivyrepo_host}}
@@ -1224,8 +1224,8 @@ jobs:
       resource: ccache_gpdb_sles11
       trigger: false
     - get: centos-gpdb-dev-6
-  - task: sync_tools
-    file: gpdb_src/ci/concourse/sync_tools.yml
+  - task: get_ivy_dependencies
+    file: gpdb_src/ci/concourse/get_ivy_dependencies.yml
     image: centos-gpdb-dev-6
     params:
       IVYREPO_HOST: {{ivyrepo_host}}
@@ -1299,8 +1299,8 @@ jobs:
     - get: ccache_snapshot
       resource: ccache_gpdb_centos6
       trigger: false
-  - task: sync_tools
-    file: gpdb_src/ci/concourse/sync_tools.yml
+  - task: get_ivy_dependencies
+    file: gpdb_src/ci/concourse/get_ivy_dependencies.yml
     image: centos-gpdb-dev-6
     params:
       IVYREPO_HOST: {{ivyrepo_host}}
@@ -1336,8 +1336,8 @@ jobs:
       resource: ccache_gpdb_centos7
       trigger: false
     - get: centos-gpdb-dev-6
-  - task: sync_tools
-    file: gpdb_src/ci/concourse/sync_tools.yml
+  - task: get_ivy_dependencies
+    file: gpdb_src/ci/concourse/get_ivy_dependencies.yml
     image: centos-gpdb-dev-6
     params:
       IVYREPO_HOST: {{ivyrepo_host}}
