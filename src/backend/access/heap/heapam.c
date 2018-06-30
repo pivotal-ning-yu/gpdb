@@ -53,7 +53,17 @@
 #include "access/xlogutils.h"
 #include "catalog/catalog.h"
 #include "catalog/namespace.h"
+#include "catalog/gp_configuration_history.h"
+#include "catalog/pg_auth_time_constraint.h"
+#include "catalog/pg_description.h"
 #include "catalog/pg_namespace.h"
+#include "catalog/pg_partition.h"
+#include "catalog/pg_partition_encoding.h"
+#include "catalog/pg_partition_rule.h"
+#include "catalog/pg_shdescription.h"
+#include "catalog/pg_stat_last_operation.h"
+#include "catalog/pg_stat_last_shoperation.h"
+#include "catalog/pg_statistic.h"
 #include "miscadmin.h"
 #include "pgstat.h"
 #include "storage/bufmgr.h"
@@ -96,6 +106,43 @@ static XLogRecPtr log_heap_update(Relation reln, Buffer oldbuf,
 static bool HeapSatisfiesHOTUpdate(Relation relation, Bitmapset *hot_attrs,
 					   HeapTuple oldtup, HeapTuple newtup);
 
+static inline void
+lockCatalogUpdates(Relation relation)
+{
+	if (Gp_role != GP_ROLE_DISPATCH)
+		/* only lock catalog updates on qd */
+		return;
+
+	if (RelationGetNamespace(relation) != PG_CATALOG_NAMESPACE)
+		/* not catalog relations */
+		return;
+
+	switch (RelationGetRelid(relation))
+	{
+		case GpSegmentConfigRelationId:
+		case GpConfigHistoryRelationId:
+		case DescriptionRelationId:
+		case PartitionRelationId:
+		case PartitionRuleRelationId:
+		case SharedDescriptionRelationId:
+		case StatLastOpRelationId:
+		case StatLastShOpRelationId:
+		case StatisticRelationId:
+		case PartitionEncodingRelationId:
+		case AuthTimeConstraintRelationId:
+			/* these catalog tables are only meaningful on qd */
+			return;
+	}
+
+	/* FIXME: flock is only for debug purpose.
+	 *        in production code we should use shared lwlock instead */
+	/* FIXME: check whether we are already holding the lock */
+	int fd = open("/tmp/catalog.lock", O_RDONLY);
+	flock(fd, LOCK_SH);
+	/* FIXME: we should release the lock at end of xact */
+	flock(fd, LOCK_UN);
+	close(fd);
+}
 
 /* ----------------------------------------------------------------
  *						 heap support routines
@@ -2188,15 +2235,7 @@ heap_insert(Relation relation, HeapTuple tup, CommandId cid,
 
 	Insist(RelationIsHeap(relation));
 
-	if (Gp_role == GP_ROLE_DISPATCH &&
-		RelationGetNamespace(relation) == PG_CATALOG_NAMESPACE)
-	{
-		/* potential catalog change */
-		int fd = open("/tmp/catalog.lock", O_RDONLY);
-		flock(fd, LOCK_SH);
-		flock(fd, LOCK_UN);
-		close(fd);
-	}
+	lockCatalogUpdates(relation);
 
 	if (relation->rd_rel->relhasoids)
 	{
@@ -2509,15 +2548,7 @@ heap_delete(Relation relation, ItemPointer tid,
 	Assert(ItemPointerIsValid(tid));
 	Assert(RelationIsHeap(relation));
 
-	if (Gp_role == GP_ROLE_DISPATCH &&
-		RelationGetNamespace(relation) == PG_CATALOG_NAMESPACE)
-	{
-		/* potential catalog change */
-		int fd = open("/tmp/catalog.lock", O_RDONLY);
-		flock(fd, LOCK_SH);
-		flock(fd, LOCK_UN);
-		close(fd);
-	}
+	lockCatalogUpdates(relation);
 
 	buffer = ReadBuffer(relation, ItemPointerGetBlockNumber(tid));
 	LockBuffer(buffer, BUFFER_LOCK_EXCLUSIVE);
@@ -2858,15 +2889,7 @@ heap_update_internal(Relation relation, ItemPointer otid, HeapTuple newtup,
 	Assert(ItemPointerIsValid(otid));
 	Assert(!RelationIsAppendOptimized(relation));
 
-	if (Gp_role == GP_ROLE_DISPATCH &&
-		RelationGetNamespace(relation) == PG_CATALOG_NAMESPACE)
-	{
-		/* potential catalog change */
-		int fd = open("/tmp/catalog.lock", O_RDONLY);
-		flock(fd, LOCK_SH);
-		flock(fd, LOCK_UN);
-		close(fd);
-	}
+	lockCatalogUpdates(relation);
 
 	/*
 	 * Fetch the list of attributes to be checked for HOT update.  This is

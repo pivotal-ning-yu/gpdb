@@ -1194,6 +1194,8 @@ getCdbProcessesForQD(int isPrimary)
 	CdbProcess *proc;
 
 	Assert(Gp_role == GP_ROLE_DISPATCH);
+	if (!cdb_component_dbs)
+		getComponentDatabases();
 	Assert(cdb_component_dbs != NULL);
 
 	if (!isPrimary)
