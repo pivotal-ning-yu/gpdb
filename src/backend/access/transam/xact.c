@@ -2661,6 +2661,7 @@ CommitTransaction(void)
 	AtEOXact_HashTables(true);
 	AtEOXact_PgStat(true);
 	AtEOXact_Snapshot(true);
+	AtEOXact_Expand(true);
 	pgstat_report_xact_timestamp(0);
 
 	CurrentResourceOwner = NULL;
@@ -2967,6 +2968,7 @@ PrepareTransaction(void)
 	AtEOXact_HashTables(true);
 	/* don't call AtEOXact_PgStat here */
 	AtEOXact_Snapshot(true);
+	AtEOXact_Expand(true);
 
 	CurrentResourceOwner = NULL;
 	ResourceOwnerDelete(TopTransactionResourceOwner);
@@ -3140,6 +3142,7 @@ AbortTransaction(void)
 		AtEOXact_HashTables(false);
 		AtEOXact_PgStat(false);
 		AtEOXact_Snapshot(false);
+		AtEOXact_Expand(false);
 		pgstat_report_xact_timestamp(0);
 	}
 

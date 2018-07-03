@@ -94,6 +94,8 @@
 /* GUC variable */
 bool		synchronize_seqscans = true;
 
+/* Local variable */
+bool		GpExpandLockHeldByMe = false;
 
 static HeapScanDesc heap_beginscan_internal(Relation relation,
 						Snapshot snapshot,
@@ -106,9 +108,25 @@ static XLogRecPtr log_heap_update(Relation reln, Buffer oldbuf,
 static bool HeapSatisfiesHOTUpdate(Relation relation, Bitmapset *hot_attrs,
 					   HeapTuple oldtup, HeapTuple newtup);
 
-static inline void
-lockCatalogUpdates(Relation relation)
+void
+AtEOXact_Expand(bool isCommit)
 {
+	GpExpandLockHeldByMe = false;
+
+	if (LWLockHeldByMe(GpExpandLock))
+		LWLockRelease(GpExpandLock);
+}
+
+static inline void
+protectOnlineExpand(Relation relation)
+{
+	AssertEquivalent(GpExpandLockHeldByMe,
+					 LWLockHeldByMe(GpExpandLock));
+
+	if (GpExpandLockHeldByMe)
+		/* already holding the expand lock */
+		return;
+
 	if (Gp_role != GP_ROLE_DISPATCH)
 		/* only lock catalog updates on qd */
 		return;
@@ -134,14 +152,9 @@ lockCatalogUpdates(Relation relation)
 			return;
 	}
 
-	/* FIXME: flock is only for debug purpose.
-	 *        in production code we should use shared lwlock instead */
-	/* FIXME: check whether we are already holding the lock */
-	int fd = open("/tmp/catalog.lock", O_RDONLY);
-	flock(fd, LOCK_SH);
-	/* FIXME: we should release the lock at end of xact */
-	flock(fd, LOCK_UN);
-	close(fd);
+	/* The online expand util will hold this lwlock in LW_EXCLUSIVE mode */
+	LWLockAcquire(GpExpandLock, LW_SHARED);
+	GpExpandLockHeldByMe = true;
 }
 
 /* ----------------------------------------------------------------
@@ -2235,7 +2248,7 @@ heap_insert(Relation relation, HeapTuple tup, CommandId cid,
 
 	Insist(RelationIsHeap(relation));
 
-	lockCatalogUpdates(relation);
+	protectOnlineExpand(relation);
 
 	if (relation->rd_rel->relhasoids)
 	{
@@ -2548,7 +2561,7 @@ heap_delete(Relation relation, ItemPointer tid,
 	Assert(ItemPointerIsValid(tid));
 	Assert(RelationIsHeap(relation));
 
-	lockCatalogUpdates(relation);
+	protectOnlineExpand(relation);
 
 	buffer = ReadBuffer(relation, ItemPointerGetBlockNumber(tid));
 	LockBuffer(buffer, BUFFER_LOCK_EXCLUSIVE);
@@ -2889,7 +2902,7 @@ heap_update_internal(Relation relation, ItemPointer otid, HeapTuple newtup,
 	Assert(ItemPointerIsValid(otid));
 	Assert(!RelationIsAppendOptimized(relation));
 
-	lockCatalogUpdates(relation);
+	protectOnlineExpand(relation);
 
 	/*
 	 * Fetch the list of attributes to be checked for HOT update.  This is
