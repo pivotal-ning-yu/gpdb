@@ -5233,6 +5233,17 @@ PostgresMain(int argc, char *argv[],
 
 		check_forbidden_in_fts_handler(firstchar);
 
+#if 0
+		if (GpIdentity.numsegments != UNINITIALIZED_GP_IDENTITY_VALUE &&
+			GpIdentity.newnumsegments != UNINITIALIZED_GP_IDENTITY_VALUE &&
+			GpIdentity.numsegments != GpIdentity.newnumsegments)
+		{
+			elog(WARNING, "numsegments is changed: %d -> %d",
+				 GpIdentity.numsegments, GpIdentity.newnumsegments);
+			GpIdentity.numsegments = GpIdentity.newnumsegments;
+		}
+#endif
+
 		switch (firstchar)
 		{
 			case 'Q':			/* simple query */

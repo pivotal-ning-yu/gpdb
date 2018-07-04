@@ -483,6 +483,14 @@ gp_add_segment(PG_FUNCTION_ARGS)
 }
 
 /*
+ * UPDATE gp_segment_configuration SET status='u' WHERE status='e';
+ */
+Datum
+gp_bring_up_segments(PG_FUNCTION_ARGS)
+{
+}
+
+/*
  * Master function to remove a segment from all catalogs
  */
 static void

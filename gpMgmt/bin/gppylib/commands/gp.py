@@ -804,7 +804,7 @@ class NewGpStop(Command):
 
 #-----------------------------------------------
 class GpStop(Command):
-    def __init__(self, name, masterOnly=False, verbose=False, quiet=False, restart=False, fast=False, force=False, datadir=None, ctxt=LOCAL, remoteHost=None, logfileDirectory=False):
+    def __init__(self, name, masterOnly=False, verbose=False, quiet=False, restart=False, fast=False, force=False, datadir=None, ctxt=LOCAL, remoteHost=None, logfileDirectory=False, reloadConf=False):
         self.cmdStr="$GPHOME/bin/gpstop -a"
         if masterOnly:
             self.cmdStr += " -m"
@@ -822,6 +822,8 @@ class GpStop(Command):
             self.cmdStr += " -q"
         if logfileDirectory:
             self.cmdStr += " -l '" + logfileDirectory + "'"
+        if reloadConf:
+            self.cmdStr += " -u"
         Command.__init__(self,name,self.cmdStr,ctxt,remoteHost)
 
     @staticmethod
@@ -829,6 +831,18 @@ class GpStop(Command):
         cmd=GpStop(name,masterOnly,verbose,quiet,restart,fast,force,datadir)
         cmd.run(validateAfter=True)
         return cmd
+
+#-----------------------------------------------
+class GpConfig(Command):
+    def __init__(self, name, ctxt=LOCAL, remoteHost=None, change=None, value=None, mastervalue=None):
+        self.cmdStr="$GPHOME/bin/gpconfig"
+        if change:
+            self.cmdStr += " -c '%s' " % change
+        if value:
+            self.cmdStr += " -v '%s' " % value
+        if mastervalue:
+            self.cmdStr += " -m '%s' " % mastervalue
+        Command.__init__(self,name,self.cmdStr,ctxt,remoteHost)
 
 #-----------------------------------------------
 class GpRecoverseg(Command):

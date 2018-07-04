@@ -322,15 +322,26 @@ getCdbComponentInfo(bool DNSLookupAsError)
 		}
 	}
 
+#if 0
+	GpIdentity.newnumsegments = component_databases->total_segments;
+#endif
+
 	/*
 	 * Validate that gp_numsegments == segment_databases->total_segment_dbs
 	 */
 	if (getgpsegmentCount() != component_databases->total_segments)
 	{
-		ereport(ERROR,
+		ereport(WARNING,
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("Greenplum Database number of segments inconsistency: count is %d from pg_catalog.%s table, but %d from getCdbComponentDatabases()",
 						getgpsegmentCount(), GpIdRelationName, component_databases->total_segments)));
+		GpIdentity.numsegments = component_databases->total_segments;
+#if 0
+		if (GpIdentity.newnumsegments != UNINITIALIZED_GP_IDENTITY_VALUE)
+		{
+			GpIdentity.numsegments = GpIdentity.newnumsegments;
+		}
+#endif
 	}
 
 	/*

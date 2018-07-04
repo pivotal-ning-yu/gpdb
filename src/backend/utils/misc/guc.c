@@ -5638,6 +5638,9 @@ set_config_option(const char *name, const char *value,
 		changeVal = false;
 	}
 
+	if (strcmp(record->name, "gp_num_contents_in_cluster") == 0)
+		changeVal = true;
+
 	/*
 	 * Evaluate value and set variable.
 	 */

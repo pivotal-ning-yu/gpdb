@@ -218,6 +218,10 @@ AllocateWriterGang()
 
 	ELOG_DISPATCHER_DEBUG("AllocateWriterGang begin.");
 
+#if 0
+	getCdbComponentDatabases();
+#endif
+
 	if (Gp_role != GP_ROLE_DISPATCH)
 	{
 		elog(FATAL, "dispatch process called with role %d", Gp_role);
@@ -249,6 +253,7 @@ AllocateWriterGang()
 	 */
 	if (primaryWriterGang != NULL)
 	{
+		Assert(GangOK(primaryWriterGang));
 		if (!GangOK(primaryWriterGang))
 		{
 			ereport(ERROR,

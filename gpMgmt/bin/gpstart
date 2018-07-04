@@ -413,8 +413,10 @@ class GpStart:
         self.pool = base.WorkerPool(numWorkers=workers)
 
         if os.path.exists(self.master_datadir + "/gpexpand.status") and not self.restricted:
-            raise ExceptionNoStackTraceNeeded(
+            logger.info(
                 "Found a System Expansion Setup in progress. Please run 'gpexpand --rollback'")
+#            raise ExceptionNoStackTraceNeeded(
+#                "Found a System Expansion Setup in progress. Please run 'gpexpand --rollback'")
 
         logger.debug("gparray does%s have mirrors" % ("" if self.gparray.hasMirrors else " not"))
 

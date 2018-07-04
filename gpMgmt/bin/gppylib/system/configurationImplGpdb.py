@@ -278,13 +278,25 @@ class GpConfigurationProviderUsingGpdbCatalog(GpConfigurationProvider) :
         """
         logger.debug('callSegmentAdd %s' % repr(seg))
 
-        sql = "SELECT gp_add_segment_primary(%s, %s, %s, %s)" \
-            % (
-                self.__toSqlTextValue(seg.getSegmentHostName()),
-                self.__toSqlTextValue(seg.getSegmentAddress()),
-                self.__toSqlIntValue(seg.getSegmentPort()),
-                self.__toSqlTextValue(seg.getSegmentDataDirectory()),
-              )
+#        sql = "SELECT gp_add_segment_primary(%s, %s, %s, %s)" \
+#            % (
+#                self.__toSqlTextValue(seg.getSegmentHostName()),
+#                self.__toSqlTextValue(seg.getSegmentAddress()),
+#                self.__toSqlIntValue(seg.getSegmentPort()),
+#                self.__toSqlTextValue(seg.getSegmentDataDirectory()),
+#              )
+        sql = "SELECT gp_add_segment({dbid}, {content}, {role}, {preferred_role}, {mode}, {status}, {port}, '{hostname}', '{address}', '{datadir}')".format(
+                dbid           = self.__toSqlTextValue(seg.getSegmentDbId()),
+                content        = self.__toSqlTextValue(seg.getSegmentContentId()),
+                role           = self.__toSqlTextValue(seg.getSegmentRole()),
+                preferred_role = self.__toSqlTextValue(seg.getSegmentPreferredRole()),
+                mode           = self.__toSqlTextValue(seg.getSegmentMode()),
+                status         = self.__toSqlTextValue(seg.getSegmentStatus()),
+                port           = self.__toSqlTextValue(seg.getSegmentPort()),
+                hostname       = self.__toSqlTextValue(seg.getSegmentHostName()),
+                address        = self.__toSqlTextValue(seg.getSegmentAddress()),
+                datadir        = self.__toSqlTextValue(seg.getSegmentDataDirectory()),
+                )
         logger.debug(sql)
         sqlResult = self.__fetchSingleOutputRow(conn, sql)
         dbId = int(sqlResult[0])
