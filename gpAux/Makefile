@@ -129,6 +129,7 @@ ISCONFIG=$(GPPGDIR)/GNUmakefile
 ## platforms, we do a client-only build.
 ##
 SERVER_PLATFORMS=rhel5_x86_32 rhel5_x86_64 sles11_x86_64 linux_x86_64 osx106_x86
+GPHDFS_PLATFORMS=rhel7_x86_64
 
 #---------------------------------------------------------------------
 # GPPKG
@@ -356,9 +357,11 @@ define BUILD_STEPS
 	@$(MAKE) mkpgbench INSTLOC=$(INSTLOC) BUILDDIR=$(BUILDDIR)
 	@$(MAKE) mkgpperfmon INSTLOC=$(INSTLOC) BUILDDIR=$(BUILDDIR)
 	@$(MAKE) mkplatform INSTLOC=$(INSTLOC)
+	if [ "$(findstring $(BLD_ARCH),$(SERVER_PLATFORMS))" != "" ] || [ "$(findstring $(BLD_ARCH),$(GPHDFS_PLATFORMS))" != "" ]; then \
+	  $(MAKE) mkgphdfs INSTLOC=$(INSTLOC); \
+	fi
 	if [ "$(findstring $(BLD_ARCH),$(SERVER_PLATFORMS))" != "" ]; then \
 	  $(MAKE) mkgpcloud INSTLOC=$(INSTLOC) && \
-	  $(MAKE) mkgphdfs INSTLOC=$(INSTLOC) && \
 	  $(MAKE) mkorafce INSTLOC=$(INSTLOC) && \
 	  (cd extensions/gpsnmpd/ && $(MAKE) install) && \
 	  $(MAKE) mkpljava INSTLOC=$(INSTLOC); \

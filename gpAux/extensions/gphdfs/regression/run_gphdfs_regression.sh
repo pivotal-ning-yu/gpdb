@@ -3,12 +3,19 @@
 set -euo pipefail
 
 # set variables if they are unset or null
-export HADOOP_HOME=${HADOOP_HOME:-/usr/hdp/2.3.2.0-2950}
-export GP_HADOOP_TARGET_VERSION=${GP_HADOOP_TARGET_VERSION:-cdh4.1}
+if [ "$GP_HADOOP_TARGET_VERSION" == "mpr" ] || [ "$GP_HADOOP_TARGET_VERSION" == "gpmr-1.2" ]; then
+	export HADOOP_HOME=${HADOOP_HOME:-/usr/local/hadoop}
+	export GP_HADOOP_TARGET_VERSION=${GP_HADOOP_TARGET_VERSION:-hadoop}
+	export JAVA_HOME=/usr/lib/jvm/java-1.7.0-openjdk/jre
+	export GNET_LIB=${GP_HADOOP_TARGET_VERSION}-gnet-1.0.0.1.jar
+else
+	export HADOOP_HOME=${HADOOP_HOME:-/usr/hdp/2.3.2.0-2950}
+	export GP_HADOOP_TARGET_VERSION=${GP_HADOOP_TARGET_VERSION:-cdh4.1}
+	export JAVA_HOME=/usr/lib/jvm/java-1.6.0-openjdk.x86_64/jre
+	export GNET_LIB=cdh4.1-gnet-1.2.0.0.jar
+fi
 export HADOOP_HOST=${HADOOP_HOST:-localhost}
 export HADOOP_PORT=${HADOOP_PORT:-8020}
-
-export JAVA_HOME=/usr/lib/jvm/java-1.6.0-openjdk.x86_64/jre
 
 override_core_site() {
 	cat > "${HADOOP_HOME}/etc/hadoop/core-site.xml" <<-EOF
@@ -30,7 +37,7 @@ build_test_jar() {
 	source ${CURDIR}/set_hadoop_classpath.sh
 
 	pushd $CURDIR/legacy
-	javac -cp .:$CLASSPATH:$GPHOME/lib/hadoop/${GP_HADOOP_TARGET_VERSION}-gnet-1.2.0.0.jar javaclasses/*.java
+	javac -cp .:$CLASSPATH:$GPHOME/lib/hadoop/${GNET_LIB} javaclasses/*.java
 	jar cf maptest.jar javaclasses/*.class
 	popd
 }
@@ -46,7 +53,7 @@ create_runcmd() {
 	export HADOOP_PORT=${HADOOP_PORT}
 	export PATH=$PATH:$HADOOP_HOME/sbin:$HADOOP_HOME/bin
 	source ${CURDIR}/set_hadoop_classpath.sh
-	java -cp .:\${CLASSPATH}:${GPHOME}/lib/hadoop/${GP_HADOOP_TARGET_VERSION}-gnet-1.2.0.0.jar:${CURDIR}/legacy/maptest.jar -Dhdfshost=${HADOOP_HOST} -Ddatanodeport=${HADOOP_PORT} -Djobtrackerhost=${HADOOP_HOST} -Djobtrackerport=${HADOOP_PORT} "\$@"
+	java -cp .:\${CLASSPATH}:${GPHOME}/lib/hadoop/${GNET_LIB}:${CURDIR}/legacy/maptest.jar -Dhdfshost=${HADOOP_HOST} -Ddatanodeport=${HADOOP_PORT} -Djobtrackerhost=${HADOOP_HOST} -Djobtrackerport=${HADOOP_PORT} "\$@"
 	EOF
 
 	chmod +x "${CMDPATH}"
@@ -54,11 +61,12 @@ create_runcmd() {
 
 _main() {
 	allow_hadoop_user_to_connect
-	override_core_site
+
 
 	local CURDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 	local PGREGRESS=$GPHOME/lib/postgresql/pgxs/src/test/regress/pg_regress
 	local HADOOPCMD=$HADOOP_HOME/bin/hadoop
+	local NAMENODE_URI=${HADOOP_HOST}:${HADOOP_PORT}
 
 	build_test_jar
 
@@ -69,12 +77,20 @@ _main() {
 	cp $CURDIR/input/*.source $CURDIR/source_replaced/input/
 	cp $CURDIR/output/*.source $CURDIR/source_replaced/output/
 
-	for f in $(ls $CURDIR/source_replaced/input);do
+	if [ "$GP_HADOOP_TARGET_VERSION" == "mpr" ] || [ "$GP_HADOOP_TARGET_VERSION" == "gpmr-1.2" ]; then
+		NAMENODE_URI="/mapr/mapr"
+		# set Hadoop port to none that is expected by test harness for MAPR distro
+		export HADOOP_PORT="none"
+  	else
+		override_core_site
+	fi
+
+	for f in $(ls $CURDIR/source_replaced/input); do
 		echo -e  "--start_ignore\n\!%HADOOP_HOME%/bin/hadoop fs -rm -r /mapreduce/*\n\!%HADOOP_HOME%/bin/hadoop fs -rm -r /mapred/*\n--end_ignore" >> "$CURDIR/source_replaced/input/$f"
-		sed -i "s|gpfdist://%localhost%:%gpfdistPort%|gphdfs://${HADOOP_HOST}:${HADOOP_PORT}/plaintext|g" "$CURDIR/source_replaced/input/$f"
+		sed -i "s|gpfdist://%localhost%:%gpfdistPort%|gphdfs://${NAMENODE_URI}/plaintext|g" "$CURDIR/source_replaced/input/$f"
 		sed -i "s|%cmdstr%|${CURDIR}/runcmd|g" "$CURDIR/source_replaced/input/$f"
-		sed -i "s|%HADOOP_HOST%|${HADOOP_HOST}:${HADOOP_PORT}|g" "$CURDIR/source_replaced/input/$f"
-		sed -i "s|%HDFSaddr%|${HADOOP_HOST}:${HADOOP_PORT}|g" "$CURDIR/source_replaced/input/$f"
+		sed -i "s|%HADOOP_HOST%|${NAMENODE_URI}|g" "$CURDIR/source_replaced/input/$f"
+		sed -i "s|%HDFSaddr%|${NAMENODE_URI}|g" "$CURDIR/source_replaced/input/$f"
 		sed -i "s|%HADOOP_HOME%|${HADOOP_HOME}|g" "$CURDIR/source_replaced/input/$f"
 		sed -i "s|%MYD%|${CURDIR}/source_replaced/input|g" "$CURDIR/source_replaced/input/$f"
 		sed -i "s|%HADOOP_FS%|${HADOOPCMD}|g" "$CURDIR/source_replaced/input/$f"

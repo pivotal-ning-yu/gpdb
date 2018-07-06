@@ -42,7 +42,8 @@ groups:
   - regression_tests_gpfdist_centos
   - regression_tests_gpfdist_sles
   - regression_tests_gpcloud_centos
-  - regression_tests_gphdfs_centos
+  - regression_tests_gphdfs_hadoop_centos
+  - regression_tests_gphdfs_mapr_centos
   - MU_check_centos
   - pt-rebuild
   - gpdb_rc_packaging_centos
@@ -89,7 +90,8 @@ groups:
   - icg_planner_centos
   - ic_externaltable_centos
   - regression_tests_gpcloud_centos
-  - regression_tests_gphdfs_centos
+  - regression_tests_gphdfs_hadoop_centos
+  - regression_tests_gphdfs_mapr_centos
   - MU_check_centos
   - pt-rebuild
   - TINC_pgcrypto
@@ -528,6 +530,15 @@ resources:
     repository: pivotaldata/centos-gpdb-dev
     tag: '7'
 
+- name: bin_gpdb_centos7
+  type: s3
+  source:
+    access_key_id: {{bucket-access-key-id}}
+    bucket: {{bucket-name}}
+    region_name: {{aws-region}}
+    secret_access_key: {{bucket-secret-access-key}}
+    versioned_file: bin_gpdb_centos7/bin_gpdb.tar.gz
+
 - name: bin_gpdb_centos
   type: s3
   source:
@@ -572,6 +583,15 @@ resources:
     region_name: {{aws-region}}
     secret_access_key: {{bucket-secret-access-key}}
     versioned_file: sync_tools_gpdb_centos/sync_tools_gpdb.tar.gz
+
+- name: sync_tools_gpdb_centos7
+  type: s3
+  source:
+    access_key_id: {{bucket-access-key-id}}
+    bucket: {{bucket-name}}
+    region_name: {{aws-region}}
+    secret_access_key: {{bucket-secret-access-key}}
+    versioned_file: sync_tools_gpdb_centos7/sync_tools_gpdb.tar.gz
 
 - name: ccache_empty
   type: s3
@@ -1355,12 +1375,18 @@ jobs:
       TARGET_OS: centos
       TARGET_OS_VERSION: 7
       BLD_TARGETS: ''
+  - put: bin_gpdb_centos7
+    params:
+      file: gpdb_artifacts/bin_gpdb.tar.gz
   - put: plperl_rhel7_gppkg
     params:
       file: gpdb_artifacts/plperl-ossv5.12.4_pv1.3_gpdb4.3orca-rhel7-x86_64.gppkg
   - put: ccache_gpdb_centos7
     params:
       file: gpdb_artifacts/ccache_gpdb.tar.gz
+  - put: sync_tools_gpdb_centos7
+    params:
+      file: gpdb_artifacts/sync_tools_gpdb.tar.gz
 
 # Stage 2: Installcheck, Python unit, and local TINC tests
 
@@ -1823,7 +1849,7 @@ jobs:
       BLDWRAP_POSTGRES_CONF_ADDONS: "fsync=off"
       TEST_OS: centos
 
-- name: regression_tests_gphdfs_centos
+- name: regression_tests_gphdfs_hadoop_centos
   plan:
   - aggregate:
     - get: gpdb_src
@@ -1841,6 +1867,43 @@ jobs:
     image: centos-gpdb-dev-5
     params:
       TEST_OS: centos
+
+- name: regression_tests_gphdfs_mapr_centos
+  ensure:
+    <<: *set_failed
+  on_success:
+    <<: *ccp_destroy
+  plan:
+  - aggregate:
+    - get: gpdb_src
+      passed: [compile_gpdb_centos7]
+    - get: bin_gpdb
+      passed: [compile_gpdb_centos7]
+      trigger: true
+      resource: bin_gpdb_centos7
+    - get: ccp_src
+    - get: centos-gpdb-dev-7
+    - get: sync_tools_gpdb
+      passed: [compile_gpdb_centos7]
+      resource: sync_tools_gpdb_centos7
+  - put: terraform
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+        number_of_nodes: 1
+        PLATFORM: centos7
+        instance_type: n1-standard-8
+  - task: gen_and_initialize_mapr
+    file: gpdb_src/ci/concourse/gen_mapr.yml
+    params:
+      <<: *ccp_gen_cluster_default_params
+  - task: regression_tests_gphdfs_mapr
+    file: gpdb_src/ci/concourse/regression_tests_gphdfs_mapr.yml
+    image: centos-gpdb-dev-7
+    params:
+      TEST_OS: centos
+      TARGET_OS_VERSION: 7
 
 ## ======================================================================
 ## terraform jobs

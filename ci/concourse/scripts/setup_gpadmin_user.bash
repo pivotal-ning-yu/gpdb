@@ -37,9 +37,23 @@ transfer_ownership() {
 }
 
 setup_gpadmin_user_on_centos() {
-  /usr/sbin/useradd gpadmin #by default, makes a gpadmin group for this user
+  local USER_ID="$1"
+  local GROUP_ID="$2"
+
+  if [ -z "$USER_ID" ]; then
+    /usr/sbin/useradd gpadmin # by default, makes a gpadmin group for this user
+  else
+    /usr/sbin/useradd --uid "$USER_ID" gpadmin
+  fi
+
   echo -e "password\npassword" | passwd gpadmin
-  groupadd supergroup
+
+  if [ -z "$GROUP_ID" ]; then
+    groupadd supergroup
+  else
+    groupadd --gid "$GROUP_ID" supergroup
+  fi
+
   usermod -a -G supergroup gpadmin
   setup_ssh_for_user gpadmin
   transfer_ownership
@@ -87,9 +101,11 @@ setup_sshd() {
 
 _main() {
   TEST_OS="$1"
+  USER_ID="$2"
+  GROUP_ID="$3"
 
   if [ "$TEST_OS" = "centos" ]; then
-    setup_gpadmin_user_on_centos
+    setup_gpadmin_user_on_centos "$USER_ID" "$GROUP_ID"
   elif [ "$TEST_OS" = "sles" ]; then
     setup_gpadmin_user_on_sles
   fi

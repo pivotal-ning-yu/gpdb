@@ -5,3 +5,6 @@ inputs:
   - name: sync_tools_gpdb
 run:
   path: gpdb_src/ci/concourse/scripts/regression_tests_gphdfs.bash
+
+params:
+  HADOOP_TARGET_VERSION: cdh4.1
