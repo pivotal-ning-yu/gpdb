@@ -460,7 +460,10 @@ class RestoreDatabase(Operation):
 
     def get_full_tables_in_schema(self, conn, schemaname):
         res = []
-        get_all_tables_qry = "select schemaname, tablename from pg_tables where schemaname = '%s';" % pg.escape_string(schemaname)
+        get_all_tables_qry = """SELECT n.nspname AS schemaname, c.relname AS tablename
+        FROM pg_class c
+        LEFT JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE c.relkind = 'r'::"char" and n.nspname = '%s' and c.relstorage != 'x';""" % pg.escape_string(schemaname)
         relations = execSQL(conn, get_all_tables_qry)
         for relation in relations:
             schema, table = relation[0], relation[1]
@@ -820,7 +823,7 @@ class RestoreDatabase(Operation):
                                                        SELECT 1
                                                        FROM pg_catalog.pg_class c
                                                        JOIN pg_catalog.pg_namespace n on n.oid = c.relnamespace
-                                                       WHERE n.nspname = '%s' and c.relname = '%s')""" % (pg.escape_string(schemaname),
+                                                       WHERE n.nspname = '%s' and c.relname = '%s' and c.relstorage != 'x')""" % (pg.escape_string(schemaname),
                                                                                                           pg.escape_string(tablename))
                     exists_result = execSQLForSingleton(conn, check_table_exists_qry)
                     if exists_result:
@@ -829,7 +832,7 @@ class RestoreDatabase(Operation):
                         truncate_table = '%s.%s' % (schema, table)
                         truncate_list.append(truncate_table)
                     else:
-                        logger.warning("Skipping truncate of %s.%s because the relation does not exist." % (self.context.restore_db, restore_table))
+                        logger.warning("Skipping truncate of %s.%s because the relation does not exist or is an external table." % (self.context.restore_db, restore_table))
 
             for table in truncate_list:
                 try:
