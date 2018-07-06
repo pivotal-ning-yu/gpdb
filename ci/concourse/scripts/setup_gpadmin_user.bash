@@ -37,8 +37,8 @@ transfer_ownership() {
 }
 
 setup_gpadmin_user_on_centos() {
-  local USER_ID="$1"
-  local GROUP_ID="$2"
+  local USER_ID=${1:-""}
+  local GROUP_ID=${2:-""}
 
   if [ -z "$USER_ID" ]; then
     /usr/sbin/useradd gpadmin # by default, makes a gpadmin group for this user
@@ -101,8 +101,8 @@ setup_sshd() {
 
 _main() {
   TEST_OS="$1"
-  USER_ID="$2"
-  GROUP_ID="$3"
+  USER_ID=${2:-""}
+  GROUP_ID=${3:-""}
 
   if [ "$TEST_OS" = "centos" ]; then
     setup_gpadmin_user_on_centos "$USER_ID" "$GROUP_ID"
