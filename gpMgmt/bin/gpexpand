@@ -1569,8 +1569,13 @@ Set PGDATABASE or use the -D option to specify the correct database to use.""" %
         stopCmd = GpStop('gpexpand trigger fts rescan', verbose=True, ctxt=LOCAL, reloadConf=True)
         # We do not check the results of GpStop becuase we will get errors for all the new segments.
         stopCmd.run(validateAfter=False)
+        time.sleep(5)
 
         # TODO: update the new segments' status to u
+        self.conn = dbconn.connect(self.dburl, utility=True, encoding='UTF8')
+        dbconn.execSQL(self.conn, "SELECT gp_bring_up_segments()")
+        dbconn.execSQL(self.conn, "CHECKPOINT")
+        self.conn.close()
 
         self.logger.info('Update number of segments')
         confCmd = GpConfig('gpexpand update number of segments',
