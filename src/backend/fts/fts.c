@@ -526,8 +526,10 @@ void FtsLoop()
 
 		cdbs = readCdbComponentInfoAndUpdateStatus(probeContext);
 
+#if 1
 		/* FIXME: the function takes 0 argment */
 		DirectFunctionCall1(gp_bring_up_segments, Int32GetDatum(0));
+#endif
 
 		/* Check here gp_segment_configuration if has mirror's */
 		has_mirrors = gp_segment_config_has_mirrors();

@@ -3230,7 +3230,8 @@ performDtxProtocolCommand(DtxProtocolCommand dtxProtocolCommand,
 					/*
 					 * Spontaneously aborted while we were back at the QD?
 					 */
-					elog(ERROR, "Distributed transaction %s not found", gid);
+					elog(WARNING, "Distributed transaction %s not found", gid);
+					Assert(!"you shall not pass");
 					break;
 
 				case DTX_CONTEXT_QE_TWO_PHASE_EXPLICIT_WRITER:

@@ -185,8 +185,17 @@ getCdbComponentInfo(bool DNSLookupAsError)
 		Assert(!isNull);
 		status = DatumGetChar(attr);
 
-		if (DNSLookupAsError && status == 'e')
-			continue;
+		elog(WARNING, "dbid: %d, content: %d, xmin: %d",
+			 dbid, content, HeapTupleHeaderGetXmin(gp_seg_config_tuple->t_data));
+		if (DNSLookupAsError)
+		{
+			extern TransactionId GetCurrentTransactionId(void);
+			TransactionId xid = GetCurrentTransactionId();
+			TransactionId xmin = HeapTupleHeaderGetXmin(gp_seg_config_tuple->t_data);
+
+			if (xid < xmin || status == 'e')
+				continue;
+		}
 
 		/*
 		 * Determine which array to place this rows data in: entry or segment,

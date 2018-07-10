@@ -5215,10 +5215,13 @@ PostgresMain(int argc, char *argv[],
 		 * (5) check for any other interesting events that happened while we
 		 * slept.
 		 */
+		if (Gp_role != GP_ROLE_DISPATCH || MyProc->lxid == InvalidOid)
+		{
 		if (got_SIGHUP)
 		{
 			got_SIGHUP = false;
 			ProcessConfigFile(PGC_SIGHUP);
+		}
 		}
 
 		/*

@@ -452,6 +452,7 @@ standard_ProcessUtility(Node *parsetree,
 												  /* gp_dispatch */ false);
 							}
 
+							GetCurrentTransactionId();
 							sendDtxExplicitBegin();
 						}
 						break;
