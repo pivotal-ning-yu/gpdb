@@ -1378,6 +1378,23 @@ Set PGDATABASE or use the -D option to specify the correct database to use.""" %
         except IOError:
             raise ExpansionError('Input file %s not found' % self.options.filename)
 
+    def lock_catalog(self):
+        self.conn_catalog_lock = dbconn.connect(self.dburl, utility=True, encoding='UTF8')
+        self.logger.info('Locking catalog')
+        dbconn.execSQL(self.conn_catalog_lock, "BEGIN")
+        # FIXME: is CHECKPOINT inside BEGIN the one wanted by us?
+        dbconn.execSQL(self.conn_catalog_lock, "select gp_expand_lock_catalog()")
+        dbconn.execSQL(self.conn_catalog_lock, "CHECKPOINT")
+        self.logger.info('Locked catalog')
+
+    def unlock_catalog(self):
+        self.logger.info('Unlocking catalog')
+        dbconn.execSQL(self.conn_catalog_lock, "select gp_expand_unlock_catalog()")
+        dbconn.execSQL(self.conn_catalog_lock, "COMMIT")
+        self.conn_catalog_lock.close()
+        self.conn_catalog_lock = None
+        self.logger.info('Unlocked catalog')
+
     def add_segments(self):
         """Starts the process of adding the new segments to the array"""
         self.segTemplate = SegmentTemplate(logger=self.logger,
@@ -1564,18 +1581,27 @@ Set PGDATABASE or use the -D option to specify the correct database to use.""" %
 #        # We do not check the results of GpStop becuase we will get errors for all the new segments.
 #        stopCmd.run(validateAfter=False)
 
-        # TODO: do this in a UDF
-        self.logger.info('Trigger FTS to rescan the segments status')
-        stopCmd = GpStop('gpexpand trigger fts rescan', verbose=True, ctxt=LOCAL, reloadConf=True)
-        # We do not check the results of GpStop becuase we will get errors for all the new segments.
-        stopCmd.run(validateAfter=False)
-        time.sleep(5)
+        while True:
+            # TODO: do this in a UDF
+            self.logger.info('Trigger FTS to rescan the segments status')
+            stopCmd = GpStop('gpexpand trigger fts rescan', verbose=True, ctxt=LOCAL, reloadConf=True)
+            # We do not check the results of GpStop becuase we will get errors for all the new segments.
+            stopCmd.run(validateAfter=False)
 
-        # TODO: update the new segments' status to u
-        self.conn = dbconn.connect(self.dburl, utility=True, encoding='UTF8')
-        dbconn.execSQL(self.conn, "SELECT gp_bring_up_segments()")
-        dbconn.execSQL(self.conn, "CHECKPOINT")
-        self.conn.close()
+            expanding = False
+            self.conn = dbconn.connect(self.dburl, utility=True, encoding='UTF8')
+            sql = "SELECT * from gp_segment_configuration where status='e'"
+            self.logger.info(sql)
+            cursor = dbconn.execSQL(self.conn, sql)
+            for row in cursor:
+                expanding = True
+                self.logger.info(row)
+            cursor.close()
+            self.conn.close()
+            self.logger.info('expanding: ' + str(expanding))
+            if not expanding:
+                break
+            time.sleep(1)
 
         self.logger.info('Update number of segments')
         confCmd = GpConfig('gpexpand update number of segments',
@@ -2894,10 +2920,12 @@ def main(options, args, parser):
             _gp_expand.addNewSegments(newSegList)
             _gp_expand.sync_packages()
             _gp_expand.start_prepare()
+            _gp_expand.lock_catalog()
             _gp_expand.add_segments()
             _gp_expand.update_original_segments()
             _gp_expand.cleanup_new_segments()
             _gp_expand.update_catalog()
+            _gp_expand.unlock_catalog()
             # FIXME: notify about new numsegments
             _gp_expand.setup_schema()
             _gp_expand.prepare_schema()

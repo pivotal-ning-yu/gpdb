@@ -108,6 +108,32 @@ static XLogRecPtr log_heap_update(Relation reln, Buffer oldbuf,
 static bool HeapSatisfiesHOTUpdate(Relation relation, Bitmapset *hot_attrs,
 					   HeapTuple oldtup, HeapTuple newtup);
 
+Datum
+gp_expand_lock_catalog(PG_FUNCTION_ARGS)
+{
+	AssertEquivalent(GpExpandLockHeldByMe,
+					 LWLockHeldByMe(GpExpandLock));
+	Assert(!GpExpandLockHeldByMe);
+
+	LWLockAcquire(GpExpandLock, LW_EXCLUSIVE);
+	GpExpandLockHeldByMe = true;
+
+	PG_RETURN_VOID();
+}
+
+Datum
+gp_expand_unlock_catalog(PG_FUNCTION_ARGS)
+{
+	AssertEquivalent(GpExpandLockHeldByMe,
+					 LWLockHeldByMe(GpExpandLock));
+	Assert(GpExpandLockHeldByMe);
+
+	GpExpandLockHeldByMe = false;
+	LWLockRelease(GpExpandLock);
+
+	PG_RETURN_VOID();
+}
+
 void
 AtEOXact_Expand(bool isCommit)
 {

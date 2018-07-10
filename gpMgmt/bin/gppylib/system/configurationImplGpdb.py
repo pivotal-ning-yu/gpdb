@@ -128,8 +128,8 @@ class GpConfigurationProviderUsingGpdbCatalog(GpConfigurationProvider) :
 
         # reset dbId of new primary and mirror segments to -1
         # before invoking the operations which will assign them new ids
-        for seg in update.primary_to_add:
-            seg.setSegmentDbId(-1)
+#        for seg in update.primary_to_add:
+#            seg.setSegmentDbId(-1)
         for seg in update.mirror_to_add:
             seg.setSegmentDbId(-1)
 

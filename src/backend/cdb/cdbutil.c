@@ -185,6 +185,9 @@ getCdbComponentInfo(bool DNSLookupAsError)
 		Assert(!isNull);
 		status = DatumGetChar(attr);
 
+		if (DNSLookupAsError && status == 'e')
+			continue;
+
 		/*
 		 * Determine which array to place this rows data in: entry or segment,
 		 * based on the content field.
