@@ -4,6 +4,7 @@
 #include "apr_general.h"
 #include "apr_md5.h"
 #include "apr_hash.h"
+#include "cdb/cdbcsv.h"
 
 /**
  * Validate the the gpperfmon database is correct and
@@ -93,6 +94,13 @@ APR_DECLARE (apr_status_t) remove_segid_constraint(void);
 APR_DECLARE (apr_hash_t *) get_active_queries(apr_pool_t* pool);
 
 APR_DECLARE (void) create_log_alert_table(void);
+
+/**
+ * MPP-29418 workaround copy/external issue that csv line with like breaks cannot
+ * exceed gp_max_csv_line_length, here we substruct 1K for fixed length columns for
+ * data load safety
+ */
+#define HARVEST_CSV_SAFEGUARD (1024)
 
 #endif /* GPMONDB_H */
 

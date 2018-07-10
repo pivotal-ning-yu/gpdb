@@ -42,6 +42,7 @@
 #include "catalog/namespace.h"
 #include "catalog/pg_type.h"
 #include "cdb/cdbappendonlyam.h"
+#include "cdb/cdbcsv.h"
 #include "cdb/cdbfilerep.h"
 #include "cdb/cdbsreh.h"
 #include "cdb/tupchunk.h"
@@ -5473,9 +5474,10 @@ static struct config_int ConfigureNamesInt[] =
 		{"gp_max_csv_line_length", PGC_USERSET, EXTERNAL_TABLES,
 			gettext_noop("Maximum allowed length of a csv input data row in bytes"),
 			NULL,
+			GUC_GPDB_ADDOPT
 		},
 		&gp_max_csv_line_length,
-		1*1024*1024, 32*1024, 4*1024*1024, NULL, NULL
+		1*1024*1024, 32*1024, MAX_GP_MAX_CSV_LINE_LENGTH, NULL, NULL
 	},
 
 	{
