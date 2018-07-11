@@ -185,6 +185,7 @@ getCdbComponentInfo(bool DNSLookupAsError)
 		Assert(!isNull);
 		status = DatumGetChar(attr);
 
+#if 0
 		elog(WARNING, "dbid: %d, content: %d, xmin: %d",
 			 dbid, content, HeapTupleHeaderGetXmin(gp_seg_config_tuple->t_data));
 		if (DNSLookupAsError)
@@ -196,6 +197,7 @@ getCdbComponentInfo(bool DNSLookupAsError)
 			if (xid < xmin || status == 'e')
 				continue;
 		}
+#endif
 
 		/*
 		 * Determine which array to place this rows data in: entry or segment,
@@ -203,6 +205,12 @@ getCdbComponentInfo(bool DNSLookupAsError)
 		 */
 		if (content >= 0)
 		{
+#if 0
+			if (DNSLookupAsError &&
+				component_databases->total_segment_dbs >= getgpsegmentCount())
+				continue;
+#endif
+
 			/*
 			 * if we have a dbid bigger than our array we'll have to grow the
 			 * array. (MPP-2104)
@@ -320,6 +328,9 @@ getCdbComponentInfo(bool DNSLookupAsError)
 	qsort(component_databases->entry_db_info,
 		  component_databases->total_entry_dbs, sizeof(CdbComponentDatabaseInfo),
 		  CdbComponentDatabaseInfoCompare);
+
+	component_databases->total_segment_dbs = Min(component_databases->total_segment_dbs,
+												 getgpsegmentCount());
 
 	/*
 	 * Now count the number of distinct segindexes. Since it's sorted, this is

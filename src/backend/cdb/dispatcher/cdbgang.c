@@ -227,6 +227,7 @@ AllocateWriterGang()
 		elog(FATAL, "dispatch process called with role %d", Gp_role);
 	}
 
+#if 1
 	if (primaryWriterGang)
 	{
 		if (GangContext == NULL)
@@ -246,6 +247,7 @@ AllocateWriterGang()
 
 		MemoryContextSwitchTo(oldContext);
 	}
+#endif
 
 	/*
 	 * First, we look for an unallocated but created gang of the right type if
@@ -1984,10 +1986,27 @@ GangOK(Gang *gp)
 	{
 		SegmentDatabaseDescriptor *segdbDesc = &(gp->db_descriptors[i]);
 
+		bool isBad = cdbconn_isBadConnection(segdbDesc);
+		bool isUp = FtsIsSegmentUp(segdbDesc->segment_database_info);
+
+		if (isBad)
+			return false;
+		if (!isUp)
+		{
+			elog(WARNING, "dbid=%d, content=%d, isUp=%d, status=%c",
+				 segdbDesc->segment_database_info->dbid,
+				 segdbDesc->segment_database_info->segindex,
+				 isUp,
+				 segdbDesc->segment_database_info->status);
+			Assert(!"you shall not pass");
+			return false;
+		}
+#if 0
 		if (cdbconn_isBadConnection(segdbDesc))
 			return false;
 		if (!FtsIsSegmentUp(segdbDesc->segment_database_info))
 			return false;
+#endif
 	}
 
 	return true;

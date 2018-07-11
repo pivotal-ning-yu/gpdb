@@ -68,7 +68,9 @@ extern Datum userdata_project(PG_FUNCTION_ARGS);
 extern Datum checkResourceQueueMemoryLimits(PG_FUNCTION_ARGS);
 extern Datum repeatPalloc(PG_FUNCTION_ARGS);
 extern Datum resGroupPalloc(PG_FUNCTION_ARGS);
+#if 0
 extern Datum modify_expand_lock(PG_FUNCTION_ARGS);
+#endif
 
 /* Gang management test support */
 extern Datum gangRaiseInfo(PG_FUNCTION_ARGS);
@@ -630,6 +632,7 @@ resGroupPalloc(PG_FUNCTION_ARGS)
 	PG_RETURN_INT32(0);
 }
 
+#if 0
 PG_FUNCTION_INFO_V1(modify_expand_lock);
 Datum
 modify_expand_lock(PG_FUNCTION_ARGS)
@@ -659,6 +662,7 @@ modify_expand_lock(PG_FUNCTION_ARGS)
 	}
 	PG_RETURN_INT32(ret);
 }
+#endif
 
 /*
  * This is do-nothing table function that passes the input relation
