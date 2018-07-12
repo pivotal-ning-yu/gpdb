@@ -90,9 +90,6 @@
 /* GUC variable */
 bool		synchronize_seqscans = true;
 
-/* Local variable */
-bool		GpExpandLockHeldByMe = false;
-
 static HeapScanDesc heap_beginscan_internal(Relation relation,
 						Snapshot snapshot,
 						int nkeys, ScanKey key,
@@ -117,10 +114,7 @@ static LOCKTAG gp_expand_locktag =
 Datum
 gp_expand_lock_catalog(PG_FUNCTION_ARGS)
 {
-	Assert(!GpExpandLockHeldByMe);
-
 	LockAcquire(&gp_expand_locktag, AccessExclusiveLock, false, false);
-	GpExpandLockHeldByMe = true;
 
 	PG_RETURN_VOID();
 }
@@ -128,9 +122,6 @@ gp_expand_lock_catalog(PG_FUNCTION_ARGS)
 Datum
 gp_expand_unlock_catalog(PG_FUNCTION_ARGS)
 {
-	Assert(GpExpandLockHeldByMe);
-
-	GpExpandLockHeldByMe = false;
 	LockRelease(&gp_expand_locktag, AccessExclusiveLock, false);
 
 	PG_RETURN_VOID();
@@ -139,10 +130,6 @@ gp_expand_unlock_catalog(PG_FUNCTION_ARGS)
 static inline void
 protectOnlineExpand(Relation relation)
 {
-	if (GpExpandLockHeldByMe)
-		/* already holding the expand lock */
-		return;
-
 	if (Gp_role != GP_ROLE_DISPATCH)
 		/* only lock catalog updates on qd */
 		return;
@@ -168,9 +155,14 @@ protectOnlineExpand(Relation relation)
 			return;
 	}
 
+	/* FIXME: use a timestamp instead of size */
+	extern uint32 FtsGetTotalSegments(void);
+	if (GpIdentity.numsegments < FtsGetTotalSegments())
+		elog(ERROR, "cluster size is changed from %d to %d",
+			 GpIdentity.numsegments, FtsGetTotalSegments());
+
 	/* The online expand util will hold this lwlock in LW_EXCLUSIVE mode */
 	LockAcquire(&gp_expand_locktag, AccessShareLock, false, false);
-	GpExpandLockHeldByMe = true;
 }
 
 /* ----------------------------------------------------------------

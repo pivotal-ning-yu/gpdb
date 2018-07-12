@@ -1554,12 +1554,17 @@ Set PGDATABASE or use the -D option to specify the correct database to use.""" %
         dbconn.execSQL(self.conn, "CHECKPOINT")
         self.conn.close()
 
+        # Trigger FTS to rescan the segments status
+        self.conn = dbconn.connect(self.dburl, encoding='UTF8')
+        dbconn.execSQL(self.conn, "SELECT gp_request_fts_probe_scan()")
+        self.conn.close()
+
         while True:
-            # TODO: do this in a UDF
-            self.logger.info('Trigger FTS to rescan the segments status')
-            stopCmd = GpStop('gpexpand trigger fts rescan', verbose=True, ctxt=LOCAL, reloadConf=True)
-            # We do not check the results of GpStop becuase we will get errors for all the new segments.
-            stopCmd.run(validateAfter=False)
+#            # TODO: do this in a UDF
+#            self.logger.info('Trigger FTS to rescan the segments status')
+#            stopCmd = GpStop('gpexpand trigger fts rescan', verbose=True, ctxt=LOCAL, reloadConf=True)
+#            # We do not check the results of GpStop becuase we will get errors for all the new segments.
+#            stopCmd.run(validateAfter=False)
 
             expanding = False
             self.conn = dbconn.connect(self.dburl, utility=True, encoding='UTF8')
