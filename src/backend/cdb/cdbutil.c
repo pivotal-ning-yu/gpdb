@@ -329,8 +329,9 @@ getCdbComponentInfo(bool DNSLookupAsError)
 		  component_databases->total_entry_dbs, sizeof(CdbComponentDatabaseInfo),
 		  CdbComponentDatabaseInfoCompare);
 
-	component_databases->total_segment_dbs = Min(component_databases->total_segment_dbs,
-												 getgpsegmentCount());
+	if (DNSLookupAsError)
+		component_databases->total_segment_dbs = Min(component_databases->total_segment_dbs,
+													 getgpsegmentCount());
 
 	/*
 	 * Now count the number of distinct segindexes. Since it's sorted, this is

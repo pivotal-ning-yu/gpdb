@@ -802,6 +802,11 @@ makeOptions(void)
 	{
 		struct config_generic *guc = gucs[i];
 
+#if 0
+		if (strcmp(guc->name, "gp_num_contents_in_cluster") == 0)
+			addOneOption(&string, guc);
+		else
+#endif
 		if ((guc->flags & GUC_GPDB_ADDOPT) &&
 			(guc->context == PGC_USERSET || procRoleIsSuperuser()))
 			addOneOption(&string, guc);
@@ -989,6 +994,18 @@ getAvailableGang(GangType type, int size, int content)
 					Gang	   *gang = (Gang *) lfirst(cur_item);
 
 					Assert(gang != NULL);
+					if (gang->size != size)
+					{
+						MemoryContext oldContext = NULL;
+
+						Assert(GangContext != NULL);
+						oldContext = MemoryContextSwitchTo(GangContext);
+
+						extern bool resizeGang_async(Gang *gang, int size);
+						resizeGang_async(gang, getgpsegmentCount());
+
+						MemoryContextSwitchTo(oldContext);
+					}
 					Assert(gang->size == size);
 
 					next_item = lnext(cur_item);
@@ -1036,6 +1053,18 @@ getAvailableGang(GangType type, int size, int content)
 					Gang	   *gang = (Gang *) lfirst(cur_item);
 
 					Assert(gang != NULL);
+					if (gang->size != size)
+					{
+						MemoryContext oldContext = NULL;
+
+						Assert(GangContext != NULL);
+						oldContext = MemoryContextSwitchTo(GangContext);
+
+						extern bool resizeGang_async(Gang *gang, int size);
+						resizeGang_async(gang, getgpsegmentCount());
+
+						MemoryContextSwitchTo(oldContext);
+					}
 					Assert(gang->size == size);
 					next_item = lnext(cur_item);
 

@@ -1603,16 +1603,16 @@ Set PGDATABASE or use the -D option to specify the correct database to use.""" %
                 break
             time.sleep(1)
 
-        self.logger.info('Update number of segments')
-        confCmd = GpConfig('gpexpand update number of segments',
-                change='gp_num_contents_in_cluster',
-                value=self.newPrimaryCount)
-        confCmd.run(validateAfter=True)
+        #self.logger.info('Update number of segments')
+        #confCmd = GpConfig('gpexpand update number of segments',
+        #        change='gp_num_contents_in_cluster',
+        #        value=self.newPrimaryCount)
+        #confCmd.run(validateAfter=True)
 
-        self.logger.info('Notify postmasters about the new number of segments')
-        stopCmd = GpStop('gpexpand notify number of segments', verbose=True, ctxt=LOCAL, reloadConf=True)
-        # We do not check the results of GpStop becuase we will get errors for all the new segments.
-        stopCmd.run(validateAfter=False)
+        #self.logger.info('Notify postmasters about the new number of segments')
+        #stopCmd = GpStop('gpexpand notify number of segments', verbose=True, ctxt=LOCAL, reloadConf=True)
+        ## We do not check the results of GpStop becuase we will get errors for all the new segments.
+        #stopCmd.run(validateAfter=False)
 
         self.statusLogger.set_status('UPDATE_CATALOG_DONE')
 

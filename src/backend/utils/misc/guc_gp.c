@@ -3385,10 +3385,10 @@ struct config_int ConfigureNamesInt_gp[] =
 	},
 
 	{
-		{"gp_num_contents_in_cluster", PGC_SIGHUP, PRESET_OPTIONS,
+		{"gp_num_contents_in_cluster", PGC_USERSET, PRESET_OPTIONS,
 			gettext_noop("Sets the number of segments in the cluster."),
 			NULL,
-			GUC_REPORT
+			GUC_NOT_IN_SAMPLE | GUC_DISALLOW_IN_FILE | GUC_GPDB_ADDOPT
 		},
 		&GpIdentity.numsegments,
 		UNINITIALIZED_GP_IDENTITY_VALUE, INT_MIN, INT_MAX,
