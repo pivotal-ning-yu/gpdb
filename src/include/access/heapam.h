@@ -69,8 +69,6 @@ extern Relation heap_openrv(const RangeVar *relation, LOCKMODE lockmode);
 extern Relation try_heap_open(Oid relationId, LOCKMODE lockmode, bool noWait);
 extern Relation try_heap_openrv(const RangeVar *relation, LOCKMODE lockmode);
 
-extern void AtEOXact_Expand(bool isCommit);
-
 #define heap_close(r,l)  relation_close(r,l)
 
 /* CDB */

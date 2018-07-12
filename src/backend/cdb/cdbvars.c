@@ -364,9 +364,6 @@ bool		gp_cost_hashjoin_chainwalk = false;
  * can simply #include cdbvars.h, and use GpIdentity.numsegments
  */
 GpId		GpIdentity = {UNINITIALIZED_GP_IDENTITY_VALUE, UNINITIALIZED_GP_IDENTITY_VALUE, UNINITIALIZED_GP_IDENTITY_VALUE};
-#if 0
-GpId		GpIdentity = {UNINITIALIZED_GP_IDENTITY_VALUE, UNINITIALIZED_GP_IDENTITY_VALUE, UNINITIALIZED_GP_IDENTITY_VALUE, UNINITIALIZED_GP_IDENTITY_VALUE};
-#endif
 
 void
 verifyGpIdentityIsSet(void)

@@ -381,14 +381,12 @@ GlobalDeadLockDetectorLoop(void)
 			continue;
 #endif
 
-#if 1
 		StartTransactionCommand();
 		status = doDeadLockCheck();
 		if (status == STATUS_OK)
 			CommitTransactionCommand();
 		else
 			AbortCurrentTransaction();
-#endif
 
 		/* GUC gp_global_deadlock_detector_period may be changed, skip sleep */
 		if (!got_SIGHUP)

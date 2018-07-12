@@ -68,9 +68,6 @@ extern Datum userdata_project(PG_FUNCTION_ARGS);
 extern Datum checkResourceQueueMemoryLimits(PG_FUNCTION_ARGS);
 extern Datum repeatPalloc(PG_FUNCTION_ARGS);
 extern Datum resGroupPalloc(PG_FUNCTION_ARGS);
-#if 0
-extern Datum modify_expand_lock(PG_FUNCTION_ARGS);
-#endif
 
 /* Gang management test support */
 extern Datum gangRaiseInfo(PG_FUNCTION_ARGS);
@@ -631,38 +628,6 @@ resGroupPalloc(PG_FUNCTION_ARGS)
 
 	PG_RETURN_INT32(0);
 }
-
-#if 0
-PG_FUNCTION_INFO_V1(modify_expand_lock);
-Datum
-modify_expand_lock(PG_FUNCTION_ARGS)
-{
-	int op = PG_GETARG_INT32(0);
-	int ret = 0;
-
-	extern bool		GpExpandLockHeldByMe;
-
-	switch (op)
-	{
-		case 0: /* release */
-			GpExpandLockHeldByMe = false;
-			LWLockRelease(GpExpandLock);
-			break;
-		case 1: /* acquire shared */
-			LWLockAcquire(GpExpandLock, LW_SHARED);
-			GpExpandLockHeldByMe = true;
-			break;
-		case 2: /* acquire exclusive */
-			LWLockAcquire(GpExpandLock, LW_EXCLUSIVE);
-			GpExpandLockHeldByMe = true;
-			break;
-		case 3: /* query status */
-			ret = LWLockHeldByMe(GpExpandLock);
-			break;
-	}
-	PG_RETURN_INT32(ret);
-}
-#endif
 
 /*
  * This is do-nothing table function that passes the input relation

@@ -86,10 +86,6 @@
 #include "utils/visibility_summary.h"
 #include "utils/faultinjector.h"
 
-#include <sys/file.h>
-#include <unistd.h>
-#include <fcntl.h>
-
 
 /* GUC variable */
 bool		synchronize_seqscans = true;
@@ -121,15 +117,8 @@ static LOCKTAG gp_expand_locktag =
 Datum
 gp_expand_lock_catalog(PG_FUNCTION_ARGS)
 {
-#if 0
-	AssertEquivalent(GpExpandLockHeldByMe,
-					 LWLockHeldByMe(GpExpandLock));
-#endif
 	Assert(!GpExpandLockHeldByMe);
 
-#if 0
-	LWLockAcquire(GpExpandLock, LW_EXCLUSIVE);
-#endif
 	LockAcquire(&gp_expand_locktag, AccessExclusiveLock, false, false);
 	GpExpandLockHeldByMe = true;
 
@@ -139,44 +128,17 @@ gp_expand_lock_catalog(PG_FUNCTION_ARGS)
 Datum
 gp_expand_unlock_catalog(PG_FUNCTION_ARGS)
 {
-#if 0
-	AssertEquivalent(GpExpandLockHeldByMe,
-					 LWLockHeldByMe(GpExpandLock));
-#endif
 	Assert(GpExpandLockHeldByMe);
 
 	GpExpandLockHeldByMe = false;
 	LockRelease(&gp_expand_locktag, AccessExclusiveLock, false);
-#if 0
-	LWLockRelease(GpExpandLock);
-#endif
 
 	PG_RETURN_VOID();
-}
-
-void
-AtEOXact_Expand(bool isCommit)
-{
-	GpExpandLockHeldByMe = false;
-
-#if 0
-	if (LWLockHeldByMe(GpExpandLock))
-		LWLockRelease(GpExpandLock);
-#endif
-#if 0
-	LockRelease(&gp_expand_locktag, AccessExclusiveLock, false);
-	LockRelease(&gp_expand_locktag, AccessShareLock, false);
-#endif
 }
 
 static inline void
 protectOnlineExpand(Relation relation)
 {
-#if 0
-	AssertEquivalent(GpExpandLockHeldByMe,
-					 LWLockHeldByMe(GpExpandLock));
-#endif
-
 	if (GpExpandLockHeldByMe)
 		/* already holding the expand lock */
 		return;
@@ -207,9 +169,6 @@ protectOnlineExpand(Relation relation)
 	}
 
 	/* The online expand util will hold this lwlock in LW_EXCLUSIVE mode */
-#if 0
-	LWLockAcquire(GpExpandLock, LW_SHARED);
-#endif
 	LockAcquire(&gp_expand_locktag, AccessShareLock, false, false);
 	GpExpandLockHeldByMe = true;
 }

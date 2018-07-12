@@ -185,32 +185,12 @@ getCdbComponentInfo(bool DNSLookupAsError)
 		Assert(!isNull);
 		status = DatumGetChar(attr);
 
-#if 0
-		elog(WARNING, "dbid: %d, content: %d, xmin: %d",
-			 dbid, content, HeapTupleHeaderGetXmin(gp_seg_config_tuple->t_data));
-		if (DNSLookupAsError)
-		{
-			extern TransactionId GetCurrentTransactionId(void);
-			TransactionId xid = GetCurrentTransactionId();
-			TransactionId xmin = HeapTupleHeaderGetXmin(gp_seg_config_tuple->t_data);
-
-			if (xid < xmin || status == 'e')
-				continue;
-		}
-#endif
-
 		/*
 		 * Determine which array to place this rows data in: entry or segment,
 		 * based on the content field.
 		 */
 		if (content >= 0)
 		{
-#if 0
-			if (DNSLookupAsError &&
-				component_databases->total_segment_dbs >= getgpsegmentCount())
-				continue;
-#endif
-
 			/*
 			 * if we have a dbid bigger than our array we'll have to grow the
 			 * array. (MPP-2104)
@@ -346,10 +326,6 @@ getCdbComponentInfo(bool DNSLookupAsError)
 		}
 	}
 
-#if 0
-	GpIdentity.newnumsegments = component_databases->total_segments;
-#endif
-
 	/*
 	 * Validate that gp_numsegments == segment_databases->total_segment_dbs
 	 */
@@ -359,13 +335,6 @@ getCdbComponentInfo(bool DNSLookupAsError)
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("Greenplum Database number of segments inconsistency: count is %d from pg_catalog.%s table, but %d from getCdbComponentDatabases()",
 						getgpsegmentCount(), GpIdRelationName, component_databases->total_segments)));
-		GpIdentity.numsegments = component_databases->total_segments;
-#if 0
-		if (GpIdentity.newnumsegments != UNINITIALIZED_GP_IDENTITY_VALUE)
-		{
-			GpIdentity.numsegments = GpIdentity.newnumsegments;
-		}
-#endif
 	}
 
 	/*

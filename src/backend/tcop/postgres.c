@@ -5215,22 +5215,27 @@ PostgresMain(int argc, char *argv[],
 		 * (5) check for any other interesting events that happened while we
 		 * slept.
 		 */
-//		if (Gp_role != GP_ROLE_DISPATCH || MyProc->lxid == InvalidOid)
-//		{
 		if (got_SIGHUP)
 		{
 			got_SIGHUP = false;
 			ProcessConfigFile(PGC_SIGHUP);
 		}
-//		}
+
 		/* FIXME: how to check we are in a transaction or not? */
 		/* FIXME: how to let segments know the new size? */
 		if (Gp_role == GP_ROLE_DISPATCH && MyProc->lxid == InvalidOid)
 		{
 			/* TODO: how to support shrink in the future? */
 			extern uint32 FtsGetTotalSegments(void);
-			GpIdentity.numsegments = Max(GpIdentity.numsegments,
-										 FtsGetTotalSegments());
+
+			uint32 newnumsegments = FtsGetTotalSegments();
+
+			if (newnumsegments > GpIdentity.numsegments)
+			{
+				DisconnectAndDestroyAllGangs(false);
+
+				GpIdentity.numsegments = newnumsegments;
+			}
 		}
 
 		/*
@@ -5244,17 +5249,6 @@ PostgresMain(int argc, char *argv[],
 				(errmsg_internal("First char: '%c'; gp_role = '%s'.", firstchar, role_to_string(Gp_role))));
 
 		check_forbidden_in_fts_handler(firstchar);
-
-#if 0
-		if (GpIdentity.numsegments != UNINITIALIZED_GP_IDENTITY_VALUE &&
-			GpIdentity.newnumsegments != UNINITIALIZED_GP_IDENTITY_VALUE &&
-			GpIdentity.numsegments != GpIdentity.newnumsegments)
-		{
-			elog(WARNING, "numsegments is changed: %d -> %d",
-				 GpIdentity.numsegments, GpIdentity.newnumsegments);
-			GpIdentity.numsegments = GpIdentity.newnumsegments;
-		}
-#endif
 
 		switch (firstchar)
 		{
