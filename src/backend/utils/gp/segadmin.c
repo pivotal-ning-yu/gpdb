@@ -483,6 +483,63 @@ gp_add_segment(PG_FUNCTION_ARGS)
 }
 
 /*
+ * UPDATE gp_segment_configuration SET status='u' WHERE status='e';
+ */
+Datum
+gp_bring_up_segments(PG_FUNCTION_ARGS)
+{
+	Relation	rel;
+	HeapTuple	oldTuple;
+	HeapTuple	newTuple;
+	SysScanDesc	sscan;
+	ScanKeyData	scankey[1];
+	Datum		values[Natts_gp_segment_configuration];
+	bool		isnull[Natts_gp_segment_configuration];
+	bool		repl[Natts_gp_segment_configuration];
+	int			n = 0;
+
+	MemSet(values, 0, sizeof(values));
+	MemSet(isnull, 0, sizeof(isnull));
+	MemSet(repl, 0, sizeof(repl));
+
+	rel = heap_open(GpSegmentConfigRelationId, AccessExclusiveLock);
+
+	ScanKeyInit(&scankey[0],
+				Anum_gp_segment_configuration_status,
+				BTEqualStrategyNumber, F_CHAREQ,
+				CharGetDatum('e'));
+
+	sscan = systable_beginscan(rel,
+							   InvalidOid, false,
+							   SnapshotNow, 1, scankey);
+
+	while (true)
+	{
+		oldTuple = systable_getnext(sscan);
+		if (!HeapTupleIsValid(oldTuple))
+			break;
+
+		values[Anum_gp_segment_configuration_status - 1] = CharGetDatum('u');
+		isnull[Anum_gp_segment_configuration_status - 1] = false;
+		repl[Anum_gp_segment_configuration_status - 1]  = true;
+
+		newTuple = heap_modify_tuple(oldTuple, RelationGetDescr(rel),
+									 values, isnull, repl);
+
+		simple_heap_update(rel, &oldTuple->t_self, newTuple);
+		/* FIXME: no need to update index */
+		CatalogUpdateIndexes(rel, newTuple);
+
+		n++;
+	}
+
+	systable_endscan(sscan);
+	heap_close(rel, NoLock);
+
+	PG_RETURN_INT32(n);
+}
+
+/*
  * Master function to remove a segment from all catalogs
  */
 static void
