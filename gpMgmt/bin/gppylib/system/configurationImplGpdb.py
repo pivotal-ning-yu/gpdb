@@ -128,8 +128,6 @@ class GpConfigurationProviderUsingGpdbCatalog(GpConfigurationProvider) :
 
         # reset dbId of new primary and mirror segments to -1
         # before invoking the operations which will assign them new ids
-        for seg in update.primary_to_add:
-            seg.setSegmentDbId(-1)
         for seg in update.mirror_to_add:
             seg.setSegmentDbId(-1)
 
@@ -278,13 +276,18 @@ class GpConfigurationProviderUsingGpdbCatalog(GpConfigurationProvider) :
         """
         logger.debug('callSegmentAdd %s' % repr(seg))
 
-        sql = "SELECT gp_add_segment_primary(%s, %s, %s, %s)" \
-            % (
-                self.__toSqlTextValue(seg.getSegmentHostName()),
-                self.__toSqlTextValue(seg.getSegmentAddress()),
-                self.__toSqlIntValue(seg.getSegmentPort()),
-                self.__toSqlTextValue(seg.getSegmentDataDirectory()),
-              )
+        sql = """SELECT gp_add_segment(({dbid})::int2, {content}::int2, {role}::"char", {preferred_role}::"char", {mode}::"char", {status}::"char", {port}::int4, {hostname}::text, {address}::text, {datadir}::text)""".format(
+                dbid           = self.__toSqlIntValue(seg.getSegmentDbId()),
+                content        = self.__toSqlIntValue(seg.getSegmentContentId()),
+                role           = self.__toSqlCharValue(seg.getSegmentRole()),
+                preferred_role = self.__toSqlCharValue(seg.getSegmentPreferredRole()),
+                mode           = self.__toSqlCharValue(seg.getSegmentMode()),
+                status         = self.__toSqlCharValue(seg.getSegmentStatus()),
+                port           = self.__toSqlIntValue(seg.getSegmentPort()),
+                hostname       = self.__toSqlTextValue(seg.getSegmentHostName()),
+                address        = self.__toSqlTextValue(seg.getSegmentAddress()),
+                datadir        = self.__toSqlTextValue(seg.getSegmentDataDirectory()),
+                )
         logger.debug(sql)
         sqlResult = self.__fetchSingleOutputRow(conn, sql)
         dbId = int(sqlResult[0])
