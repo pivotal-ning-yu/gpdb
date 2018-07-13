@@ -337,6 +337,9 @@
 
  CREATE FUNCTION gp_bring_up_segments() RETURNS int4 LANGUAGE internal VOLATILE AS 'gp_bring_up_segments' WITH (OID=5052, DESCRIPTION="Update segments status from 'e' to 'u' from the system catalog");
 
+ CREATE FUNCTION gp_expand_lock_catalog() RETURNS void LANGUAGE internal VOLATILE AS 'gp_expand_lock_catalog' WITH (OID=5080, DESCRIPTION="Lock catalog changes for gpexpand");
+ CREATE FUNCTION gp_expand_unlock_catalog() RETURNS void LANGUAGE internal VOLATILE AS 'gp_expand_unlock_catalog' WITH (OID=5081, DESCRIPTION="Unlock catalog changes for gpexpand");
+
  CREATE FUNCTION gp_remove_segment(int2) RETURNS bool LANGUAGE internal VOLATILE AS 'gp_remove_segment' WITH (OID=5051, DESCRIPTION="Remove a primary segment from the system catalog");
 
  CREATE FUNCTION gp_request_fts_probe_scan() RETURNS bool LANGUAGE internal VOLATILE AS 'gp_request_fts_probe_scan' EXECUTE ON MASTER WITH (OID=5035, DESCRIPTION="Request a FTS probe scan and wait for response");

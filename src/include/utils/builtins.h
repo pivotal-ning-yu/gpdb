@@ -179,6 +179,10 @@ extern Datum enum_last(PG_FUNCTION_ARGS);
 extern Datum enum_range_bounds(PG_FUNCTION_ARGS);
 extern Datum enum_range_all(PG_FUNCTION_ARGS);
 
+/* heapam.c */
+extern Datum gp_expand_lock_catalog(PG_FUNCTION_ARGS);
+extern Datum gp_expand_unlock_catalog(PG_FUNCTION_ARGS);
+
 /* int.c */
 extern Datum int2in(PG_FUNCTION_ARGS);
 extern Datum int2out(PG_FUNCTION_ARGS);
