@@ -1537,6 +1537,27 @@ Set PGDATABASE or use the -D option to specify the correct database to use.""" %
         dbconn.execSQL(self.conn, "CHECKPOINT")
         self.conn.close()
 
+        # Trigger FTS to rescan the segments status
+        self.conn = dbconn.connect(self.dburl, encoding='UTF8')
+        dbconn.execSQL(self.conn, "SELECT gp_request_fts_probe_scan()")
+        self.conn.close()
+
+        # Wait for FTS to bring up the segments
+        while True:
+            expanding = False
+            self.conn = dbconn.connect(self.dburl, utility=True, encoding='UTF8')
+            sql = "SELECT * from gp_segment_configuration where status='e'"
+            self.logger.info(sql)
+            cursor = dbconn.execSQL(self.conn, sql)
+            for row in cursor:
+                expanding = True
+                self.logger.info(row)
+            cursor.close()
+            self.conn.close()
+            self.logger.info('expanding: ' + str(expanding))
+            if not expanding:
+                break
+            time.sleep(1)
 
         self.statusLogger.set_status('UPDATE_CATALOG_DONE')
 
