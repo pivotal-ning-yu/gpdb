@@ -1701,6 +1701,7 @@ Set PGDATABASE or use the -D option to specify the correct database to use.""" %
         """Used to setup the gpexpand schema"""
         self.statusLogger.set_status('SETUP_EXPANSION_SCHEMA_STARTED')
         self.logger.info('Creating expansion schema')
+        self.conn = dbconn.connect(self.dburl, encoding='UTF8')
         dbconn.execSQL(self.conn, create_schema_sql)
         dbconn.execSQL(self.conn, status_table_sql)
         dbconn.execSQL(self.conn, status_detail_table_sql)
@@ -2787,8 +2788,8 @@ def main(options, args, parser):
             _gp_expand.start_prepare()
             _gp_expand.add_segments()
             _gp_expand.update_original_segments()
-            _gp_expand.update_catalog()
             _gp_expand.cleanup_new_segments()
+            _gp_expand.update_catalog()
             _gp_expand.setup_schema()
             _gp_expand.prepare_schema()
             # When the mirrors come up, it should sync with the primary on its own.
