@@ -5165,6 +5165,23 @@ PostgresMain(int argc, char *argv[],
 			ProcessConfigFile(PGC_SIGHUP);
 		}
 
+		/* FIXME: how to check we are in a transaction or not? */
+		/* FIXME: how to let segments know the new size? */
+		if (Gp_role == GP_ROLE_DISPATCH && MyProc->lxid == InvalidOid)
+		{
+			/* TODO: how to support shrink in the future? */
+			extern uint32 FtsGetTotalSegments(void);
+
+			uint32 newnumsegments = FtsGetTotalSegments();
+
+			if (newnumsegments > GpIdentity.numsegments)
+			{
+				DisconnectAndDestroyAllGangs(false);
+
+				GpIdentity.numsegments = newnumsegments;
+			}
+		}
+
 		/*
 		 * (6) process the command.  But ignore it if we're skipping till
 		 * Sync.
