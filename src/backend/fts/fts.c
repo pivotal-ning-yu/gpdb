@@ -375,6 +375,9 @@ CdbComponentDatabases *readCdbComponentInfoAndUpdateStatus(MemoryContext probeCo
 		ftsProbeInfo->fts_status[segInfo->dbid] = segStatus;
 	}
 
+	ftsProbeInfo->total_segment_dbs = cdbs->total_segment_dbs;
+	GpIdentity.numsegments = ftsProbeInfo->total_segment_dbs;
+
 	/*
 	 * Initialize fts_stausVersion after populating the config details in
 	 * shared memory for the first time after FTS startup.

@@ -168,3 +168,9 @@ getFtsVersion(void)
 {
 	return ftsProbeInfo->fts_statusVersion;
 }
+
+uint32
+FtsGetTotalSegments(void)
+{
+	return ftsProbeInfo->total_segment_dbs;
+}

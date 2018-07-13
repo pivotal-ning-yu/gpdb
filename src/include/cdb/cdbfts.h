@@ -34,6 +34,7 @@ typedef struct FtsProbeInfo
 {
 	volatile uint8		fts_statusVersion;
 	volatile uint8      probeTick;
+	volatile uint32		total_segment_dbs;
 	volatile uint8		fts_status[FTS_MAX_DBS];
 } FtsProbeInfo;
 
@@ -58,4 +59,5 @@ extern void ftsLock(void);
 extern void ftsUnlock(void);
 extern void FtsNotifyProber(void);
 extern uint8 getFtsVersion(void);
+extern uint32 FtsGetTotalSegments(void);
 #endif   /* CDBFTS_H */
