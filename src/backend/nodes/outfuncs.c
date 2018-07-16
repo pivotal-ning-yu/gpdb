@@ -4594,6 +4594,17 @@ _outAlterTSDictionaryStmt(StringInfo str, AlterTSDictionaryStmt *node)
 	WRITE_NODE_FIELD(options);
 }
 
+static void
+_outReshuffleExpr(StringInfo str, ReshuffleExpr *node)
+{
+	WRITE_NODE_TYPE("RESHUFFLEEXPR");
+
+	WRITE_INT_FIELD(newSegs);
+	WRITE_NODE_FIELD(hashKeys);
+	WRITE_NODE_FIELD(hashTypes);
+}
+
+
 #ifndef COMPILING_BINARY_FUNCS
 static void
 _outTupleDescNode(StringInfo str, TupleDescNode *node)
@@ -5548,7 +5559,9 @@ _outNode(StringInfo str, void *obj)
 			case T_AlterTSDictionaryStmt:
 				_outAlterTSDictionaryStmt(str, obj);
 				break;
-
+			case T_ReshuffleExpr:
+                _outReshuffleExpr(str, obj);
+				break;
 			default:
 
 				/*

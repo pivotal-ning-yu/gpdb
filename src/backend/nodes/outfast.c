@@ -1361,6 +1361,17 @@ _outGpPolicy(StringInfo str, GpPolicy *node)
 	WRITE_INT_ARRAY(attrs, node->nattrs, AttrNumber);
 }
 
+static void
+_outReshuffleExprFast(StringInfo str, ReshuffleExpr *node)
+{
+	WRITE_NODE_TYPE("RESHUFFLEEXPR");
+
+	//WRITE_INT_FIELD(oldSegs);
+	WRITE_INT_FIELD(newSegs);
+	WRITE_NODE_FIELD(hashKeys);
+	WRITE_NODE_FIELD(hashTypes);
+}
+
 /*
  * _outNode -
  *	  converts a Node into binary string and append it to 'str'
@@ -2316,6 +2327,9 @@ _outNode(StringInfo str, void *obj)
 				break;
 			case T_DistributedBy:
 				_outDistributedBy(str, obj);
+				break;
+			case T_ReshuffleExpr:
+                _outReshuffleExprFast(str, obj);
 				break;
 
 			default:
