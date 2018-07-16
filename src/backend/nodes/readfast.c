@@ -2973,6 +2973,18 @@ _readLockRows(void)
 	READ_DONE();
 }
 
+static ReshuffleExpr *
+_readReshuffleExprfFast(void)
+{
+	READ_LOCALS(ReshuffleExpr);
+
+	READ_INT_FIELD(newSegs);
+	READ_NODE_FIELD(hashKeys);
+	READ_NODE_FIELD(hashTypes);
+
+	READ_DONE();
+}
+
 
 static Node *
 _readValue(NodeTag nt)
@@ -3904,7 +3916,9 @@ readNodeBinary(void)
 			case T_DistributedBy:
 				return_value = _readDistributedBy();
 				break;
-
+			case T_ReshuffleExpr:
+				return_value = _readReshuffleExprfFast();
+				break;
 
 			default:
 				return_value = NULL; /* keep the compiler silent */

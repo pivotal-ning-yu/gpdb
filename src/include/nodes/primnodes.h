@@ -1576,4 +1576,19 @@ typedef struct PartListNullTestExpr
 	NullTestType nulltesttype;	/* IS NULL, IS NOT NULL */
 } PartListNullTestExpr;
 
+/*
+ * ReshuffleExpr
+ *
+ * Represents the expression that which data need to be reshuffer when
+ * we give an new count of segments.
+ */
+typedef struct ReshuffleExpr
+{
+	Expr xpr;
+	int newSegs;
+	List *hashKeys;
+	List *hashTypes;
+} ReshuffleExpr;
+
+
 #endif   /* PRIMNODES_H */

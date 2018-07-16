@@ -2687,6 +2687,17 @@ _equalXmlSerialize(const XmlSerialize *a, const XmlSerialize *b)
 	return true;
 }
 
+static bool
+_equalReshuffleExpr(ReshuffleExpr *a, ReshuffleExpr *b)
+{
+	//COMPARE_SCALAR_FIELD(oldSegs);
+	COMPARE_SCALAR_FIELD(newSegs);
+	COMPARE_NODE_FIELD(hashKeys);
+	COMPARE_NODE_FIELD(hashTypes);
+
+	return true;
+}
+
 /*
  * Stuff from pg_list.h
  */
@@ -3436,7 +3447,9 @@ equal(const void *a, const void *b)
 		case T_DistributedBy:
 			retval = _equalDistributedBy(a, b);
 			break;
-
+		case T_ReshuffleExpr:
+			retval = _equalReshuffleExpr(a,b);
+			break;
 		default:
 			elog(ERROR, "unrecognized node type: %d",
 				 (int) nodeTag(a));

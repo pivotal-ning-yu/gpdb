@@ -41,6 +41,8 @@
 #include "access/tupconvert.h"
 #include "catalog/pg_type.h"
 #include "cdb/cdbpartition.h"
+#include "cdb/cdbhash.h"
+#include "cdb/cdbvars.h"
 #include "cdb/partitionselection.h"
 #include "commands/typecmds.h"
 #include "executor/execdebug.h"
@@ -5143,6 +5145,50 @@ ExecEvalArrayCoerceExpr(ArrayCoerceExprState *astate,
 					 astate->amstate);
 }
 
+/* ----------------------------------------------------------------
+ *		ExecEvalReshuffleExpr
+ *
+ *		Evaluate an Reshuffle expression node.
+ * ----------------------------------------------------------------
+ */
+static Datum
+ExecEvalReshuffleExpr(ReshuffleExprState *astate,
+					  ExprContext *econtext,
+					  bool *isNull,
+					  ExprDoneCond *isDone)
+{
+	ReshuffleExpr *sr = (ReshuffleExpr *) astate->xprstate.expr;
+	ListCell *k;
+	ListCell *t;
+	CdbHash *hnew = makeCdbHash(sr->newSegs);
+	uint32 newSeg;
+	bool result;
+
+	cdbhashinit(hnew);
+
+	forboth(k, astate->hashKeys, t, astate->hashTypes)
+	{
+		if(*isNull)
+		{
+			cdbhashnull(hnew);
+		}
+		else
+		{
+			ExprState *vstate = (ExprState*)lfirst(k);
+			Oid tp = lfirst_oid(t);
+			Datum val = ExecEvalExpr(vstate, econtext, isNull, isDone);
+			cdbhash(hnew, val, tp);
+		}
+	}
+
+	newSeg = cdbhashreduce(hnew);
+
+	result = (GpIdentity.segindex != newSeg);
+
+	return BoolGetDatum(result);
+
+}
+
 
 /*
  * ExecEvalExprSwitchContext
@@ -6002,6 +6048,17 @@ ExecInitExpr(Expr *node, PlanState *parent)
 				state = (ExprState *) exprstate;
 			}
 			break;
+
+        case T_ReshuffleExpr:
+            {
+				ReshuffleExpr *sr = (ReshuffleExpr *) node;
+				ReshuffleExprState *exprstate = makeNode(ReshuffleExprState);
+                exprstate->hashKeys = ExecInitExpr(sr->hashKeys, parent);
+                exprstate->hashTypes = sr->hashTypes;
+                exprstate->xprstate.evalfunc = (ExprStateEvalFunc) ExecEvalReshuffleExpr;
+				state = (ExprState*)exprstate;
+            }
+		    break;
 
 		default:
 			elog(ERROR, "unrecognized node type: %d",

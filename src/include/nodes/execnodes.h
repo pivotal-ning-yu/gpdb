@@ -1352,6 +1352,15 @@ typedef struct CoerceToDomainState
 	List	   *constraints;	/* list of DomainConstraintState nodes */
 } CoerceToDomainState;
 
+typedef struct ReshuffleExprState
+{
+       ExprState xprstate;
+       ExprState  *arg;
+       List *hashKeys;
+       List *hashTypes;
+}ReshuffleExprState;
+
+
 /*
  * DomainConstraintState - one item to check during CoerceToDomain
  *

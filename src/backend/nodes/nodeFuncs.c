@@ -263,6 +263,10 @@ exprType(const Node *expr)
 			type = BOOLOID;
 			break;
 
+		case T_ReshuffleExpr:
+			type = BOOLOID;
+			break;
+
 		default:
 			elog(ERROR, "unrecognized node type: %d", (int) nodeTag(expr));
 			type = InvalidOid;	/* keep compiler quiet */
@@ -895,6 +899,9 @@ exprCollation(const Node *expr)
 			 */
 			coll = InvalidOid;
 			break;
+        case T_ReshuffleExpr:
+            coll = InvalidOid;
+            break;
 		default:
 			elog(ERROR, "unrecognized node type: %d", (int) nodeTag(expr));
 			coll = InvalidOid;	/* keep compiler quiet */
@@ -1100,6 +1107,8 @@ exprSetCollation(Node *expr, Oid collation)
 		case T_GroupId:
 			Assert(!OidIsValid(collation));		/* result is always int4 */
 			break;
+        case T_ReshuffleExpr:
+            break;
 
 		default:
 			elog(ERROR, "unrecognized node type: %d", (int) nodeTag(expr));
@@ -1991,6 +2000,15 @@ expression_tree_walker(Node *node,
 			}
 			break;
 
+        case T_ReshuffleExpr:
+            {
+				ReshuffleExpr *sr = (ReshuffleExpr *) node;
+				if (walker((Node *) sr->hashKeys, context))
+					return true;
+                return false;
+            }
+            break;
+
 		default:
 			elog(ERROR, "unrecognized node type: %d",
 				 (int) nodeTag(node));
@@ -2838,6 +2856,15 @@ expression_tree_mutator(Node *node,
 				FLATCOPY(new_action_expr, action_expr, DMLActionExpr);
 				return (Node *)new_action_expr;
 			}
+		case T_ReshuffleExpr:
+            {
+				ReshuffleExpr *sr = (ReshuffleExpr *) node;
+				ReshuffleExpr *newnode;
+
+            FLATCOPY(newnode, sr, ReshuffleExpr);
+			MUTATE(newnode->hashKeys, sr->hashKeys, List *);
+            return (Node *) newnode;
+            }
 		default:
 			elog(ERROR, "unrecognized node type: %d",
 				 (int) nodeTag(node));
@@ -3384,6 +3411,8 @@ raw_expression_tree_walker(Node *node,
 			return walker(((WithClause *) node)->ctes, context);
 		case T_CommonTableExpr:
 			return walker(((CommonTableExpr *) node)->ctequery, context);
+        case T_ReshuffleExpr:
+            return walker(((ReshuffleExpr *) node)->hashKeys, context);;
 		default:
 			elog(ERROR, "unrecognized node type: %d",
 				 (int) nodeTag(node));

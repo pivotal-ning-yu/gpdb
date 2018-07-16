@@ -4901,6 +4901,18 @@ _copyDistributedBy(const DistributedBy *from)
 	return newnode;
 }
 
+
+static ReshuffleExpr *
+_copyReshuffleExpr(ReshuffleExpr *from)
+{
+	ReshuffleExpr *newnode = makeNode(ReshuffleExpr);
+	newnode->newSegs = from->newSegs;
+	COPY_NODE_FIELD(hashKeys);
+	COPY_NODE_FIELD(hashTypes);
+
+	return newnode;
+}
+
 /* ****************************************************************
  *					pg_list.h copy functions
  * ****************************************************************
@@ -5898,6 +5910,9 @@ copyObject(const void *from)
 
 		case T_DistributedBy:
 			retval = _copyDistributedBy(from);
+			break;
+		case T_ReshuffleExpr:
+			retval = _copyReshuffleExpr(from);
 			break;
 
 		default:
