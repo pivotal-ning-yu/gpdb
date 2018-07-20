@@ -29,6 +29,14 @@ extern void estimate_rel_size(Relation rel, int32 *attr_widths, BlockNumber *pag
 extern bool relation_excluded_by_constraints(PlannerInfo *root, RelOptInfo *rel,
 								 RangeTblEntry *rte);
 
+extern void cdb_estimate_rel_size(RelOptInfo   *relOptInfo,
+								  Relation      baserel,
+								  Relation      rel,
+								  int32        *attr_widths,
+								  BlockNumber  *pages,
+								  double       *tuples,
+								  bool         *default_stats_used);
+
 extern List *build_physical_tlist(PlannerInfo *root, RelOptInfo *rel);
 
 extern List *find_inheritance_children(Oid inhparent);
