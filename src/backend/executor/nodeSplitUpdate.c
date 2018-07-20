@@ -17,6 +17,7 @@
 #include "miscadmin.h"
 
 #include "cdb/cdbpartition.h"
+#include "cdb/cdbhash.h"
 #include "commands/tablecmds.h"
 #include "executor/execDML.h"
 #include "executor/instrument.h"
@@ -43,6 +44,35 @@ ExecSplitUpdateExplainEnd(PlanState *planstate, struct StringInfoData *buf)
 	planstate->instrument->execmemused += SPLITUPDATE_MEM;
 }
 
+static int
+EvalHashSegID(Datum *values, bool *nulls, int n, List *targetList, int nsegs)
+{
+	CdbHash *hnew = makeCdbHash(nsegs);
+	uint32 newSeg;
+	int i = 0;
+
+	cdbhashinit(hnew);
+
+	//forboth(k, astate->hashKeys, t, astate->hashTypes)
+	for(i = 0; i < n; i++)
+	{
+		if(nulls[i])
+		{
+			cdbhashnull(hnew);
+		}
+		else
+		{
+			TargetEntry *entry = list_nth(targetList, i);
+			cdbhash(hnew, values[i], exprType((Node *) entry->expr));
+		}
+	}
+
+	newSeg = cdbhashreduce(hnew);
+
+	return newSeg;
+
+}
+
 /* Split TupleTableSlot into a DELETE and INSERT TupleTableSlot */
 void
 SplitTupleTableSlot(List *targetList, SplitUpdate *plannode, SplitUpdateState *node, Datum *values, bool *nulls)
@@ -55,6 +85,7 @@ SplitTupleTableSlot(List *targetList, SplitUpdate *plannode, SplitUpdateState *n
 	bool *delete_nulls = slot_get_isnull(node->deleteTuple);
 	Datum *insert_values = slot_get_values(node->insertTuple);
 	bool *insert_nulls = slot_get_isnull(node->insertTuple);
+	Datum deleteSegs;
 
 	/* Iterate through new TargetList and match old and new values. The action is also added in this containsTuple. */
 	foreach (element, targetList)
@@ -93,6 +124,22 @@ SplitTupleTableSlot(List *targetList, SplitUpdate *plannode, SplitUpdateState *n
 			insert_nulls[resno] = nulls[((Var *)tle->expr)->varattno-1];
 		}
 	}
+extern int gp_new_segments;
+extern int gp_old_segments;
+    plannode->newSegs = gp_new_segments;
+    plannode->oldSegs = gp_old_segments;
+
+	deleteSegs = delete_values[plannode->tupleSegIdx - 1];
+
+	insert_values[plannode->tupleSegIdx - 1] =
+			Int32GetDatum(EvalHashSegID(insert_values, insert_nulls, 1, targetList, plannode->newSegs));
+
+	delete_values[plannode->tupleSegIdx - 1] =
+			Int32GetDatum(EvalHashSegID(delete_values, delete_nulls, 1, targetList, plannode->oldSegs));
+    extern int	getgpsegmentCount(void);
+	Assert(deleteSegs == delete_values[plannode->tupleSegIdx - 1]);
+	if(DatumGetInt32(insert_values[plannode->tupleSegIdx - 1]) >= getgpsegmentCount())
+		elog(ERROR, "ERROR SEGMENT ID : %d, %d", DatumGetInt32(deleteSegs), DatumGetInt32(insert_values[plannode->tupleSegIdx - 1]));
 }
 
 /**
