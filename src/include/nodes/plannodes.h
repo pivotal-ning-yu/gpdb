@@ -366,6 +366,8 @@ typedef struct ModifyTable
 	List	   *action_col_idxes;
 	List	   *ctid_col_idxes;
 	List	   *oid_col_idxes;
+	int			oldSegs;
+	int			newSegs;
 } ModifyTable;
 
 /* ----------------
@@ -1327,8 +1329,11 @@ typedef struct SplitUpdate
 	AttrNumber	actionColIdx;		/* index of action column into the target list */
 	AttrNumber	ctidColIdx;			/* index of ctid column into the target list */
 	AttrNumber	tupleoidColIdx;		/* index of tuple oid column into the target list */
+	AttrNumber	tupleSegIdx;
 	List		*insertColIdx;		/* list of columns to INSERT into the target list */
 	List		*deleteColIdx;		/* list of columns to DELETE into the target list */
+	int			oldSegs;
+	int 		newSegs;
 
 } SplitUpdate;
 

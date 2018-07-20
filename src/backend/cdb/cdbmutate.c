@@ -108,6 +108,50 @@ static AttrNumber find_segid_column(List *tlist, Index relid);
 static bool replace_shareinput_targetlists_walker(Node *node, PlannerInfo *root, bool fPop);
 
 static bool fixup_subplan_walker(Node *node, SubPlanWalkerContext *context);
+static void find_junk_tle(List *targetList, const char *junkAttrName, TargetEntry **targetEntry);
+
+static void
+find_segid_attribute_check(List *targetList, AttrNumber *ctidAttr, Index resultRelationsIdx) {
+    TargetEntry *ctid;
+    Var *var;
+
+    find_junk_tle(targetList, "gp_segment_id", &ctid);
+
+    Assert(NULL != ctid);
+    Assert(IsA(ctid->expr, Var));
+
+    var = (Var *) (ctid->expr);
+
+    *ctidAttr = ctid->resno;
+}
+
+/*
+ * Request an ExplicitRedistribute motion node for a plan node
+ */
+void
+request_explicit_motion2(Plan *plan, Index resultRelationsIdx, List *rtable)
+{
+    /* request a segid redistribute motion */
+    /* create a shallow copy of the plan flow */
+    AttrNumber	segidColIdx;
+    Flow	   *flow = plan->flow;
+
+    plan->flow = (Flow *) palloc(sizeof(*(plan->flow)));
+    *(plan->flow) = *flow;
+
+    /* save original flow information */
+    plan->flow->flow_before_req_move = flow;
+
+    /* request a SegIdRedistribute motion node */
+    plan->flow->req_move = MOVEMENT_EXPLICIT;
+
+    /* find segid column in target list */
+    find_segid_attribute_check(plan->targetlist, &segidColIdx, resultRelationsIdx);
+
+    Assert(-1 != segidColIdx);
+
+    plan->flow->segidColIdx = segidColIdx;
+}
 
 /*
  * Is target list of a Result node all-constant?
@@ -766,7 +810,9 @@ apply_motion_mutator(Node *node, ApplyMotionState *context)
 			 * add an ExplicitRedistribute motion node only if child plan
 			 * nodes have a motion node
 			 */
-			if (context->containMotionNodes)
+			if (context->containMotionNodes ||
+                (IsA(plan, SplitUpdate) &&
+                 ((SplitUpdate*)plan)->oldSegs != ((SplitUpdate*)plan)->newSegs))
 			{
 				/*
 				 * motion node in child nodes: add a ExplicitRedistribute
@@ -1708,6 +1754,9 @@ make_splitupdate(PlannerInfo *root, ModifyTable *mt, Plan *subplan, RangeTblEntr
 	splitupdate->plan.total_cost = subplan->total_cost;
 	splitupdate->plan.plan_rows = 2 * subplan->plan_rows;
 	splitupdate->plan.plan_width = subplan->plan_width;
+	splitupdate->oldSegs = mt->oldSegs;
+	splitupdate->newSegs = mt->newSegs;
+    find_segid_attribute_check(splitupdate->plan.targetlist, &splitupdate->tupleSegIdx, resultRelationsIdx);
 
 	/* we need an motion node above the SplitUpdate, so mark it as strewn */
 	mark_plan_strewn((Plan *) splitupdate);
