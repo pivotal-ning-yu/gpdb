@@ -1,0 +1,13 @@
+
+platform: linux
+inputs:
+  - name: gpdb_src
+  - name: bin_gpdb_db_ms
+  - name: bin_gpdb_clients_ms
+run:
+  path: gpdb_src/customer-patches/morgan-stanley/scripts/upload_to_ms_ftp.sh
+params:
+  FTP_HOST:
+  FTP_USERNAME:
+  FTP_PASSWORD:
+  FTP_PATH:

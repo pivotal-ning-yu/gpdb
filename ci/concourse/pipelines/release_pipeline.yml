@@ -26,13 +26,6 @@ resources:
     uri: {{gpdb-git-remote}}
     tag_filter: 4.3.*
 
-- name: gpdb_release_src
-  type: git
-  source:
-    branch: {{gpdb-release-git-branch}}
-    private_key: {{gpdb-release-remote-deploy-key}}
-    uri: {{gpdb-release-git-remote}}
-
 - name: centos-gpdb-dev-5
   type: docker-image
   source:
@@ -1242,8 +1235,6 @@ jobs:
         passed: [compile_gpdb_sles11]
       - get: osl_gpdb4
       - get: pivnet_client
-      - get: gpdb_release
-        resource: gpdb_release_src
       - get: libgppc_rhel5_gppkg
     - task: push-to-pivnet
       config:
@@ -1255,7 +1246,6 @@ jobs:
             tag: '2.3'
         inputs:
         - name: gpdb_src
-        - name: gpdb_release
         - name: pivnet_client
         - name: installer_rhel5_gpdb_rc
         - name: installer_appliance_rhel5_gpdb_rc
@@ -1302,7 +1292,7 @@ jobs:
             cd ..
             cd pivnet_client/
             bundle install
-            bundle exec pivnet_client upload --verbose --metadata ../gpdb_release/pivnet/metadata_gp43.yml --search_path ../ --gpdb_version ${GPDB_VERSION}
+            bundle exec pivnet_client upload --verbose --metadata ../gpdb_src/ci/pivnet/metadata_gp43.yml --search_path ../ --gpdb_version ${GPDB_VERSION}
 
 - name: send_staged_on_pivnet_email
   plan:
@@ -1404,8 +1394,6 @@ jobs:
     - get: ms_installer_rhel5_gpdb_rc
       passed: [package_ms]
       trigger: true
-    - get: gpdb_release
-      resource: gpdb_release_src
   - task: smoketest
     config:
       platform: linux
@@ -1418,20 +1406,17 @@ jobs:
       inputs:
         - name: gpdb_src
         - name: ms_installer_rhel5_gpdb_rc
-        - name: gpdb_release
       params:
         OSVER: centos5
         TEST_OS: centos
       run:
-        path: gpdb_release/concourse/scripts/ms_smoketest_gp4.sh
+        path: gpdb_src/customer-patches/morgan-stanley/scripts/ms_smoketest_gp4.sh
 
 - name: upload_to_ms_ftp
   serial: true
   plan:
   - aggregate:
     - get: centos-gpdb-dev-6
-    - get: gpdb_release
-      resource: gpdb_release_src
     - get: bin_gpdb_db_ms
       resource: ms_installer_rhel5_gpdb_rc
       trigger: true
@@ -1445,7 +1430,7 @@ jobs:
     - get: gpdb_src
       passed: ['smoke_test_morgan_stanley']
   - task: upload-to-ms_ftp
-    file: gpdb_release/concourse/tasks/upload_to_ms_ftp.yml
+    file: gpdb_src/ci/concourse/upload_to_ms_ftp.yml
     image: centos-gpdb-dev-6
     params:
       FTP_HOST: {{ftp_host}}
