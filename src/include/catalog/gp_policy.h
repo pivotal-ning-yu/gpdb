@@ -35,15 +35,17 @@ CATALOG(gp_distribution_policy,5002) BKI_WITHOUT_OIDS
 	Oid			localoid;
 	int2		attrnums[1];
 	char		policytype; /* distribution policy type */
+	int4		numsegments;
 } FormData_gp_policy;
 
 /* GPDB added foreign key definitions for gpcheckcat. */
 FOREIGN_KEY(localoid REFERENCES pg_class(oid));
 
-#define Natts_gp_policy		3
+#define Natts_gp_policy		4
 #define Anum_gp_policy_localoid	1
 #define Anum_gp_policy_attrnums	2
 #define Anum_gp_policy_type	3
+#define Anum_gp_policy_numsegments	4
 
 /*
  * Symbolic values for Anum_gp_policy_type column
@@ -74,6 +76,7 @@ typedef struct GpPolicy
 {
 	NodeTag         type;
 	GpPolicyType ptype;
+	int4		numsegments;
 
 	/* These fields apply to POLICYTYPE_PARTITIONED. */
 	int			nattrs;
@@ -123,7 +126,7 @@ bool GpPolicyIsPartitioned(const GpPolicy *policy);
 bool GpPolicyIsReplicated(const GpPolicy *policy);
 bool GpPolicyIsEntry(const GpPolicy *policy);
 
-extern GpPolicy *makeGpPolicy(MemoryContext mcxt, GpPolicyType ptype, int nattrs);
+extern GpPolicy *makeGpPolicy(MemoryContext mcxt, GpPolicyType ptype, int32 numsegments, int nattrs);
 extern GpPolicy *createReplicatedGpPolicy(MemoryContext mcxt);
 extern GpPolicy *createRandomPartitionedPolicy(MemoryContext mcxt);
 extern GpPolicy *createHashPartitionedPolicy(MemoryContext mcxt, List *keys);

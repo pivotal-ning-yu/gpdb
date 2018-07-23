@@ -132,10 +132,10 @@ extern int gp_old_segments;
 	deleteSegs = delete_values[plannode->tupleSegIdx - 1];
 
 	insert_values[plannode->tupleSegIdx - 1] =
-			Int32GetDatum(EvalHashSegID(insert_values, insert_nulls, 1, targetList, plannode->newSegs));
+			Int32GetDatum(EvalHashSegID(insert_values, insert_nulls, 3, targetList, plannode->newSegs));
 
 	delete_values[plannode->tupleSegIdx - 1] =
-			Int32GetDatum(EvalHashSegID(delete_values, delete_nulls, 1, targetList, plannode->oldSegs));
+			Int32GetDatum(EvalHashSegID(delete_values, delete_nulls, 3, targetList, plannode->oldSegs));
     extern int	getgpsegmentCount(void);
 	Assert(deleteSegs == delete_values[plannode->tupleSegIdx - 1]);
 	if(DatumGetInt32(insert_values[plannode->tupleSegIdx - 1]) >= getgpsegmentCount())

@@ -34,7 +34,7 @@
 static void extract_INT2OID_array(Datum array_datum, int *lenp, int16 **vecp);
 
 GpPolicy *
-makeGpPolicy(MemoryContext mcxt, GpPolicyType ptype, int nattrs)
+makeGpPolicy(MemoryContext mcxt, GpPolicyType ptype, int numsegments, int nattrs)
 {
 	GpPolicy *policy;
 	size_t	size;
@@ -45,6 +45,7 @@ makeGpPolicy(MemoryContext mcxt, GpPolicyType ptype, int nattrs)
 	size = sizeof(GpPolicy) + nattrs * sizeof(AttrNumber);
 	policy = MemoryContextAlloc(mcxt, size);
 	policy->type = T_GpPolicy;
+	policy->numsegments = numsegments;
 	policy->ptype = ptype; 
 	policy->nattrs = nattrs; 
 	if (nattrs > 0)
@@ -61,7 +62,8 @@ makeGpPolicy(MemoryContext mcxt, GpPolicyType ptype, int nattrs)
 GpPolicy *
 createReplicatedGpPolicy(MemoryContext mcxt)
 {
-	return makeGpPolicy(mcxt, POLICYTYPE_REPLICATED, 0);
+	/* FIXME: what's the proper value for numsegments? */
+	return makeGpPolicy(mcxt, POLICYTYPE_REPLICATED, getgpsegmentCount(), 0);
 }
 
 /*
@@ -71,7 +73,8 @@ createReplicatedGpPolicy(MemoryContext mcxt)
 GpPolicy *
 createRandomPartitionedPolicy(MemoryContext mcxt)
 {
-	return makeGpPolicy(mcxt, POLICYTYPE_PARTITIONED, 0);
+	/* FIXME: what's the proper value for numsegments? */
+	return makeGpPolicy(mcxt, POLICYTYPE_PARTITIONED, getgpsegmentCount(), 0);
 }
 
 /*
@@ -89,7 +92,8 @@ createHashPartitionedPolicy(MemoryContext mcxt, List *keys)
 	if (len == 0)
 		return createRandomPartitionedPolicy(mcxt);
 
-	policy = makeGpPolicy(mcxt, POLICYTYPE_PARTITIONED, len);
+	/* FIXME: what's the proper value for numsegments? */
+	policy = makeGpPolicy(mcxt, POLICYTYPE_PARTITIONED, getgpsegmentCount(), len);
 	foreach(lc, keys)
 	{
 		policy->attrs[idx++] = (AttrNumber)lfirst_int(lc);
@@ -112,7 +116,7 @@ GpPolicyCopy(MemoryContext mcxt, const GpPolicy *src)
 	if (!src)
 		return NULL;
 
-	tgt = makeGpPolicy(mcxt, src->ptype, src->nattrs);
+	tgt = makeGpPolicy(mcxt, src->ptype, src->numsegments, src->nattrs);
 
 	for (i = 0; i < src->nattrs; i++)
 		tgt->attrs[i] = src->attrs[i];
@@ -135,6 +139,9 @@ GpPolicyEqual(const GpPolicy *lft, const GpPolicy *rgt)
 		return false;
 
 	if (lft->ptype != rgt->ptype)
+		return false;
+
+	if (lft->numsegments != rgt->numsegments)
 		return false;
 
 	if (lft->nattrs != rgt->nattrs)
@@ -252,7 +259,7 @@ GpPolicyFetch(MemoryContext mcxt, Oid tbloid)
 
 			if (strcmp(on_clause, "MASTER_ONLY") == 0)
 			{
-				return makeGpPolicy(mcxt, POLICYTYPE_ENTRY, 0);
+				return makeGpPolicy(mcxt, POLICYTYPE_ENTRY, 0, 0);
 			}
 
 			return createRandomPartitionedPolicy(mcxt);
@@ -275,8 +282,18 @@ GpPolicyFetch(MemoryContext mcxt, Oid tbloid)
 		bool		isNull;
 		Datum		attr;
 		int			i,
+					numsegments,
 					nattrs = 0;
 		int16	   *attrnums = NULL;
+
+		attr = SysCacheGetAttr(GPPOLICYID, gp_policy_tuple,
+							   Anum_gp_policy_numsegments,
+							   &isNull);
+
+		if (isNull)
+			numsegments = getgpsegmentCount();
+		else
+			numsegments = DatumGetInt32(attr);
 
 		attr = SysCacheGetAttr(GPPOLICYID, gp_policy_tuple,
 							   Anum_gp_policy_type,
@@ -309,7 +326,7 @@ GpPolicyFetch(MemoryContext mcxt, Oid tbloid)
 				}
 
 				/* Create a GpPolicy object. */
-				policy = makeGpPolicy(mcxt, POLICYTYPE_PARTITIONED, nattrs);
+				policy = makeGpPolicy(mcxt, POLICYTYPE_PARTITIONED, numsegments, nattrs);
 
 				for (i = 0; i < nattrs; i++)
 				{
@@ -327,7 +344,7 @@ GpPolicyFetch(MemoryContext mcxt, Oid tbloid)
 	/* Interpret absence of a valid policy row as POLICYTYPE_ENTRY */
 	if (policy == NULL)
 	{
-		return makeGpPolicy(mcxt, POLICYTYPE_ENTRY, 0);
+		return makeGpPolicy(mcxt, POLICYTYPE_ENTRY, 0, 0);
 	}
 
 	return policy;
@@ -368,15 +385,17 @@ GpPolicyStore(Oid tbloid, const GpPolicy *policy)
 
 	ArrayType  *attrnums;
 
-	bool		nulls[3];
-	Datum		values[3];
+	bool		nulls[4];
+	Datum		values[4];
 
 	Insist(policy->ptype != POLICYTYPE_ENTRY);
 
 	nulls[0] = false;
 	nulls[1] = false;
 	nulls[2] = false;
+	nulls[3] = false;
 	values[0] = ObjectIdGetDatum(tbloid);
+	values[3] = Int32GetDatum(policy->numsegments);
 
 	/*
 	 * Open and lock the gp_distribution_policy catalog.
@@ -442,16 +461,18 @@ GpPolicyReplace(Oid tbloid, const GpPolicy *policy)
 	SysScanDesc scan;
 	ScanKeyData skey;
 	ArrayType  *attrnums;
-	bool		nulls[3];
-	Datum		values[3];
-	bool		repl[3];
+	bool		nulls[4];
+	Datum		values[4];
+	bool		repl[4];
 
 	Insist(!GpPolicyIsEntry(policy));
 
 	nulls[0] = false;
 	nulls[1] = false;
 	nulls[2] = false;
+	nulls[3] = false;
 	values[0] = ObjectIdGetDatum(tbloid);
+	values[3] = Int32GetDatum(policy->numsegments);
 
 	/*
 	 * Open and lock the gp_distribution_policy catalog.
@@ -495,6 +516,7 @@ GpPolicyReplace(Oid tbloid, const GpPolicy *policy)
 	repl[0] = false;
 	repl[1] = true;
 	repl[2] = true;
+	repl[3] = true;
 
 
 	/*
@@ -662,7 +684,7 @@ checkPolicyForUniqueIndex(Relation rel, AttrNumber *indattr, int nidxatts,
 		}
 
 		/* update policy since table is not populated yet. See MPP-101 */
-		GpPolicy *policy = makeGpPolicy(NULL, POLICYTYPE_PARTITIONED, nidxatts);
+		GpPolicy *policy = makeGpPolicy(NULL, POLICYTYPE_PARTITIONED, getgpsegmentCount(), nidxatts);
 
 		for (i = 0; i < nidxatts; i++)
 			policy->attrs[i] = indattr[i];

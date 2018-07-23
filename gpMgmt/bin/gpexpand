@@ -2830,8 +2830,6 @@ def main(options, args, parser):
             _gp_expand.cleanup_new_segments()
             _gp_expand.update_catalog()
             _gp_expand.unlock_catalog()
-            _gp_expand.setup_schema()
-            _gp_expand.prepare_schema()
             # When the mirrors come up, it should sync with the primary on its own.
             logger.info('************************************************')
             logger.info('Initialization of the system expansion complete.')
