@@ -1392,6 +1392,26 @@ _copySplitUpdate(const SplitUpdate *from)
 }
 
 /*
+ * _copyReshuffle
+ */
+static Reshuffle *
+_copyReshuffle(const Reshuffle *from)
+{
+	Reshuffle *newnode = makeNode(Reshuffle);
+
+	/*
+	 * copy node superclass fields
+	 */
+	CopyPlanFields((Plan *) from, (Plan *) newnode);
+
+	COPY_SCALAR_FIELD(tupleSegIdx);
+	COPY_NODE_FIELD(policyAttrs);
+	COPY_SCALAR_FIELD(oldSegs);
+
+	return newnode;
+}
+
+/*
  * _copyRowTrigger
  */
 static RowTrigger *
@@ -5235,6 +5255,9 @@ copyObject(void *from)
 			break;
 		case T_SplitUpdate:
 			retval = _copySplitUpdate(from);
+			break;
+		case T_Reshuffle:
+			retval = _copyReshuffle(from);
 			break;
 		case T_RowTrigger:
 			retval = _copyRowTrigger(from);

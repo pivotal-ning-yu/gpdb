@@ -2376,6 +2376,23 @@ _readSplitUpdate(void)
 }
 
 /*
+ * _readReshuffle
+ */
+static SplitUpdate *
+_readReshuffle(void)
+{
+	READ_LOCALS(Reshuffle);
+
+	READ_INT_FIELD(tupleSegIdx);
+	READ_NODE_FIELD(policyAttrs);
+	READ_INT_FIELD(oldSegs);
+
+	readPlanInfo((Plan *)local_node);
+
+	READ_DONE();
+}
+
+/*
  * _readRowTrigger
  */
 static RowTrigger *
@@ -3281,6 +3298,9 @@ readNodeBinary(void)
 				break;
 			case T_SplitUpdate:
 				return_value = _readSplitUpdate();
+				break;
+			case T_Reshuffle:
+				return_value = _readReshuffle();
 				break;
 			case T_RowTrigger:
 				return_value = _readRowTrigger();

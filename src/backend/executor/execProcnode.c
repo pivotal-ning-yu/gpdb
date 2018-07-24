@@ -102,6 +102,7 @@
 #include "executor/nodeModifyTable.h"
 #include "executor/nodeNestloop.h"
 #include "executor/nodeRecursiveunion.h"
+#include "executor/nodeReshuffle.h"
 #include "executor/nodeResult.h"
 #include "executor/nodeSetOp.h"
 #include "executor/nodeSort.h"
@@ -779,6 +780,16 @@ ExecInitNode(Plan *node, EState *estate, int eflags)
 			}
 			END_MEMORY_ACCOUNT();
 			break;
+		case T_Reshuffle:
+			curMemoryAccountId = CREATE_EXECUTOR_MEMORY_ACCOUNT(isAlienPlanNode, node, Reshuffle);
+
+			START_MEMORY_ACCOUNT(curMemoryAccountId);
+			{
+				result = (PlanState *) ExecInitReshuffle((Reshuffle *) node,
+														 estate, eflags);
+			}
+			END_MEMORY_ACCOUNT();
+			break;
 		default:
 			elog(ERROR, "unrecognized node type: %d", (int) nodeTag(node));
 			result = NULL;		/* keep compiler quiet */
@@ -1099,6 +1110,10 @@ ExecProcNode(PlanState *node)
 
 		case T_PartitionSelectorState:
 			result = ExecPartitionSelector((PartitionSelectorState *) node);
+			break;
+
+		case T_ReshuffleState:
+			result = ExecReshuffle((ReshuffleState *) node);
 			break;
 
 		default:
@@ -1568,6 +1583,10 @@ ExecEndNode(PlanState *node)
 			break;
 		case T_PartitionSelectorState:
 			ExecEndPartitionSelector((PartitionSelectorState *) node);
+			break;
+
+		case T_ReshuffleState:
+			ExecEndReshuffle((ReshuffleState *) node);
 			break;
 
 		default:

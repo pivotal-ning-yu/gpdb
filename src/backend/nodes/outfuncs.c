@@ -1237,6 +1237,21 @@ _outSplitUpdate(StringInfo str, SplitUpdate *node)
 }
 
 /*
+ * _outReshuffle
+ */
+static void
+_outReshuffle(StringInfo str, Reshuffle *node)
+{
+	WRITE_NODE_TYPE("Reshuffle");
+
+	WRITE_INT_FIELD(tupleSegIdx);
+	WRITE_NODE_FIELD(policyAttrs);
+	WRITE_INT_FIELD(oldSegs);
+
+	_outPlanInfo(str, (Plan *) node);
+}
+
+/*
  * _outRowTrigger
  */
 static void
@@ -4821,6 +4836,9 @@ _outNode(StringInfo str, void *obj)
 				break;
 			case T_SplitUpdate:
 				_outSplitUpdate(str, obj);
+				break;
+			case T_Reshuffle:
+				_outReshuffle(str, obj);
 				break;
 			case T_RowTrigger:
 				_outRowTrigger(str, obj);
