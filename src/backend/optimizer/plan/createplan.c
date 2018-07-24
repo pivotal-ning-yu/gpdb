@@ -57,9 +57,6 @@
 #include "cdb/cdbsreh.h"
 #include "cdb/cdbvars.h"
 
-int gp_old_segments = 3;
-int gp_new_segments = 4;
-
 static Plan *create_subplan(PlannerInfo *root, Path *best_path);		/* CDB */
 static Plan *create_scan_plan(PlannerInfo *root, Path *best_path);
 static List *build_relation_tlist(RelOptInfo *rel);
@@ -6603,9 +6600,8 @@ adjust_modifytable_flow(PlannerInfo *root, ModifyTable *node)
 					List	   *hashExpr;
 					Plan	*new_subplan;
 
-					((ModifyTable*)node)->oldSegs = gp_old_segments;
-					((ModifyTable*)node)->newSegs = gp_new_segments;
 					new_subplan = (Plan *) make_splitupdate(root, (ModifyTable *) node, subplan, rte, rti);
+                    new_subplan = (Plan *) make_reshuffle(root, new_subplan, rte, rti);
 					hashExpr = getExprListFromTargetList(new_subplan->targetlist,
 														 targetPolicy->nattrs,
 														 targetPolicy->attrs,

@@ -334,8 +334,6 @@ extern int gp_max_partition_level;
 extern bool gp_perfmon_print_packet_info;
 
 extern bool gp_enable_relsize_collection;
-extern int gp_old_segments;
-extern int gp_new_segments;
 
 /* Debug DTM Action */
 typedef enum

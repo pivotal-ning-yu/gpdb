@@ -128,6 +128,7 @@ find_segid_attribute_check(List *targetList, AttrNumber *ctidAttr, Index resultR
 /*
  * Request an ExplicitRedistribute motion node for a plan node
  */
+extern void request_explicit_motion2(Plan *plan, Index resultRelationsIdx, List *rtable);
 void
 request_explicit_motion2(Plan *plan, Index resultRelationsIdx, List *rtable)
 {
@@ -811,8 +812,8 @@ apply_motion_mutator(Node *node, ApplyMotionState *context)
 			 * nodes have a motion node
 			 */
 			if (context->containMotionNodes ||
-                (IsA(plan, SplitUpdate) &&
-                 ((SplitUpdate*)plan)->oldSegs != ((SplitUpdate*)plan)->newSegs))
+                (IsA(plan, Reshuffle) &&
+                 ((Reshuffle*)plan)->oldSegs != getgpsegmentCount()))
 			{
 				/*
 				 * motion node in child nodes: add a ExplicitRedistribute
@@ -1754,9 +1755,9 @@ make_splitupdate(PlannerInfo *root, ModifyTable *mt, Plan *subplan, RangeTblEntr
 	splitupdate->plan.total_cost = subplan->total_cost;
 	splitupdate->plan.plan_rows = 2 * subplan->plan_rows;
 	splitupdate->plan.plan_width = subplan->plan_width;
-	splitupdate->oldSegs = mt->oldSegs;
-	splitupdate->newSegs = mt->newSegs;
-    find_segid_attribute_check(splitupdate->plan.targetlist, &splitupdate->tupleSegIdx, resultRelationsIdx);
+	//splitupdate->oldSegs = mt->oldSegs;
+	//splitupdate->newSegs = mt->newSegs;
+    //find_segid_attribute_check(splitupdate->plan.targetlist, &splitupdate->tupleSegIdx, resultRelationsIdx);
 
 	/* we need an motion node above the SplitUpdate, so mark it as strewn */
 	mark_plan_strewn((Plan *) splitupdate);
@@ -1765,8 +1766,48 @@ make_splitupdate(PlannerInfo *root, ModifyTable *mt, Plan *subplan, RangeTblEntr
 	mt->ctid_col_idxes = lappend_int(mt->ctid_col_idxes, ctidColIdx);
 	mt->oid_col_idxes = lappend_int(mt->oid_col_idxes, oidColIdx);
 
+
+
 	return splitupdate;
 }
+
+Reshuffle *
+make_reshuffle(PlannerInfo *root,
+			   Plan *subplan,
+			   RangeTblEntry *rte,
+			   Index resultRelationsIdx)
+{
+	Reshuffle *reshufflePlan = makeNode(Reshuffle);
+	Relation rel = relation_open(rte->relid, NoLock);
+	GpPolicy *policy = rel->rd_cdbpolicy;
+	int i = 0;
+
+	reshufflePlan->plan.targetlist = list_copy(subplan->targetlist);
+	reshufflePlan->plan.lefttree = subplan;
+
+	reshufflePlan->plan.startup_cost = subplan->startup_cost;
+	reshufflePlan->plan.total_cost = subplan->total_cost;
+	reshufflePlan->plan.plan_rows = subplan->plan_rows;
+	reshufflePlan->plan.plan_width = subplan->plan_width;
+	reshufflePlan->oldSegs = policy->numsegments;
+	//splitupdate->newSegs = mt->newSegs;
+	find_segid_attribute_check(reshufflePlan->plan.targetlist,
+							   &reshufflePlan->tupleSegIdx,
+							   resultRelationsIdx);
+
+	for(i = 0; i < policy->nattrs; i++)
+	{
+		reshufflePlan->policyAttrs = lappend_int(reshufflePlan->policyAttrs,
+												 policy->attrs[i]);
+	}
+
+	mark_plan_strewn((Plan *) reshufflePlan);
+
+	heap_close(rel, NoLock);
+
+	return reshufflePlan;
+}
+
 
 /*
  * Find the index of the segid column of the requested relation (relid) in the
