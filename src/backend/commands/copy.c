@@ -6808,7 +6808,7 @@ InitDistributionData(CopyState cstate, Form_pg_attribute *attr,
 		else
 			p_nattrs = 0;
 		/* Create hash API reference */
-		cdbHash = makeCdbHash(total_segs);
+		cdbHash = makeCdbHash(policy->numsegments);
 	}
 	else
 	{
@@ -7024,7 +7024,7 @@ GetDistributionPolicyForPartition(CopyState cstate, EState *estate,
 			 * iteration.
 			 */
 			d->relid = relid;
-			part_hash = d->cdbHash = makeCdbHash(cstate->cdbCopy->total_segs);
+			part_hash = d->cdbHash = makeCdbHash(rel->rd_cdbpolicy->numsegments);
 			part_policy = d->policy = GpPolicyCopy(cstate->copycontext, rel->rd_cdbpolicy);
 			part_p_nattrs = part_policy->nattrs;
 			heap_close(rel, NoLock);
