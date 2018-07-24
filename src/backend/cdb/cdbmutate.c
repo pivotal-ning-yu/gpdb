@@ -191,7 +191,7 @@ directDispatchCalculateHash(Plan *plan, GpPolicy *targetPolicy)
 	ListCell   *cell = NULL;
 	bool		directDispatch;
 
-	h = makeCdbHash(GpIdentity.numsegments);
+	h = makeCdbHash(targetPolicy->numsegments);
 	cdbhashinit(h);
 
 	/*
