@@ -1014,6 +1014,7 @@ ExecInitMotion(Motion * node, EState *estate, int eflags)
 		/*
 		 * Create hash API reference
 		 */
+		/* FIXME: how to decide the proper numsegments? */
 		motionstate->cdbhash = makeCdbHash(node->numOutputSegs);
     }
 
