@@ -140,7 +140,6 @@ ExecReshuffle(ReshuffleState *node)
     SplitUpdate *splitUpdate;
 
     TupleTableSlot *slot = NULL;
-    TupleTableSlot *result = NULL;
 
     Datum *values;
     bool *nulls;
@@ -203,7 +202,7 @@ ExecReshuffle(ReshuffleState *node)
 //        elog(ERROR, "ERROR SEGMENT ID : %d, %d", DatumGetInt32(deleteSegs), DatumGetInt32(insert_values[plannode->tupleSegIdx - 1]));
 
 
-    return result;
+    return slot;
 }
 
 ///**
