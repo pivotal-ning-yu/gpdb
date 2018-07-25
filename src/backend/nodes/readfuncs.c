@@ -2914,6 +2914,7 @@ _readAlterTypeStmt(void)
 }
 
 
+#ifndef COMPILING_BINARY_FUNCS
 static ReshuffleExpr *
 _readReshuffleExpr(void)
 {
@@ -2927,7 +2928,6 @@ _readReshuffleExpr(void)
 	READ_DONE();
 }
 
-#ifndef COMPILING_BINARY_FUNCS
 /*
  * parseNodeString
  *
