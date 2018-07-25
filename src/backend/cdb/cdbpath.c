@@ -442,15 +442,21 @@ cdbpath_match_preds_to_partkey_tail(CdbpathMatchPredsContext *ctx,
 		if (ctx->colocus_eq_locus)
 			*ctx->colocus = ctx->locus;
 		else if (!partkeycell)
-			CdbPathLocus_MakeHashed(ctx->colocus, list_make1(copathkey));
+		{
+			int			numsegments = CdbPathLocus_NumSegments(ctx->locus);
+			CdbPartKey	partkey = CdbPartKey_Make(numsegments,
+												  list_make1(copathkey));
+
+			CdbPathLocus_MakeHashed(ctx->colocus, partkey);
+		}
 		else
 		{
 			if (CdbPathLocus_IsHashed(*ctx->colocus))
-				ctx->colocus->partkey_h = lcons(copathkey, ctx->colocus->partkey_h);
+				ctx->colocus->partkey_h.pathkeys = lcons(copathkey, ctx->colocus->partkey_h.pathkeys);
 			else
 			{
 				Assert(CdbPathLocus_IsHashedOJ(*ctx->colocus));
-				ctx->colocus->partkey_oj = lcons(copathkey, ctx->colocus->partkey_oj);
+				ctx->colocus->partkey_oj.pathkeys = lcons(copathkey, ctx->colocus->partkey_oj.pathkeys);
 			}
 			Assert(cdbpathlocus_is_valid(*ctx->colocus));
 		}
@@ -479,6 +485,7 @@ cdbpath_match_preds_to_partkey(PlannerInfo *root,
 							   CdbPathLocus *colocus)	/* OUT */
 {
 	CdbpathMatchPredsContext ctx;
+	List	   *pathkeys;
 
 	if (!CdbPathLocus_IsHashed(locus) &&
 		!CdbPathLocus_IsHashedOJ(locus))
@@ -492,10 +499,9 @@ cdbpath_match_preds_to_partkey(PlannerInfo *root,
 	ctx.colocus = colocus;
 	ctx.colocus_eq_locus = true;
 
-	if (CdbPathLocus_IsHashed(locus))
-		return cdbpath_match_preds_to_partkey_tail(&ctx, list_head(locus.partkey_h));
-	else
-		return cdbpath_match_preds_to_partkey_tail(&ctx, list_head(locus.partkey_oj));
+	pathkeys = CdbPathLocus_PathKeys(locus);
+
+	return cdbpath_match_preds_to_partkey_tail(&ctx, list_head(pathkeys));
 }								/* cdbpath_match_preds_to_partkey */
 
 
@@ -518,10 +524,11 @@ cdbpath_match_preds_to_both_partkeys(PlannerInfo *root,
 {
 	ListCell   *outercell;
 	ListCell   *innercell;
-	List	   *outer_partkey;
-	List	   *inner_partkey;
+	List	   *outer_pathkeys;
+	List	   *inner_pathkeys;
 
 	if (!mergeclause_list ||
+		CdbPathLocus_NumSegments(outer_locus) != CdbPathLocus_NumSegments(inner_locus) ||
 		CdbPathLocus_Degree(outer_locus) == 0 || CdbPathLocus_Degree(inner_locus) == 0 ||
 		CdbPathLocus_Degree(outer_locus) != CdbPathLocus_Degree(inner_locus))
 		return false;
@@ -532,16 +539,16 @@ cdbpath_match_preds_to_both_partkeys(PlannerInfo *root,
 		   CdbPathLocus_IsHashedOJ(inner_locus));
 
 	if (CdbPathLocus_IsHashed(outer_locus))
-		outer_partkey = outer_locus.partkey_h;
+		outer_pathkeys = CdbPartKey_PathKeys(outer_locus.partkey_h);
 	else
-		outer_partkey = outer_locus.partkey_oj;
+		outer_pathkeys = CdbPartKey_PathKeys(outer_locus.partkey_oj);
 
 	if (CdbPathLocus_IsHashed(inner_locus))
-		inner_partkey = inner_locus.partkey_h;
+		inner_pathkeys = CdbPartKey_PathKeys(inner_locus.partkey_h);
 	else
-		inner_partkey = inner_locus.partkey_oj;
+		inner_pathkeys = CdbPartKey_PathKeys(inner_locus.partkey_oj);
 
-	forboth(outercell, outer_partkey, innercell, inner_partkey)
+	forboth(outercell, outer_pathkeys, innercell, inner_pathkeys)
 	{
 		List	   *outersublist = (List *) lfirst(outercell);
 		List	   *innersublist = (List *) lfirst(innercell);
@@ -667,8 +674,10 @@ cdbpath_partkeys_from_preds(PlannerInfo *root,
 							CdbPathLocus *a_locus,	/* OUT */
 							CdbPathLocus *b_locus)	/* OUT */
 {
-	List	   *a_partkey = NIL;
-	List	   *b_partkey = NIL;
+	CdbPartKey	a_partkey;
+	CdbPartKey	b_partkey;
+	List	   *a_pathkeys = NIL;
+	List	   *b_pathkeys = NIL;
 	ListCell   *rcell;
 
 	foreach(rcell, mergeclause_list)
@@ -691,16 +700,16 @@ cdbpath_partkeys_from_preds(PlannerInfo *root,
 		}
 
 		/* Left & right pathkeys are usually the same... */
-		if (!b_partkey && rinfo->left_ec == rinfo->right_ec)
+		if (!b_pathkeys && rinfo->left_ec == rinfo->right_ec)
 		{
 			ListCell   *i;
 
-			foreach(i, a_partkey)
+			foreach(i, a_pathkeys)
 			{
 				PathKey    *pathkey = (PathKey *) lfirst(i);
 
 				if (pathkey->pk_eclass == rinfo->left_ec)
-					a_partkey = lappend(a_partkey, rinfo->left_ec);
+					a_pathkeys = lappend(a_pathkeys, rinfo->left_ec);
 			}
 		}
 
@@ -729,11 +738,11 @@ cdbpath_partkeys_from_preds(PlannerInfo *root,
 				b_ec = a_ec;
 
 			/*
-			 * Convoluted logic to ensure that (a_ec not in a_partkey) AND
-			 * (b_ec not in b_partkey)
+			 * Convoluted logic to ensure that (a_ec not in a_pathkeys) AND
+			 * (b_ec not in b_pathkeys)
 			 */
 			found = false;
-			foreach(i, a_partkey)
+			foreach(i, a_pathkeys)
 			{
 				PathKey    *pathkey = (PathKey *) lfirst(i);
 
@@ -745,7 +754,7 @@ cdbpath_partkeys_from_preds(PlannerInfo *root,
 			}
 			if (!found)
 			{
-				foreach(i, b_partkey)
+				foreach(i, b_pathkeys)
 				{
 					PathKey    *pathkey = (PathKey *) lfirst(i);
 
@@ -762,21 +771,25 @@ cdbpath_partkeys_from_preds(PlannerInfo *root,
 				PathKey    *a_pk = makePathKeyForEC(a_ec);
 				PathKey    *b_pk = makePathKeyForEC(b_ec);
 
-				a_partkey = lappend(a_partkey, a_pk);
-				b_partkey = lappend(b_partkey, b_pk);
+				a_pathkeys = lappend(a_pathkeys, a_pk);
+				b_pathkeys = lappend(b_pathkeys, b_pk);
 			}
 		}
 
-		if (list_length(a_partkey) >= 20)
+		if (list_length(a_pathkeys) >= 20)
 			break;
 	}
 
-	if (!a_partkey)
+	if (!a_pathkeys)
 		return false;
 
+	a_partkey = CdbPartKey_Make(999, a_pathkeys);
 	CdbPathLocus_MakeHashed(a_locus, a_partkey);
-	if (b_partkey)
+	if (b_pathkeys)
+	{
+		b_partkey = CdbPartKey_Make(999, b_pathkeys);
 		CdbPathLocus_MakeHashed(b_locus, b_partkey);
+	}
 	else
 		*b_locus = *a_locus;
 	return true;
@@ -1277,7 +1290,7 @@ cdbpath_dedup_fixup_unique(UniquePath *uniquePath, CdbpathDedupFixupContext *ctx
 	List	   *ctid_operators;
 	List	   *other_vars = NIL;
 	List	   *other_operators = NIL;
-	List	   *partkey = NIL;
+	List	   *pathkeys = NIL;
 	List	   *eq = NIL;
 	ListCell   *cell;
 	bool		save_need_segment_id = ctx->need_segment_id;
@@ -1372,7 +1385,7 @@ cdbpath_dedup_fixup_unique(UniquePath *uniquePath, CdbpathDedupFixupContext *ctx
 				if (!eq)
 					eq = list_make1(makeString("="));
 				cpathkey = cdb_make_pathkey_for_expr(ctx->root, (Node *) var, eq, false);
-				partkey = lappend(partkey, cpathkey);
+				pathkeys = lappend(pathkeys, cpathkey);
 			}
 		}
 
@@ -1398,8 +1411,10 @@ cdbpath_dedup_fixup_unique(UniquePath *uniquePath, CdbpathDedupFixupContext *ctx
 	if (uniquePath->must_repartition)
 	{
 		CdbPathLocus locus;
+		CdbPartKey	partkey;
 
-		Assert(partkey);
+		Assert(pathkeys);
+		partkey = CdbPartKey_Make(999, pathkeys);
 		CdbPathLocus_MakeHashed(&locus, partkey);
 
 		uniquePath->subpath = cdbpath_create_motion_path(ctx->root,

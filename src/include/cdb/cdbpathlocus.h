@@ -69,6 +69,39 @@ typedef enum CdbLocusType
     ((locustype) >= CdbLocusType_Null &&        \
      (locustype) < CdbLocusType_End)
 
+typedef struct CdbPartKey
+{
+	int				numsegments;
+    List           *pathkeys;
+} CdbPartKey;
+
+#define CdbPartKey_Make(numsegments_, pathkeys_)\
+	(CdbPartKey) { (numsegments_), (pathkeys_) }
+
+#define CdbPartKey_Copy(partkey)				\
+	CdbPartKey_Make((partkey).numsegments,		\
+					copyObject((partkey).pathkeys))
+
+#define CdbPartKey_NIL							\
+	CdbPartKey_Make(0, NIL)
+
+#define CdbPartKey_NumSegments(partkey)			\
+	((partkey).numsegments)
+
+#define CdbPartKey_PathKeys(partkey)			\
+	((partkey).pathkeys)
+
+#define CdbPartKey_Length(partkey)				\
+	list_length((partkey).pathkeys)
+
+#define CdbPartKey_IsEqualFast(a, b)				\
+	((a).numsegments == (b).numsegments &&		\
+	 (a).pathkeys == (b).pathkeys)
+
+#define CdbPartKey_IsEqual(a, b)				\
+	((a).numsegments == (b).numsegments &&		\
+	 equal((a).pathkeys, (b).pathkeys))
+
 /*
  * CdbPathLocus
  *
@@ -127,13 +160,21 @@ typedef enum CdbLocusType
 typedef struct CdbPathLocus
 {
     CdbLocusType    locustype;
-    List           *partkey_h;
-    List           *partkey_oj;
+    CdbPartKey		partkey_h;
+    CdbPartKey		partkey_oj;
 } CdbPathLocus;
 
 #define CdbPathLocus_Degree(locus)          \
-	(CdbPathLocus_IsHashed(locus) ? list_length((locus).partkey_h) :	\
-	 (CdbPathLocus_IsHashedOJ(locus) ? list_length((locus).partkey_oj) : 0))
+	(CdbPathLocus_IsHashed(locus) ? CdbPartKey_Length((locus).partkey_h) :	\
+	 (CdbPathLocus_IsHashedOJ(locus) ? CdbPartKey_Length((locus).partkey_oj) : 0))
+
+#define CdbPathLocus_NumSegments(locus)     \
+	(CdbPathLocus_IsHashed(locus) ? CdbPartKey_NumSegments((locus).partkey_h) :	\
+	 (CdbPathLocus_IsHashedOJ(locus) ? CdbPartKey_NumSegments((locus).partkey_oj) : 0))
+
+#define CdbPathLocus_PathKeys(locus)     \
+	(CdbPathLocus_IsHashed(locus) ? CdbPartKey_PathKeys((locus).partkey_h) :	\
+	 (CdbPathLocus_IsHashedOJ(locus) ? CdbPartKey_PathKeys((locus).partkey_oj) : NIL))
 
 /*
  * CdbPathLocus_IsEqual
@@ -143,8 +184,8 @@ typedef struct CdbPathLocus
  */
 #define CdbPathLocus_IsEqual(a, b)              \
             ((a).locustype == (b).locustype &&  \
-             (a).partkey_h == (b).partkey_oj &&		  \
-             (a).partkey_oj == (b).partkey_oj)        \
+			 CdbPartKey_IsEqualFast((a).partkey_h, (b).partkey_oj) &&	\
+			 CdbPartKey_IsEqualFast((a).partkey_oj, (b).partkey_oj))
 
 /*
  * CdbPathLocus_IsBottleneck
@@ -191,8 +232,8 @@ typedef struct CdbPathLocus
     do {                                                \
         CdbPathLocus *_locus = (plocus);                \
         _locus->locustype = (_locustype);               \
-        _locus->partkey_h = NIL;                        \
-        _locus->partkey_oj = NIL;                       \
+        _locus->partkey_h = CdbPartKey_NIL;             \
+        _locus->partkey_oj = CdbPartKey_NIL;            \
     } while (0)
 
 #define CdbPathLocus_MakeNull(plocus)                   \
@@ -212,16 +253,18 @@ typedef struct CdbPathLocus
         CdbPathLocus *_locus = (plocus);                \
         _locus->locustype = CdbLocusType_Hashed;		\
         _locus->partkey_h = (partkey_);					\
-        _locus->partkey_oj = NIL;                       \
+        _locus->partkey_oj = CdbPartKey_NIL;            \
         Assert(cdbpathlocus_is_valid(*_locus));         \
+        Assert(CdbPartKey_NumSegments(partkey_) > 0);   \
     } while (0)
 #define CdbPathLocus_MakeHashedOJ(plocus, partkey_)     \
     do {                                                \
         CdbPathLocus *_locus = (plocus);                \
         _locus->locustype = CdbLocusType_HashedOJ;		\
-        _locus->partkey_h = NIL;                        \
+        _locus->partkey_h = CdbPartKey_NIL;             \
         _locus->partkey_oj = (partkey_);				\
         Assert(cdbpathlocus_is_valid(*_locus));         \
+        Assert(CdbPartKey_NumSegments(partkey_) > 0);   \
     } while (0)
 #define CdbPathLocus_MakeStrewn(plocus)                 \
             CdbPathLocus_MakeSimple((plocus), CdbLocusType_Strewn)

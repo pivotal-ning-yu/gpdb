@@ -2176,6 +2176,7 @@ grouping_planner(PlannerInfo *root, double tuple_fraction)
 				 */
 				if (wc->partitionClause && !CdbPathLocus_IsGeneral(current_locus))
 				{
+					CdbPartKey	dist_partkey;
 					List	   *dist_pathkeys;
 
 					dist_pathkeys =
@@ -2204,7 +2205,8 @@ grouping_planner(PlannerInfo *root, double tuple_fraction)
 						 * Change current_locus based on the new distribution
 						 * pathkeys.
 						 */
-						CdbPathLocus_MakeHashed(&current_locus, dist_pathkeys);
+						dist_partkey = CdbPartKey_Make(999, dist_pathkeys);
+						CdbPathLocus_MakeHashed(&current_locus, dist_partkey);
 					}
 				}
 

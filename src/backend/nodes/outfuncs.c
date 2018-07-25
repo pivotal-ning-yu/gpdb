@@ -1954,14 +1954,24 @@ _outFlow(StringInfo str, Flow *node)
  *****************************************************************************/
 
 /*
+ * _outCdbPartKey
+ */
+static void
+_outCdbPartKey(StringInfo str, CdbPartKey *node)
+{
+    WRITE_INT_FIELD(numsegments);
+    WRITE_NODE_FIELD(pathkeys);
+}                               /* _outCdbPartKey */
+
+/*
  * _outCdbPathLocus
  */
 static void
 _outCdbPathLocus(StringInfo str, CdbPathLocus *node)
 {
     WRITE_ENUM_FIELD(locustype, CdbLocusType);
-    WRITE_NODE_FIELD(partkey_h);
-    WRITE_NODE_FIELD(partkey_oj);
+	_outCdbPartKey(str, &node->partkey_h);
+	_outCdbPartKey(str, &node->partkey_oj);
 }                               /* _outCdbPathLocus */
 
 

@@ -359,6 +359,7 @@ find_usable_indexes(PlannerInfo *root, RelOptInfo *rel,
 
 	foreach(ilist, rel->indexlist)
 	{
+		CdbPartKey	index_partkey;
 		IndexOptInfo *index = (IndexOptInfo *) lfirst(ilist);
 		IndexPath  *ipath;
 		List	   *restrictclauses;
@@ -492,7 +493,10 @@ find_usable_indexes(PlannerInfo *root, RelOptInfo *rel,
 				 * can use cdbpathlocus_pull_above_projection() to do the
 				 * transformation.
 				 */
-				CdbPathLocus_MakeHashed(&notalocus, index_pathkeys);
+				/* FIXME: which rel to get numsegments from? */
+				index_partkey = CdbPartKey_Make(rel->cdbpolicy->numsegments,
+												index_pathkeys);
+				CdbPathLocus_MakeHashed(&notalocus, index_partkey);
 				notalocus =
 					cdbpathlocus_pull_above_projection(root,
 													   notalocus,
@@ -502,7 +506,7 @@ find_usable_indexes(PlannerInfo *root, RelOptInfo *rel,
 													   appendrel->relid);
 				if (CdbPathLocus_IsHashed(notalocus))
 					index_pathkeys = truncate_useless_pathkeys(root, appendrel,
-														notalocus.partkey_h);
+														CdbPartKey_PathKeys(notalocus.partkey_h));
 				else
 					index_pathkeys = NULL;
 			}
