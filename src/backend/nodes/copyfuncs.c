@@ -4991,6 +4991,17 @@ _copyReshuffleExpr(ReshuffleExpr *from)
 	return newnode;
 }
 
+static CdbPartKey *
+_copyCdbPartKey(CdbPartKey *from)
+{
+	CdbPartKey *newnode = makeNode(CdbPartKey);
+
+	COPY_SCALAR_FIELD(numsegments);
+	COPY_NODE_FIELD(pathkeys);
+
+	return newnode;
+}
+
 /* ****************************************************************
  *					pg_list.h copy functions
  * ****************************************************************
@@ -6012,6 +6023,10 @@ copyObject(void *from)
 			break;
 		case T_ReshuffleExpr:
 			retval = _copyReshuffleExpr(from);
+			break;
+
+		case T_CdbPartKey:
+			retval = _copyCdbPartKey(from);
 			break;
 
 		default:

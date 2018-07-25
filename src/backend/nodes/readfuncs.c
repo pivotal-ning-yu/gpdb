@@ -2928,6 +2928,17 @@ _readReshuffleExpr(void)
 	READ_DONE();
 }
 
+static CdbPartKey *
+_readCdbPartKey(void)
+{
+	READ_LOCALS(CdbPartKey);
+
+	READ_INT_FIELD(numsegments);
+	READ_NODE_FIELD(pathkeys);
+
+	READ_DONE();
+}
+
 /*
  * parseNodeString
  *
@@ -3242,6 +3253,8 @@ parseNodeString(void)
 		return_value = _readWithClause();
 	else if (MATCHX("RESHUFFLEEXPR"))
 		return_value = _readReshuffleExpr();
+	else if (MATCHX("CDBPARTKEY"))
+		return_value = _readCdbPartKey();
 	else
 	{
         ereport(ERROR,

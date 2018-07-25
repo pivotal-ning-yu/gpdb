@@ -71,12 +71,13 @@ typedef enum CdbLocusType
 
 typedef struct CdbPartKey
 {
-	int				numsegments;
-    List           *pathkeys;
+	NodeTag		type;			/* T_CdbPartKey */
+	int			numsegments;
+    List	   *pathkeys;
 } CdbPartKey;
 
 #define CdbPartKey_Make(numsegments_, pathkeys_)\
-	(CdbPartKey) { (numsegments_), (pathkeys_) }
+	(CdbPartKey) { T_CdbPartKey, (numsegments_), (pathkeys_) }
 
 #define CdbPartKey_Copy(partkey)				\
 	CdbPartKey_Make((partkey).numsegments,		\

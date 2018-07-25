@@ -1959,6 +1959,8 @@ _outFlow(StringInfo str, Flow *node)
 static void
 _outCdbPartKey(StringInfo str, CdbPartKey *node)
 {
+	WRITE_NODE_TYPE("CDBPARTKEY");
+
     WRITE_INT_FIELD(numsegments);
     WRITE_NODE_FIELD(pathkeys);
 }                               /* _outCdbPartKey */
@@ -5590,6 +5592,11 @@ _outNode(StringInfo str, void *obj)
 			case T_ReshuffleExpr:
                 _outReshuffleExpr(str, obj);
 				break;
+
+			case T_CdbPartKey:
+                _outCdbPartKey(str, obj);
+				break;
+
 			default:
 
 				/*

@@ -2749,6 +2749,15 @@ _equalReshuffleExpr(ReshuffleExpr *a, ReshuffleExpr *b)
 	return true;
 }
 
+static bool
+_equalCdbPartKey(CdbPartKey *a, CdbPartKey *b)
+{
+	COMPARE_SCALAR_FIELD(numsegments);
+	COMPARE_NODE_FIELD(pathkeys);
+
+	return true;
+}
+
 /*
  * Stuff from pg_list.h
  */
@@ -3518,6 +3527,9 @@ equal(void *a, void *b)
 			break;
 		case T_ReshuffleExpr:
 			retval = _equalReshuffleExpr(a,b);
+			break;
+		case T_CdbPartKey:
+			retval = _equalCdbPartKey(a,b);
 			break;
 		default:
 			elog(ERROR, "unrecognized node type: %d",

@@ -250,6 +250,7 @@ typedef enum NodeTag
 	T_PartListNullTestExpr,
 	T_TableOidInfo,
     T_ReshuffleExpr,
+	T_CdbPartKey,
 
 	/*
 	 * TAGS FOR EXPRESSION STATE NODES (execnodes.h)
