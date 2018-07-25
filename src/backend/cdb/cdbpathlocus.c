@@ -396,6 +396,8 @@ cdbpathlocus_from_exprs(struct PlannerInfo *root,
 		pathkeys = lappend(pathkeys, pathkey);
 	}
 
+	Assert(!"What's the proper numsegments?");
+
 	partkey = CdbPartKey_Make(999, pathkeys);
 	CdbPathLocus_MakeHashed(&locus, partkey);
 	list_free_deep(eq);
@@ -479,6 +481,8 @@ cdbpathlocus_from_subquery(struct PlannerInfo *root,
 					!hashexprcell)
 				{
 					CdbPartKey	partkey = CdbPartKey_Make(999, pathkeys);
+
+					Assert(!"What's the proper numsegments?");
 
 					CdbPathLocus_MakeHashed(&locus, partkey);
 				}

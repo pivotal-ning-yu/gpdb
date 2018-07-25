@@ -2205,6 +2205,7 @@ grouping_planner(PlannerInfo *root, double tuple_fraction)
 						 * Change current_locus based on the new distribution
 						 * pathkeys.
 						 */
+						Assert(!"What's the proper numsegments?");
 						dist_partkey = CdbPartKey_Make(999, dist_pathkeys);
 						CdbPathLocus_MakeHashed(&current_locus, dist_partkey);
 					}

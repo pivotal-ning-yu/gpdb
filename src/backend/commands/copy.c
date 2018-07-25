@@ -6610,6 +6610,7 @@ InitDistributionData(CopyState cstate, Form_pg_attribute *attr,
 	CdbHash *cdbHash = NULL;
 	AttrNumber h_attnum; /* hash key attribute number */
 	int p_index;
+	/* FIXME: what's the proper numsegments? */
 	int total_segs = getgpsegmentCount();
 	int i = 0;
 

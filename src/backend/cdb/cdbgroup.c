@@ -564,6 +564,8 @@ cdb_grouping_planner(PlannerInfo *root,
 			{
 				CdbPartKey	partkey = CdbPartKey_Make(999, root->group_pathkeys);
 
+				Assert(!"What's the proper numsegments?");
+
 				plan_1p.group_prep = MPP_GRP_PREP_HASH_GROUPS;
 				CdbPathLocus_MakeHashed(&plan_1p.output_locus, partkey);
 			}
@@ -761,6 +763,8 @@ cdb_grouping_planner(PlannerInfo *root,
 			{
 				CdbPartKey	partkey = CdbPartKey_Make(999, root->group_pathkeys);
 
+				Assert(!"What's the proper numsegments?");
+
 				CdbPathLocus_MakeHashed(&plan_2p.output_locus, partkey);
 			}
 		}
@@ -790,6 +794,8 @@ cdb_grouping_planner(PlannerInfo *root,
 			{
 				CdbPartKey	partkey = CdbPartKey_Make(999, l);
 
+				Assert(!"What's the proper numsegments?");
+
 				plan_2p.group_prep = MPP_GRP_PREP_HASH_DISTINCT;
 				CdbPathLocus_MakeHashed(&plan_2p.input_locus, partkey);
 			}
@@ -817,6 +823,9 @@ cdb_grouping_planner(PlannerInfo *root,
 			else
 			{
 				CdbPartKey	partkey = CdbPartKey_Make(999, root->group_pathkeys);
+
+				Assert(!"What's the proper numsegments?");
+
 				CdbPathLocus_MakeHashed(&plan_3p.output_locus, partkey);
 			}
 		}

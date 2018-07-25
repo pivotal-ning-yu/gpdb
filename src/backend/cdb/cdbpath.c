@@ -783,10 +783,14 @@ cdbpath_partkeys_from_preds(PlannerInfo *root,
 	if (!a_pathkeys)
 		return false;
 
+	Assert(!"What's the proper numsegments?");
+
 	a_partkey = CdbPartKey_Make(999, a_pathkeys);
 	CdbPathLocus_MakeHashed(a_locus, a_partkey);
 	if (b_pathkeys)
 	{
+		Assert(!"What's the proper numsegments?");
+
 		b_partkey = CdbPartKey_Make(999, b_pathkeys);
 		CdbPathLocus_MakeHashed(b_locus, b_partkey);
 	}
@@ -1412,6 +1416,8 @@ cdbpath_dedup_fixup_unique(UniquePath *uniquePath, CdbpathDedupFixupContext *ctx
 	{
 		CdbPathLocus locus;
 		CdbPartKey	partkey;
+
+		Assert(!"What's the proper numsegments?");
 
 		Assert(pathkeys);
 		partkey = CdbPartKey_Make(999, pathkeys);
