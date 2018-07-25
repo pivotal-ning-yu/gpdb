@@ -2968,7 +2968,7 @@ add_distributed_by_footer(printTableContent *const cont, const char *oid)
 	if (isGPDB6000OrLater())
 	{
 		printfPQExpBuffer(&tempbuf,
-						  "SELECT attrnums, policytype \n"
+						  "SELECT attrnums, policytype, numsegments \n"
 						  "FROM pg_catalog.gp_distribution_policy t\n"
 						  "WHERE localoid = '%s'",
 						  oid);
@@ -2995,7 +2995,11 @@ add_distributed_by_footer(printTableContent *const cont, const char *oid)
 		char	   *col;
 		char	   *dist_columns = PQgetvalue(result1, 0, 0);
 		char		policytype = *(char *)PQgetvalue(result1, 0, 1);
+		int			numsegments;
 		char	   *dist_colname;
+
+		if (isGPDB6000OrLater())
+			numsegments = atoi(PQgetvalue(result1, 0, 2));
 
 		if (policytype == SYM_POLICYTYPE_REPLICATED)
 		{
@@ -3051,6 +3055,9 @@ add_distributed_by_footer(printTableContent *const cont, const char *oid)
 		{
 			printfPQExpBuffer(&buf, "Distributed randomly");
 		}
+
+		if (isGPDB6000OrLater())
+			appendPQExpBuffer(&buf, "\nOn %d segments", numsegments);
 
 		printTableAddFooter(cont, buf.data);
 	}
