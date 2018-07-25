@@ -6053,7 +6053,7 @@ ExecInitExpr(Expr *node, PlanState *parent)
             {
 				ReshuffleExpr *sr = (ReshuffleExpr *) node;
 				ReshuffleExprState *exprstate = makeNode(ReshuffleExprState);
-                exprstate->hashKeys = ExecInitExpr(sr->hashKeys, parent);
+                exprstate->hashKeys = (List *) ExecInitExpr((Expr *) sr->hashKeys, parent);
                 exprstate->hashTypes = sr->hashTypes;
                 exprstate->xprstate.evalfunc = (ExprStateEvalFunc) ExecEvalReshuffleExpr;
 				state = (ExprState*)exprstate;

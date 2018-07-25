@@ -115,6 +115,9 @@ static LOCKTAG gp_expand_locktag =
 	.locktag_lockmethodid = USER_LOCKMETHOD,
 };
 
+extern Datum gp_expand_lock_catalog(PG_FUNCTION_ARGS);
+extern Datum gp_expand_unlock_catalog(PG_FUNCTION_ARGS);
+
 Datum
 gp_expand_lock_catalog(PG_FUNCTION_ARGS)
 {
