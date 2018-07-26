@@ -562,9 +562,9 @@ cdb_grouping_planner(PlannerInfo *root,
 			}
 			else if (gp_hash_safe_grouping(root))
 			{
-				CdbPartKey	partkey = CdbPartKey_Make(999, root->group_pathkeys);
-
-				Assert(!"What's the proper numsegments?");
+				int			numsegments = CdbPathLocus_NumSegments(plan_1p.input_locus);
+				CdbPartKey	partkey = CdbPartKey_Make(numsegments,
+													  root->group_pathkeys);
 
 				plan_1p.group_prep = MPP_GRP_PREP_HASH_GROUPS;
 				CdbPathLocus_MakeHashed(&plan_1p.output_locus, partkey);
@@ -761,9 +761,9 @@ cdb_grouping_planner(PlannerInfo *root,
 				CdbPathLocus_MakeGeneral(&plan_2p.output_locus);
 			else
 			{
-				CdbPartKey	partkey = CdbPartKey_Make(999, root->group_pathkeys);
-
-				Assert(!"What's the proper numsegments?");
+				int			numsegments = CdbPathLocus_NumSegments(plan_2p.input_locus);
+				CdbPartKey	partkey = CdbPartKey_Make(numsegments,
+													  root->group_pathkeys);
 
 				CdbPathLocus_MakeHashed(&plan_2p.output_locus, partkey);
 			}
@@ -792,9 +792,8 @@ cdb_grouping_planner(PlannerInfo *root,
 
 			if (!cdbpathlocus_collocates(root, plan_2p.input_locus, l, false /* exact_match */ ))
 			{
-				CdbPartKey	partkey = CdbPartKey_Make(999, l);
-
-				Assert(!"What's the proper numsegments?");
+				int			numsegments = CdbPathLocus_NumSegments(plan_2p.input_locus);
+				CdbPartKey	partkey = CdbPartKey_Make(numsegments, l);
 
 				plan_2p.group_prep = MPP_GRP_PREP_HASH_DISTINCT;
 				CdbPathLocus_MakeHashed(&plan_2p.input_locus, partkey);
@@ -822,7 +821,9 @@ cdb_grouping_planner(PlannerInfo *root,
 				CdbPathLocus_MakeGeneral(&plan_3p.output_locus);
 			else
 			{
-				CdbPartKey	partkey = CdbPartKey_Make(999, root->group_pathkeys);
+				int			numsegments = CdbPathLocus_NumSegments(plan_3p.input_locus);
+				CdbPartKey	partkey = CdbPartKey_Make(numsegments,
+													  root->group_pathkeys);
 
 				Assert(!"What's the proper numsegments?");
 
