@@ -2775,7 +2775,7 @@ grouping_planner(PlannerInfo *root, double tuple_fraction)
 		 * Repartition the subquery plan based on our distribution
 		 * requirements
 		 */
-		r = repartitionPlan(result_plan, false, false, exprList);
+		r = repartitionPlan(result_plan, false, false, exprList, 0);
 		if (!r)
 		{
 			/*

@@ -519,7 +519,7 @@ apply_motion(PlannerInfo *root, Plan *plan, Query *query)
 							targetPolicy->nattrs,
 							targetPolicy->attrs,
 							true);
-					if (!repartitionPlan(plan, false, false, hashExpr))
+					if (!repartitionPlan(plan, false, false, hashExpr, targetPolicy->numsegments))
 						ereport(ERROR, (errcode(ERRCODE_GP_FEATURE_NOT_YET),
 									errmsg("Cannot parallelize that SELECT INTO yet")
 							       ));
@@ -979,6 +979,10 @@ add_slice_to_motion(Motion *motion,
 			motion->plan.flow->hashExpr = copyObject(motion->hashExpr);
 			motion->numOutputSegs = getgpsegmentCount();
 			motion->outputSegIdx = makeDefaultSegIdxArray(getgpsegmentCount());
+			if (motion->plan.lefttree &&
+				motion->plan.lefttree->flow &&
+				motion->plan.lefttree->flow->numsegments > 0)
+				motion->plan.flow->numsegments = motion->plan.lefttree->flow->numsegments;
 
 			break;
 		case MOTIONTYPE_FIXED:

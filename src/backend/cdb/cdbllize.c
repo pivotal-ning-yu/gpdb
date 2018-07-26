@@ -1112,7 +1112,8 @@ loci_compatible(List *hashExpr1, List *hashExpr2)
  * Function: repartitionPlan
  */
 bool
-repartitionPlan(Plan *plan, bool stable, bool rescannable, List *hashExpr)
+repartitionPlan(Plan *plan, bool stable, bool rescannable, List *hashExpr,
+				int numsegments)
 {
 	Assert(plan->flow);
 	Assert(plan->flow->flotype == FLOW_PARTITIONED ||
@@ -1133,7 +1134,10 @@ repartitionPlan(Plan *plan, bool stable, bool rescannable, List *hashExpr)
 			return true;
 	}
 
-	return adjustPlanFlow(plan, stable, rescannable, MOVEMENT_REPARTITION, hashExpr);
+	bool result = adjustPlanFlow(plan, stable, rescannable, MOVEMENT_REPARTITION, hashExpr);
+	if (numsegments > 0)
+		plan->flow->numsegments = numsegments;
+	return result;
 }
 
 /*
@@ -1161,7 +1165,7 @@ repartitionPlanForGroupClauses(PlannerInfo *root, Plan *plan,
 		hashExpr = lappend(hashExpr, n);
 	}
 
-	return repartitionPlan(plan, stable, rescannable, hashExpr);
+	return repartitionPlan(plan, stable, rescannable, hashExpr, 0);
 }
 
 /*
