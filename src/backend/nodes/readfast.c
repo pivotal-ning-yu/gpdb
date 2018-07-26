@@ -2299,6 +2299,7 @@ _readFlow(void)
 	READ_INT_FIELD(segindex);
 
 	READ_NODE_FIELD(hashExpr);
+	READ_INT_FIELD(numsegments);
 	READ_NODE_FIELD(flow_before_req_move);
 
 	READ_DONE();

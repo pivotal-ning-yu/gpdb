@@ -219,6 +219,7 @@ create_plan(PlannerInfo *root, Path *path)
 										   path->parent ? path->parent->relids
 										   : NULL,
 										   plan);
+	plan->flow->numsegments = CdbPathLocus_NumSegments(path->locus);
 	return plan;
 }	/* create_plan */
 

@@ -501,7 +501,9 @@ cdbpath_match_preds_to_partkey(PlannerInfo *root,
 
 	pathkeys = CdbPathLocus_PathKeys(locus);
 
-	return cdbpath_match_preds_to_partkey_tail(&ctx, list_head(pathkeys));
+	bool result = cdbpath_match_preds_to_partkey_tail(&ctx, list_head(pathkeys));
+	ctx.colocus->numsegments = CdbPathLocus_NumSegments(locus);
+	return result;
 }								/* cdbpath_match_preds_to_partkey */
 
 
@@ -1134,6 +1136,7 @@ cdbpath_motion_for_join(PlannerInfo *root,
 		CdbpathMfjRel *large = &outer;
 		CdbpathMfjRel *small = &inner;
 
+		/* TODO: when numsegments are different, how to decide the motion direction? */
 		/* Which rel is bigger? */
 		if (large->bytes < small->bytes)
 			CdbSwap(CdbpathMfjRel *, large, small);

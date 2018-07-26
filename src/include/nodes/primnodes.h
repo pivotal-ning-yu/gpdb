@@ -1450,6 +1450,7 @@ typedef struct Flow
      * this is the partitioning key.  Otherwise NIL.
 	 * otherwise, they are NIL. */
 	List       *hashExpr;			/* list of hash expressions */
+	int			numsegments;
 
 	/* If req_move is MOVEMENT_EXPLICIT, this contains the index of the segid column
 	 * to use in the motion	 */

@@ -1943,6 +1943,7 @@ _outFlow(StringInfo str, Flow *node)
 	WRITE_INT_FIELD(segindex);
 
 	WRITE_NODE_FIELD(hashExpr);
+	WRITE_INT_FIELD(numsegments);
 
 	WRITE_NODE_FIELD(flow_before_req_move);
 }

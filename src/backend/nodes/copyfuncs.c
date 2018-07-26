@@ -2334,6 +2334,7 @@ _copyFlow(Flow *from)
 	COPY_SCALAR_FIELD(locustype);
 	COPY_SCALAR_FIELD(segindex);
 	COPY_NODE_FIELD(hashExpr);
+	COPY_SCALAR_FIELD(numsegments);
 	COPY_NODE_FIELD(flow_before_req_move);
 
 	return newnode;

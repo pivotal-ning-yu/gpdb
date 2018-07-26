@@ -163,6 +163,7 @@ typedef struct CdbPathLocus
     CdbLocusType    locustype;
     CdbPartKey		partkey_h;
     CdbPartKey		partkey_oj;
+	int				numsegments;
 } CdbPathLocus;
 
 #define CdbPathLocus_Degree(locus)          \
@@ -171,7 +172,7 @@ typedef struct CdbPathLocus
 
 #define CdbPathLocus_NumSegments(locus)     \
 	(CdbPathLocus_IsHashed(locus) ? CdbPartKey_NumSegments((locus).partkey_h) :	\
-	 (CdbPathLocus_IsHashedOJ(locus) ? CdbPartKey_NumSegments((locus).partkey_oj) : 0))
+	 (CdbPathLocus_IsHashedOJ(locus) ? CdbPartKey_NumSegments((locus).partkey_oj) : locus.numsegments))
 
 #define CdbPathLocus_PathKeys(locus)     \
 	(CdbPathLocus_IsHashed(locus) ? CdbPartKey_PathKeys((locus).partkey_h) :	\
@@ -235,6 +236,7 @@ typedef struct CdbPathLocus
         _locus->locustype = (_locustype);               \
         _locus->partkey_h = CdbPartKey_NIL;             \
         _locus->partkey_oj = CdbPartKey_NIL;            \
+        _locus->numsegments = 0;                        \
     } while (0)
 
 #define CdbPathLocus_MakeNull(plocus)                   \

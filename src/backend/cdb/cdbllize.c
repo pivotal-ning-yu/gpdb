@@ -986,6 +986,7 @@ pull_up_Flow(Plan *plan, Plan *subplan)
 		Assert(subplan == plan->lefttree);
 
 	new_flow = makeFlow(model_flow->flotype);
+	new_flow->numsegments = model_flow->numsegments;
 
 	if (model_flow->flotype == FLOW_SINGLETON)
 		new_flow->segindex = model_flow->segindex;
