@@ -966,6 +966,7 @@ pull_up_Flow(Plan *plan, Plan *subplan)
 		Assert(subplan == plan->lefttree);
 
 	new_flow = makeFlow(model_flow->flotype);
+	new_flow->numsegments = model_flow->numsegments;
 
 	if (model_flow->flotype == FLOW_SINGLETON)
 		new_flow->segindex = model_flow->segindex;
@@ -1091,14 +1092,14 @@ loci_compatible(List *hashExpr1, List *hashExpr2)
  * Function: repartitionPlan
  */
 bool
-repartitionPlan(Plan *plan, bool stable, bool rescannable, List *hashExpr)
+repartitionPlan(Plan *plan, bool stable, bool rescannable, List *hashExpr, int numsegments)
 {
 	Assert(plan->flow);
 	Assert(plan->flow->flotype == FLOW_PARTITIONED ||
 		   plan->flow->flotype == FLOW_SINGLETON);
 
 	/* Already partitioned on the given hashExpr?  Do nothing. */
-	if (hashExpr)
+	if (hashExpr && plan->flow->numsegments == numsegments)
 	{
 		if (equal(hashExpr, plan->flow->hashExpr))
 			return true;
