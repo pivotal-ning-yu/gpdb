@@ -81,6 +81,7 @@ cdbpathtoplan_create_flow(PlannerInfo *root,
 
 	flow->req_move = MOVEMENT_NONE;
 	flow->locustype = locus.locustype;
+	flow->numsegments = locus.numsegments;
 	return flow;
 }								/* cdbpathtoplan_create_flow */
 

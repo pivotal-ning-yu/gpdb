@@ -3826,7 +3826,8 @@ cdb_transform_appendrel_var(PlannerInfo *root, RelOptInfo *rel, List **index_pat
 	 * can use cdbpathlocus_pull_above_projection() to do the
 	 * transformation.
 	 */
-	CdbPathLocus_MakeHashed(&notalocus, *index_pathkeys);
+	CdbPathLocus_MakeHashed(&notalocus, *index_pathkeys,
+							appendrel->cdbpolicy->numsegments);
 	notalocus =
 		cdbpathlocus_pull_above_projection(root,
 										   notalocus,
