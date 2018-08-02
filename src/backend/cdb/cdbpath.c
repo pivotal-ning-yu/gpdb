@@ -1030,11 +1030,16 @@ cdbpath_motion_for_join(PlannerInfo *root,
 						   CdbPathLocus_NumSegments(other->locus));
 
 			/*
+			 * FIXME: if "replicate table" in below comments means the
+			 * DISTRIBUTED REPLICATED table then maybe the logic should
+			 * not be put here.
+			 */
+			/*
 			 * execute the plan in the segment which replicate table is
 			 * storaged.
 			 */
-			if(CdbPathLocus_NumSegments(segGeneral->locus) <
-			   CdbPathLocus_NumSegments(other->locus))
+			if (CdbPathLocus_NumSegments(segGeneral->locus) <
+				CdbPathLocus_NumSegments(other->locus))
 			{
 				other->locus.numsegments =
 						CdbPathLocus_NumSegments(segGeneral->locus);
@@ -1081,8 +1086,21 @@ cdbpath_motion_for_join(PlannerInfo *root,
 		}
 		else
 		{
-			Assert(CdbPathLocus_NumSegments(segGeneral->locus) >=
-				   CdbPathLocus_NumSegments(other->locus));
+			/*
+			 * execute the plan in the segment which replicate table is
+			 * storaged.
+			 *
+			 * A sql to reach here:
+			 *     select * from d1 a join r2 b using (c1);
+			 * where d1 is a replicated table on 1 segment,
+			 *       r2 is a replicated table on 2 segments.
+			 */
+			if (CdbPathLocus_NumSegments(segGeneral->locus) <
+				CdbPathLocus_NumSegments(other->locus))
+			{
+				other->locus.numsegments =
+					CdbPathLocus_NumSegments(segGeneral->locus);
+			}
 
 			return other->locus;
 		}

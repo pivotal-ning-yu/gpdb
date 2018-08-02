@@ -93,7 +93,7 @@ extern
 void mark_plan_general(Plan* plan);
 
 extern
-void mark_plan_strewn(Plan* plan);
+void mark_plan_strewn(Plan* plan, int numsegments);
 
 extern
 void mark_plan_replicated(Plan* plan);
