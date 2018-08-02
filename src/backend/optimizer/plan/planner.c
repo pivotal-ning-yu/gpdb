@@ -556,7 +556,9 @@ subquery_planner(PlannerGlobal *glob, Query *parse,
 	if (Gp_role == GP_ROLE_DISPATCH && gp_session_id > -1)
 	{
 		/* Choose a segdb to which our singleton gangs should be dispatched. */
-		gp_singleton_segindex = gp_session_id % getgpsegmentCount();
+		//FIXME:
+		//gp_singleton_segindex = gp_session_id % getgpsegmentCount();
+		gp_singleton_segindex = 0;
 	}
 
 	root->hasRecursion = hasRecursion;
@@ -1443,7 +1445,7 @@ grouping_planner(PlannerInfo *root, double tuple_fraction)
 	gp_motion_cost_per_row :
 	2.0 * cpu_tuple_cost;
 
-	CdbPathLocus_MakeNull(&current_locus);
+	CdbPathLocus_MakeNull(&current_locus, 0);
 
 	/* Tweak caller-supplied tuple_fraction if have LIMIT/OFFSET */
 	if (parse->limitCount || parse->limitOffset)
@@ -2019,7 +2021,7 @@ grouping_planner(PlannerInfo *root, double tuple_fraction)
 
 				/* Hashed aggregation produces randomly-ordered results */
 				current_pathkeys = NIL;
-				CdbPathLocus_MakeNull(&current_locus);
+				CdbPathLocus_MakeNull(&current_locus, 0);
 			}
 			else if (!grpext && (parse->hasAggs || parse->groupClause))
 			{
@@ -2084,7 +2086,7 @@ grouping_planner(PlannerInfo *root, double tuple_fraction)
 												  0);
 				}
 
-				CdbPathLocus_MakeNull(&current_locus);
+				CdbPathLocus_MakeNull(&current_locus, 0);
 			}
 			else if (grpext && (parse->hasAggs || parse->groupClause))
 			{
@@ -2146,7 +2148,7 @@ grouping_planner(PlannerInfo *root, double tuple_fraction)
 														  parse->sortClause,
 														  result_plan->targetlist,
 														  true);
-					CdbPathLocus_MakeNull(&current_locus);
+					CdbPathLocus_MakeNull(&current_locus, 0);
 				}
 			}
 			else if (root->hasHavingQual)
@@ -2170,7 +2172,7 @@ grouping_planner(PlannerInfo *root, double tuple_fraction)
 				/* Result will be only one row anyway; no sort order */
 				current_pathkeys = NIL;
 				mark_plan_general(result_plan);
-				CdbPathLocus_MakeNull(&current_locus);
+				CdbPathLocus_MakeNull(&current_locus, 0);
 			}
 		}						/* end of non-minmax-aggregate case */
 
@@ -2306,7 +2308,7 @@ grouping_planner(PlannerInfo *root, double tuple_fraction)
 						 * Change current_locus based on the new distribution
 						 * pathkeys.
 						 */
-						CdbPathLocus_MakeHashed(&current_locus, dist_pathkeys);
+						CdbPathLocus_MakeHashed(&current_locus, dist_pathkeys, CdbPathLocus_NumSegments(current_locus));
 					}
 				}
 
@@ -2874,7 +2876,7 @@ grouping_planner(PlannerInfo *root, double tuple_fraction)
 		 * Repartition the subquery plan based on our distribution
 		 * requirements
 		 */
-		r = repartitionPlan(result_plan, false, false, exprList);
+		r = repartitionPlan(result_plan, false, false, exprList, getgpsegmentCount());
 		if (!r)
 		{
 			/*

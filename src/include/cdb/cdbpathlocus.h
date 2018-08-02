@@ -17,10 +17,12 @@
 
 #include "nodes/pg_list.h"      /* List */
 #include "nodes/bitmapset.h"    /* Bitmapset */
+//#include "nodes/primnodes.h"
 
 struct Plan;                    /* defined in plannodes.h */
 struct RelOptInfo;              /* defined in relation.h */
 struct PlannerInfo;				/* defined in relation.h */
+struct Flow;
 
 
 /*
@@ -129,11 +131,15 @@ typedef struct CdbPathLocus
     CdbLocusType    locustype;
     List           *partkey_h;
     List           *partkey_oj;
+    int             numsegments;
 } CdbPathLocus;
 
 #define CdbPathLocus_Degree(locus)          \
 	(CdbPathLocus_IsHashed(locus) ? list_length((locus).partkey_h) :	\
 	 (CdbPathLocus_IsHashedOJ(locus) ? list_length((locus).partkey_oj) : 0))
+
+#define CdbPathLocus_NumSegments(locus)  \
+    ((locus).numsegments)
 
 /*
  * CdbPathLocus_IsEqual
@@ -143,8 +149,14 @@ typedef struct CdbPathLocus
  */
 #define CdbPathLocus_IsEqual(a, b)              \
             ((a).locustype == (b).locustype &&  \
+             (a).numsegments == (b).numsegments && \
              (a).partkey_h == (b).partkey_oj &&		  \
              (a).partkey_oj == (b).partkey_oj)        \
+
+#define CdbPathLocus_CommonSegments(a, b) \
+            ((a).numsegments > 0 && (b).numsegments > 0 ? \
+             Min((a).numsegments, (b).numsegments) : \
+             Max((a).numsegments, (b).numsegments))
 
 /*
  * CdbPathLocus_IsBottleneck
@@ -187,44 +199,48 @@ typedef struct CdbPathLocus
 #define CdbPathLocus_IsSegmentGeneral(locus)        \
             ((locus).locustype == CdbLocusType_SegmentGeneral)
 
-#define CdbPathLocus_MakeSimple(plocus, _locustype) \
+#define CdbPathLocus_MakeSimple(plocus, _locustype, numsegments_) \
     do {                                                \
         CdbPathLocus *_locus = (plocus);                \
         _locus->locustype = (_locustype);               \
+        _locus->numsegments = (numsegments_);                        \
         _locus->partkey_h = NIL;                        \
         _locus->partkey_oj = NIL;                       \
     } while (0)
 
-#define CdbPathLocus_MakeNull(plocus)                   \
-            CdbPathLocus_MakeSimple((plocus), CdbLocusType_Null)
-#define CdbPathLocus_MakeEntry(plocus)                  \
-            CdbPathLocus_MakeSimple((plocus), CdbLocusType_Entry)
-#define CdbPathLocus_MakeSingleQE(plocus)               \
-            CdbPathLocus_MakeSimple((plocus), CdbLocusType_SingleQE)
-#define CdbPathLocus_MakeGeneral(plocus)                \
-            CdbPathLocus_MakeSimple((plocus), CdbLocusType_General)
-#define CdbPathLocus_MakeSegmentGeneral(plocus)                \
-            CdbPathLocus_MakeSimple((plocus), CdbLocusType_SegmentGeneral)
-#define CdbPathLocus_MakeReplicated(plocus)             \
-            CdbPathLocus_MakeSimple((plocus), CdbLocusType_Replicated)
-#define CdbPathLocus_MakeHashed(plocus, partkey_)       \
+//FIXME:set numsegments
+#define CdbPathLocus_MakeNull(plocus, numsegments_)                   \
+            CdbPathLocus_MakeSimple((plocus), CdbLocusType_Null, (numsegments_))
+#define CdbPathLocus_MakeEntry(plocus, numsegments_)                  \
+            CdbPathLocus_MakeSimple((plocus), CdbLocusType_Entry, (numsegments_))
+#define CdbPathLocus_MakeSingleQE(plocus, numsegments_)               \
+            CdbPathLocus_MakeSimple((plocus), CdbLocusType_SingleQE, (numsegments_))
+#define CdbPathLocus_MakeGeneral(plocus, numsegments_)                \
+            CdbPathLocus_MakeSimple((plocus), CdbLocusType_General, (numsegments_))
+#define CdbPathLocus_MakeSegmentGeneral(plocus, numsegments_)                \
+            CdbPathLocus_MakeSimple((plocus), CdbLocusType_SegmentGeneral, (numsegments_))
+#define CdbPathLocus_MakeReplicated(plocus, numsegments_)             \
+            CdbPathLocus_MakeSimple((plocus), CdbLocusType_Replicated, (numsegments_))
+#define CdbPathLocus_MakeHashed(plocus, partkey_, numsegments_)       \
     do {                                                \
         CdbPathLocus *_locus = (plocus);                \
         _locus->locustype = CdbLocusType_Hashed;		\
+        _locus->numsegments = (numsegments_);           \
         _locus->partkey_h = (partkey_);					\
         _locus->partkey_oj = NIL;                       \
         Assert(cdbpathlocus_is_valid(*_locus));         \
     } while (0)
-#define CdbPathLocus_MakeHashedOJ(plocus, partkey_)     \
+#define CdbPathLocus_MakeHashedOJ(plocus, partkey_, numsegments_)     \
     do {                                                \
         CdbPathLocus *_locus = (plocus);                \
         _locus->locustype = CdbLocusType_HashedOJ;		\
+        _locus->numsegments = (numsegments_);           \
         _locus->partkey_h = NIL;                        \
         _locus->partkey_oj = (partkey_);				\
         Assert(cdbpathlocus_is_valid(*_locus));         \
     } while (0)
-#define CdbPathLocus_MakeStrewn(plocus)                 \
-            CdbPathLocus_MakeSimple((plocus), CdbLocusType_Strewn)
+#define CdbPathLocus_MakeStrewn(plocus, numsegments_)                 \
+            CdbPathLocus_MakeSimple((plocus), CdbLocusType_Strewn, (numsegments_))
 
 /************************************************************************/
 
@@ -246,7 +262,7 @@ cdbpathlocus_from_baserel(struct PlannerInfo   *root,
                           struct RelOptInfo    *rel);
 CdbPathLocus
 cdbpathlocus_from_exprs(struct PlannerInfo     *root,
-                        List                   *hash_on_exprs);
+                        struct Flow            *flow);
 CdbPathLocus
 cdbpathlocus_from_subquery(struct PlannerInfo  *root,
                            struct Plan         *subqplan,

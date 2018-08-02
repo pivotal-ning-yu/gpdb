@@ -521,7 +521,8 @@ apply_motion(PlannerInfo *root, Plan *plan, Query *query)
 							targetPolicy->nattrs,
 							targetPolicy->attrs,
 							true);
-					if (!repartitionPlan(plan, false, false, hashExpr))
+
+					if (!repartitionPlan(plan, false, false, hashExpr, query->intoPolicy->numsegments))
 						ereport(ERROR, (errcode(ERRCODE_GP_FEATURE_NOT_YET),
 									errmsg("Cannot parallelize that SELECT INTO yet")
 							       ));

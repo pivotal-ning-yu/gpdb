@@ -558,17 +558,20 @@ cdb_grouping_planner(PlannerInfo *root,
 				 * duplicates, but there is no key to hash on.
 				 */
 				plan_1p.group_prep = MPP_GRP_PREP_HASH_GROUPS;
-				CdbPathLocus_MakeGeneral(&plan_1p.output_locus);
+				CdbPathLocus_MakeGeneral(&plan_1p.output_locus,
+										 CdbPathLocus_NumSegments(plan_1p.input_locus));
 			}
 			else if (gp_hash_safe_grouping(root))
 			{
 				plan_1p.group_prep = MPP_GRP_PREP_HASH_GROUPS;
-				CdbPathLocus_MakeHashed(&plan_1p.output_locus, root->group_pathkeys);
+				CdbPathLocus_MakeHashed(&plan_1p.output_locus, root->group_pathkeys,
+										CdbPathLocus_NumSegments(plan_1p.input_locus));
 			}
 			else
 			{
 				plan_1p.group_prep = MPP_GRP_PREP_FOCUS_QE;
-				CdbPathLocus_MakeSingleQE(&plan_1p.output_locus);
+				CdbPathLocus_MakeSingleQE(&plan_1p.output_locus,
+										  CdbPathLocus_NumSegments(plan_1p.input_locus));
 			}
 		}
 	}
@@ -576,7 +579,8 @@ cdb_grouping_planner(PlannerInfo *root,
 								 * replicated  */
 	{
 		plan_1p.group_prep = MPP_GRP_PREP_FOCUS_QE;
-		CdbPathLocus_MakeSingleQE(&plan_1p.output_locus);
+		CdbPathLocus_MakeSingleQE(&plan_1p.output_locus,
+								  CdbPathLocus_NumSegments(plan_1p.input_locus));
 	}
 
 	/*
@@ -754,14 +758,17 @@ cdb_grouping_planner(PlannerInfo *root,
 		{
 			plan_2p.group_type = MPP_GRP_TYPE_GROUPED_2STAGE;
 			if (root->group_pathkeys == NIL)
-				CdbPathLocus_MakeGeneral(&plan_2p.output_locus);
+				CdbPathLocus_MakeGeneral(&plan_2p.output_locus,
+										 CdbPathLocus_NumSegments(plan_2p.input_locus));
 			else
-				CdbPathLocus_MakeHashed(&plan_2p.output_locus, root->group_pathkeys);
+				CdbPathLocus_MakeHashed(&plan_2p.output_locus, root->group_pathkeys,
+										CdbPathLocus_NumSegments(plan_2p.input_locus));
 		}
 		else
 		{
 			plan_2p.group_type = MPP_GRP_TYPE_PLAIN_2STAGE;
-			CdbPathLocus_MakeSingleQE(&plan_2p.output_locus);
+			CdbPathLocus_MakeSingleQE(&plan_2p.output_locus,
+									  CdbPathLocus_NumSegments(plan_2p.input_locus));
 		}
 
 		if (consider_agg & AGG_2PHASE_DQA)
@@ -783,7 +790,8 @@ cdb_grouping_planner(PlannerInfo *root,
 			if (!cdbpathlocus_collocates(root, plan_2p.input_locus, l, false /* exact_match */ ))
 			{
 				plan_2p.group_prep = MPP_GRP_PREP_HASH_DISTINCT;
-				CdbPathLocus_MakeHashed(&plan_2p.input_locus, l);
+				CdbPathLocus_MakeHashed(&plan_2p.input_locus, l,
+										CdbPathLocus_NumSegments(plan_2p.input_locus));
 			}
 			else
 			{
@@ -805,14 +813,17 @@ cdb_grouping_planner(PlannerInfo *root,
 		{
 			plan_3p.group_type = MPP_GRP_TYPE_GROUPED_DQA_2STAGE;
 			if (root->group_pathkeys == NIL)
-				CdbPathLocus_MakeGeneral(&plan_3p.output_locus);
+				CdbPathLocus_MakeGeneral(&plan_3p.output_locus,
+										 CdbPathLocus_NumSegments(plan_3p.input_locus));
 			else
-				CdbPathLocus_MakeHashed(&plan_3p.output_locus, root->group_pathkeys);
+				CdbPathLocus_MakeHashed(&plan_3p.output_locus, root->group_pathkeys,
+										CdbPathLocus_NumSegments(plan_3p.input_locus));
 		}
 		else
 		{
 			plan_3p.group_type = MPP_GRP_TYPE_PLAIN_DQA_2STAGE;
-			CdbPathLocus_MakeSingleQE(&plan_3p.output_locus);
+			CdbPathLocus_MakeSingleQE(&plan_3p.output_locus,
+									  CdbPathLocus_NumSegments(plan_3p.input_locus));
 		}
 	}
 
@@ -3032,7 +3043,7 @@ cdbpathlocus_from_flow(Flow *flow)
 {
 	CdbPathLocus locus;
 
-	CdbPathLocus_MakeNull(&locus);
+	CdbPathLocus_MakeNull(&locus, flow->numsegments);
 
 	if (!flow)
 		return locus;
@@ -3041,15 +3052,15 @@ cdbpathlocus_from_flow(Flow *flow)
 	{
 		case FLOW_SINGLETON:
 			if (flow->segindex == -1)
-				CdbPathLocus_MakeEntry(&locus);
+				CdbPathLocus_MakeEntry(&locus, 0);
 			else
-				CdbPathLocus_MakeSingleQE(&locus);
+				CdbPathLocus_MakeSingleQE(&locus, flow->numsegments);
 			break;
 		case FLOW_REPLICATED:
-			CdbPathLocus_MakeReplicated(&locus);
+			CdbPathLocus_MakeReplicated(&locus, flow->numsegments);
 			break;
 		case FLOW_PARTITIONED:
-			CdbPathLocus_MakeStrewn(&locus);
+			CdbPathLocus_MakeStrewn(&locus, flow->numsegments);
 			break;
 		case FLOW_UNDEFINED:
 		default:
@@ -5360,11 +5371,12 @@ initAggPlanInfo(AggPlanInfo *info, Path *input_path, Plan *input_plan)
 	if (input_path != NULL)
 		info->input_locus = input_path->locus;
 	else
-		CdbPathLocus_MakeNull(&info->input_locus);
+		/* FIXME: IS 0 CORRECT? */
+		CdbPathLocus_MakeNull(&info->input_locus, 0);
 
 	info->group_type = MPP_GRP_TYPE_BASEPLAN;
 	info->group_prep = MPP_GRP_PREP_NONE;
-	CdbPathLocus_MakeNull(&info->output_locus);
+	CdbPathLocus_MakeNull(&info->output_locus, 0);/* FIXME: IS 0 CORRECT? */
 	info->distinctkey_collocate = false;
 
 	info->valid = false;
@@ -5642,7 +5654,7 @@ add_motion_to_dqa_child(Plan *plan, PlannerInfo *root, bool *motion_added)
 
 	if (CdbPathLocus_IsPartitioned(locus) && NIL != plan->flow->hashExpr)
 	{
-		locus = cdbpathlocus_from_exprs(root, plan->flow->hashExpr);
+		locus = cdbpathlocus_from_exprs(root, plan->flow);
 	}
 
 	if (!cdbpathlocus_collocates(root, locus, pathkeys, true /* exact_match */ ))

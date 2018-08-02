@@ -1239,7 +1239,7 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 	subquery_path = create_subqueryscan_path(root, rel, pathkeys, NULL);
 
 	if (forceDistRand)
-		CdbPathLocus_MakeStrewn(&subquery_path->locus);
+		CdbPathLocus_MakeStrewn(&subquery_path->locus, CdbPathLocus_NumSegments(subquery_path->locus));
 
 	add_path(root, rel, subquery_path);
 

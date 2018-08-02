@@ -125,6 +125,10 @@ cdbpathlocus_compare(CdbPathLocus_Comparison op,
 	Assert(op == CdbPathLocus_Comparison_Equal ||
 		   op == CdbPathLocus_Comparison_Contains);
 
+	if (CdbPathLocus_NumSegments(a) !=
+		CdbPathLocus_NumSegments(b))
+		return false;
+
 	if (CdbPathLocus_IsStrewn(a) ||
 		CdbPathLocus_IsStrewn(b))
 		return false;
@@ -311,7 +315,7 @@ cdbpathlocus_from_baserel(struct PlannerInfo *root,
 
 	if (Gp_role != GP_ROLE_DISPATCH)
 	{
-		CdbPathLocus_MakeEntry(&result);
+		CdbPathLocus_MakeEntry(&result, 0);
 		return result;
 	}
 
@@ -325,24 +329,24 @@ cdbpathlocus_from_baserel(struct PlannerInfo *root,
 					policy->nattrs,
 					policy->attrs);
 
-			CdbPathLocus_MakeHashed(&result, partkey);
+			CdbPathLocus_MakeHashed(&result, partkey, policy->numsegments);
 		}
 
 		/* Rows are distributed on an unknown criterion (uniformly, we hope!) */
 		else
-			CdbPathLocus_MakeStrewn(&result);
+			CdbPathLocus_MakeStrewn(&result, policy->numsegments);
 	}
 	else if (GpPolicyIsReplicated(policy))
 	{
-		CdbPathLocus_MakeSegmentGeneral(&result);
+		CdbPathLocus_MakeSegmentGeneral(&result, policy->numsegments);
 	}
 	/* Kludge used internally for querying catalogs on segment dbs */
 	else if (cdbpathlocus_querysegmentcatalogs)
-		CdbPathLocus_MakeStrewn(&result);
+		CdbPathLocus_MakeStrewn(&result, policy->numsegments);
 
 	/* Normal catalog access */
 	else
-		CdbPathLocus_MakeEntry(&result);
+		CdbPathLocus_MakeEntry(&result, 0);
 
 	return result;
 }								/* cdbpathlocus_from_baserel */
@@ -353,14 +357,16 @@ cdbpathlocus_from_baserel(struct PlannerInfo *root,
  *
  * Returns a locus specifying hashed distribution on a list of exprs.
  */
+//FIXME:IS THE SEGMENT COUNT CORRECT IN FLOW?
 CdbPathLocus
 cdbpathlocus_from_exprs(struct PlannerInfo *root,
-						List *hash_on_exprs)
+						Flow *flow)
 {
 	CdbPathLocus locus;
 	List	   *partkey = NIL;
 	List	   *eq = list_make1(makeString("="));
 	ListCell   *cell;
+	List	   *hash_on_exprs = flow->hashExpr;
 
 	foreach(cell, hash_on_exprs)
 	{
@@ -371,7 +377,7 @@ cdbpathlocus_from_exprs(struct PlannerInfo *root,
 		partkey = lappend(partkey, pathkey);
 	}
 
-	CdbPathLocus_MakeHashed(&locus, partkey);
+	CdbPathLocus_MakeHashed(&locus, partkey, flow->numsegments);
 	list_free_deep(eq);
 	return locus;
 }								/* cdbpathlocus_from_exprs */
@@ -402,7 +408,7 @@ cdbpathlocus_from_subquery(struct PlannerInfo *root,
 	{
 		case FLOW_SINGLETON:
 			if (flow->segindex == -1)
-				CdbPathLocus_MakeEntry(&locus);
+				CdbPathLocus_MakeEntry(&locus, 0);
 			else
 			{
 				/*
@@ -410,13 +416,13 @@ cdbpathlocus_from_subquery(struct PlannerInfo *root,
 				 * this subplan to qDisp unexpectedly 
 				 */
 				if (flow->locustype == CdbLocusType_SegmentGeneral)
-					CdbPathLocus_MakeSegmentGeneral(&locus);
+					CdbPathLocus_MakeSegmentGeneral(&locus, flow->numsegments);
 				else
-					CdbPathLocus_MakeSingleQE(&locus);
+					CdbPathLocus_MakeSingleQE(&locus, flow->numsegments);
 			}
 			break;
 		case FLOW_REPLICATED:
-			CdbPathLocus_MakeReplicated(&locus);
+			CdbPathLocus_MakeReplicated(&locus, flow->numsegments);
 			break;
 		case FLOW_PARTITIONED:
 			{
@@ -451,14 +457,14 @@ cdbpathlocus_from_subquery(struct PlannerInfo *root,
 				}
 				if (partkey &&
 					!hashexprcell)
-					CdbPathLocus_MakeHashed(&locus, partkey);
+					CdbPathLocus_MakeHashed(&locus, partkey, flow->numsegments);
 				else
-					CdbPathLocus_MakeStrewn(&locus);
+					CdbPathLocus_MakeStrewn(&locus, flow->numsegments);
 				list_free_deep(eq);
 				break;
 			}
 		default:
-			CdbPathLocus_MakeNull(&locus);
+			CdbPathLocus_MakeNull(&locus, flow->numsegments);
 			Insist(0);
 	}
 	return locus;
@@ -587,7 +593,7 @@ cdbpathlocus_pull_above_projection(struct PlannerInfo *root,
 			 */
 			if (!newpathkey)
 			{
-				CdbPathLocus_MakeStrewn(&newlocus);
+				CdbPathLocus_MakeStrewn(&newlocus, CdbPathLocus_NumSegments(locus));
 				return newlocus;
 			}
 
@@ -596,7 +602,7 @@ cdbpathlocus_pull_above_projection(struct PlannerInfo *root,
 		}
 
 		/* Build new locus. */
-		CdbPathLocus_MakeHashed(&newlocus, newpartkey);
+		CdbPathLocus_MakeHashed(&newlocus, newpartkey, CdbPathLocus_NumSegments(locus));
 		return newlocus;
 	}
 	else if (CdbPathLocus_IsHashedOJ(locus))
@@ -639,7 +645,7 @@ cdbpathlocus_pull_above_projection(struct PlannerInfo *root,
 			 */
 			if (!newpathkey)
 			{
-				CdbPathLocus_MakeStrewn(&newlocus);
+				CdbPathLocus_MakeStrewn(&newlocus, CdbPathLocus_NumSegments(locus));
 				return newlocus;
 			}
 
@@ -648,7 +654,7 @@ cdbpathlocus_pull_above_projection(struct PlannerInfo *root,
 		}
 
 		/* Build new locus. */
-		CdbPathLocus_MakeHashed(&newlocus, newpartkey);
+		CdbPathLocus_MakeHashed(&newlocus, newpartkey, CdbPathLocus_NumSegments(locus));
 		return newlocus;
 	}
 	else
@@ -669,6 +675,7 @@ cdbpathlocus_join(CdbPathLocus a, CdbPathLocus b)
 	ListCell   *bcell;
 	List	   *equivpathkeylist;
 	CdbPathLocus ojlocus = {0};
+    int         numsegments = CdbPathLocus_CommonSegments(a, b);
 
 	Assert(cdbpathlocus_is_valid(a));
 	Assert(cdbpathlocus_is_valid(b));
@@ -680,14 +687,21 @@ cdbpathlocus_join(CdbPathLocus a, CdbPathLocus b)
 	/* If one rel is general or replicated, result stays with the other rel. */
 	if (CdbPathLocus_IsGeneral(a) ||
 		CdbPathLocus_IsReplicated(a))
-		return b;
+    {
+        b.numsegments = numsegments;
+        return b;
+    }
 	if (CdbPathLocus_IsGeneral(b) ||
 		CdbPathLocus_IsReplicated(b))
-		return a;
+    {
+        a.numsegments = numsegments;
+        return a;
+    }
 
 	/* This is an outer join, or one or both inputs are outer join results. */
 
 	Assert(CdbPathLocus_Degree(a) > 0 &&
+           CdbPathLocus_NumSegments(a) == CdbPathLocus_NumSegments(b) &&
 		   CdbPathLocus_Degree(a) == CdbPathLocus_Degree(b));
 
 	if (CdbPathLocus_IsHashed(a) &&
@@ -704,7 +718,7 @@ cdbpathlocus_join(CdbPathLocus a, CdbPathLocus b)
 			equivpathkeylist = list_make2(apathkey, bpathkey);
 			partkey_oj = lappend(partkey_oj, equivpathkeylist);
 		}
-		CdbPathLocus_MakeHashedOJ(&ojlocus, partkey_oj);
+		CdbPathLocus_MakeHashedOJ(&ojlocus, partkey_oj, numsegments);
 		Assert(cdbpathlocus_is_valid(ojlocus));
 		return ojlocus;
 	}
@@ -728,7 +742,7 @@ cdbpathlocus_join(CdbPathLocus a, CdbPathLocus b)
 			equivpathkeylist = lappend(list_copy(aequivpathkeylist), bpathkey);
 			partkey_oj = lappend(partkey_oj, equivpathkeylist);
 		}
-		CdbPathLocus_MakeHashedOJ(&ojlocus, partkey_oj);
+		CdbPathLocus_MakeHashedOJ(&ojlocus, partkey_oj, numsegments);
 	}
 	else if (CdbPathLocus_IsHashedOJ(b))
 	{
@@ -743,7 +757,7 @@ cdbpathlocus_join(CdbPathLocus a, CdbPathLocus b)
 											  bequivpathkeylist);
 			partkey_oj = lappend(partkey_oj, equivpathkeylist);
 		}
-		CdbPathLocus_MakeHashedOJ(&ojlocus, partkey_oj);
+		CdbPathLocus_MakeHashedOJ(&ojlocus, partkey_oj, numsegments);
 	}
 	Assert(cdbpathlocus_is_valid(ojlocus));
 	return ojlocus;
