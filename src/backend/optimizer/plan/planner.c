@@ -2876,7 +2876,7 @@ grouping_planner(PlannerInfo *root, double tuple_fraction)
 		 * Repartition the subquery plan based on our distribution
 		 * requirements
 		 */
-		r = repartitionPlan(result_plan, false, false, exprList, getgpsegmentCount());
+		r = repartitionPlan(result_plan, false, false, exprList, __GP_POLICY_EVIL_NUMSEGMENTS);
 		if (!r)
 		{
 			/*

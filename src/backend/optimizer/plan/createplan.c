@@ -6469,6 +6469,7 @@ adjust_modifytable_flow(PlannerInfo *root, ModifyTable *node)
 			   *lcp;
 	bool		all_subplans_entry = true,
 				all_subplans_replicated = true;
+	int			numsegments = -1;
 
 	if (node->operation == CMD_INSERT)
 	{
@@ -6486,6 +6487,13 @@ adjust_modifytable_flow(PlannerInfo *root, ModifyTable *node)
 			targetPolicy = GpPolicyFetch(CurrentMemoryContext, rte->relid);
 			targetPolicyType = targetPolicy->ptype;
 
+			if (numsegments >= 0)
+			{
+				Assert(numsegments == targetPolicy->numsegments);
+			}
+
+			numsegments = targetPolicy->numsegments;
+
 			if (targetPolicyType == POLICYTYPE_PARTITIONED)
 			{
 				all_subplans_entry = false;
@@ -6500,7 +6508,7 @@ adjust_modifytable_flow(PlannerInfo *root, ModifyTable *node)
 														 targetPolicy->attrs,
 														 false);
 
-				if (!repartitionPlan(subplan, false, false, hashExpr, targetPolicy->numsegments))
+				if (!repartitionPlan(subplan, false, false, hashExpr, numsegments))
 					ereport(ERROR, (errcode(ERRCODE_GP_FEATURE_NOT_YET),
 									errmsg("Cannot parallelize that INSERT yet")));
 			}
@@ -6519,6 +6527,7 @@ adjust_modifytable_flow(PlannerInfo *root, ModifyTable *node)
 					 * Ask for motion to a single QE.  Later, apply_motion
 					 * will override that to bring it to the QD instead.
 					 */
+					Assert(subplan->flow->numsegments == numsegments);
 					if (!focusPlan(subplan, false, false))
 						ereport(ERROR, (errcode(ERRCODE_GP_FEATURE_NOT_YET),
 										errmsg("Cannot parallelize that INSERT yet")));
@@ -6557,7 +6566,7 @@ adjust_modifytable_flow(PlannerInfo *root, ModifyTable *node)
 					break;
 				}
 
-				if (!broadcastPlan(subplan, false, false))
+				if (!broadcastPlan(subplan, false, false, numsegments))
 					ereport(ERROR, (errcode(ERRCODE_GP_FEATURE_NOT_YET),
 								errmsg("Cannot parallelize that INSERT yet")));
 
@@ -6581,6 +6590,13 @@ adjust_modifytable_flow(PlannerInfo *root, ModifyTable *node)
 
 			targetPolicy = GpPolicyFetch(CurrentMemoryContext, rte->relid);
 			targetPolicyType = targetPolicy->ptype;
+
+			if (numsegments >= 0)
+			{
+				Assert(numsegments == targetPolicy->numsegments);
+			}
+
+			numsegments = targetPolicy->numsegments;
 
 			if (targetPolicyType == POLICYTYPE_PARTITIONED)
 			{
@@ -6674,6 +6690,8 @@ adjust_modifytable_flow(PlannerInfo *root, ModifyTable *node)
 		}
 	}
 
+	Assert(numsegments >= 0);
+
 	/*
 	 * Set the distribution of the ModifyTable node itself. If there is only
 	 * one subplan, or all the subplans have a compatible distribution, then
@@ -6695,7 +6713,7 @@ adjust_modifytable_flow(PlannerInfo *root, ModifyTable *node)
 	}
 	else
 	{
-		mark_plan_strewn((Plan *) node);
+		mark_plan_strewn((Plan *) node, numsegments);
 
 		if (list_length(node->plans) == 1)
 		{

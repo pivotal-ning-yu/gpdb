@@ -51,6 +51,11 @@ FOREIGN_KEY(localoid REFERENCES pg_class(oid));
 #define SYM_POLICYTYPE_PARTITIONED 'p'
 #define SYM_POLICYTYPE_REPLICATED 'r'
 
+#define __GP_POLICY_EVIL_NUMSEGMENTS		(666)
+#define GP_POLICY_ALL_NUMSEGMENTS			(getgpsegmentCount())
+#define GP_POLICY_ENTRY_NUMSEGMENTS			(0)
+#define GP_POLICY_UNINITIALIZED_NUMSEGMENTS	(-1)
+
 /*
  * GpPolicyType represents a type of policy under which a relation's
  * tuples may be assigned to a component database.
@@ -124,10 +129,10 @@ bool GpPolicyIsPartitioned(const GpPolicy *policy);
 bool GpPolicyIsReplicated(const GpPolicy *policy);
 bool GpPolicyIsEntry(const GpPolicy *policy);
 
-extern GpPolicy *makeGpPolicy(MemoryContext mcxt, GpPolicyType ptype, int32 numsegments, int nattrs);
-extern GpPolicy *createReplicatedGpPolicy(MemoryContext mcxt);
-extern GpPolicy *createRandomPartitionedPolicy(MemoryContext mcxt);
-extern GpPolicy *createHashPartitionedPolicy(MemoryContext mcxt, List *keys);
+extern GpPolicy *makeGpPolicy(MemoryContext mcxt, GpPolicyType ptype, int nattrs, int numsegments);
+extern GpPolicy *createReplicatedGpPolicy(MemoryContext mcxt, int numsegments);
+extern GpPolicy *createRandomPartitionedPolicy(MemoryContext mcxt, int numsegments);
+extern GpPolicy *createHashPartitionedPolicy(MemoryContext mcxt, List *keys, int numsegments);
 
 extern bool IsReplicatedTable(Oid relid);
 

@@ -278,6 +278,7 @@ apply_motion(PlannerInfo *root, Plan *plan, Query *query)
 	ApplyMotionState state;
 	bool		needToAssignDirectDispatchContentIds = false;
 	bool		bringResultToDispatcher = false;
+	int			numsegments = GP_POLICY_ALL_NUMSEGMENTS;
 
 	/* Initialize mutator context. */
 
@@ -327,7 +328,8 @@ apply_motion(PlannerInfo *root, Plan *plan, Query *query)
 				}
 				else if (gp_create_table_random_default_distribution)
 				{
-					targetPolicy = createRandomPartitionedPolicy(NULL);
+					targetPolicy = createRandomPartitionedPolicy(NULL,
+																 numsegments);
 					ereport(NOTICE,
 							(errcode(ERRCODE_SUCCESSFUL_COMPLETION),
 							 errmsg("Using default RANDOM distribution since no distribution was specified."),
@@ -448,7 +450,8 @@ apply_motion(PlannerInfo *root, Plan *plan, Query *query)
 						}
 					}
 
-					targetPolicy = createHashPartitionedPolicy(NULL, policykeys);
+					targetPolicy = createHashPartitionedPolicy(NULL, policykeys,
+															   numsegments);
 
 					if (query->intoPolicy == NULL)
 					{
@@ -503,7 +506,8 @@ apply_motion(PlannerInfo *root, Plan *plan, Query *query)
 						/* do nothing */
 					}
 
-					if (!broadcastPlan(plan, false, false))
+					if (!broadcastPlan(plan, false, false,
+									   query->intoPolicy->numsegments))
 						ereport(ERROR, (errcode(ERRCODE_GP_FEATURE_NOT_YET),
 									errmsg("Cannot parallelize that SELECT INTO yet")));
 
@@ -522,7 +526,8 @@ apply_motion(PlannerInfo *root, Plan *plan, Query *query)
 							targetPolicy->attrs,
 							true);
 
-					if (!repartitionPlan(plan, false, false, hashExpr, query->intoPolicy->numsegments))
+					if (!repartitionPlan(plan, false, false, hashExpr,
+										 query->intoPolicy->numsegments))
 						ereport(ERROR, (errcode(ERRCODE_GP_FEATURE_NOT_YET),
 									errmsg("Cannot parallelize that SELECT INTO yet")
 							       ));
@@ -985,6 +990,7 @@ add_slice_to_motion(Motion *motion,
 			motion->plan.flow = makeFlow(FLOW_PARTITIONED);
 			motion->plan.flow->locustype = CdbLocusType_Hashed;
 			motion->plan.flow->hashExpr = copyObject(motion->hashExpr);
+			motion->plan.flow->numsegments = motion->plan.lefttree->flow->numsegments;
 			motion->numOutputSegs = getgpsegmentCount();
 			motion->outputSegIdx = makeDefaultSegIdxArray(getgpsegmentCount());
 
@@ -995,6 +1001,7 @@ add_slice_to_motion(Motion *motion,
 				/* broadcast */
 				motion->plan.flow = makeFlow(FLOW_REPLICATED);
 				motion->plan.flow->locustype = CdbLocusType_Replicated;
+				motion->plan.flow->numsegments = motion->plan.lefttree->flow->numsegments;
 
 			}
 			else if (motion->numOutputSegs == 1)
@@ -1005,6 +1012,7 @@ add_slice_to_motion(Motion *motion,
 				motion->plan.flow->locustype = (motion->plan.flow->segindex < 0) ?
 					CdbLocusType_Entry :
 					CdbLocusType_SingleQE;
+				motion->plan.flow->numsegments = motion->plan.lefttree->flow->numsegments;
 
 			}
 			else
@@ -1021,6 +1029,7 @@ add_slice_to_motion(Motion *motion,
 			 * ExplicitRedistribute flows
 			 */
 			motion->plan.flow->locustype = CdbLocusType_Strewn;
+			motion->plan.flow->numsegments = motion->plan.lefttree->flow->numsegments;
 			break;
 		default:
 			Assert(!"Invalid motion type");
@@ -1761,7 +1770,7 @@ make_splitupdate(PlannerInfo *root, ModifyTable *mt, Plan *subplan, RangeTblEntr
     //find_segid_attribute_check(splitupdate->plan.targetlist, &splitupdate->tupleSegIdx, resultRelationsIdx);
 
 	/* we need an motion node above the SplitUpdate, so mark it as strewn */
-	mark_plan_strewn((Plan *) splitupdate);
+	mark_plan_strewn((Plan *) splitupdate, __GP_POLICY_EVIL_NUMSEGMENTS);
 
 	mt->action_col_idxes = lappend_int(mt->action_col_idxes, actionColIdx);
 	mt->ctid_col_idxes = lappend_int(mt->ctid_col_idxes, ctidColIdx);
@@ -1802,7 +1811,7 @@ make_reshuffle(PlannerInfo *root,
 												 policy->attrs[i]);
 	}
 
-	mark_plan_strewn((Plan *) reshufflePlan);
+	mark_plan_strewn((Plan *) reshufflePlan, __GP_POLICY_EVIL_NUMSEGMENTS);
 
 	heap_close(rel, NoLock);
 

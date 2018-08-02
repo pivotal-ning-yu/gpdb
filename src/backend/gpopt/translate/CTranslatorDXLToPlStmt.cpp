@@ -5164,7 +5164,8 @@ CTranslatorDXLToPlStmt::PdistrpolicyFromCtas
 		ulDistrColsAlloc = ulDistrCols;
 	}
 	
-	GpPolicy *pdistrpolicy = gpdb::PMakeGpPolicy(NULL, POLICYTYPE_PARTITIONED, ulDistrColsAlloc);
+	GpPolicy *pdistrpolicy = gpdb::PMakeGpPolicy(NULL, POLICYTYPE_PARTITIONED, ulDistrColsAlloc,
+												 __GP_POLICY_EVIL_NUMSEGMENTS);
 
 	GPOS_ASSERT(IMDRelation::EreldistrHash == pdxlop->Ereldistrpolicy() ||
 				IMDRelation::EreldistrRandom == pdxlop->Ereldistrpolicy());

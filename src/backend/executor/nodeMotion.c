@@ -1015,7 +1015,11 @@ ExecInitMotion(Motion * node, EState *estate, int eflags)
 		 * Create hash API reference
 		 */
 		/* FIXME: how to decide the proper numsegments? */
-		motionstate->cdbhash = makeCdbHash(node->numOutputSegs);
+		if (node->plan.flow &&
+			node->plan.flow->numsegments > 0)
+			motionstate->cdbhash = makeCdbHash(node->plan.flow->numsegments);
+		else
+			motionstate->cdbhash = makeCdbHash(node->numOutputSegs);
     }
 
 	/* Merge Receive: Set up the key comparator and priority queue. */
@@ -1451,7 +1455,9 @@ doSendTuple(Motion * motion, MotionState * node, TupleTableSlot *outerTupleSlot)
 
 		econtext->ecxt_outertuple = outerTupleSlot;
 
+#if 0
 		Assert(node->cdbhash->numsegs == motion->numOutputSegs);
+#endif
 		
 		hval = evalHashKey(econtext, node->hashExpr,
 				motion->hashDataTypes, node->cdbhash);

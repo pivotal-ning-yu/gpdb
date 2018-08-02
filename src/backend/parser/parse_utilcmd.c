@@ -1667,7 +1667,7 @@ transformCreateExternalStmt(CreateExternalStmt *stmt, const char *queryString)
 			 * defaults to DISTRIBUTED RANDOMLY irrespective of the
 			 * gp_create_table_random_default_distribution guc.
 			 */
-			stmt->policy = createRandomPartitionedPolicy(NULL);
+			stmt->policy = createRandomPartitionedPolicy(NULL, __GP_POLICY_EVIL_NUMSEGMENTS);
 		}
 		else
 		{
@@ -1713,6 +1713,7 @@ transformDistributedBy(CreateStmtContext *cxt,
 	List		*distrkeys = NIL;
 	List		*policykeys = NIL;
 	int		numUniqueIndexes = 0;
+	int		numsegments;
 	Constraint	*uniqueindex = NULL;
 
 	/*
@@ -1725,7 +1726,7 @@ transformDistributedBy(CreateStmtContext *cxt,
 	/* Explictly specified distributed randomly, no futher check needed */
 	if (distributedBy &&
 		(distributedBy->ptype == POLICYTYPE_PARTITIONED && distributedBy->keys == NIL))
-		return createRandomPartitionedPolicy(NULL); 
+		return createRandomPartitionedPolicy(NULL, distributedBy->numsegments);
 
 	/* Check replicated policy */
 	if (distributedBy && distributedBy->ptype == POLICYTYPE_REPLICATED)
@@ -1735,7 +1736,7 @@ transformDistributedBy(CreateStmtContext *cxt,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("INHERITS clause cannot be used with DISTRIBUTED REPLICATED clause")));
 
-		return createReplicatedGpPolicy(NULL); 
+		return createReplicatedGpPolicy(NULL, distributedBy->numsegments);
 	}
 
 	distrkeys = distributedBy ? distributedBy->keys : NIL;
@@ -1906,8 +1907,9 @@ transformDistributedBy(CreateStmtContext *cxt,
 				}
 				else
 				{
+					numsegments = oldTablePolicy->numsegments;
 					pfree(oldTablePolicy);
-					return createRandomPartitionedPolicy(NULL);
+					return createRandomPartitionedPolicy(NULL, numsegments);
 				}
 			}
 			pfree(oldTablePolicy);
@@ -1920,11 +1922,13 @@ transformDistributedBy(CreateStmtContext *cxt,
 			elog(NOTICE, "Table doesn't have 'DISTRIBUTED BY' clause, "
 				 "defaulting to distribution columns from LIKE table");
 
+		numsegments = likeDistributedBy->numsegments;
+
 		if (likeDistributedBy->ptype == POLICYTYPE_PARTITIONED &&
 			likeDistributedBy->keys == NIL)
-			return createRandomPartitionedPolicy(NULL);
+			return createRandomPartitionedPolicy(NULL, numsegments);
 		else if (likeDistributedBy->ptype == POLICYTYPE_REPLICATED)
-			return createReplicatedGpPolicy(NULL);
+			return createReplicatedGpPolicy(NULL, numsegments);
 
 		distrkeys = likeDistributedBy->keys;
 	}
@@ -1941,7 +1945,9 @@ transformDistributedBy(CreateStmtContext *cxt,
 				 errhint("Consider including the 'DISTRIBUTED BY' clause to determine the distribution of rows.")));
 		}
 		
-		return createRandomPartitionedPolicy(NULL);
+		numsegments = GP_POLICY_ALL_NUMSEGMENTS;
+
+		return createRandomPartitionedPolicy(NULL, numsegments);
 	}
 	else if (distrkeys == NIL)
 	{
@@ -2048,7 +2054,10 @@ transformDistributedBy(CreateStmtContext *cxt,
 			 */
 			if (!bQuiet)
 				elog(NOTICE, "Table doesn't have 'DISTRIBUTED BY' clause, and no column type is suitable for a distribution key. Creating a NULL policy entry.");
-			return createRandomPartitionedPolicy(NULL);
+
+			numsegments = GP_POLICY_ALL_NUMSEGMENTS;
+
+			return createRandomPartitionedPolicy(NULL, numsegments);
 		}
 	}
 	else
@@ -2163,7 +2172,14 @@ transformDistributedBy(CreateStmtContext *cxt,
 
 	Assert(policykeys != NIL);
 
-	policy = createHashPartitionedPolicy(NULL, policykeys);
+	if (distributedBy)
+		numsegments = distributedBy->numsegments;
+	else if (likeDistributedBy)
+		numsegments = likeDistributedBy->numsegments;
+	else
+		numsegments = GP_POLICY_ALL_NUMSEGMENTS;
+
+	policy = createHashPartitionedPolicy(NULL, policykeys, numsegments);
 
 	if (cxt && cxt->pkey)	/* Primary key	specified.	Make sure
 								 * distribution columns match */
@@ -4235,6 +4251,7 @@ getLikeDistributionPolicy(TableLikeClause *e)
 		if (GpPolicyIsReplicated(oldTablePolicy))
 		{
 			likeDistributedBy->ptype = POLICYTYPE_REPLICATED;
+			likeDistributedBy->numsegments = oldTablePolicy->numsegments;
 			likeDistributedBy->keys = NIL;
 		}
 		else
@@ -4250,6 +4267,7 @@ getLikeDistributionPolicy(TableLikeClause *e)
 			}
 
 			likeDistributedBy->ptype = POLICYTYPE_PARTITIONED;
+			likeDistributedBy->numsegments = oldTablePolicy->numsegments;
 			likeDistributedBy->keys = keys;
 		}
 	}
