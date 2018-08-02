@@ -1440,7 +1440,7 @@ make_two_stage_agg_plan(PlannerInfo *root,
 										0,	/* rollup_gs_times */
 										result_plan);
 		/* May lose useful locus and sort. Unlikely, but could do better. */
-		mark_plan_strewn(result_plan);
+		mark_plan_strewn(result_plan, ctx->output_locus.numsegments);
 		current_pathkeys = NIL;
 	}
 

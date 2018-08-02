@@ -3241,9 +3241,10 @@ gpdb::MakeGpPolicy
        (
                MemoryContext mcxt,
                GpPolicyType ptype,
-               int nattrs
+               int nattrs,
+               int numsegments
        )
 {
-       return makeGpPolicy(mcxt, ptype, getgpsegmentCount(), nattrs);
+       return makeGpPolicy(mcxt, ptype, nattrs, numsegments);
 }
 // EOF

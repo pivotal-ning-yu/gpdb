@@ -34,7 +34,7 @@
 static void extract_INT2OID_array(Datum array_datum, int *lenp, int16 **vecp);
 
 GpPolicy *
-makeGpPolicy(MemoryContext mcxt, GpPolicyType ptype, int numsegments, int nattrs)
+makeGpPolicy(MemoryContext mcxt, GpPolicyType ptype, int nattrs, int numsegments)
 {
 	GpPolicy *policy;
 	size_t	size;
@@ -53,6 +53,11 @@ makeGpPolicy(MemoryContext mcxt, GpPolicyType ptype, int numsegments, int nattrs
 	else
 		policy->attrs = NULL;
 
+	if (numsegments == __GP_POLICY_EVIL_NUMSEGMENTS)
+	{
+		Assert(!"what's the proper value of numsegments?");
+	}
+
 	return policy;
 }
 
@@ -60,10 +65,9 @@ makeGpPolicy(MemoryContext mcxt, GpPolicyType ptype, int numsegments, int nattrs
  * createReplicatedGpPolicy-- Create a policy with replicated distribution
  */
 GpPolicy *
-createReplicatedGpPolicy(MemoryContext mcxt)
+createReplicatedGpPolicy(MemoryContext mcxt, int numsegments)
 {
-	/* FIXME: what's the proper value for numsegments? */
-	return makeGpPolicy(mcxt, POLICYTYPE_REPLICATED, getgpsegmentCount(), 0);
+	return makeGpPolicy(mcxt, POLICYTYPE_REPLICATED, 0, numsegments);
 }
 
 /*
@@ -71,10 +75,9 @@ createReplicatedGpPolicy(MemoryContext mcxt)
  * partitioned distribution
  */
 GpPolicy *
-createRandomPartitionedPolicy(MemoryContext mcxt)
+createRandomPartitionedPolicy(MemoryContext mcxt, int numsegments)
 {
-	/* FIXME: what's the proper value for numsegments? */
-	return makeGpPolicy(mcxt, POLICYTYPE_PARTITIONED, getgpsegmentCount(), 0);
+	return makeGpPolicy(mcxt, POLICYTYPE_PARTITIONED, 0, numsegments);
 }
 
 /*
@@ -82,7 +85,7 @@ createRandomPartitionedPolicy(MemoryContext mcxt)
  * partitioned by keys 
  */
 GpPolicy *
-createHashPartitionedPolicy(MemoryContext mcxt, List *keys)
+createHashPartitionedPolicy(MemoryContext mcxt, List *keys, int numsegments)
 {
 	GpPolicy	*policy;
 	ListCell 	*lc;
@@ -90,10 +93,9 @@ createHashPartitionedPolicy(MemoryContext mcxt, List *keys)
 	int 		len = list_length(keys);
 
 	if (len == 0)
-		return createRandomPartitionedPolicy(mcxt);
+		return createRandomPartitionedPolicy(mcxt, numsegments);
 
-	/* FIXME: what's the proper value for numsegments? */
-	policy = makeGpPolicy(mcxt, POLICYTYPE_PARTITIONED, getgpsegmentCount(), len);
+	policy = makeGpPolicy(mcxt, POLICYTYPE_PARTITIONED, len, numsegments);
 	foreach(lc, keys)
 	{
 		policy->attrs[idx++] = (AttrNumber)lfirst_int(lc);
@@ -116,7 +118,7 @@ GpPolicyCopy(MemoryContext mcxt, const GpPolicy *src)
 	if (!src)
 		return NULL;
 
-	tgt = makeGpPolicy(mcxt, src->ptype, src->numsegments, src->nattrs);
+	tgt = makeGpPolicy(mcxt, src->ptype, src->nattrs, src->numsegments);
 
 	for (i = 0; i < src->nattrs; i++)
 		tgt->attrs[i] = src->attrs[i];
@@ -259,10 +261,11 @@ GpPolicyFetch(MemoryContext mcxt, Oid tbloid)
 
 			if (strcmp(on_clause, "MASTER_ONLY") == 0)
 			{
-				return makeGpPolicy(mcxt, POLICYTYPE_ENTRY, 0, 0);
+				return makeGpPolicy(mcxt, POLICYTYPE_ENTRY,
+									0, GP_POLICY_ENTRY_NUMSEGMENTS);
 			}
 
-			return createRandomPartitionedPolicy(mcxt);
+			return createRandomPartitionedPolicy(mcxt, __GP_POLICY_EVIL_NUMSEGMENTS);
 		}
 	}
 
@@ -306,7 +309,7 @@ GpPolicyFetch(MemoryContext mcxt, Oid tbloid)
 		switch (ptype)
 		{
 			case SYM_POLICYTYPE_REPLICATED:
-				policy = createReplicatedGpPolicy(mcxt);
+				policy = createReplicatedGpPolicy(mcxt, numsegments);
 				break;
 			case SYM_POLICYTYPE_PARTITIONED:
 				/*
@@ -326,7 +329,8 @@ GpPolicyFetch(MemoryContext mcxt, Oid tbloid)
 				}
 
 				/* Create a GpPolicy object. */
-				policy = makeGpPolicy(mcxt, POLICYTYPE_PARTITIONED, numsegments, nattrs);
+				policy = makeGpPolicy(mcxt, POLICYTYPE_PARTITIONED,
+									  nattrs, numsegments);
 
 				for (i = 0; i < nattrs; i++)
 				{
@@ -344,7 +348,8 @@ GpPolicyFetch(MemoryContext mcxt, Oid tbloid)
 	/* Interpret absence of a valid policy row as POLICYTYPE_ENTRY */
 	if (policy == NULL)
 	{
-		return makeGpPolicy(mcxt, POLICYTYPE_ENTRY, 0, 0);
+		return makeGpPolicy(mcxt, POLICYTYPE_ENTRY,
+							0, GP_POLICY_ENTRY_NUMSEGMENTS);
 	}
 
 	return policy;
@@ -684,7 +689,7 @@ checkPolicyForUniqueIndex(Relation rel, AttrNumber *indattr, int nidxatts,
 		}
 
 		/* update policy since table is not populated yet. See MPP-101 */
-		GpPolicy *policy = makeGpPolicy(NULL, POLICYTYPE_PARTITIONED, getgpsegmentCount(), nidxatts);
+		GpPolicy *policy = makeGpPolicy(NULL, POLICYTYPE_PARTITIONED, nidxatts, __GP_POLICY_EVIL_NUMSEGMENTS);
 
 		for (i = 0; i < nidxatts; i++)
 			policy->attrs[i] = indattr[i];

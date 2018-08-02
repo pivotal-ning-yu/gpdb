@@ -2329,6 +2329,7 @@ _copyFlow(const Flow *from)
 	COPY_SCALAR_FIELD(req_move);
 	COPY_SCALAR_FIELD(locustype);
 	COPY_SCALAR_FIELD(segindex);
+	COPY_SCALAR_FIELD(numsegments);
 	COPY_NODE_FIELD(hashExpr);
 	COPY_NODE_FIELD(flow_before_req_move);
 
@@ -4873,6 +4874,7 @@ _copyGpPolicy(const GpPolicy *from)
 	GpPolicy *newnode = makeNode(GpPolicy);
 
 	COPY_SCALAR_FIELD(ptype);
+	COPY_SCALAR_FIELD(numsegments);
 	COPY_SCALAR_FIELD(nattrs);
 	COPY_POINTER_FIELD(attrs, from->nattrs * sizeof(AttrNumber));
 
@@ -4885,6 +4887,7 @@ _copyDistributedBy(const DistributedBy *from)
 	DistributedBy *newnode = makeNode(DistributedBy);
 
 	COPY_SCALAR_FIELD(ptype);
+	COPY_SCALAR_FIELD(numsegments);
 	COPY_NODE_FIELD(keys);
 
 	return newnode;

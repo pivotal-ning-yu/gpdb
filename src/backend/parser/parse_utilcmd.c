@@ -1667,6 +1667,7 @@ transformCreateExternalStmt(CreateExternalStmt *stmt, const char *queryString)
 			stmt->distributedBy = makeNode(DistributedBy);
 			stmt->distributedBy->ptype = POLICYTYPE_PARTITIONED;
 			stmt->distributedBy->keys = NIL;
+			stmt->numsegments = __GP_POLICY_EVIL_NUMSEGMENTS;
 		}
 		else
 		{
@@ -1719,6 +1720,7 @@ transformDistributedBy(CreateStmtContext *cxt,
 	ListCell	*keys = NULL;
 	List		*distrkeys = NIL;
 	int		numUniqueIndexes = 0;
+	int		numsegments;
 	Constraint	*uniqueindex = NULL;
 
 	/*
@@ -1912,9 +1914,11 @@ transformDistributedBy(CreateStmtContext *cxt,
 				}
 				else
 				{
+					numsegments = oldTablePolicy->numsegments;
 					pfree(oldTablePolicy);
 					distributedBy = makeNode(DistributedBy);
 					distributedBy->ptype = POLICYTYPE_PARTITIONED;
+					distributedBy->numsegments = numsegments;
 					return distributedBy;
 				}
 			}
@@ -1928,17 +1932,21 @@ transformDistributedBy(CreateStmtContext *cxt,
 			elog(NOTICE, "Table doesn't have 'DISTRIBUTED BY' clause, "
 				 "defaulting to distribution columns from LIKE table");
 
+		numsegments = likeDistributedBy->numsegments;
+
 		if (likeDistributedBy->ptype == POLICYTYPE_PARTITIONED &&
 			likeDistributedBy->keys == NIL)
 		{
 			distributedBy = makeNode(DistributedBy);
 			distributedBy->ptype = POLICYTYPE_PARTITIONED;
+			distributedBy->numsegments = numsegments;
 			return distributedBy;
 		}
 		else if (likeDistributedBy->ptype == POLICYTYPE_REPLICATED)
 		{
 			distributedBy = makeNode(DistributedBy);
 			distributedBy->ptype = POLICYTYPE_REPLICATED;
+			distributedBy->numsegments = numsegments;
 			return distributedBy;
 		}
 
@@ -1957,8 +1965,11 @@ transformDistributedBy(CreateStmtContext *cxt,
 				 errhint("Consider including the 'DISTRIBUTED BY' clause to determine the distribution of rows.")));
 		}
 		
+		numsegments = GP_POLICY_ALL_NUMSEGMENTS;
+
 		distributedBy = makeNode(DistributedBy);
 		distributedBy->ptype = POLICYTYPE_PARTITIONED;
+		distributedBy->numsegments = numsegments;
 		return distributedBy;
 	}
 	else if (distrkeys == NIL)
@@ -2060,8 +2071,12 @@ transformDistributedBy(CreateStmtContext *cxt,
 			 */
 			if (!bQuiet)
 				elog(NOTICE, "Table doesn't have 'DISTRIBUTED BY' clause, and no column type is suitable for a distribution key. Creating a NULL policy entry.");
+
+			numsegments = GP_POLICY_ALL_NUMSEGMENTS;
+
 			distributedBy = makeNode(DistributedBy);
 			distributedBy->ptype = POLICYTYPE_PARTITIONED;
+			distributedBy->numsegments = numsegments;
 			return distributedBy;
 		}
 	}
@@ -2167,6 +2182,13 @@ transformDistributedBy(CreateStmtContext *cxt,
 		}
 	}
 
+	if (distributedBy)
+		numsegments = distributedBy->numsegments;
+	else if (likeDistributedBy)
+		numsegments = likeDistributedBy->numsegments;
+	else
+		numsegments = GP_POLICY_ALL_NUMSEGMENTS;
+
 	/*
 	 * Ok, we have decided on the distribution key columns now, and have the column
 	 * names in 'distrkeys'. Perform last cross-checks between UNIQUE and PRIMARY KEY
@@ -2233,6 +2255,7 @@ transformDistributedBy(CreateStmtContext *cxt,
 	distributedBy = makeNode(DistributedBy);
 	distributedBy->ptype = POLICYTYPE_PARTITIONED;
 	distributedBy->keys = distrkeys;
+	distributedBy->numsegments = numsegments;
 
 	return distributedBy;
 }
@@ -4160,6 +4183,7 @@ getLikeDistributionPolicy(TableLikeClause *e)
 		if (GpPolicyIsReplicated(oldTablePolicy))
 		{
 			likeDistributedBy->ptype = POLICYTYPE_REPLICATED;
+			likeDistributedBy->numsegments = oldTablePolicy->numsegments;
 			likeDistributedBy->keys = NIL;
 		}
 		else
@@ -4175,6 +4199,7 @@ getLikeDistributionPolicy(TableLikeClause *e)
 			}
 
 			likeDistributedBy->ptype = POLICYTYPE_PARTITIONED;
+			likeDistributedBy->numsegments = oldTablePolicy->numsegments;
 			likeDistributedBy->keys = keys;
 		}
 	}

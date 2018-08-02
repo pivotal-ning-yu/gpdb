@@ -100,7 +100,7 @@ set_distribution_policy (Datum array_distribution)
 				errmsg("there is no distribution set in target table")));
 	}
 
-	policy = makeGpPolicy(NULL, POLICYTYPE_PARTITIONED, getgpsegmentCount(), nattrs);
+	policy = makeGpPolicy(NULL, POLICYTYPE_PARTITIONED, nattrs, __GP_POLICY_EVIL_NUMSEGMENTS);
 	
 	for (int i = 0; i < nattrs; i++)
 	{

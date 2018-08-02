@@ -13973,6 +13973,7 @@ ATExecSetDistributedBy(Relation rel, Node *node, AlterTableCmd *cmd)
 	bool        is_aocs = false;
 	char        relstorage = RELSTORAGE_HEAP;
 	int         nattr; /* number of attributes */
+	int			numsegments = rel->rd_cdbpolicy->numsegments;
 	bool useExistingColumnAttributes = true;
 	SetDistributionCmd *qe_data = NULL; 
 	bool save_optimizer_replicated_table_insert;
@@ -14005,6 +14006,10 @@ ATExecSetDistributedBy(Relation rel, Node *node, AlterTableCmd *cmd)
 		ereport(ERROR,
 			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 			 errmsg("SET DISTRIBUTED BY not supported in utility mode")));
+
+	/* numsegments can only be updated via reshuffle option */
+	if (Gp_role == GP_ROLE_DISPATCH && ldistro)
+		ldistro->numsegments = numsegments;
 
 	/* we only support partitioned/replicated tables */
 	if (Gp_role == GP_ROLE_DISPATCH)
@@ -14153,7 +14158,7 @@ ATExecSetDistributedBy(Relation rel, Node *node, AlterTableCmd *cmd)
 									 RelationGetRelationName(rel))));
 			}
 
-			policy = createRandomPartitionedPolicy(NULL);
+			policy = createRandomPartitionedPolicy(NULL, numsegments);
 
 			/* always need to rebuild if changed from replicated policy */
 			if (!GpPolicyIsReplicated(rel->rd_cdbpolicy))
@@ -14188,7 +14193,7 @@ ATExecSetDistributedBy(Relation rel, Node *node, AlterTableCmd *cmd)
 						 errhint("Use ALTER TABLE \"%s\" SET WITH (REORGANIZE=TRUE) DISTRIBUTED REPLICATED to force a replicated redistribution.",
 								 RelationGetRelationName(rel))));
 
-			policy = createReplicatedGpPolicy(NULL);
+			policy = createReplicatedGpPolicy(NULL, numsegments);
 
 			/* rebuild if have new storage options or policy changed */
 			if (!DatumGetPointer(newOptions) &&
@@ -14264,7 +14269,7 @@ ATExecSetDistributedBy(Relation rel, Node *node, AlterTableCmd *cmd)
 				} /* end foreach */
 
 				Assert(policykeys != NIL);
-				policy = createHashPartitionedPolicy(NULL, policykeys);
+				policy = createHashPartitionedPolicy(NULL, policykeys, numsegments);
 
 				/*
 				 * See if the the old policy is the same as the new one but
@@ -14366,7 +14371,7 @@ ATExecSetDistributedBy(Relation rel, Node *node, AlterTableCmd *cmd)
 			 * is same as the original one, the query optimizer will generate
 			 * redistribute plan.
 			 */
-			GpPolicy *random_policy = createRandomPartitionedPolicy(NULL);
+			GpPolicy *random_policy = createRandomPartitionedPolicy(NULL, numsegments);
 
 			original_policy = rel->rd_cdbpolicy;
 			/*
@@ -16479,6 +16484,7 @@ make_dist_clause(Relation rel)
 	{
 		/* must be random distribution */
 		dist->ptype = POLICYTYPE_REPLICATED;
+		dist->numsegments = rel->rd_cdbpolicy->numsegments;
 		dist->keys = NIL;
 	}
 	else
@@ -16497,6 +16503,7 @@ make_dist_clause(Relation rel)
 		}
 
 		dist->ptype = POLICYTYPE_PARTITIONED;
+		dist->numsegments = rel->rd_cdbpolicy->numsegments;
 		dist->keys = distro;
 	}
 

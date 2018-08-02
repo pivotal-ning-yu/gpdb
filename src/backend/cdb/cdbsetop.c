@@ -436,7 +436,7 @@ mark_append_locus(Plan *plan, GpSetOpType optype)
 			mark_plan_general(plan);
 			break;
 		case PSETOP_PARALLEL_PARTITIONED:
-			mark_plan_strewn(plan);
+			mark_plan_strewn(plan, __GP_POLICY_EVIL_NUMSEGMENTS);
 			break;
 		case PSETOP_PARALLEL_REPLICATED:
 			mark_plan_replicated(plan);
@@ -517,11 +517,12 @@ mark_plan_general(Plan *plan)
 }
 
 void
-mark_plan_strewn(Plan *plan)
+mark_plan_strewn(Plan *plan, int numsegments)
 {
 	Assert(is_plan_node((Node *) plan) && plan->flow == NULL);
 	plan->flow = makeFlow(FLOW_PARTITIONED);
 	plan->flow->locustype = CdbLocusType_Strewn;
+	plan->flow->numsegments = numsegments;
 }
 
 void
