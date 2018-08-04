@@ -3,6 +3,8 @@
 -- TODO: ao tables
 -- TODO: tables and temp tables
 
+\set explain 'explain (analyze, costs off)'
+
 set allow_system_table_mods to 'dml';
 
 --
@@ -101,79 +103,79 @@ drop table t;
 -- join
 --
 
-explain analyze select * from t1 a join t1 b using (c1);
-explain analyze select * from t1 a join t1 b using (c1, c2);
-explain analyze select * from t1 a join d1 b using (c1);
-explain analyze select * from t1 a join d1 b using (c1, c2);
-explain analyze select * from t1 a join r1 b using (c1);
-explain analyze select * from t1 a join r1 b using (c1, c2);
+:explain select * from t1 a join t1 b using (c1);
+:explain select * from t1 a join t1 b using (c1, c2);
+:explain select * from t1 a join d1 b using (c1);
+:explain select * from t1 a join d1 b using (c1, c2);
+:explain select * from t1 a join r1 b using (c1);
+:explain select * from t1 a join r1 b using (c1, c2);
 
-explain analyze select * from t1 a join t2 b using (c1);
-explain analyze select * from t1 a join t2 b using (c1, c2);
-explain analyze select * from t1 a join d2 b using (c1);
-explain analyze select * from t1 a join d2 b using (c1, c2);
-explain analyze select * from t1 a join r2 b using (c1);
-explain analyze select * from t1 a join r2 b using (c1, c2);
+:explain select * from t1 a join t2 b using (c1);
+:explain select * from t1 a join t2 b using (c1, c2);
+:explain select * from t1 a join d2 b using (c1);
+:explain select * from t1 a join d2 b using (c1, c2);
+:explain select * from t1 a join r2 b using (c1);
+:explain select * from t1 a join r2 b using (c1, c2);
 
-explain analyze select * from d1 a join d1 b using (c1);
-explain analyze select * from d1 a join r1 b using (c1);
-explain analyze select * from r1 a join r1 b using (c1);
+:explain select * from d1 a join d1 b using (c1);
+:explain select * from d1 a join r1 b using (c1);
+:explain select * from r1 a join r1 b using (c1);
 
-explain analyze select * from d1 a join d2 b using (c1);
-explain analyze select * from d1 a join r2 b using (c1);
-explain analyze select * from r1 a join r2 b using (c1);
+:explain select * from d1 a join d2 b using (c1);
+:explain select * from d1 a join r2 b using (c1);
+:explain select * from r1 a join r2 b using (c1);
 
 --
 -- left join
 --
 
-explain analyze select * from t1 a left join t1 b using (c1);
-explain analyze select * from t1 a left join t1 b using (c1, c2);
-explain analyze select * from t1 a left join d1 b using (c1);
-explain analyze select * from t1 a left join d1 b using (c1, c2);
-explain analyze select * from t1 a left join r1 b using (c1);
-explain analyze select * from t1 a left join r1 b using (c1, c2);
+:explain select * from t1 a left join t1 b using (c1);
+:explain select * from t1 a left join t1 b using (c1, c2);
+:explain select * from t1 a left join d1 b using (c1);
+:explain select * from t1 a left join d1 b using (c1, c2);
+:explain select * from t1 a left join r1 b using (c1);
+:explain select * from t1 a left join r1 b using (c1, c2);
 
-explain analyze select * from t1 a left join t2 b using (c1);
-explain analyze select * from t1 a left join t2 b using (c1, c2);
-explain analyze select * from t1 a left join d2 b using (c1);
-explain analyze select * from t1 a left join d2 b using (c1, c2);
-explain analyze select * from t1 a left join r2 b using (c1);
-explain analyze select * from t1 a left join r2 b using (c1, c2);
+:explain select * from t1 a left join t2 b using (c1);
+:explain select * from t1 a left join t2 b using (c1, c2);
+:explain select * from t1 a left join d2 b using (c1);
+:explain select * from t1 a left join d2 b using (c1, c2);
+:explain select * from t1 a left join r2 b using (c1);
+:explain select * from t1 a left join r2 b using (c1, c2);
 
-explain analyze select * from d1 a left join d1 b using (c1);
-explain analyze select * from d1 a left join r1 b using (c1);
-explain analyze select * from r1 a left join r1 b using (c1);
+:explain select * from d1 a left join d1 b using (c1);
+:explain select * from d1 a left join r1 b using (c1);
+:explain select * from r1 a left join r1 b using (c1);
 
-explain analyze select * from d1 a left join d2 b using (c1);
-explain analyze select * from d1 a left join r2 b using (c1);
-explain analyze select * from r1 a left join r2 b using (c1);
+:explain select * from d1 a left join d2 b using (c1);
+:explain select * from d1 a left join r2 b using (c1);
+:explain select * from r1 a left join r2 b using (c1);
 
 --
 -- right join
 --
 
-explain analyze select * from t1 a right join t1 b using (c1);
-explain analyze select * from t1 a right join t1 b using (c1, c2);
-explain analyze select * from t1 a right join d1 b using (c1);
-explain analyze select * from t1 a right join d1 b using (c1, c2);
-explain analyze select * from t1 a right join r1 b using (c1);
-explain analyze select * from t1 a right join r1 b using (c1, c2);
+:explain select * from t1 a right join t1 b using (c1);
+:explain select * from t1 a right join t1 b using (c1, c2);
+:explain select * from t1 a right join d1 b using (c1);
+:explain select * from t1 a right join d1 b using (c1, c2);
+:explain select * from t1 a right join r1 b using (c1);
+:explain select * from t1 a right join r1 b using (c1, c2);
 
-explain analyze select * from t1 a right join t2 b using (c1);
-explain analyze select * from t1 a right join t2 b using (c1, c2);
-explain analyze select * from t1 a right join d2 b using (c1);
-explain analyze select * from t1 a right join d2 b using (c1, c2);
-explain analyze select * from t1 a right join r2 b using (c1);
-explain analyze select * from t1 a right join r2 b using (c1, c2);
+:explain select * from t1 a right join t2 b using (c1);
+:explain select * from t1 a right join t2 b using (c1, c2);
+:explain select * from t1 a right join d2 b using (c1);
+:explain select * from t1 a right join d2 b using (c1, c2);
+:explain select * from t1 a right join r2 b using (c1);
+:explain select * from t1 a right join r2 b using (c1, c2);
 
-explain analyze select * from d1 a right join d1 b using (c1);
-explain analyze select * from d1 a right join r1 b using (c1);
-explain analyze select * from r1 a right join r1 b using (c1);
+:explain select * from d1 a right join d1 b using (c1);
+:explain select * from d1 a right join r1 b using (c1);
+:explain select * from r1 a right join r1 b using (c1);
 
-explain analyze select * from d1 a right join d2 b using (c1);
-explain analyze select * from d1 a right join r2 b using (c1);
-explain analyze select * from r1 a right join r2 b using (c1);
+:explain select * from d1 a right join d2 b using (c1);
+:explain select * from d1 a right join r2 b using (c1);
+:explain select * from r1 a right join r2 b using (c1);
 
 --
 -- insert
