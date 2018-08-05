@@ -3,7 +3,7 @@
 -- TODO: ao tables
 -- TODO: tables and temp tables
 
-\set explain 'explain (analyze, costs off)'
+\set explain 'explain analyze'
 
 set allow_system_table_mods to 'dml';
 
