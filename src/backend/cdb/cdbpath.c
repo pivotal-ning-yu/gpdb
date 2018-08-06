@@ -889,6 +889,8 @@ cdbpath_motion_for_join(PlannerInfo *root,
 	outer.has_wts = cdbpath_contains_wts(outer.path);
 	inner.has_wts = cdbpath_contains_wts(inner.path);
 
+	/* FIXME: nyu: special optimization for numsegments=1 */
+
 	/* For now, inner path should not contain WorkTableScan */
 	Assert(!inner.has_wts);
 
