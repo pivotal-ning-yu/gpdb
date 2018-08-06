@@ -99,8 +99,18 @@ select localoid::regclass, attrnums, policytype, numsegments
 
 drop table t;
 
+-- below join cases cover all the combinations of
 --
--- join
+--     select * from {t,d,r}{1,2} a
+--      {left,} join {t,d,r}{1,2} b
+--      using (c1{',c2',});
+--
+-- there might be some duplicated ones, like 't1 join d1' and 'd1 join t1',
+-- or 'd1 join r1 using (c1)' and 'd1 join r1 using (c1, c2)', this is because
+-- we generate them via scripts and do not clean them up manually.
+
+--
+-- x1 join y1
 --
 
 :explain select * from t1 a join t1 b using (c1);
@@ -109,6 +119,22 @@ drop table t;
 :explain select * from t1 a join d1 b using (c1, c2);
 :explain select * from t1 a join r1 b using (c1);
 :explain select * from t1 a join r1 b using (c1, c2);
+:explain select * from d1 a join t1 b using (c1);
+:explain select * from d1 a join t1 b using (c1, c2);
+:explain select * from d1 a join d1 b using (c1);
+:explain select * from d1 a join d1 b using (c1, c2);
+:explain select * from d1 a join r1 b using (c1);
+:explain select * from d1 a join r1 b using (c1, c2);
+:explain select * from r1 a join t1 b using (c1);
+:explain select * from r1 a join t1 b using (c1, c2);
+:explain select * from r1 a join d1 b using (c1);
+:explain select * from r1 a join d1 b using (c1, c2);
+:explain select * from r1 a join r1 b using (c1);
+:explain select * from r1 a join r1 b using (c1, c2);
+
+--
+-- x1 join y2
+--
 
 :explain select * from t1 a join t2 b using (c1);
 :explain select * from t1 a join t2 b using (c1, c2);
@@ -116,14 +142,22 @@ drop table t;
 :explain select * from t1 a join d2 b using (c1, c2);
 :explain select * from t1 a join r2 b using (c1);
 :explain select * from t1 a join r2 b using (c1, c2);
-
-:explain select * from d1 a join d1 b using (c1);
-:explain select * from d1 a join r1 b using (c1);
-:explain select * from r1 a join r1 b using (c1);
-
+:explain select * from d1 a join t2 b using (c1);
+:explain select * from d1 a join t2 b using (c1, c2);
 :explain select * from d1 a join d2 b using (c1);
+:explain select * from d1 a join d2 b using (c1, c2);
 :explain select * from d1 a join r2 b using (c1);
+:explain select * from d1 a join r2 b using (c1, c2);
+:explain select * from r1 a join t2 b using (c1);
+:explain select * from r1 a join t2 b using (c1, c2);
+:explain select * from r1 a join d2 b using (c1);
+:explain select * from r1 a join d2 b using (c1, c2);
 :explain select * from r1 a join r2 b using (c1);
+:explain select * from r1 a join r2 b using (c1, c2);
+
+--
+-- x2 join y1
+--
 
 :explain select * from t2 a join t1 b using (c1);
 :explain select * from t2 a join t1 b using (c1, c2);
@@ -131,6 +165,22 @@ drop table t;
 :explain select * from t2 a join d1 b using (c1, c2);
 :explain select * from t2 a join r1 b using (c1);
 :explain select * from t2 a join r1 b using (c1, c2);
+:explain select * from d2 a join t1 b using (c1);
+:explain select * from d2 a join t1 b using (c1, c2);
+:explain select * from d2 a join d1 b using (c1);
+:explain select * from d2 a join d1 b using (c1, c2);
+:explain select * from d2 a join r1 b using (c1);
+:explain select * from d2 a join r1 b using (c1, c2);
+:explain select * from r2 a join t1 b using (c1);
+:explain select * from r2 a join t1 b using (c1, c2);
+:explain select * from r2 a join d1 b using (c1);
+:explain select * from r2 a join d1 b using (c1, c2);
+:explain select * from r2 a join r1 b using (c1);
+:explain select * from r2 a join r1 b using (c1, c2);
+
+--
+-- x2 join y2
+--
 
 :explain select * from t2 a join t2 b using (c1);
 :explain select * from t2 a join t2 b using (c1, c2);
@@ -138,17 +188,21 @@ drop table t;
 :explain select * from t2 a join d2 b using (c1, c2);
 :explain select * from t2 a join r2 b using (c1);
 :explain select * from t2 a join r2 b using (c1, c2);
-
-:explain select * from d2 a join d1 b using (c1);
-:explain select * from d2 a join r1 b using (c1);
-:explain select * from r2 a join r1 b using (c1);
-
+:explain select * from d2 a join t2 b using (c1);
+:explain select * from d2 a join t2 b using (c1, c2);
 :explain select * from d2 a join d2 b using (c1);
+:explain select * from d2 a join d2 b using (c1, c2);
 :explain select * from d2 a join r2 b using (c1);
+:explain select * from d2 a join r2 b using (c1, c2);
+:explain select * from r2 a join t2 b using (c1);
+:explain select * from r2 a join t2 b using (c1, c2);
+:explain select * from r2 a join d2 b using (c1);
+:explain select * from r2 a join d2 b using (c1, c2);
 :explain select * from r2 a join r2 b using (c1);
+:explain select * from r2 a join r2 b using (c1, c2);
 
 --
--- left join
+-- x1 left join y1
 --
 
 :explain select * from t1 a left join t1 b using (c1);
@@ -157,6 +211,22 @@ drop table t;
 :explain select * from t1 a left join d1 b using (c1, c2);
 :explain select * from t1 a left join r1 b using (c1);
 :explain select * from t1 a left join r1 b using (c1, c2);
+:explain select * from d1 a left join t1 b using (c1);
+:explain select * from d1 a left join t1 b using (c1, c2);
+:explain select * from d1 a left join d1 b using (c1);
+:explain select * from d1 a left join d1 b using (c1, c2);
+:explain select * from d1 a left join r1 b using (c1);
+:explain select * from d1 a left join r1 b using (c1, c2);
+:explain select * from r1 a left join t1 b using (c1);
+:explain select * from r1 a left join t1 b using (c1, c2);
+:explain select * from r1 a left join d1 b using (c1);
+:explain select * from r1 a left join d1 b using (c1, c2);
+:explain select * from r1 a left join r1 b using (c1);
+:explain select * from r1 a left join r1 b using (c1, c2);
+
+--
+-- x1 left join y2
+--
 
 :explain select * from t1 a left join t2 b using (c1);
 :explain select * from t1 a left join t2 b using (c1, c2);
@@ -164,14 +234,22 @@ drop table t;
 :explain select * from t1 a left join d2 b using (c1, c2);
 :explain select * from t1 a left join r2 b using (c1);
 :explain select * from t1 a left join r2 b using (c1, c2);
-
-:explain select * from d1 a left join d1 b using (c1);
-:explain select * from d1 a left join r1 b using (c1);
-:explain select * from r1 a left join r1 b using (c1);
-
+:explain select * from d1 a left join t2 b using (c1);
+:explain select * from d1 a left join t2 b using (c1, c2);
 :explain select * from d1 a left join d2 b using (c1);
+:explain select * from d1 a left join d2 b using (c1, c2);
 :explain select * from d1 a left join r2 b using (c1);
+:explain select * from d1 a left join r2 b using (c1, c2);
+:explain select * from r1 a left join t2 b using (c1);
+:explain select * from r1 a left join t2 b using (c1, c2);
+:explain select * from r1 a left join d2 b using (c1);
+:explain select * from r1 a left join d2 b using (c1, c2);
 :explain select * from r1 a left join r2 b using (c1);
+:explain select * from r1 a left join r2 b using (c1, c2);
+
+--
+-- x2 left join y1
+--
 
 :explain select * from t2 a left join t1 b using (c1);
 :explain select * from t2 a left join t1 b using (c1, c2);
@@ -179,6 +257,22 @@ drop table t;
 :explain select * from t2 a left join d1 b using (c1, c2);
 :explain select * from t2 a left join r1 b using (c1);
 :explain select * from t2 a left join r1 b using (c1, c2);
+:explain select * from d2 a left join t1 b using (c1);
+:explain select * from d2 a left join t1 b using (c1, c2);
+:explain select * from d2 a left join d1 b using (c1);
+:explain select * from d2 a left join d1 b using (c1, c2);
+:explain select * from d2 a left join r1 b using (c1);
+:explain select * from d2 a left join r1 b using (c1, c2);
+:explain select * from r2 a left join t1 b using (c1);
+:explain select * from r2 a left join t1 b using (c1, c2);
+:explain select * from r2 a left join d1 b using (c1);
+:explain select * from r2 a left join d1 b using (c1, c2);
+:explain select * from r2 a left join r1 b using (c1);
+:explain select * from r2 a left join r1 b using (c1, c2);
+
+--
+-- x2 left join y2
+--
 
 :explain select * from t2 a left join t2 b using (c1);
 :explain select * from t2 a left join t2 b using (c1, c2);
@@ -186,62 +280,18 @@ drop table t;
 :explain select * from t2 a left join d2 b using (c1, c2);
 :explain select * from t2 a left join r2 b using (c1);
 :explain select * from t2 a left join r2 b using (c1, c2);
-
-:explain select * from d2 a left join d1 b using (c1);
-:explain select * from d2 a left join r1 b using (c1);
-:explain select * from r2 a left join r1 b using (c1);
-
+:explain select * from d2 a left join t2 b using (c1);
+:explain select * from d2 a left join t2 b using (c1, c2);
 :explain select * from d2 a left join d2 b using (c1);
+:explain select * from d2 a left join d2 b using (c1, c2);
 :explain select * from d2 a left join r2 b using (c1);
+:explain select * from d2 a left join r2 b using (c1, c2);
+:explain select * from r2 a left join t2 b using (c1);
+:explain select * from r2 a left join t2 b using (c1, c2);
+:explain select * from r2 a left join d2 b using (c1);
+:explain select * from r2 a left join d2 b using (c1, c2);
 :explain select * from r2 a left join r2 b using (c1);
-
---
--- right join
---
-
-:explain select * from t1 a right join t1 b using (c1);
-:explain select * from t1 a right join t1 b using (c1, c2);
-:explain select * from t1 a right join d1 b using (c1);
-:explain select * from t1 a right join d1 b using (c1, c2);
-:explain select * from t1 a right join r1 b using (c1);
-:explain select * from t1 a right join r1 b using (c1, c2);
-
-:explain select * from t1 a right join t2 b using (c1);
-:explain select * from t1 a right join t2 b using (c1, c2);
-:explain select * from t1 a right join d2 b using (c1);
-:explain select * from t1 a right join d2 b using (c1, c2);
-:explain select * from t1 a right join r2 b using (c1);
-:explain select * from t1 a right join r2 b using (c1, c2);
-
-:explain select * from d1 a right join d1 b using (c1);
-:explain select * from d1 a right join r1 b using (c1);
-:explain select * from r1 a right join r1 b using (c1);
-
-:explain select * from d1 a right join d2 b using (c1);
-:explain select * from d1 a right join r2 b using (c1);
-:explain select * from r1 a right join r2 b using (c1);
-
-:explain select * from t2 a right join t1 b using (c1);
-:explain select * from t2 a right join t1 b using (c1, c2);
-:explain select * from t2 a right join d1 b using (c1);
-:explain select * from t2 a right join d1 b using (c1, c2);
-:explain select * from t2 a right join r1 b using (c1);
-:explain select * from t2 a right join r1 b using (c1, c2);
-
-:explain select * from t2 a right join t2 b using (c1);
-:explain select * from t2 a right join t2 b using (c1, c2);
-:explain select * from t2 a right join d2 b using (c1);
-:explain select * from t2 a right join d2 b using (c1, c2);
-:explain select * from t2 a right join r2 b using (c1);
-:explain select * from t2 a right join r2 b using (c1, c2);
-
-:explain select * from d2 a right join d1 b using (c1);
-:explain select * from d2 a right join r1 b using (c1);
-:explain select * from r2 a right join r1 b using (c1);
-
-:explain select * from d2 a right join d2 b using (c1);
-:explain select * from d2 a right join r2 b using (c1);
-:explain select * from r2 a right join r2 b using (c1);
+:explain select * from r2 a left join r2 b using (c1, c2);
 
 --
 -- insert
