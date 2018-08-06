@@ -55,33 +55,33 @@ CGPOptimizer::TouchLibraryInitializers()
 //
 //---------------------------------------------------------------------------
 PlannedStmt *
-CGPOptimizer::PplstmtOptimize
+CGPOptimizer::GPOPTOptimizedPlan
 	(
-	Query *pquery,
-	bool *pfUnexpectedFailure // output : set to true if optimizer unexpectedly failed to produce plan
+	Query *query,
+	bool *had_unexpected_failure // output : set to true if optimizer unexpectedly failed to produce plan
 	)
 {
-	SOptContext octx;
+	SOptContext gpopt_context;
 	PlannedStmt* plStmt = NULL;
 	GPOS_TRY
 	{
-		plStmt = COptTasks::PplstmtOptimize(pquery, &octx, pfUnexpectedFailure);
+		plStmt = COptTasks::GPOPTOptimizedPlan(query, &gpopt_context, had_unexpected_failure);
 		// clean up context
-		octx.Free(octx.epinQuery, octx.epinPlStmt);
+		gpopt_context.Free(gpopt_context.epinQuery, gpopt_context.epinPlStmt);
 	}
 	GPOS_CATCH_EX(ex)
 	{
 		// clone the error message before context free.
-		CHAR* szErrorMsg = octx.CloneErrorMsg(MessageContext);
+		CHAR* serialized_error_msg = gpopt_context.CloneErrorMsg(MessageContext);
 		// clean up context
-		octx.Free(octx.epinQuery, octx.epinPlStmt);
+		gpopt_context.Free(gpopt_context.epinQuery, gpopt_context.epinPlStmt);
 		if (GPOS_MATCH_EX(ex, gpdxl::ExmaDXL, gpdxl::ExmiOptimizerError) ||
-			NULL != szErrorMsg)
+			NULL != serialized_error_msg)
 		{
-			Assert(NULL != szErrorMsg);
-			errstart(ERROR, ex.SzFilename(), ex.UlLine(), NULL, TEXTDOMAIN);
+			Assert(NULL != serialized_error_msg);
+			errstart(ERROR, ex.Filename(), ex.Line(), NULL, TEXTDOMAIN);
 			errfinish(errcode(ERRCODE_INTERNAL_ERROR),
-					errmsg("%s", szErrorMsg));
+					errmsg("%s", serialized_error_msg));
 		}
 		else if (GPOS_MATCH_EX(ex, gpdxl::ExmaGPDB, gpdxl::ExmiGPDBError))
 		{
@@ -89,13 +89,13 @@ CGPOptimizer::PplstmtOptimize
 		}
 		else if (GPOS_MATCH_EX(ex, gpdxl::ExmaDXL, gpdxl::ExmiNoAvailableMemory))
 		{
-			errstart(ERROR, ex.SzFilename(), ex.UlLine(), NULL, TEXTDOMAIN);
+			errstart(ERROR, ex.Filename(), ex.Line(), NULL, TEXTDOMAIN);
 			errfinish(errcode(ERRCODE_INTERNAL_ERROR),
 					errmsg("No available memory to allocate string buffer."));
 		}
 		else if (GPOS_MATCH_EX(ex, gpdxl::ExmaDXL, gpdxl::ExmiInvalidComparisonTypeCode))
 		{
-			errstart(ERROR, ex.SzFilename(), ex.UlLine(), NULL, TEXTDOMAIN);
+			errstart(ERROR, ex.Filename(), ex.Line(), NULL, TEXTDOMAIN);
 			errfinish(errcode(ERRCODE_INTERNAL_ERROR),
 					errmsg("Invalid comparison type code. Valid values are Eq, NEq, LT, LEq, GT, GEq."));
 		}
@@ -114,12 +114,12 @@ CGPOptimizer::PplstmtOptimize
 //
 //---------------------------------------------------------------------------
 char *
-CGPOptimizer::SzDXLPlan
+CGPOptimizer::SerializeDXLPlan
 	(
-	Query *pquery
+	Query *query
 	)
 {
-	return COptTasks::SzOptimize(pquery);
+	return COptTasks::Optimize(query);
 }
 
 //---------------------------------------------------------------------------
@@ -133,7 +133,7 @@ CGPOptimizer::SzDXLPlan
 void
 CGPOptimizer::InitGPOPT ()
 {
-	struct gpos_init_params params = { NULL, NULL, gpdb::FAbortRequested };
+	struct gpos_init_params params = { NULL, NULL, gpdb::IsAbortRequested };
 	gpos_init(&params);
 	gpdxl_init();
 	gpopt_init();
@@ -157,7 +157,7 @@ CGPOptimizer::TerminateGPOPT ()
 
 //---------------------------------------------------------------------------
 //	@function:
-//		PplstmtOptimize
+//		GPOPTOptimizedPlan
 //
 //	@doc:
 //		Expose GP optimizer API to C files
@@ -165,19 +165,19 @@ CGPOptimizer::TerminateGPOPT ()
 //---------------------------------------------------------------------------
 extern "C"
 {
-PlannedStmt *PplstmtOptimize
+PlannedStmt *GPOPTOptimizedPlan
 	(
-	Query *pquery,
-	bool *pfUnexpectedFailure
+	Query *query,
+	bool *had_unexpected_failure
 	)
 {
-	return CGPOptimizer::PplstmtOptimize(pquery, pfUnexpectedFailure);
+	return CGPOptimizer::GPOPTOptimizedPlan(query, had_unexpected_failure);
 }
 }
 
 //---------------------------------------------------------------------------
 //	@function:
-//		SzDXLPlan
+//		SerializeDXLPlan
 //
 //	@doc:
 //		Serialize planned statement to DXL
@@ -185,12 +185,12 @@ PlannedStmt *PplstmtOptimize
 //---------------------------------------------------------------------------
 extern "C"
 {
-char *SzDXLPlan
+char *SerializeDXLPlan
 	(
-	Query *pquery
+	Query *query
 	)
 {
-	return CGPOptimizer::SzDXLPlan(pquery);
+	return CGPOptimizer::SerializeDXLPlan(query);
 }
 }
 

@@ -2,51 +2,55 @@
 //	Greenplum Database
 //	Copyright (C) 2011 EMC Greenplum, Inc.
 //
-//	@filename:
-//		funcs.cpp
-//
 //	@doc:
 //		API for invoking optimizer using GPDB udfs
-//
-//	@owner:
-//		raghav
-//
-//	@test:
-//
-//
 //---------------------------------------------------------------------------
 
+#include "postgres.h"
+
 #include <sys/stat.h>
-#include "gpopt/utils/nodeutils.h"
+
 #include "gpopt/utils/CCatalogUtils.h"
 #include "gpopt/utils/COptTasks.h"
+#include "gpopt/mdcache/CMDCache.h"
+#include "utils/guc.h"
+#include "utils/snapmgr.h"
 
 #include "gpos/_api.h"
 #include "gpos/io/CFileReader.h"
 #include "gpos/io/CFileWriter.h"
 #include "gpopt/gpdbwrappers.h"
 
-#include "gpopt/version.h"
-#include "xercesc/util/XercesVersion.hpp"
-
 extern "C" {
 
-PG_MODULE_MAGIC_CPP;
+PG_MODULE_MAGIC;
 
 #undef PG_DETOAST_DATUM
 #define PG_DETOAST_DATUM(datum) \
-	gpdb::DetoastDatum((struct varlena *) gpdb::PointerFromDatum(datum))
+	gpdb::PvlenDetoastDatum((struct varlena *) gpdb::PvPointerFromDatum(datum))
 
 #undef PG_RETURN_POINTER
-#define PG_RETURN_POINTER(x) return gpdb::DatumFromPointer(x)
+#define PG_RETURN_POINTER(x) return gpdb::DDatumFromPointer(x)
 
 #undef PG_RETURN_UINT32
-#define PG_RETURN_UINT32(x)  return gpdb::DatumFromUint32(x)
+#define PG_RETURN_UINT32(x)  return gpdb::DDatumFromUint32(x)
 
 #undef PG_RETURN_INT32
-#define PG_RETURN_INT32(x)  return gpdb::DatumFromInt32(x)
+#define PG_RETURN_INT32(x)  return gpdb::DDatumFromInt32(x)
 
 // by value
+
+Datum DumpPlan(PG_FUNCTION_ARGS);
+Datum RestorePlan(PG_FUNCTION_ARGS);
+Datum DumpPlanToFile(PG_FUNCTION_ARGS);
+Datum RestorePlanFromFile(PG_FUNCTION_ARGS);
+Datum RestorePlanDXL(PG_FUNCTION_ARGS);
+Datum RestorePlanFromDXLFile(PG_FUNCTION_ARGS);
+Datum DumpMDObjDXL(PG_FUNCTION_ARGS);
+Datum DumpCatalogDXL(PG_FUNCTION_ARGS);
+Datum DumpRelStatsDXL(PG_FUNCTION_ARGS);
+Datum DumpMDCastDXL(PG_FUNCTION_ARGS);
+Datum DumpMDScCmpDXL(PG_FUNCTION_ARGS);
 
 PG_FUNCTION_INFO_V1(DumpPlan);
 PG_FUNCTION_INFO_V1(RestorePlan);
@@ -60,6 +64,14 @@ PG_FUNCTION_INFO_V1(DumpRelStatsDXL);
 PG_FUNCTION_INFO_V1(DumpMDCastDXL);
 PG_FUNCTION_INFO_V1(DumpMDScCmpDXL);
 
+Datum DumpQuery(PG_FUNCTION_ARGS);
+Datum RestoreQuery(PG_FUNCTION_ARGS);
+Datum DumpQueryToFile(PG_FUNCTION_ARGS);
+Datum RestoreQueryFromFile(PG_FUNCTION_ARGS);
+Datum DumpQueryDXL(PG_FUNCTION_ARGS);
+Datum DumpQueryToDXLFile(PG_FUNCTION_ARGS);
+Datum DumpQueryFromFileToDXLFile(PG_FUNCTION_ARGS);
+
 PG_FUNCTION_INFO_V1(DumpQuery);
 PG_FUNCTION_INFO_V1(RestoreQuery);
 PG_FUNCTION_INFO_V1(DumpQueryToFile);
@@ -67,11 +79,14 @@ PG_FUNCTION_INFO_V1(RestoreQueryFromFile);
 PG_FUNCTION_INFO_V1(DumpQueryDXL);
 PG_FUNCTION_INFO_V1(DumpQueryToDXLFile);
 PG_FUNCTION_INFO_V1(DumpQueryFromFileToDXLFile);
-PG_FUNCTION_INFO_V1(DisableXform);
-PG_FUNCTION_INFO_V1(EnableXform);
-PG_FUNCTION_INFO_V1(LibraryVersion);
+
+Datum Optimize(PG_FUNCTION_ARGS);
 
 PG_FUNCTION_INFO_V1(Optimize);
+
+Datum EvalExprFromDXLFile(PG_FUNCTION_ARGS);
+Datum OptimizeMinidumpFromFile(PG_FUNCTION_ARGS);
+Datum ExecuteMinidumpFromFile(PG_FUNCTION_ARGS);
 
 PG_FUNCTION_INFO_V1(EvalExprFromDXLFile);
 PG_FUNCTION_INFO_V1(OptimizeMinidumpFromFile);
@@ -108,12 +123,12 @@ static Query *parseSQL(char *szSqlText)
 
 	List *plQueryTree = pg_parse_and_rewrite(szSqlText, NULL, 0);
 
-	if (1 != gpdb::ListLength(plQueryTree))
+	if (1 != gpdb::UlListLength(plQueryTree))
 	{
 		elog(ERROR, "problem parsing query %s", szSqlText);
 	}
 
-	Query *pquery = (Query *) lfirst(gpdb::ListHead(plQueryTree));
+	Query *pquery = (Query *) lfirst(gpdb::PlcListHead(plQueryTree));
 
 	return pquery;
 }
@@ -138,18 +153,18 @@ static PlannedStmt *planQuery(char *szSqlText)
 
 	List *plQueryTree = pg_parse_and_rewrite(szSqlText, NULL, 0);
 
-	if (1 != gpdb::ListLength(plQueryTree))
+	if (1 != gpdb::UlListLength(plQueryTree))
 	{
 		elog(ERROR, "problem parsing query %s", szSqlText);
 	}
 
-	Query *pqueryTree = (Query *) lfirst(gpdb::ListHead(plQueryTree));
+	Query *pqueryTree = (Query *) lfirst(gpdb::PlcListHead(plQueryTree));
 
 	PlannedStmt *pplstmt = pg_plan_query(pqueryTree, NULL);
 
 	if (!pplstmt)
 	{
-		elog(ERROR, "problem planned query %s. query tree is %s", szSqlText, gpdb::NodeToString(pqueryTree));
+		elog(ERROR, "problem planned query %s. query tree is %s", szSqlText, gpdb::SzNodeToString(pqueryTree));
 	}
 
 	return pplstmt;
@@ -260,7 +275,7 @@ static int translateQueryToFile
 
 	Assert(pquery);
 
-	char *szXmlString = COptTasks::ConvertQueryToDXL(pquery);
+	char *szXmlString = COptTasks::SzDXL(pquery);
 	int iLen = (int) gpos::clib::Strlen(szXmlString);
 
 	CFileWriter fw;
@@ -287,15 +302,15 @@ extern "C" {
 Datum
 DumpQuery(PG_FUNCTION_ARGS)
 {
-	char *szSqlText = textToString(PG_GETARG_TEXT_P(0));
+	char *szSqlText = text_to_cstring(PG_GETARG_TEXT_P(0));
 
 	Query *pquery = parseSQL(szSqlText);
-	elog(NOTICE, "(DumpQuery - Original) \n %s", pretty_format_node_dump(const_cast<char*>(gpdb::NodeToString(pquery))));
+	elog(NOTICE, "(DumpQuery - Original) \n %s", pretty_format_node_dump(const_cast<char*>(gpdb::SzNodeToString(pquery))));
 
 	Query *pqueryNormalized = preprocess_query_optimizer(pquery, NULL);
-	elog(NOTICE, "(DumpQuery - Normalized) \n %s", pretty_format_node_dump(const_cast<char*>(gpdb::NodeToString(pqueryNormalized))));
+	elog(NOTICE, "(DumpQuery - Normalized) \n %s", pretty_format_node_dump(const_cast<char*>(gpdb::SzNodeToString(pqueryNormalized))));
 
-	text *ptResult = stringToText("Query dumped");
+	text *ptResult = cstring_to_text("Query dumped");
 
 	PG_RETURN_TEXT_P(ptResult);
 }
@@ -327,7 +342,7 @@ RestoreQuery(PG_FUNCTION_ARGS)
 	initStringInfo(&str);
 
 	appendStringInfo(&str, "Query processed %d rows", iProcessed);
-	text *ptResult = stringToText(str.data);
+	text *ptResult = cstring_to_text(str.data);
 
 	PG_RETURN_TEXT_P(ptResult);
 }
@@ -346,8 +361,8 @@ extern "C" {
 Datum
 DumpQueryToFile(PG_FUNCTION_ARGS)
 {
-	char *szSql = textToString(PG_GETARG_TEXT_P(0));
-	char *szFilename = textToString(PG_GETARG_TEXT_P(1));
+	char *szSql = text_to_cstring(PG_GETARG_TEXT_P(0));
+	char *szFilename = text_to_cstring(PG_GETARG_TEXT_P(1));
 
 	size_t iQueryStringLen = -1;
 	char *pcQuery = getQueryBinary(szSql, &iQueryStringLen);
@@ -377,19 +392,19 @@ extern "C" {
 Datum
 DumpQueryDXL(PG_FUNCTION_ARGS)
 {
-	char *szSqlText = textToString(PG_GETARG_TEXT_P(0));
+	char *szSqlText = text_to_cstring(PG_GETARG_TEXT_P(0));
 
 	Query *pquery = parseSQL(szSqlText);
 
 	Assert(pquery);
 
-	char *szXmlString = COptTasks::ConvertQueryToDXL(pquery);
+	char *szXmlString = COptTasks::SzDXL(pquery);
 	if (NULL == szXmlString)
 	{
 		elog(ERROR, "Error translating query to DXL");
 	}
 
-	PG_RETURN_TEXT_P(stringToText(szXmlString));
+	PG_RETURN_TEXT_P(cstring_to_text(szXmlString));
 }
 }
 
@@ -408,8 +423,8 @@ extern "C" {
 Datum
 DumpQueryToDXLFile(PG_FUNCTION_ARGS)
 {
-	char *szSqlText = textToString(PG_GETARG_TEXT_P(0));
-	char *szFilename = textToString(PG_GETARG_TEXT_P(1));
+	char *szSqlText = text_to_cstring(PG_GETARG_TEXT_P(0));
+	char *szFilename = text_to_cstring(PG_GETARG_TEXT_P(1));
 
 	int iLen = translateQueryToFile(szSqlText, szFilename);
 
@@ -432,15 +447,15 @@ extern "C" {
 Datum
 DumpQueryFromFileToDXLFile(PG_FUNCTION_ARGS)
 {
-	char *szSqlFilename = textToString(PG_GETARG_TEXT_P(0));
-	char *szFilename = textToString(PG_GETARG_TEXT_P(1));
+	char *szSqlFilename = text_to_cstring(PG_GETARG_TEXT_P(0));
+	char *szFilename = text_to_cstring(PG_GETARG_TEXT_P(1));
 
 	CFileReader fr;
 	fr.Open(szSqlFilename);
-	ULLONG ullSize = fr.FileSize();
+	ULLONG ullSize = fr.UllSize();
 
 	char *pcBuf = (char*) gpdb::GPDBAlloc(ullSize + 1);
-	fr.ReadBytesToBuffer((BYTE*)pcBuf, ullSize);
+	fr.UlpRead((BYTE*)pcBuf, ullSize);
 	pcBuf[ullSize] = '\0';
 	fr.Close();
 
@@ -468,21 +483,21 @@ extern "C" {
 Datum
 EvalExprFromDXLFile(PG_FUNCTION_ARGS)
 {
-	char *szFileName = textToString(PG_GETARG_TEXT_P(0));
+	char *szFileName = text_to_cstring(PG_GETARG_TEXT_P(0));
 	CFileReader fr;
 	fr.Open(szFileName);
-	ULLONG ullSize = fr.FileSize();
+	ULLONG ullSize = fr.UllSize();
 	char *pcBuf = (char*) gpdb::GPDBAlloc(ullSize + 1);
-	fr.ReadBytesToBuffer((BYTE*)pcBuf, ullSize);
+	fr.UlpRead((BYTE*)pcBuf, ullSize);
 	fr.Close();
 	pcBuf[ullSize] = '\0';
 
-	char *szResultDXL = COptTasks::EvalExprFromXML(pcBuf);
+	char *szResultDXL = COptTasks::SzEvalExprFromXML(pcBuf);
 	gpdb::GPDBFree(pcBuf);
 
 	if (NULL != szResultDXL)
 	{
-		text *ptResult = stringToText(szResultDXL);
+		text *ptResult = cstring_to_text(szResultDXL);
 		gpdb::GPDBFree(szResultDXL);
 		PG_RETURN_TEXT_P(ptResult);
 	}
@@ -509,11 +524,11 @@ extern "C" {
 Datum
 OptimizeMinidumpFromFile(PG_FUNCTION_ARGS)
 {
-	char *szFileName = textToString(PG_GETARG_TEXT_P(0));
-	char *szResultDXL = COptTasks::OptimizeMinidumpFromFile(szFileName);
+	char *szFileName = text_to_cstring(PG_GETARG_TEXT_P(0));
+	char *szResultDXL = COptTasks::SzOptimizeMinidumpFromFile(szFileName);
 	if (NULL != szResultDXL)
 	{
-		text *ptResult = stringToText(szResultDXL);
+		text *ptResult = cstring_to_text(szResultDXL);
 		gpdb::GPDBFree(szResultDXL);
 		PG_RETURN_TEXT_P(ptResult);
 	}
@@ -542,8 +557,8 @@ extern "C" {
 Datum
 ExecuteMinidumpFromFile(PG_FUNCTION_ARGS)
 {
-	char *szFileName = textToString(PG_GETARG_TEXT_P(0));
-	char *szResultDXL = COptTasks::OptimizeMinidumpFromFile(szFileName);
+	char *szFileName = text_to_cstring(PG_GETARG_TEXT_P(0));
+	char *szResultDXL = COptTasks::SzOptimizeMinidumpFromFile(szFileName);
 	if (NULL == szResultDXL)
 	{
 		elog(NOTICE, "Execution of UDF 'ExecuteMinidumpFromFile' failed. Consult the LOG for more information.");
@@ -556,7 +571,7 @@ ExecuteMinidumpFromFile(PG_FUNCTION_ARGS)
 	StringInfoData str;
 	initStringInfo(&str);
 	appendStringInfo(&str, "processed %d rows", iProcessed);
-	text *ptResult = stringToText(str.data);
+	text *ptResult = cstring_to_text(str.data);
 
 	PG_RETURN_TEXT_P(ptResult);
 }
@@ -579,7 +594,7 @@ extern "C" {
 Datum
 RestorePlanDXL(PG_FUNCTION_ARGS)
 {
-	char *szXmlString = textToString(PG_GETARG_TEXT_P(0));
+	char *szXmlString = text_to_cstring(PG_GETARG_TEXT_P(0));
 
 	int iProcessed = executeXMLPlan(szXmlString);
 
@@ -587,7 +602,7 @@ RestorePlanDXL(PG_FUNCTION_ARGS)
 	initStringInfo(&str);
 	appendStringInfo(&str, "processed %d rows", iProcessed);
 
-	text *ptResult = stringToText(str.data);
+	text *ptResult = cstring_to_text(str.data);
 
 	PG_RETURN_TEXT_P(ptResult);
 }
@@ -609,14 +624,14 @@ extern "C" {
 Datum
 RestorePlanFromDXLFile(PG_FUNCTION_ARGS)
 {
-	char *szFilename = textToString(PG_GETARG_TEXT_P(0));
+	char *szFilename = text_to_cstring(PG_GETARG_TEXT_P(0));
 
 	CFileReader fr;
 	fr.Open(szFilename);
-	ULLONG ullSize = fr.FileSize();
+	ULLONG ullSize = fr.UllSize();
 
 	char *pcBuf = (char*) gpdb::GPDBAlloc(ullSize + 1);
-	fr.ReadBytesToBuffer((BYTE*)pcBuf, ullSize);
+	fr.UlpRead((BYTE*)pcBuf, ullSize);
 	pcBuf[ullSize] = '\0';
 
 	fr.Close();
@@ -630,7 +645,7 @@ RestorePlanFromDXLFile(PG_FUNCTION_ARGS)
 	initStringInfo(&str);
 
 	appendStringInfo(&str, "Query processed %d rows", iProcessed);
-	text *ptResult = stringToText(str.data);
+	text *ptResult = cstring_to_text(str.data);
 
 	PG_RETURN_TEXT_P(ptResult);
 }
@@ -653,14 +668,14 @@ DumpMDObjDXL(PG_FUNCTION_ARGS)
 {
 	Oid oid = gpdb::OidFromDatum(PG_GETARG_DATUM(0));
 
-	char *szDXL = COptTasks::SzMDObjs(ListMake1Oid(oid));
+	char *dxl_string = COptTasks::SzMDObjs(ListMake1Oid(oid));
 
-	if (NULL == szDXL)
+	if (NULL == dxl_string)
 	{
 		elog(ERROR, "Error dumping MD object");
 	}
 
-	PG_RETURN_TEXT_P(stringToText(szDXL));
+	PG_RETURN_TEXT_P(cstring_to_text(dxl_string));
 }
 }
 
@@ -681,9 +696,9 @@ DumpRelStatsDXL(PG_FUNCTION_ARGS)
 {
 	Oid oid = gpdb::OidFromDatum(PG_GETARG_DATUM(0));
 
-	char *szDXL = COptTasks::DumpRelStats(ListMake1Oid(oid));
+	char *dxl_string = COptTasks::SzRelStats(ListMake1Oid(oid));
 
-	PG_RETURN_TEXT_P(stringToText(szDXL));
+	PG_RETURN_TEXT_P(cstring_to_text(dxl_string));
 }
 }
 
@@ -705,9 +720,9 @@ DumpMDCastDXL(PG_FUNCTION_ARGS)
 	Oid oidSrc = gpdb::OidFromDatum(PG_GETARG_DATUM(0));
 	Oid oidDest = gpdb::OidFromDatum(PG_GETARG_DATUM(1));
 
-	char *szDXL = COptTasks::DumpMDCast(ListMake2Oid(oidSrc, oidDest));
+	char *dxl_string = COptTasks::SzMDCast(ListMake2Oid(oidSrc, oidDest));
 
-	PG_RETURN_TEXT_P(stringToText(szDXL));
+	PG_RETURN_TEXT_P(cstring_to_text(dxl_string));
 }
 }
 
@@ -728,11 +743,11 @@ DumpMDScCmpDXL(PG_FUNCTION_ARGS)
 {
 	Oid oidLeft = gpdb::OidFromDatum(PG_GETARG_DATUM(0));
 	Oid oidRight = gpdb::OidFromDatum(PG_GETARG_DATUM(1));
-	char *szCmpType = textToString(PG_GETARG_TEXT_P(2));
+	char *szCmpType = text_to_cstring(PG_GETARG_TEXT_P(2));
 	
-	char *szDXL = COptTasks::DumpMDScalarCmp(ListMake2Oid(oidLeft, oidRight), szCmpType);
+	char *dxl_string = COptTasks::SzMDScCmp(ListMake2Oid(oidLeft, oidRight), szCmpType);
 
-	PG_RETURN_TEXT_P(stringToText(szDXL));
+	PG_RETURN_TEXT_P(cstring_to_text(dxl_string));
 }
 }
 
@@ -750,8 +765,8 @@ extern "C" {
 Datum
 DumpCatalogDXL(PG_FUNCTION_ARGS)
 {
-	char *szFilename = textToString(PG_GETARG_TEXT_P(0));
-	List *plAllOids = CCatalogUtils::GetAllOids();
+	char *szFilename = text_to_cstring(PG_GETARG_TEXT_P(0));
+	List *plAllOids = CCatalogUtils::PlAllOids();
 
 	COptTasks::DumpMDObjs(plAllOids, szFilename);
 
@@ -785,14 +800,14 @@ static int extractFrozenQueryPlanAndExecute(char *pcQuery)
 
 	if (!pplstmt)
 	{
-		elog(ERROR, "Problem with planned statement of query tree %s", gpdb::NodeToString(pquery));
+		elog(ERROR, "Problem with planned statement of query tree %s", gpdb::SzNodeToString(pquery));
 	}
 
 	// The following steps are required to be able to execute the query.
 
-	DestReceiver *pdest = CreateDestReceiver(DestNone, NULL);
+	DestReceiver *pdest = CreateDestReceiver(DestNone);
 	QueryDesc    *pqueryDesc = CreateQueryDesc(pplstmt, PStrDup("Internal Query") /*plan->query */,
-			ActiveSnapshot,
+			GetActiveSnapshot(),
 			InvalidSnapshot,
 			pdest,
 			NULL /*paramLI*/,
@@ -839,9 +854,9 @@ static int extractFrozenPlanAndExecute(char *pcSerializedPS)
 
 	//The following steps are required to be able to execute the query.
 
-	DestReceiver *pdest = CreateDestReceiver(DestNone, NULL);
+	DestReceiver *pdest = CreateDestReceiver(DestNone);
 	QueryDesc    *pqueryDesc = CreateQueryDesc(pplstmt, PStrDup("Internal Query") /*plan->query */,
-			ActiveSnapshot,
+			GetActiveSnapshot(),
 			InvalidSnapshot,
 			pdest,
 			NULL /*paramLI*/,
@@ -867,13 +882,13 @@ static int extractFrozenPlanAndExecute(char *pcSerializedPS)
 
 static int executeXMLPlan(char *szXml)
 {
-	PlannedStmt *pplstmt = COptTasks::ConvertToiPlanStmtFromXML(szXml);
+	PlannedStmt *pplstmt = COptTasks::PplstmtFromXML(szXml);
 
 	// The following steps are required to be able to execute the query.
 
-	DestReceiver *pdest = CreateDestReceiver(DestNone, NULL);
+	DestReceiver *pdest = CreateDestReceiver(DestNone);
 	QueryDesc    *pqueryDesc = CreateQueryDesc(pplstmt, PStrDup("Internal Query") /*plan->query */,
-			ActiveSnapshot,
+			GetActiveSnapshot(),
 			InvalidSnapshot,
 			pdest,
 			NULL /*paramLI*/,
@@ -913,15 +928,15 @@ extern "C" {
 Datum
 RestoreQueryFromFile(PG_FUNCTION_ARGS)
 {
-	char *szFilename = textToString(PG_GETARG_TEXT_P(0));
+	char *szFilename = text_to_cstring(PG_GETARG_TEXT_P(0));
 
 	CFileReader fr;
 	fr.Open(szFilename);
-	ULLONG ullSize = fr.FileSize();
-	elog(NOTICE, "(RestoreFromFile) Filesize is %d", ullSize);
+	ULLONG ullSize = fr.UllSize();
+	elog(NOTICE, "(RestoreFromFile) Filesize is " UINT64_FORMAT, (uint64) ullSize);
 
 	char *pcBuf = (char*) gpdb::GPDBAlloc(ullSize);
-	fr.ReadBytesToBuffer((BYTE*)pcBuf, ullSize);
+	fr.UlpRead((BYTE*)pcBuf, ullSize);
 	fr.Close();
 
 	int iBinaryLen;
@@ -938,76 +953,9 @@ RestoreQueryFromFile(PG_FUNCTION_ARGS)
 	initStringInfo(&str);
 
 	appendStringInfo(&str, "Query processed %d rows", iProcessed);
-	text *ptResult = stringToText(str.data);
+	text *ptResult = cstring_to_text(str.data);
 
 	PG_RETURN_TEXT_P(ptResult);
-}
-}
-
-
-//---------------------------------------------------------------------------
-//	@function:
-//		DisableXform
-//
-//	@doc:
-//		Takes transformation name as input, and disables this transformation.
-//
-//---------------------------------------------------------------------------
-
-extern "C" {
-Datum
-DisableXform(PG_FUNCTION_ARGS)
-{
-	char *szXform = text_to_cstring(PG_GETARG_TEXT_P(0));
-	bool is_result = COptTasks::SetXform(szXform, true /*fDisable*/);
-
-	StringInfoData str;
-	initStringInfo(&str);
-
-	if (is_result)
-	{
-		appendStringInfo(&str, "%s is disabled", szXform);
-	}
-	else
-	{
-		appendStringInfo(&str, "%s is not recognized", szXform);
-	}
-	text *result = stringToText(str.data);
-
-	PG_RETURN_TEXT_P(result);
-}
-}
-
-//---------------------------------------------------------------------------
-//	@function:
-//		EnableXform
-//
-//	@doc:
-//		Takes transformation name as input, and enables this transformation.
-//
-//---------------------------------------------------------------------------
-
-extern "C" {
-Datum
-EnableXform(PG_FUNCTION_ARGS)
-{
-	char *szXform = text_to_cstring(PG_GETARG_TEXT_P(0));
-	bool is_result = COptTasks::SetXform(szXform, false /*fDisable*/);
-
-	StringInfoData str;
-	initStringInfo(&str);
-
-	if (is_result)
-	{
-		appendStringInfo(&str, "%s is enabled", szXform);
-	}
-	else
-	{
-		appendStringInfo(&str, "%s is not recognized", szXform);
-	}
-	text *result = stringToText(str.data);
-
-	PG_RETURN_TEXT_P(result);
 }
 }
 
@@ -1025,8 +973,8 @@ extern "C" {
 Datum
 DumpPlanToFile(PG_FUNCTION_ARGS)
 {
-	char *szSql = textToString(PG_GETARG_TEXT_P(0));
-	char *szFilename = textToString(PG_GETARG_TEXT_P(1));
+	char *szSql = text_to_cstring(PG_GETARG_TEXT_P(0));
+	char *szFilename = text_to_cstring(PG_GETARG_TEXT_P(1));
 
 	size_t iBinaryLen = -1;
 	char *pcBinary = getPlannedStmtBinary(szSql, &iBinaryLen);
@@ -1038,36 +986,6 @@ DumpPlanToFile(PG_FUNCTION_ARGS)
 	fw.Close();
 
 	PG_RETURN_UINT32((ULONG) iBinaryLen);
-}
-}
-
-//---------------------------------------------------------------------------
-//	@function:
-//		LibraryVersion
-//
-//	@doc:
-//		Returns the optimizer and xerces library versions as a message
-//
-//---------------------------------------------------------------------------
-extern "C" {
-Datum
-LibraryVersion()
-{
-	StringInfoData str;
-	initStringInfo(&str);
-	appendStringInfo(&str, "GPOPT version: %s", GPORCA_VERSION_STRING);
-	appendStringInfo(&str, ", Xerces version: %s", XERCES_FULLVERSIONDOT);
-	text *result = stringToText(str.data);
-
-	PG_RETURN_TEXT_P(result);
-}
-}
-
-extern "C" {
-const char *
-OptVersion()
-{
-	return GPORCA_VERSION_STRING;
 }
 }
 
@@ -1087,14 +1005,14 @@ extern "C" {
 Datum
 RestorePlanFromFile(PG_FUNCTION_ARGS)
 {
-	char *szFilename = textToString(PG_GETARG_TEXT_P(0));
+	char *szFilename = text_to_cstring(PG_GETARG_TEXT_P(0));
 
 	CFileReader fr;
 	fr.Open(szFilename);
-	ULLONG ullSize = fr.FileSize();
+	ULLONG ullSize = fr.UllSize();
 
 	char *pcBuf = (char*) gpdb::GPDBAlloc(ullSize);
-	fr.ReadBytesToBuffer((BYTE*)pcBuf, ullSize);
+	fr.UlpRead((BYTE*)pcBuf, ullSize);
 	fr.Close();
 
 	int iBinaryLen;
@@ -1112,7 +1030,7 @@ RestorePlanFromFile(PG_FUNCTION_ARGS)
 	initStringInfo(&str);
 
 	appendStringInfo(&str, "Query processed %d rows", iProcessed);
-	text *ptResult = stringToText(str.data);
+	text *ptResult = cstring_to_text(str.data);
 
 	PG_RETURN_TEXT_P(ptResult);
 }
@@ -1134,20 +1052,20 @@ extern "C" {
 Datum
 Optimize(PG_FUNCTION_ARGS)
 {
-	char *szSQLText = textToString(PG_GETARG_TEXT_P(0));
+	char *szSQLText = text_to_cstring(PG_GETARG_TEXT_P(0));
 
 	Query *pquery = parseSQL(szSQLText);
 	Query *pqueryNormalized = preprocess_query_optimizer(pquery, NULL);
 
 	Assert(pqueryNormalized);
 
-	char *szOutput = COptTasks::Optimize(pqueryNormalized);
+	char *szOutput = COptTasks::SzOptimize(pqueryNormalized);
 
 	if (NULL == szOutput)
 	{
 		elog(ERROR, "Error optimizing query");
 	}
 
-	PG_RETURN_TEXT_P(stringToText(szOutput));
+	PG_RETURN_TEXT_P(cstring_to_text(szOutput));
 }
 }

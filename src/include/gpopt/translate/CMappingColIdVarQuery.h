@@ -41,10 +41,10 @@ namespace gpdxl
 	using namespace gpos;
 
 	// Hash map that stores the mapping between Column Id -> TE
-	typedef CHashMap<ULONG, CMappingElementColIdTE, gpos::UlHash<ULONG>, gpos::FEqual<ULONG>,
+	typedef CHashMap<ULONG, CMappingElementColIdTE, gpos::HashValue<ULONG>, gpos::Equals<ULONG>,
 					CleanupDelete<ULONG>, CleanupRelease<CMappingElementColIdTE> > TEMap;
 
-	typedef CHashMapIter<ULONG, CMappingElementColIdTE, gpos::UlHash<ULONG>, gpos::FEqual<ULONG>,
+	typedef CHashMapIter<ULONG, CMappingElementColIdTE, gpos::HashValue<ULONG>, gpos::Equals<ULONG>,
 					CleanupDelete<ULONG>, CleanupRelease<CMappingElementColIdTE> > TEMapIter;
 
 	//---------------------------------------------------------------------------

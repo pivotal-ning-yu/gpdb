@@ -30,7 +30,7 @@ namespace gpdxl
 	using namespace gpos;
 
 	// hash maps mapping ULONG -> ScalarId
-	typedef CHashMap<ULONG, CDXLScalarIdent, gpos::UlHash<ULONG>, gpos::FEqual<ULONG>,
+	typedef CHashMap<ULONG, CDXLScalarIdent, gpos::HashValue<ULONG>, gpos::Equals<ULONG>,
 			CleanupDelete<ULONG>, CleanupRelease<CDXLScalarIdent> > HMParamScalar;
 
 	//---------------------------------------------------------------------------

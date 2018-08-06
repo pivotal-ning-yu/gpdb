@@ -67,9 +67,9 @@ CMappingColIdVarQuery::Pte
 	)
 	const
 {
-	const CMappingElementColIdTE *pmappingelement = m_ptemap->PtLookup(&ulColId);
+	const CMappingElementColIdTE *pmappingelement = m_ptemap->Find(&ulColId);
 	GPOS_ASSERT(NULL != pmappingelement);
-	return pmappingelement->Pte();
+	return pmappingelement->GetTargetEntry();
 }
 
 //---------------------------------------------------------------------------
@@ -88,14 +88,14 @@ CMappingColIdVarQuery::FInsertMapping
 	)
 {
 	// Assert that there are no duplicate entries for a column id
-	GPOS_ASSERT(NULL == m_ptemap->PtLookup(&ulColId));
+	GPOS_ASSERT(NULL == m_ptemap->Find(&ulColId));
 
 	// create mapping element
-	CMappingElementColIdTE *pmappingelement = GPOS_NEW(m_pmp) CMappingElementColIdTE(ulColId, m_ulQueryLevel, pte);
+	CMappingElementColIdTE *pmappingelement = GPOS_NEW(m_mp) CMappingElementColIdTE(ulColId, m_ulQueryLevel, pte);
 
 	// insert ColId->TE mapping
-	ULONG *pulKey1 = GPOS_NEW(m_pmp) ULONG(ulColId);
-	BOOL fRes1 = m_ptemap->FInsert(pulKey1, pmappingelement);
+	ULONG *pulKey1 = GPOS_NEW(m_mp) ULONG(ulColId);
+	BOOL fRes1 = m_ptemap->Insert(pulKey1, pmappingelement);
 	GPOS_ASSERT(fRes1);
 
 	return fRes1;
@@ -129,20 +129,20 @@ CMappingColIdVarQuery::PvarFromDXLNodeScId
 	const CDXLScalarIdent *pdxlop
 	)
 {
-	ULONG ulColId = pdxlop->Pdxlcr()->UlID();
+	ULONG ulColId = pdxlop->GetDXLColRef()->Id();
 
-	const CMappingElementColIdTE *pmappingelement = m_ptemap->PtLookup(&ulColId);
+	const CMappingElementColIdTE *pmappingelement = m_ptemap->Find(&ulColId);
 	GPOS_ASSERT(NULL != pmappingelement);
-	const TargetEntry *pte = pmappingelement->Pte();
+	const TargetEntry *pte = pmappingelement->GetTargetEntry();
 
 	GPOS_ASSERT(NULL != pte);
 	GPOS_ASSERT(IsA(pte->expr, Var));
 
 	Var *pvar = ((Var*) pte->expr);
-	Var *pvarNew = (Var*) gpdb::PvCopyObject(pvar);
+	Var *pvarNew = (Var*) gpdb::CopyObject(pvar);
 
 	// lookup query level
-	const ULONG ulLevel = pmappingelement->UlQueryLevel();
+	const ULONG ulLevel = pmappingelement->GetQueryLevel();
 
 	pvarNew->varlevelsup = m_ulQueryLevel - ulLevel;
 

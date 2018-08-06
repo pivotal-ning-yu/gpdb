@@ -53,7 +53,7 @@ namespace gpdxl
 			List *m_plColumnNames;
 
 			// list of column ids
-			DrgPul *m_pdrgpulColIds;
+			ULongPtrArray *m_pdrgpulColIds;
 
 		public:
 

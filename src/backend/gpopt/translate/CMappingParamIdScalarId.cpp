@@ -53,7 +53,7 @@ CMappingParamIdScalarId::Pscid
 	)
 	const
 {
-	return m_phmps->PtLookup(&ulParamId);
+	return m_phmps->Find(&ulParamId);
 }
 
 //---------------------------------------------------------------------------
@@ -75,7 +75,7 @@ CMappingParamIdScalarId::FInsertMapping
 	ULONG *pulKey = GPOS_NEW(m_pmp) ULONG(ulParamId);
 
 	// insert mapping in the hash map
-	return m_phmps->FInsert(pulKey, pscid);
+	return m_phmps->Insert(pulKey, pscid);
 }
 
 // EOF

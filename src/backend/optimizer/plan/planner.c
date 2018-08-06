@@ -94,7 +94,7 @@ static List *register_ordered_aggs(List *tlist, Node *havingqual, List *sub_tlis
 
 // GP optimizer entry point
 #ifdef USE_ORCA
-extern PlannedStmt *PplstmtOptimize(Query *parse, bool *pfUnexpectedFailure);
+extern PlannedStmt *GPOPTOptimizedPlan(Query *parse, bool *pfUnexpectedFailure);
 #endif
 
 typedef struct
@@ -226,7 +226,7 @@ optimize_query(Query *parse, ParamListInfo boundParams)
 	/* perform pre-processing of query tree before calling optimizer */
 	pqueryCopy = preprocess_query_optimizer(pqueryCopy, boundParams);
 
-	PlannedStmt *result = PplstmtOptimize(pqueryCopy, &fUnexpectedFailure);
+	PlannedStmt *result = GPOPTOptimizedPlan(pqueryCopy, &fUnexpectedFailure);
 
 	if (result)
 	{

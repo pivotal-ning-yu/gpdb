@@ -45,7 +45,7 @@ CStateDXLToQuery::CStateDXLToQuery
 	m_plTEColumns(NIL),
 	m_plColumnNames(NIL)
 {
-	m_pdrgpulColIds = GPOS_NEW(m_pmp) DrgPul(m_pmp);
+	m_pdrgpulColIds = GPOS_NEW(m_pmp) ULongPtrArray(m_pmp);
 }
 
 
@@ -79,10 +79,10 @@ CStateDXLToQuery::AddOutputColumnEntry
 	ULONG ulColId
 	)
 {
-	GPOS_ASSERT(gpdb::UlListLength(m_plTEColumns) == gpdb::UlListLength(m_plColumnNames));
-	GPOS_ASSERT((ULONG) gpdb::UlListLength(m_plTEColumns) == m_pdrgpulColIds->UlLength());
-	m_plTEColumns = gpdb::PlAppendElement(m_plTEColumns, pte);
-	m_plColumnNames = gpdb::PlAppendElement(m_plColumnNames, szColumnName);
+	GPOS_ASSERT(gpdb::ListLength(m_plTEColumns) == gpdb::ListLength(m_plColumnNames));
+	GPOS_ASSERT((ULONG) gpdb::ListLength(m_plTEColumns) == m_pdrgpulColIds->Size());
+	m_plTEColumns = gpdb::LAppend(m_plTEColumns, pte);
+	m_plColumnNames = gpdb::LAppend(m_plColumnNames, szColumnName);
 	m_pdrgpulColIds->Append(GPOS_NEW(m_pmp) ULONG(ulColId));
 }
 
@@ -100,7 +100,7 @@ BOOL
 CStateDXLToQuery::FTEFound(TargetEntry *pte)
 {
 	// check if we have already added the corresponding pte entry in pplTE
-	TargetEntry *pteFound = gpdb::PteMember( (Node*) pte->expr, m_plTEColumns);
+	TargetEntry *pteFound = gpdb::FindFirstMatchingMemberInTargetList( (Node*) pte->expr, m_plTEColumns);
 
 	if(NULL == pteFound)
 	{
@@ -148,7 +148,7 @@ CStateDXLToQuery::Reload
 		TargetEntry *pte = pstatedxltoquery->PteColumn(ul);
 		GPOS_ASSERT(NULL != pte);
 		ULONG ulColId = pstatedxltoquery->UlColId(ul);
-		TargetEntry *pteCopy =  (TargetEntry*) gpdb::PvCopyObject(pte);
+		TargetEntry *pteCopy =  (TargetEntry*) gpdb::CopyObject(pte);
 		AddOutputColumnEntry(pteCopy, pteCopy->resname, ulColId);
 	}
 }
@@ -164,8 +164,8 @@ CStateDXLToQuery::Reload
 ULONG
 CStateDXLToQuery::UlLength()
 {
-	const ULONG ulSize = (ULONG) gpdb::UlListLength(m_plTEColumns);
-	GPOS_ASSERT(ulSize == (ULONG) gpdb::UlListLength(m_plColumnNames));
+	const ULONG ulSize = (ULONG) gpdb::ListLength(m_plTEColumns);
+	GPOS_ASSERT(ulSize == (ULONG) gpdb::ListLength(m_plColumnNames));
 	return ulSize;
 }
 
@@ -181,8 +181,8 @@ CStateDXLToQuery::UlLength()
 TargetEntry *
 CStateDXLToQuery::PteColumn(ULONG ulIndex)
 {
-	GPOS_ASSERT((ULONG) gpdb::UlListLength(m_plTEColumns) > ulIndex);
-	return (TargetEntry*) gpdb::PvListNth(m_plTEColumns, ulIndex);
+	GPOS_ASSERT((ULONG) gpdb::ListLength(m_plTEColumns) > ulIndex);
+	return (TargetEntry*) gpdb::ListNth(m_plTEColumns, ulIndex);
 }
 
 //---------------------------------------------------------------------------
@@ -196,8 +196,8 @@ CStateDXLToQuery::PteColumn(ULONG ulIndex)
 CHAR *
 CStateDXLToQuery::SzColumnName(ULONG ulIndex)
 {
-	GPOS_ASSERT((ULONG) gpdb::UlListLength(m_plColumnNames) > ulIndex);
-	return (CHAR*) gpdb::PvListNth(m_plColumnNames, ulIndex);
+	GPOS_ASSERT((ULONG) gpdb::ListLength(m_plColumnNames) > ulIndex);
+	return (CHAR*) gpdb::ListNth(m_plColumnNames, ulIndex);
 }
 
 //---------------------------------------------------------------------------
@@ -211,7 +211,7 @@ CStateDXLToQuery::SzColumnName(ULONG ulIndex)
 ULONG
 CStateDXLToQuery::UlColId(ULONG ulIndex)
 {
-	GPOS_ASSERT(m_pdrgpulColIds->UlLength() > ulIndex);
+	GPOS_ASSERT(m_pdrgpulColIds->Size() > ulIndex);
 
 	ULONG *pulColId = (*m_pdrgpulColIds)[ulIndex];
 	GPOS_ASSERT(NULL != pulColId);
