@@ -309,6 +309,31 @@ cdbpath_create_motion_path(PlannerInfo *root,
 		/* Other destinations aren't used or supported at present. */
 		goto invalid_motion_request;
 	}
+
+	/* Most motions from SegmentGeneral (replicated table) are disallowed */
+	else if (CdbPathLocus_IsSegmentGeneral(subpath->locus))
+	{
+		/*
+		 * The only allowed case is a SegmentGeneral to Hashed motion,
+		 * and SegmentGeneral's numsegments is smaller than Hashed's.
+		 * In such a case we redistribute SegmentGeneral to Hashed.
+		 *
+		 * FIXME: HashedOJ?
+		 */
+		if (CdbPathLocus_IsHashed(locus) &&
+			(CdbPathLocus_NumSegments(locus) >
+			 CdbPathLocus_NumSegments(subpath->locus)))
+		{
+#if 0
+			subpath->locus.numsegments = CdbPathLocus_NumSegments(locus);
+			return subpath;
+#endif
+			pathkeys = NIL;
+		}
+		else
+			goto invalid_motion_request;
+	}
+
 	else
 		goto invalid_motion_request;
 
@@ -1089,22 +1114,71 @@ cdbpath_motion_for_join(PlannerInfo *root,
 		else
 		{
 			/*
-			 * execute the plan in the segment which replicate table is
-			 * storaged.
+			 * If all other's segments have segGeneral stored, then no motion
+			 * is needed.
 			 *
 			 * A sql to reach here:
 			 *     select * from d1 a join r2 b using (c1);
 			 * where d1 is a replicated table on 1 segment,
-			 *       r2 is a replicated table on 2 segments.
+			 *       r2 is a random table on 2 segments.
 			 */
-			if (CdbPathLocus_NumSegments(segGeneral->locus) <
+			if (CdbPathLocus_NumSegments(segGeneral->locus) >=
 				CdbPathLocus_NumSegments(other->locus))
 			{
-				other->locus.numsegments =
-					CdbPathLocus_NumSegments(segGeneral->locus);
+#if 0
+				segGeneral->locus.numsegments =
+					CdbPathLocus_NumSegments(other->locus);
+#endif
+
+				return other->locus;
 			}
 
-			return other->locus;
+			/*
+			 * Otherwise there is some segments where other is on but
+			 * segGeneral is not, in such a case motions are needed.
+			 */
+
+			/*
+			 * For the case that other is a Hashed table and merge clause
+			 * matches other's distribute keys, we could redistribute
+			 * segGeneral to other.
+			 *
+			 * FIXME: can we do this on r1 left join t1?
+			 */
+			if (CdbPathLocus_IsHashed(other->locus) &&
+				cdbpath_match_preds_to_partkey(root,
+											   mergeclause_list,
+											   other->locus,
+											   &segGeneral->move_to))	/* OUT */
+			{
+				/*
+				 * XXX: if we require replicated tables to be reshuffled
+				 * before any other tables, then we could avoid such a case
+				 */
+
+				/* the result is distributed on the same segments with other */
+				segGeneral->move_to.numsegments = CdbPathLocus_NumSegments(other->locus);
+#if 0
+				return other->locus;
+#endif
+			}
+			/*
+			 * Otherwise gather both of them to a SingleQE, this is not usually
+			 * a best choice as the SingleQE might be on QD, so although the
+			 * overall cost is low it increases the load on QD.
+			 *
+			 * FIXME: is it possible to only gather other to segGeneral?
+			 */
+			else
+			{
+				int numsegments = CdbPathLocus_NumSegments(segGeneral->locus);
+
+				Assert(CdbPathLocus_NumSegments(segGeneral->locus) <
+					   CdbPathLocus_NumSegments(other->locus));
+
+				CdbPathLocus_MakeSingleQE(&segGeneral->move_to, numsegments);
+				CdbPathLocus_MakeSingleQE(&other->move_to, numsegments);
+			}
 		}
 	}
 	/*
