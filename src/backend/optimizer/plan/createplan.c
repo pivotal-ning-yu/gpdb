@@ -6701,7 +6701,7 @@ adjust_modifytable_flow(PlannerInfo *root, ModifyTable *node)
 	}
 	else if (all_subplans_replicated)
 	{
-		mark_plan_replicated((Plan *) node);
+		mark_plan_replicated((Plan *) node, numsegments);
 	}
 	else
 	{
