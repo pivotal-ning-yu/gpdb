@@ -301,82 +301,82 @@ drop table t;
 -- insert
 --
 
-insert into t1 (c1, c2) values (1,1), (2,2), (3,3), (4,4), (5,5), (6,6)
-	returning gp_segment_id, *;
-insert into t2 (c1, c2) values (1,1), (2,2), (3,3), (4,4), (5,5), (6,6)
-	returning gp_segment_id, *;
+insert into t1 (c1) values (1), (2), (3), (4), (5), (6)
+	returning gp_segment_id, c1, c2;
+insert into t2 (c1) values (1), (2), (3), (4), (5), (6)
+	returning gp_segment_id, c1, c2;
 
-insert into d1 (c1, c2) values (1,1), (2,2), (3,3), (4,4), (5,5), (6,6)
-	returning gp_segment_id, *;
-insert into d2 (c1, c2) values (1,1), (2,2), (3,3), (4,4), (5,5), (6,6)
-	returning gp_segment_id, *;
+insert into d1 (c1) values (1), (2), (3), (4), (5), (6)
+	returning gp_segment_id, c1, c2;
+insert into d2 (c1) values (1), (2), (3), (4), (5), (6)
+	returning gp_segment_id, c1, c2;
 
-insert into r1 (c1, c2) values (1,1), (2,2), (3,3), (4,4), (5,5), (6,6)
-	returning gp_segment_id, *;
-insert into r2 (c1, c2) values (1,1), (2,2), (3,3), (4,4), (5,5), (6,6)
-	returning gp_segment_id, *;
+insert into r1 (c1) values (1), (2), (3), (4), (5), (6)
+	returning gp_segment_id, c1, c2;
+insert into r2 (c1) values (1), (2), (3), (4), (5), (6)
+	returning gp_segment_id, c1, c2;
 
 begin;
-insert into t1 (c1, c2) select i, i from generate_series(1, 20) i
-	returning gp_segment_id, *;
+insert into t1 (c1) select i from generate_series(1, 20) i
+	returning gp_segment_id, c1, c2;
 rollback;
 
 begin;
-insert into t1 (c1, c2) select c1, c2 from t1 returning gp_segment_id, *;
-insert into t1 (c1, c2) select c2, c1 from t1 returning gp_segment_id, *;
-insert into t1 (c1, c2) select c1, c2 from t2 returning gp_segment_id, *;
-insert into t1 (c1, c2) select c2, c1 from t2 returning gp_segment_id, *;
-insert into t1 (c1, c2) select c1, c2 from d1 returning gp_segment_id, *;
-insert into t1 (c1, c2) select c1, c2 from d2 returning gp_segment_id, *;
-insert into t1 (c1, c2) select c1, c2 from r1 returning gp_segment_id, *;
-insert into t1 (c1, c2) select c1, c2 from r2 returning gp_segment_id, *;
+insert into t1 (c1, c2) select c1, c2 from t1 returning gp_segment_id, c1, c2;
+insert into t1 (c1, c2) select c2, c1 from t1 returning gp_segment_id, c1, c2;
+insert into t1 (c1, c2) select c1, c2 from t2 returning gp_segment_id, c1, c2;
+insert into t1 (c1, c2) select c2, c1 from t2 returning gp_segment_id, c1, c2;
+insert into t1 (c1, c2) select c1, c2 from d1 returning gp_segment_id, c1, c2;
+insert into t1 (c1, c2) select c1, c2 from d2 returning gp_segment_id, c1, c2;
+insert into t1 (c1, c2) select c1, c2 from r1 returning gp_segment_id, c1, c2;
+insert into t1 (c1, c2) select c1, c2 from r2 returning gp_segment_id, c1, c2;
 rollback;
 
 begin;
-insert into t2 (c1, c2) select c1, c2 from t1 returning gp_segment_id, *;
-insert into t2 (c1, c2) select c2, c1 from t1 returning gp_segment_id, *;
-insert into t2 (c1, c2) select c1, c2 from d1 returning gp_segment_id, *;
-insert into t2 (c1, c2) select c1, c2 from d2 returning gp_segment_id, *;
-insert into t2 (c1, c2) select c1, c2 from r1 returning gp_segment_id, *;
-insert into t2 (c1, c2) select c1, c2 from r2 returning gp_segment_id, *;
+insert into t2 (c1, c2) select c1, c2 from t1 returning gp_segment_id, c1, c2;
+insert into t2 (c1, c2) select c2, c1 from t1 returning gp_segment_id, c1, c2;
+insert into t2 (c1, c2) select c1, c2 from d1 returning gp_segment_id, c1, c2;
+insert into t2 (c1, c2) select c1, c2 from d2 returning gp_segment_id, c1, c2;
+insert into t2 (c1, c2) select c1, c2 from r1 returning gp_segment_id, c1, c2;
+insert into t2 (c1, c2) select c1, c2 from r2 returning gp_segment_id, c1, c2;
 rollback;
 
 begin;
-insert into d1 (c1, c2) select c1, c2 from t1 returning gp_segment_id, *;
-insert into d1 (c1, c2) select c2, c1 from t1 returning gp_segment_id, *;
-insert into d1 (c1, c2) select c1, c2 from t2 returning gp_segment_id, *;
-insert into d1 (c1, c2) select c2, c1 from t2 returning gp_segment_id, *;
-insert into d1 (c1, c2) select c1, c2 from d1 returning gp_segment_id, *;
-insert into d1 (c1, c2) select c1, c2 from d2 returning gp_segment_id, *;
-insert into d1 (c1, c2) select c1, c2 from r1 returning gp_segment_id, *;
-insert into d1 (c1, c2) select c1, c2 from r2 returning gp_segment_id, *;
+insert into d1 (c1, c2) select c1, c2 from t1 returning gp_segment_id, c1, c2;
+insert into d1 (c1, c2) select c2, c1 from t1 returning gp_segment_id, c1, c2;
+insert into d1 (c1, c2) select c1, c2 from t2 returning gp_segment_id, c1, c2;
+insert into d1 (c1, c2) select c2, c1 from t2 returning gp_segment_id, c1, c2;
+insert into d1 (c1, c2) select c1, c2 from d1 returning gp_segment_id, c1, c2;
+insert into d1 (c1, c2) select c1, c2 from d2 returning gp_segment_id, c1, c2;
+insert into d1 (c1, c2) select c1, c2 from r1 returning gp_segment_id, c1, c2;
+insert into d1 (c1, c2) select c1, c2 from r2 returning gp_segment_id, c1, c2;
 rollback;
 
 begin;
-insert into d2 (c1, c2) select c1, c2 from t1 returning gp_segment_id, *;
-insert into d2 (c1, c2) select c2, c1 from t1 returning gp_segment_id, *;
-insert into d2 (c1, c2) select c1, c2 from d1 returning gp_segment_id, *;
-insert into d2 (c1, c2) select c1, c2 from d2 returning gp_segment_id, *;
-insert into d2 (c1, c2) select c1, c2 from r1 returning gp_segment_id, *;
-insert into d2 (c1, c2) select c1, c2 from r2 returning gp_segment_id, *;
+insert into d2 (c1, c2) select c1, c2 from t1 returning gp_segment_id, c1, c2;
+insert into d2 (c1, c2) select c2, c1 from t1 returning gp_segment_id, c1, c2;
+insert into d2 (c1, c2) select c1, c2 from d1 returning gp_segment_id, c1, c2;
+insert into d2 (c1, c2) select c1, c2 from d2 returning gp_segment_id, c1, c2;
+insert into d2 (c1, c2) select c1, c2 from r1 returning gp_segment_id, c1, c2;
+insert into d2 (c1, c2) select c1, c2 from r2 returning gp_segment_id, c1, c2;
 rollback;
 
 begin;
-insert into r1 (c1, c2) select c1, c2 from t1 returning gp_segment_id, *;
-insert into r1 (c1, c2) select c2, c1 from t1 returning gp_segment_id, *;
-insert into r1 (c1, c2) select c1, c2 from t2 returning gp_segment_id, *;
-insert into r1 (c1, c2) select c2, c1 from t2 returning gp_segment_id, *;
-insert into r1 (c1, c2) select c1, c2 from d1 returning gp_segment_id, *;
-insert into r1 (c1, c2) select c1, c2 from d2 returning gp_segment_id, *;
-insert into r1 (c1, c2) select c1, c2 from r1 returning gp_segment_id, *;
-insert into r1 (c1, c2) select c1, c2 from r2 returning gp_segment_id, *;
+insert into r1 (c1, c2) select c1, c2 from t1 returning gp_segment_id, c1, c2;
+insert into r1 (c1, c2) select c2, c1 from t1 returning gp_segment_id, c1, c2;
+insert into r1 (c1, c2) select c1, c2 from t2 returning gp_segment_id, c1, c2;
+insert into r1 (c1, c2) select c2, c1 from t2 returning gp_segment_id, c1, c2;
+insert into r1 (c1, c2) select c1, c2 from d1 returning gp_segment_id, c1, c2;
+insert into r1 (c1, c2) select c1, c2 from d2 returning gp_segment_id, c1, c2;
+insert into r1 (c1, c2) select c1, c2 from r1 returning gp_segment_id, c1, c2;
+insert into r1 (c1, c2) select c1, c2 from r2 returning gp_segment_id, c1, c2;
 rollback;
 
 begin;
-insert into r2 (c1, c2) select c1, c2 from t1 returning gp_segment_id, *;
-insert into r2 (c1, c2) select c2, c1 from t1 returning gp_segment_id, *;
-insert into r2 (c1, c2) select c1, c2 from d1 returning gp_segment_id, *;
-insert into r2 (c1, c2) select c1, c2 from d2 returning gp_segment_id, *;
-insert into r2 (c1, c2) select c1, c2 from r1 returning gp_segment_id, *;
-insert into r2 (c1, c2) select c1, c2 from r2 returning gp_segment_id, *;
+insert into r2 (c1, c2) select c1, c2 from t1 returning gp_segment_id, c1, c2;
+insert into r2 (c1, c2) select c2, c1 from t1 returning gp_segment_id, c1, c2;
+insert into r2 (c1, c2) select c1, c2 from d1 returning gp_segment_id, c1, c2;
+insert into r2 (c1, c2) select c1, c2 from d2 returning gp_segment_id, c1, c2;
+insert into r2 (c1, c2) select c1, c2 from r1 returning gp_segment_id, c1, c2;
+insert into r2 (c1, c2) select c1, c2 from r2 returning gp_segment_id, c1, c2;
 rollback;
