@@ -176,12 +176,12 @@ drop table t;
 :explain select * from t1 a join t1 b using (c1);
                                                               QUERY PLAN                                                              
 --------------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice2; segments: 2)  (cost=4721.50..1320064.85 rows=5055210 width=28) (actual time=4.156..4.156 rows=0 loops=1)
+ Gather Motion 2:1  (slice2; segments: 1)  (cost=4721.50..1320064.85 rows=5055210 width=28) (actual time=4.156..4.156 rows=0 loops=1)
    ->  Hash Join  (cost=4721.50..1320064.85 rows=2527605 width=28) (never executed)
          Hash Cond: a.c1 = b.c1
          ->  Seq Scan on t1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
          ->  Hash  (cost=2944.00..2944.00 rows=71100 width=16) (never executed)
-               ->  Broadcast Motion 2:2  (slice1; segments: 2)  (cost=0.00..2944.00 rows=71100 width=16) (never executed)
+               ->  Broadcast Motion 2:2  (slice1; segments: 1)  (cost=0.00..2944.00 rows=71100 width=16) (never executed)
                      ->  Seq Scan on t1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
    (slice0)    Executor memory: 386K bytes.
    (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
@@ -194,7 +194,7 @@ drop table t;
 :explain select * from t1 a join t1 b using (c1, c2);
                                                             QUERY PLAN                                                             
 -----------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice1; segments: 2)  (cost=1877.50..1266897.05 rows=5056 width=24) (actual time=0.347..0.347 rows=0 loops=1)
+ Gather Motion 2:1  (slice1; segments: 1)  (cost=1877.50..1266897.05 rows=5056 width=24) (actual time=0.347..0.347 rows=0 loops=1)
    ->  Hash Join  (cost=1877.50..1266897.05 rows=2528 width=24) (never executed)
          Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
          ->  Seq Scan on t1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
@@ -210,7 +210,7 @@ drop table t;
 :explain select * from t1 a join d1 b using (c1);
                                                              QUERY PLAN                                                              
 -------------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice1; segments: 2)  (cost=1699.75..685141.85 rows=5055210 width=28) (actual time=0.462..0.462 rows=0 loops=1)
+ Gather Motion 2:1  (slice1; segments: 1)  (cost=1699.75..685141.85 rows=5055210 width=28) (actual time=0.462..0.462 rows=0 loops=1)
    ->  Hash Join  (cost=1699.75..685141.85 rows=2527605 width=28) (never executed)
          Hash Cond: a.c1 = b.c1
          ->  Seq Scan on t1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
@@ -226,7 +226,7 @@ drop table t;
 :explain select * from t1 a join d1 b using (c1, c2);
                                                             QUERY PLAN                                                             
 -----------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice1; segments: 2)  (cost=1877.50..1266897.05 rows=5056 width=24) (actual time=0.299..0.299 rows=0 loops=1)
+ Gather Motion 2:1  (slice1; segments: 1)  (cost=1877.50..1266897.05 rows=5056 width=24) (actual time=0.299..0.299 rows=0 loops=1)
    ->  Hash Join  (cost=1877.50..1266897.05 rows=2528 width=24) (never executed)
          Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
          ->  Seq Scan on t1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
@@ -242,12 +242,12 @@ drop table t;
 :explain select * from t1 a join r1 b using (c1);
                                                               QUERY PLAN                                                              
 --------------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice2; segments: 2)  (cost=4721.50..1320064.85 rows=5055210 width=28) (actual time=4.047..4.047 rows=0 loops=1)
+ Gather Motion 2:1  (slice2; segments: 1)  (cost=4721.50..1320064.85 rows=5055210 width=28) (actual time=4.047..4.047 rows=0 loops=1)
    ->  Hash Join  (cost=4721.50..1320064.85 rows=2527605 width=28) (never executed)
          Hash Cond: a.c1 = b.c1
          ->  Seq Scan on t1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
          ->  Hash  (cost=2944.00..2944.00 rows=71100 width=16) (never executed)
-               ->  Broadcast Motion 2:2  (slice1; segments: 2)  (cost=0.00..2944.00 rows=71100 width=16) (never executed)
+               ->  Broadcast Motion 2:2  (slice1; segments: 1)  (cost=0.00..2944.00 rows=71100 width=16) (never executed)
                      ->  Seq Scan on r1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
    (slice0)    Executor memory: 386K bytes.
    (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
@@ -260,10 +260,10 @@ drop table t;
 :explain select * from t1 a join r1 b using (c1, c2);
                                                             QUERY PLAN                                                             
 -----------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice2; segments: 2)  (cost=1877.50..1268319.05 rows=5056 width=24) (actual time=2.535..2.535 rows=0 loops=1)
+ Gather Motion 2:1  (slice2; segments: 1)  (cost=1877.50..1268319.05 rows=5056 width=24) (actual time=2.535..2.535 rows=0 loops=1)
    ->  Hash Join  (cost=1877.50..1268319.05 rows=2528 width=24) (never executed)
          Hash Cond: b.c1 = a.c1 AND b.c2 = a.c2
-         ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+         ->  Redistribute Motion 2:2  (slice1; segments: 1)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
                Hash Key: b.c1, b.c2
                ->  Seq Scan on r1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
          ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (never executed)
@@ -279,7 +279,7 @@ drop table t;
 :explain select * from d1 a join t1 b using (c1);
                                                              QUERY PLAN                                                              
 -------------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice1; segments: 2)  (cost=1699.75..685141.85 rows=5055210 width=28) (actual time=0.391..0.391 rows=0 loops=1)
+ Gather Motion 2:1  (slice1; segments: 1)  (cost=1699.75..685141.85 rows=5055210 width=28) (actual time=0.391..0.391 rows=0 loops=1)
    ->  Hash Join  (cost=1699.75..685141.85 rows=2527605 width=28) (never executed)
          Hash Cond: a.c1 = b.c1
          ->  Seq Scan on d1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
@@ -295,7 +295,7 @@ drop table t;
 :explain select * from d1 a join t1 b using (c1, c2);
                                                             QUERY PLAN                                                             
 -----------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice1; segments: 2)  (cost=1877.50..1266897.05 rows=5056 width=24) (actual time=0.392..0.392 rows=0 loops=1)
+ Gather Motion 2:1  (slice1; segments: 1)  (cost=1877.50..1266897.05 rows=5056 width=24) (actual time=0.392..0.392 rows=0 loops=1)
    ->  Hash Join  (cost=1877.50..1266897.05 rows=2528 width=24) (never executed)
          Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
          ->  Seq Scan on d1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
@@ -343,7 +343,7 @@ drop table t;
 :explain select * from d1 a join r1 b using (c1);
                                                              QUERY PLAN                                                              
 -------------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice1; segments: 2)  (cost=1699.75..685141.85 rows=5055210 width=28) (actual time=0.409..0.409 rows=0 loops=1)
+ Gather Motion 2:1  (slice1; segments: 1)  (cost=1699.75..685141.85 rows=5055210 width=28) (actual time=0.409..0.409 rows=0 loops=1)
    ->  Hash Join  (cost=1699.75..685141.85 rows=2527605 width=28) (never executed)
          Hash Cond: a.c1 = b.c1
          ->  Seq Scan on d1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
@@ -359,7 +359,7 @@ drop table t;
 :explain select * from d1 a join r1 b using (c1, c2);
                                                             QUERY PLAN                                                             
 -----------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice1; segments: 2)  (cost=1877.50..1266897.05 rows=5056 width=24) (actual time=0.360..0.360 rows=0 loops=1)
+ Gather Motion 2:1  (slice1; segments: 1)  (cost=1877.50..1266897.05 rows=5056 width=24) (actual time=0.360..0.360 rows=0 loops=1)
    ->  Hash Join  (cost=1877.50..1266897.05 rows=2528 width=24) (never executed)
          Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
          ->  Seq Scan on d1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
@@ -375,12 +375,12 @@ drop table t;
 :explain select * from r1 a join t1 b using (c1);
                                                               QUERY PLAN                                                              
 --------------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice2; segments: 2)  (cost=4721.50..1320064.85 rows=5055210 width=28) (actual time=2.658..2.658 rows=0 loops=1)
+ Gather Motion 2:1  (slice2; segments: 1)  (cost=4721.50..1320064.85 rows=5055210 width=28) (actual time=2.658..2.658 rows=0 loops=1)
    ->  Hash Join  (cost=4721.50..1320064.85 rows=2527605 width=28) (never executed)
          Hash Cond: a.c1 = b.c1
          ->  Seq Scan on r1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
          ->  Hash  (cost=2944.00..2944.00 rows=71100 width=16) (never executed)
-               ->  Broadcast Motion 2:2  (slice1; segments: 2)  (cost=0.00..2944.00 rows=71100 width=16) (never executed)
+               ->  Broadcast Motion 2:2  (slice1; segments: 1)  (cost=0.00..2944.00 rows=71100 width=16) (never executed)
                      ->  Seq Scan on t1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
    (slice0)    Executor memory: 386K bytes.
    (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
@@ -393,10 +393,10 @@ drop table t;
 :explain select * from r1 a join t1 b using (c1, c2);
                                                             QUERY PLAN                                                             
 -----------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice2; segments: 2)  (cost=1877.50..1268319.05 rows=5056 width=24) (actual time=2.308..2.308 rows=0 loops=1)
+ Gather Motion 2:1  (slice2; segments: 1)  (cost=1877.50..1268319.05 rows=5056 width=24) (actual time=2.308..2.308 rows=0 loops=1)
    ->  Hash Join  (cost=1877.50..1268319.05 rows=2528 width=24) (never executed)
          Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
-         ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+         ->  Redistribute Motion 2:2  (slice1; segments: 1)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
                Hash Key: a.c1, a.c2
                ->  Seq Scan on r1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
          ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (never executed)
@@ -412,7 +412,7 @@ drop table t;
 :explain select * from r1 a join d1 b using (c1);
                                                              QUERY PLAN                                                              
 -------------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice1; segments: 2)  (cost=1699.75..685141.85 rows=5055210 width=28) (actual time=0.394..0.394 rows=0 loops=1)
+ Gather Motion 2:1  (slice1; segments: 1)  (cost=1699.75..685141.85 rows=5055210 width=28) (actual time=0.394..0.394 rows=0 loops=1)
    ->  Hash Join  (cost=1699.75..685141.85 rows=2527605 width=28) (never executed)
          Hash Cond: a.c1 = b.c1
          ->  Seq Scan on r1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
@@ -428,7 +428,7 @@ drop table t;
 :explain select * from r1 a join d1 b using (c1, c2);
                                                             QUERY PLAN                                                             
 -----------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice1; segments: 2)  (cost=1877.50..1266897.05 rows=5056 width=24) (actual time=0.375..0.375 rows=0 loops=1)
+ Gather Motion 2:1  (slice1; segments: 1)  (cost=1877.50..1266897.05 rows=5056 width=24) (actual time=0.375..0.375 rows=0 loops=1)
    ->  Hash Join  (cost=1877.50..1266897.05 rows=2528 width=24) (never executed)
          Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
          ->  Seq Scan on r1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
@@ -444,12 +444,12 @@ drop table t;
 :explain select * from r1 a join r1 b using (c1);
                                                               QUERY PLAN                                                              
 --------------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice2; segments: 2)  (cost=4721.50..1320064.85 rows=5055210 width=28) (actual time=2.441..2.441 rows=0 loops=1)
+ Gather Motion 2:1  (slice2; segments: 1)  (cost=4721.50..1320064.85 rows=5055210 width=28) (actual time=2.441..2.441 rows=0 loops=1)
    ->  Hash Join  (cost=4721.50..1320064.85 rows=2527605 width=28) (never executed)
          Hash Cond: a.c1 = b.c1
          ->  Seq Scan on r1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
          ->  Hash  (cost=2944.00..2944.00 rows=71100 width=16) (never executed)
-               ->  Broadcast Motion 2:2  (slice1; segments: 2)  (cost=0.00..2944.00 rows=71100 width=16) (never executed)
+               ->  Broadcast Motion 2:2  (slice1; segments: 1)  (cost=0.00..2944.00 rows=71100 width=16) (never executed)
                      ->  Seq Scan on r1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
    (slice0)    Executor memory: 386K bytes.
    (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
@@ -462,12 +462,12 @@ drop table t;
 :explain select * from r1 a join r1 b using (c1, c2);
                                                             QUERY PLAN                                                             
 -----------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice2; segments: 2)  (cost=5077.00..2533899.05 rows=5056 width=24) (actual time=2.417..2.417 rows=0 loops=1)
+ Gather Motion 2:1  (slice2; segments: 1)  (cost=5077.00..2533899.05 rows=5056 width=24) (actual time=2.417..2.417 rows=0 loops=1)
    ->  Hash Join  (cost=5077.00..2533899.05 rows=2528 width=24) (never executed)
          Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
          ->  Seq Scan on r1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
          ->  Hash  (cost=2944.00..2944.00 rows=71100 width=16) (never executed)
-               ->  Broadcast Motion 2:2  (slice1; segments: 2)  (cost=0.00..2944.00 rows=71100 width=16) (never executed)
+               ->  Broadcast Motion 2:2  (slice1; segments: 1)  (cost=0.00..2944.00 rows=71100 width=16) (never executed)
                      ->  Seq Scan on r1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
    (slice0)    Executor memory: 386K bytes.
    (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
@@ -483,7 +483,7 @@ drop table t;
 :explain select * from t1 a join t2 b using (c1);
                                                               QUERY PLAN                                                              
 --------------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice2; segments: 2)  (cost=4721.50..1320064.85 rows=5055210 width=28) (actual time=2.847..2.847 rows=0 loops=1)
+ Gather Motion 2:1  (slice2; segments: 1)  (cost=4721.50..1320064.85 rows=5055210 width=28) (actual time=2.847..2.847 rows=0 loops=1)
    ->  Hash Join  (cost=4721.50..1320064.85 rows=2527605 width=28) (never executed)
          Hash Cond: a.c1 = b.c1
          ->  Seq Scan on t1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
@@ -501,7 +501,7 @@ drop table t;
 :explain select * from t1 a join t2 b using (c1, c2);
                                                             QUERY PLAN                                                             
 -----------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice2; segments: 2)  (cost=3299.50..1268319.05 rows=5056 width=24) (actual time=2.530..2.530 rows=0 loops=1)
+ Gather Motion 2:1  (slice2; segments: 1)  (cost=3299.50..1268319.05 rows=5056 width=24) (actual time=2.530..2.530 rows=0 loops=1)
    ->  Hash Join  (cost=3299.50..1268319.05 rows=2528 width=24) (never executed)
          Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
          ->  Seq Scan on t1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
@@ -520,7 +520,7 @@ drop table t;
 :explain select * from t1 a join d2 b using (c1);
                                                              QUERY PLAN                                                              
 -------------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice1; segments: 2)  (cost=1699.75..685141.85 rows=5055210 width=28) (actual time=0.463..0.463 rows=0 loops=1)
+ Gather Motion 2:1  (slice1; segments: 1)  (cost=1699.75..685141.85 rows=5055210 width=28) (actual time=0.463..0.463 rows=0 loops=1)
    ->  Hash Join  (cost=1699.75..685141.85 rows=2527605 width=28) (never executed)
          Hash Cond: a.c1 = b.c1
          ->  Seq Scan on t1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
@@ -536,7 +536,7 @@ drop table t;
 :explain select * from t1 a join d2 b using (c1, c2);
                                                             QUERY PLAN                                                             
 -----------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice1; segments: 2)  (cost=1877.50..1266897.05 rows=5056 width=24) (actual time=0.345..0.345 rows=0 loops=1)
+ Gather Motion 2:1  (slice1; segments: 1)  (cost=1877.50..1266897.05 rows=5056 width=24) (actual time=0.345..0.345 rows=0 loops=1)
    ->  Hash Join  (cost=1877.50..1266897.05 rows=2528 width=24) (never executed)
          Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
          ->  Seq Scan on t1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
@@ -552,7 +552,7 @@ drop table t;
 :explain select * from t1 a join r2 b using (c1);
                                                               QUERY PLAN                                                              
 --------------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice2; segments: 2)  (cost=4721.50..1320064.85 rows=5055210 width=28) (actual time=2.634..2.634 rows=0 loops=1)
+ Gather Motion 2:1  (slice2; segments: 1)  (cost=4721.50..1320064.85 rows=5055210 width=28) (actual time=2.634..2.634 rows=0 loops=1)
    ->  Hash Join  (cost=4721.50..1320064.85 rows=2527605 width=28) (never executed)
          Hash Cond: a.c1 = b.c1
          ->  Seq Scan on t1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
@@ -570,7 +570,7 @@ drop table t;
 :explain select * from t1 a join r2 b using (c1, c2);
                                                             QUERY PLAN                                                             
 -----------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice2; segments: 2)  (cost=1877.50..1268319.05 rows=5056 width=24) (actual time=2.240..2.240 rows=0 loops=1)
+ Gather Motion 2:1  (slice2; segments: 1)  (cost=1877.50..1268319.05 rows=5056 width=24) (actual time=2.240..2.240 rows=0 loops=1)
    ->  Hash Join  (cost=1877.50..1268319.05 rows=2528 width=24) (never executed)
          Hash Cond: b.c1 = a.c1 AND b.c2 = a.c2
          ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
@@ -700,7 +700,7 @@ drop table t;
 :explain select * from r1 a join t2 b using (c1);
                                                               QUERY PLAN                                                              
 --------------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice2; segments: 2)  (cost=4721.50..1320064.85 rows=5055210 width=28) (actual time=2.404..2.404 rows=0 loops=1)
+ Gather Motion 2:1  (slice2; segments: 1)  (cost=4721.50..1320064.85 rows=5055210 width=28) (actual time=2.404..2.404 rows=0 loops=1)
    ->  Hash Join  (cost=4721.50..1320064.85 rows=2527605 width=28) (never executed)
          Hash Cond: a.c1 = b.c1
          ->  Seq Scan on r1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
@@ -721,7 +721,7 @@ drop table t;
  Gather Motion 2:1  (slice2; segments: 2)  (cost=1877.50..1268319.05 rows=5056 width=24) (actual time=2.268..2.268 rows=0 loops=1)
    ->  Hash Join  (cost=1877.50..1268319.05 rows=2528 width=24) (never executed)
          Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
-         ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+         ->  Redistribute Motion 2:2  (slice1; segments: 1)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
                Hash Key: a.c1, a.c2
                ->  Seq Scan on r1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
          ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (never executed)
@@ -737,7 +737,7 @@ drop table t;
 :explain select * from r1 a join d2 b using (c1);
                                                              QUERY PLAN                                                              
 -------------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice1; segments: 2)  (cost=1699.75..685141.85 rows=5055210 width=28) (actual time=0.376..0.376 rows=0 loops=1)
+ Gather Motion 2:1  (slice1; segments: 1)  (cost=1699.75..685141.85 rows=5055210 width=28) (actual time=0.376..0.376 rows=0 loops=1)
    ->  Hash Join  (cost=1699.75..685141.85 rows=2527605 width=28) (never executed)
          Hash Cond: a.c1 = b.c1
          ->  Seq Scan on r1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
@@ -753,7 +753,7 @@ drop table t;
 :explain select * from r1 a join d2 b using (c1, c2);
                                                             QUERY PLAN                                                             
 -----------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice1; segments: 2)  (cost=1877.50..1266897.05 rows=5056 width=24) (actual time=0.352..0.352 rows=0 loops=1)
+ Gather Motion 2:1  (slice1; segments: 1)  (cost=1877.50..1266897.05 rows=5056 width=24) (actual time=0.352..0.352 rows=0 loops=1)
    ->  Hash Join  (cost=1877.50..1266897.05 rows=2528 width=24) (never executed)
          Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
          ->  Seq Scan on r1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
@@ -769,7 +769,7 @@ drop table t;
 :explain select * from r1 a join r2 b using (c1);
                                                               QUERY PLAN                                                              
 --------------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice2; segments: 2)  (cost=4721.50..1320064.85 rows=5055210 width=28) (actual time=2.442..2.442 rows=0 loops=1)
+ Gather Motion 2:1  (slice2; segments: 1)  (cost=4721.50..1320064.85 rows=5055210 width=28) (actual time=2.442..2.442 rows=0 loops=1)
    ->  Hash Join  (cost=4721.50..1320064.85 rows=2527605 width=28) (never executed)
          Hash Cond: a.c1 = b.c1
          ->  Seq Scan on r1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
@@ -787,7 +787,7 @@ drop table t;
 :explain select * from r1 a join r2 b using (c1, c2);
                                                             QUERY PLAN                                                             
 -----------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice2; segments: 2)  (cost=5077.00..2533899.05 rows=5056 width=24) (actual time=2.777..2.777 rows=0 loops=1)
+ Gather Motion 2:1  (slice2; segments: 1)  (cost=5077.00..2533899.05 rows=5056 width=24) (actual time=2.777..2.777 rows=0 loops=1)
    ->  Hash Join  (cost=5077.00..2533899.05 rows=2528 width=24) (never executed)
          Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
          ->  Seq Scan on r1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
@@ -815,7 +815,7 @@ drop table t;
          Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
          ->  Seq Scan on t2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
          ->  Hash  (cost=2233.00..2233.00 rows=35550 width=16) (never executed)
-               ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+               ->  Redistribute Motion 2:2  (slice1; segments: 1)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
                      Hash Key: b.c1, b.c2
                      ->  Seq Scan on t1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
    (slice0)    Executor memory: 386K bytes.
@@ -873,7 +873,7 @@ drop table t;
  Gather Motion 2:1  (slice2; segments: 2)  (cost=1877.50..1268319.05 rows=5056 width=24) (actual time=2.395..2.395 rows=0 loops=1)
    ->  Hash Join  (cost=1877.50..1268319.05 rows=2528 width=24) (never executed)
          Hash Cond: b.c1 = a.c1 AND b.c2 = a.c2
-         ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+         ->  Redistribute Motion 2:2  (slice1; segments: 1)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
                Hash Key: b.c1, b.c2
                ->  Seq Scan on r1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
          ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (never executed)
@@ -889,7 +889,7 @@ drop table t;
 :explain select * from d2 a join t1 b using (c1);
                                                              QUERY PLAN                                                              
 -------------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice1; segments: 2)  (cost=1699.75..685141.85 rows=5055210 width=28) (actual time=0.405..0.405 rows=0 loops=1)
+ Gather Motion 2:1  (slice1; segments: 1)  (cost=1699.75..685141.85 rows=5055210 width=28) (actual time=0.405..0.405 rows=0 loops=1)
    ->  Hash Join  (cost=1699.75..685141.85 rows=2527605 width=28) (never executed)
          Hash Cond: a.c1 = b.c1
          ->  Seq Scan on d2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
@@ -905,7 +905,7 @@ drop table t;
 :explain select * from d2 a join t1 b using (c1, c2);
                                                             QUERY PLAN                                                             
 -----------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice1; segments: 2)  (cost=1877.50..1266897.05 rows=5056 width=24) (actual time=0.402..0.402 rows=0 loops=1)
+ Gather Motion 2:1  (slice1; segments: 1)  (cost=1877.50..1266897.05 rows=5056 width=24) (actual time=0.402..0.402 rows=0 loops=1)
    ->  Hash Join  (cost=1877.50..1266897.05 rows=2528 width=24) (never executed)
          Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
          ->  Seq Scan on d2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
@@ -953,7 +953,7 @@ drop table t;
 :explain select * from d2 a join r1 b using (c1);
                                                              QUERY PLAN                                                              
 -------------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice1; segments: 2)  (cost=1699.75..685141.85 rows=5055210 width=28) (actual time=0.331..0.331 rows=0 loops=1)
+ Gather Motion 2:1  (slice1; segments: 1)  (cost=1699.75..685141.85 rows=5055210 width=28) (actual time=0.331..0.331 rows=0 loops=1)
    ->  Hash Join  (cost=1699.75..685141.85 rows=2527605 width=28) (never executed)
          Hash Cond: a.c1 = b.c1
          ->  Seq Scan on d2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
@@ -969,7 +969,7 @@ drop table t;
 :explain select * from d2 a join r1 b using (c1, c2);
                                                             QUERY PLAN                                                             
 -----------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice1; segments: 2)  (cost=1877.50..1266897.05 rows=5056 width=24) (actual time=0.404..0.404 rows=0 loops=1)
+ Gather Motion 2:1  (slice1; segments: 1)  (cost=1877.50..1266897.05 rows=5056 width=24) (actual time=0.404..0.404 rows=0 loops=1)
    ->  Hash Join  (cost=1877.50..1266897.05 rows=2528 width=24) (never executed)
          Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
          ->  Seq Scan on d2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
@@ -987,7 +987,7 @@ drop table t;
 :explain select * from r2 a join t1 b using (c1, c2);
                                                             QUERY PLAN                                                             
 -----------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 2:1  (slice2; segments: 2)  (cost=1877.50..1268319.05 rows=5056 width=24) (actual time=2.305..2.305 rows=0 loops=1)
+ Gather Motion 2:1  (slice2; segments: 1)  (cost=1877.50..1268319.05 rows=5056 width=24) (actual time=2.305..2.305 rows=0 loops=1)
    ->  Hash Join  (cost=1877.50..1268319.05 rows=2528 width=24) (never executed)
          Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
          ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
