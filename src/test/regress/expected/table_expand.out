@@ -163,6 +163,14 @@ drop table t;
 --      {left,} join {t,d,r}{1,2} b
 --      using (c1{',c2',});
 --
+-- there might be some duplicated ones, like 't1 join d1' and 'd1 join t1',
+-- or 'd1 join r1 using (c1)' and 'd1 join r1 using (c1, c2)', this is because
+-- we generate them via scripts and do not clean them up manually.
+--
+-- please do not remove the duplicated ones as we care about the motion
+-- direction of different join orders, e.g. 't2 join t1' and 't1 join t2'
+-- should both distribute t2 to t1.
+--
 -- x1 join y1
 --
 :explain select * from t1 a join t1 b using (c1);
@@ -579,8 +587,43 @@ drop table t;
 (14 rows)
 
 :explain select * from d1 a join t2 b using (c1);
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Join  (cost=1699.75..686563.85 rows=5055210 width=28) (actual time=3.173..3.173 rows=0 loops=1)
+   Hash Cond: b.c1 = a.c1
+   Hash chain length 0.0 avg, 0 max, using 0 of 524288 buckets.
+   ->  Gather Motion 2:1  (slice1; segments: 2)  (cost=0.00..2233.00 rows=71100 width=16) (never executed)
+         ->  Seq Scan on t2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (actual time=0.005..0.005 rows=0 loops=1)
+         Buckets: 524288  Batches: 1  Memory Usage: 0kB
+         ->  Gather Motion 1:1  (slice2; segments: 1)  (cost=811.00..811.00 rows=71100 width=16) (actual time=0.004..0.004 rows=0 loops=1)
+               ->  Seq Scan on d1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 4234K bytes.
+   (slice1)    Executor memory: 46K bytes avg x 2 workers, 46K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 3.751 ms
+(15 rows)
 
 :explain select * from d1 a join t2 b using (c1, c2);
+                                                            QUERY PLAN                                                             
+-----------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice2; segments: 2)  (cost=1877.50..1268319.05 rows=5056 width=24) (actual time=2.442..2.442 rows=0 loops=1)
+   ->  Hash Join  (cost=1877.50..1268319.05 rows=2528 width=24) (never executed)
+         Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
+         ->  Redistribute Motion 1:2  (slice1; segments: 1)  (cost=0.00..2233.00 rows=71100 width=16) (never executed)
+               Hash Key: a.c1, a.c2
+               ->  Seq Scan on d1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (never executed)
+               ->  Seq Scan on t2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 386K bytes.
+   (slice1)    Executor memory: 59K bytes (seg0).
+   (slice2)    Executor memory: 4182K bytes avg x 2 workers, 4182K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 3.884 ms
+(14 rows)
 
 :explain select * from d1 a join d2 b using (c1);
                                                              QUERY PLAN                                                              
@@ -615,8 +658,44 @@ drop table t;
 (11 rows)
 
 :explain select * from d1 a join r2 b using (c1);
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Join  (cost=1699.75..686563.85 rows=5055210 width=28) (actual time=3.105..3.105 rows=0 loops=1)
+   Hash Cond: b.c1 = a.c1
+   Hash chain length 0.0 avg, 0 max, using 0 of 524288 buckets.
+   ->  Gather Motion 2:1  (slice1; segments: 2)  (cost=0.00..2233.00 rows=71100 width=16) (never executed)
+         ->  Seq Scan on r2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (actual time=1.373..1.373 rows=0 loops=1)
+         Buckets: 524288  Batches: 1  Memory Usage: 0kB
+         ->  Gather Motion 1:1  (slice2; segments: 1)  (cost=811.00..811.00 rows=71100 width=16) (actual time=1.372..1.372 rows=0 loops=1)
+               ->  Seq Scan on d1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 4234K bytes.
+   (slice1)    Executor memory: 46K bytes avg x 2 workers, 46K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 3.440 ms
+(15 rows)
 
 :explain select * from d1 a join r2 b using (c1, c2);
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Join  (cost=1877.50..1268319.05 rows=5056 width=24) (actual time=3.182..3.182 rows=0 loops=1)
+   Hash Cond: b.c1 = a.c1 AND b.c2 = a.c2
+   Hash chain length 0.0 avg, 0 max, using 0 of 524288 buckets.
+   ->  Gather Motion 2:1  (slice1; segments: 2)  (cost=0.00..2233.00 rows=71100 width=16) (never executed)
+         ->  Seq Scan on r2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (actual time=1.388..1.388 rows=0 loops=1)
+         Buckets: 524288  Batches: 1  Memory Usage: 0kB
+         ->  Gather Motion 1:1  (slice2; segments: 1)  (cost=811.00..811.00 rows=71100 width=16) (actual time=1.387..1.387 rows=0 loops=1)
+               ->  Seq Scan on d1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 4234K bytes.
+   (slice1)    Executor memory: 46K bytes avg x 2 workers, 46K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 3.572 ms
+(15 rows)
 
 :explain select * from r1 a join t2 b using (c1);
                                                               QUERY PLAN                                                              
@@ -748,8 +827,43 @@ drop table t;
 (14 rows)
 
 :explain select * from t2 a join d1 b using (c1);
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Join  (cost=1699.75..686563.85 rows=5055210 width=28) (actual time=2.533..2.533 rows=0 loops=1)
+   Hash Cond: a.c1 = b.c1
+   Hash chain length 0.0 avg, 0 max, using 0 of 524288 buckets.
+   ->  Gather Motion 2:1  (slice1; segments: 2)  (cost=0.00..2233.00 rows=71100 width=16) (never executed)
+         ->  Seq Scan on t2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (actual time=0.699..0.699 rows=0 loops=1)
+         Buckets: 524288  Batches: 1  Memory Usage: 0kB
+         ->  Gather Motion 1:1  (slice2; segments: 1)  (cost=811.00..811.00 rows=71100 width=16) (actual time=0.698..0.698 rows=0 loops=1)
+               ->  Seq Scan on d1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 4234K bytes.
+   (slice1)    Executor memory: 46K bytes avg x 2 workers, 46K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 2.901 ms
+(15 rows)
 
 :explain select * from t2 a join d1 b using (c1, c2);
+                                                            QUERY PLAN                                                             
+-----------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice2; segments: 2)  (cost=1877.50..1268319.05 rows=5056 width=24) (actual time=2.337..2.337 rows=0 loops=1)
+   ->  Hash Join  (cost=1877.50..1268319.05 rows=2528 width=24) (never executed)
+         Hash Cond: b.c1 = a.c1 AND b.c2 = a.c2
+         ->  Redistribute Motion 1:2  (slice1; segments: 1)  (cost=0.00..2233.00 rows=71100 width=16) (never executed)
+               Hash Key: b.c1, b.c2
+               ->  Seq Scan on d1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (never executed)
+               ->  Seq Scan on t2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 386K bytes.
+   (slice1)    Executor memory: 59K bytes (seg0).
+   (slice2)    Executor memory: 4182K bytes avg x 2 workers, 4182K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 3.096 ms
+(14 rows)
 
 :explain select * from t2 a join r1 b using (c1);
 
@@ -890,8 +1004,44 @@ drop table t;
 (14 rows)
 
 :explain select * from r2 a join d1 b using (c1);
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Join  (cost=1699.75..686563.85 rows=5055210 width=28) (actual time=2.975..2.975 rows=0 loops=1)
+   Hash Cond: a.c1 = b.c1
+   Hash chain length 0.0 avg, 0 max, using 0 of 524288 buckets.
+   ->  Gather Motion 2:1  (slice1; segments: 2)  (cost=0.00..2233.00 rows=71100 width=16) (never executed)
+         ->  Seq Scan on r2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (actual time=1.234..1.234 rows=0 loops=1)
+         Buckets: 524288  Batches: 1  Memory Usage: 0kB
+         ->  Gather Motion 1:1  (slice2; segments: 1)  (cost=811.00..811.00 rows=71100 width=16) (actual time=1.233..1.233 rows=0 loops=1)
+               ->  Seq Scan on d1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 4234K bytes.
+   (slice1)    Executor memory: 46K bytes avg x 2 workers, 46K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 3.448 ms
+(15 rows)
 
 :explain select * from r2 a join d1 b using (c1, c2);
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Join  (cost=1877.50..1268319.05 rows=5056 width=24) (actual time=1.868..1.868 rows=0 loops=1)
+   Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
+   Hash chain length 0.0 avg, 0 max, using 0 of 524288 buckets.
+   ->  Gather Motion 2:1  (slice1; segments: 2)  (cost=0.00..2233.00 rows=71100 width=16) (never executed)
+         ->  Seq Scan on r2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (actual time=0.104..0.104 rows=0 loops=1)
+         Buckets: 524288  Batches: 1  Memory Usage: 0kB
+         ->  Gather Motion 1:1  (slice2; segments: 1)  (cost=811.00..811.00 rows=71100 width=16) (actual time=0.103..0.103 rows=0 loops=1)
+               ->  Seq Scan on d1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 4234K bytes.
+   (slice1)    Executor memory: 46K bytes avg x 2 workers, 46K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 2.246 ms
+(15 rows)
 
 :explain select * from r2 a join r1 b using (c1);
 
@@ -919,6 +1069,20 @@ drop table t;
 (13 rows)
 
 :explain select * from t2 a join t2 b using (c1, c2);
+                                                            QUERY PLAN                                                             
+-----------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice1; segments: 2)  (cost=1877.50..1266897.05 rows=5056 width=24) (actual time=0.399..0.399 rows=0 loops=1)
+   ->  Hash Join  (cost=1877.50..1266897.05 rows=2528 width=24) (never executed)
+         Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
+         ->  Seq Scan on t2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (never executed)
+               ->  Seq Scan on t2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 386K bytes.
+   (slice1)    Executor memory: 78K bytes avg x 2 workers, 78K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 1.070 ms
+(11 rows)
 
 :explain select * from t2 a join d2 b using (c1);
                                                              QUERY PLAN                                                              
@@ -1194,6 +1358,26 @@ drop table t;
 -- x1 left join y1
 --
 :explain select * from t1 a left join t1 b using (c1);
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice3; segments: 2)  (cost=3121.75..687985.85 rows=5055210 width=28) (actual time=4.176..4.176 rows=0 loops=1)
+   ->  Hash Left Join  (cost=3121.75..687985.85 rows=2527605 width=28) (never executed)
+         Hash Cond: a.c1 = b.c1
+         ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+               Hash Key: a.c1
+               ->  Seq Scan on t1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=2233.00..2233.00 rows=35550 width=16) (never executed)
+               ->  Redistribute Motion 2:2  (slice2; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+                     Hash Key: b.c1
+                     ->  Seq Scan on t1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 390K bytes.
+   (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice3)    Executor memory: 4174K bytes avg x 2 workers, 4174K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 9.481 ms
+(17 rows)
 
 :explain select * from t1 a left join t1 b using (c1, c2);
                                                              QUERY PLAN                                                             
@@ -1244,6 +1428,26 @@ drop table t;
 (11 rows)
 
 :explain select * from t1 a left join r1 b using (c1);
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice3; segments: 2)  (cost=3121.75..687985.85 rows=5055210 width=28) (actual time=5.197..5.197 rows=0 loops=1)
+   ->  Hash Left Join  (cost=3121.75..687985.85 rows=2527605 width=28) (never executed)
+         Hash Cond: a.c1 = b.c1
+         ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+               Hash Key: a.c1
+               ->  Seq Scan on t1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=2233.00..2233.00 rows=35550 width=16) (never executed)
+               ->  Redistribute Motion 2:2  (slice2; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+                     Hash Key: b.c1
+                     ->  Seq Scan on r1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 390K bytes.
+   (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice3)    Executor memory: 4174K bytes avg x 2 workers, 4174K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 6.038 ms
+(17 rows)
 
 :explain select * from t1 a left join r1 b using (c1, c2);
                                                              QUERY PLAN                                                             
@@ -1265,8 +1469,44 @@ drop table t;
 (14 rows)
 
 :explain select * from d1 a left join t1 b using (c1);
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Right Join  (cost=1699.75..686563.85 rows=5055210 width=28) (actual time=1.902..1.902 rows=0 loops=1)
+   Hash Cond: b.c1 = a.c1
+   Hash chain length 0.0 avg, 0 max, using 0 of 524288 buckets.
+   ->  Gather Motion 2:1  (slice1; segments: 2)  (cost=0.00..2233.00 rows=71100 width=16) (never executed)
+         ->  Seq Scan on t1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (actual time=0.005..0.005 rows=0 loops=1)
+         Buckets: 524288  Batches: 1  Memory Usage: 0kB
+         ->  Gather Motion 1:1  (slice2; segments: 1)  (cost=811.00..811.00 rows=71100 width=16) (actual time=0.004..0.004 rows=0 loops=1)
+               ->  Seq Scan on d1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 4234K bytes.
+   (slice1)    Executor memory: 46K bytes avg x 2 workers, 46K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 2.285 ms
+(15 rows)
 
 :explain select * from d1 a left join t1 b using (c1, c2);
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Right Join  (cost=1877.50..1268979.50 rows=71100 width=24) (actual time=1.718..1.718 rows=0 loops=1)
+   Hash Cond: b.c1 = a.c1 AND b.c2 = a.c2
+   Hash chain length 0.0 avg, 0 max, using 0 of 524288 buckets.
+   ->  Gather Motion 2:1  (slice1; segments: 2)  (cost=0.00..2233.00 rows=71100 width=16) (never executed)
+         ->  Seq Scan on t1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (actual time=0.005..0.005 rows=0 loops=1)
+         Buckets: 524288  Batches: 1  Memory Usage: 0kB
+         ->  Gather Motion 1:1  (slice2; segments: 1)  (cost=811.00..811.00 rows=71100 width=16) (actual time=0.004..0.004 rows=0 loops=1)
+               ->  Seq Scan on d1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 4234K bytes.
+   (slice1)    Executor memory: 46K bytes avg x 2 workers, 46K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 2.107 ms
+(15 rows)
 
 :explain select * from d1 a left join d1 b using (c1);
                                                              QUERY PLAN                                                              
@@ -1301,12 +1541,85 @@ drop table t;
 (11 rows)
 
 :explain select * from d1 a left join r1 b using (c1);
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Right Join  (cost=1699.75..686563.85 rows=5055210 width=28) (actual time=1.784..1.784 rows=0 loops=1)
+   Hash Cond: b.c1 = a.c1
+   Hash chain length 0.0 avg, 0 max, using 0 of 524288 buckets.
+   ->  Gather Motion 2:1  (slice1; segments: 2)  (cost=0.00..2233.00 rows=71100 width=16) (never executed)
+         ->  Seq Scan on r1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (actual time=0.045..0.045 rows=0 loops=1)
+         Buckets: 524288  Batches: 1  Memory Usage: 0kB
+         ->  Gather Motion 1:1  (slice2; segments: 1)  (cost=811.00..811.00 rows=71100 width=16) (actual time=0.045..0.045 rows=0 loops=1)
+               ->  Seq Scan on d1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 4234K bytes.
+   (slice1)    Executor memory: 46K bytes avg x 2 workers, 46K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 2.156 ms
+(15 rows)
 
 :explain select * from d1 a left join r1 b using (c1, c2);
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Right Join  (cost=1877.50..1268979.50 rows=71100 width=24) (actual time=1.798..1.798 rows=0 loops=1)
+   Hash Cond: b.c1 = a.c1 AND b.c2 = a.c2
+   Hash chain length 0.0 avg, 0 max, using 0 of 524288 buckets.
+   ->  Gather Motion 2:1  (slice1; segments: 2)  (cost=0.00..2233.00 rows=71100 width=16) (never executed)
+         ->  Seq Scan on r1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (actual time=0.068..0.068 rows=0 loops=1)
+         Buckets: 524288  Batches: 1  Memory Usage: 0kB
+         ->  Gather Motion 1:1  (slice2; segments: 1)  (cost=811.00..811.00 rows=71100 width=16) (actual time=0.067..0.067 rows=0 loops=1)
+               ->  Seq Scan on d1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 4234K bytes.
+   (slice1)    Executor memory: 46K bytes avg x 2 workers, 46K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 2.170 ms
+(15 rows)
 
 :explain select * from r1 a left join t1 b using (c1);
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice3; segments: 2)  (cost=3121.75..687985.85 rows=5055210 width=28) (actual time=4.745..4.745 rows=0 loops=1)
+   ->  Hash Left Join  (cost=3121.75..687985.85 rows=2527605 width=28) (never executed)
+         Hash Cond: a.c1 = b.c1
+         ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+               Hash Key: a.c1
+               ->  Seq Scan on r1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=2233.00..2233.00 rows=35550 width=16) (never executed)
+               ->  Redistribute Motion 2:2  (slice2; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+                     Hash Key: b.c1
+                     ->  Seq Scan on t1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 390K bytes.
+   (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice3)    Executor memory: 4174K bytes avg x 2 workers, 4174K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 5.626 ms
+(17 rows)
 
 :explain select * from r1 a left join t1 b using (c1, c2);
+                                                             QUERY PLAN                                                             
+------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice2; segments: 2)  (cost=1877.50..1268979.50 rows=71100 width=24) (actual time=3.121..3.121 rows=0 loops=1)
+   ->  Hash Left Join  (cost=1877.50..1268979.50 rows=35550 width=24) (never executed)
+         Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
+         ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+               Hash Key: a.c1, a.c2
+               ->  Seq Scan on r1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (never executed)
+               ->  Seq Scan on t1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 386K bytes.
+   (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice2)    Executor memory: 4182K bytes avg x 2 workers, 4182K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 4.083 ms
+(14 rows)
 
 :explain select * from r1 a left join d1 b using (c1);
                                                              QUERY PLAN                                                              
@@ -1341,13 +1654,73 @@ drop table t;
 (11 rows)
 
 :explain select * from r1 a left join r1 b using (c1);
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice3; segments: 2)  (cost=3121.75..687985.85 rows=5055210 width=28) (actual time=7.197..7.197 rows=0 loops=1)
+   ->  Hash Left Join  (cost=3121.75..687985.85 rows=2527605 width=28) (never executed)
+         Hash Cond: a.c1 = b.c1
+         ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+               Hash Key: a.c1
+               ->  Seq Scan on r1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=2233.00..2233.00 rows=35550 width=16) (never executed)
+               ->  Redistribute Motion 2:2  (slice2; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+                     Hash Key: b.c1
+                     ->  Seq Scan on r1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 390K bytes.
+   (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice3)    Executor memory: 4174K bytes avg x 2 workers, 4174K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 8.130 ms
+(17 rows)
 
 :explain select * from r1 a left join r1 b using (c1, c2);
+                                                             QUERY PLAN                                                             
+------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice3; segments: 2)  (cost=3299.50..1270401.50 rows=71100 width=24) (actual time=4.981..4.981 rows=0 loops=1)
+   ->  Hash Left Join  (cost=3299.50..1270401.50 rows=35550 width=24) (never executed)
+         Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
+         ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+               Hash Key: a.c1, a.c2
+               ->  Seq Scan on r1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=2233.00..2233.00 rows=35550 width=16) (never executed)
+               ->  Redistribute Motion 2:2  (slice2; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+                     Hash Key: b.c1, b.c2
+                     ->  Seq Scan on r1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 390K bytes.
+   (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice3)    Executor memory: 4174K bytes avg x 2 workers, 4174K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 5.768 ms
+(17 rows)
 
 --
 -- x1 left join y2
 --
 :explain select * from t1 a left join t2 b using (c1);
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice3; segments: 2)  (cost=3121.75..687985.85 rows=5055210 width=28) (actual time=2.346..2.346 rows=0 loops=1)
+   ->  Hash Left Join  (cost=3121.75..687985.85 rows=2527605 width=28) (never executed)
+         Hash Cond: a.c1 = b.c1
+         ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+               Hash Key: a.c1
+               ->  Seq Scan on t1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=2233.00..2233.00 rows=35550 width=16) (never executed)
+               ->  Redistribute Motion 2:2  (slice2; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+                     Hash Key: b.c1
+                     ->  Seq Scan on t2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 390K bytes.
+   (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice3)    Executor memory: 4174K bytes avg x 2 workers, 4174K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 3.990 ms
+(17 rows)
 
 :explain select * from t1 a left join t2 b using (c1, c2);
                                                              QUERY PLAN                                                             
@@ -1401,6 +1774,26 @@ drop table t;
 (11 rows)
 
 :explain select * from t1 a left join r2 b using (c1);
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice3; segments: 2)  (cost=3121.75..687985.85 rows=5055210 width=28) (actual time=2.397..2.397 rows=0 loops=1)
+   ->  Hash Left Join  (cost=3121.75..687985.85 rows=2527605 width=28) (never executed)
+         Hash Cond: a.c1 = b.c1
+         ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+               Hash Key: a.c1
+               ->  Seq Scan on t1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=2233.00..2233.00 rows=35550 width=16) (never executed)
+               ->  Redistribute Motion 2:2  (slice2; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+                     Hash Key: b.c1
+                     ->  Seq Scan on r2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 390K bytes.
+   (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice3)    Executor memory: 4174K bytes avg x 2 workers, 4174K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 3.967 ms
+(17 rows)
 
 :explain select * from t1 a left join r2 b using (c1, c2);
                                                              QUERY PLAN                                                             
@@ -1422,8 +1815,44 @@ drop table t;
 (14 rows)
 
 :explain select * from d1 a left join t2 b using (c1);
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Right Join  (cost=1699.75..686563.85 rows=5055210 width=28) (actual time=1.727..1.727 rows=0 loops=1)
+   Hash Cond: b.c1 = a.c1
+   Hash chain length 0.0 avg, 0 max, using 0 of 524288 buckets.
+   ->  Gather Motion 2:1  (slice1; segments: 2)  (cost=0.00..2233.00 rows=71100 width=16) (never executed)
+         ->  Seq Scan on t2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (actual time=0.005..0.005 rows=0 loops=1)
+         Buckets: 524288  Batches: 1  Memory Usage: 0kB
+         ->  Gather Motion 1:1  (slice2; segments: 1)  (cost=811.00..811.00 rows=71100 width=16) (actual time=0.003..0.003 rows=0 loops=1)
+               ->  Seq Scan on d1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 4234K bytes.
+   (slice1)    Executor memory: 46K bytes avg x 2 workers, 46K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 2.106 ms
+(15 rows)
 
 :explain select * from d1 a left join t2 b using (c1, c2);
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Right Join  (cost=1877.50..1268979.50 rows=71100 width=24) (actual time=1.782..1.782 rows=0 loops=1)
+   Hash Cond: b.c1 = a.c1 AND b.c2 = a.c2
+   Hash chain length 0.0 avg, 0 max, using 0 of 524288 buckets.
+   ->  Gather Motion 2:1  (slice1; segments: 2)  (cost=0.00..2233.00 rows=71100 width=16) (never executed)
+         ->  Seq Scan on t2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (actual time=0.066..0.066 rows=0 loops=1)
+         Buckets: 524288  Batches: 1  Memory Usage: 0kB
+         ->  Gather Motion 1:1  (slice2; segments: 1)  (cost=811.00..811.00 rows=71100 width=16) (actual time=0.064..0.064 rows=0 loops=1)
+               ->  Seq Scan on d1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 4234K bytes.
+   (slice1)    Executor memory: 46K bytes avg x 2 workers, 46K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 2.169 ms
+(15 rows)
 
 :explain select * from d1 a left join d2 b using (c1);
                                                              QUERY PLAN                                                              
@@ -1458,98 +1887,848 @@ drop table t;
 (11 rows)
 
 :explain select * from d1 a left join r2 b using (c1);
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Right Join  (cost=1699.75..686563.85 rows=5055210 width=28) (actual time=1.816..1.816 rows=0 loops=1)
+   Hash Cond: b.c1 = a.c1
+   Hash chain length 0.0 avg, 0 max, using 0 of 524288 buckets.
+   ->  Gather Motion 2:1  (slice1; segments: 2)  (cost=0.00..2233.00 rows=71100 width=16) (never executed)
+         ->  Seq Scan on r2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (actual time=0.089..0.089 rows=0 loops=1)
+         Buckets: 524288  Batches: 1  Memory Usage: 0kB
+         ->  Gather Motion 1:1  (slice2; segments: 1)  (cost=811.00..811.00 rows=71100 width=16) (actual time=0.088..0.088 rows=0 loops=1)
+               ->  Seq Scan on d1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 4234K bytes.
+   (slice1)    Executor memory: 46K bytes avg x 2 workers, 46K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 2.212 ms
+(15 rows)
 
 :explain select * from d1 a left join r2 b using (c1, c2);
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Right Join  (cost=1877.50..1268979.50 rows=71100 width=24) (actual time=1.893..1.893 rows=0 loops=1)
+   Hash Cond: b.c1 = a.c1 AND b.c2 = a.c2
+   Hash chain length 0.0 avg, 0 max, using 0 of 524288 buckets.
+   ->  Gather Motion 2:1  (slice1; segments: 2)  (cost=0.00..2233.00 rows=71100 width=16) (never executed)
+         ->  Seq Scan on r2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (actual time=0.121..0.121 rows=0 loops=1)
+         Buckets: 524288  Batches: 1  Memory Usage: 0kB
+         ->  Gather Motion 1:1  (slice2; segments: 1)  (cost=811.00..811.00 rows=71100 width=16) (actual time=0.120..0.120 rows=0 loops=1)
+               ->  Seq Scan on d1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 4234K bytes.
+   (slice1)    Executor memory: 46K bytes avg x 2 workers, 46K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 2.288 ms
+(15 rows)
 
 :explain select * from r1 a left join t2 b using (c1);
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice3; segments: 2)  (cost=3121.75..687985.85 rows=5055210 width=28) (actual time=3.118..3.118 rows=0 loops=1)
+   ->  Hash Left Join  (cost=3121.75..687985.85 rows=2527605 width=28) (never executed)
+         Hash Cond: a.c1 = b.c1
+         ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+               Hash Key: a.c1
+               ->  Seq Scan on r1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=2233.00..2233.00 rows=35550 width=16) (never executed)
+               ->  Redistribute Motion 2:2  (slice2; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+                     Hash Key: b.c1
+                     ->  Seq Scan on t2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 390K bytes.
+   (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice3)    Executor memory: 4174K bytes avg x 2 workers, 4174K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 4.064 ms
+(17 rows)
 
 :explain select * from r1 a left join t2 b using (c1, c2);
+                                                             QUERY PLAN                                                             
+------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice2; segments: 2)  (cost=1877.50..1268979.50 rows=71100 width=24) (actual time=3.381..3.381 rows=0 loops=1)
+   ->  Hash Left Join  (cost=1877.50..1268979.50 rows=35550 width=24) (never executed)
+         Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
+         ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+               Hash Key: a.c1, a.c2
+               ->  Seq Scan on r1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (never executed)
+               ->  Seq Scan on t2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 386K bytes.
+   (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice2)    Executor memory: 4182K bytes avg x 2 workers, 4182K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 4.279 ms
+(14 rows)
 
 :explain select * from r1 a left join d2 b using (c1);
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice1; segments: 2)  (cost=1699.75..685141.85 rows=5055210 width=28) (actual time=0.343..0.343 rows=0 loops=1)
+   ->  Hash Left Join  (cost=1699.75..685141.85 rows=2527605 width=28) (never executed)
+         Hash Cond: a.c1 = b.c1
+         ->  Seq Scan on r1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (never executed)
+               ->  Seq Scan on d2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 386K bytes.
+   (slice1)    Executor memory: 78K bytes avg x 2 workers, 78K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 1.001 ms
+(11 rows)
 
 :explain select * from r1 a left join d2 b using (c1, c2);
+                                                             QUERY PLAN                                                             
+------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice1; segments: 2)  (cost=1877.50..1267557.50 rows=71100 width=24) (actual time=0.339..0.339 rows=0 loops=1)
+   ->  Hash Left Join  (cost=1877.50..1267557.50 rows=35550 width=24) (never executed)
+         Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
+         ->  Seq Scan on r1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (never executed)
+               ->  Seq Scan on d2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 386K bytes.
+   (slice1)    Executor memory: 78K bytes avg x 2 workers, 78K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 0.971 ms
+(11 rows)
 
 :explain select * from r1 a left join r2 b using (c1);
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice3; segments: 2)  (cost=3121.75..687985.85 rows=5055210 width=28) (actual time=2.910..2.910 rows=0 loops=1)
+   ->  Hash Left Join  (cost=3121.75..687985.85 rows=2527605 width=28) (never executed)
+         Hash Cond: a.c1 = b.c1
+         ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+               Hash Key: a.c1
+               ->  Seq Scan on r1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=2233.00..2233.00 rows=35550 width=16) (never executed)
+               ->  Redistribute Motion 2:2  (slice2; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+                     Hash Key: b.c1
+                     ->  Seq Scan on r2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 390K bytes.
+   (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice3)    Executor memory: 4174K bytes avg x 2 workers, 4174K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 4.218 ms
+(17 rows)
 
 :explain select * from r1 a left join r2 b using (c1, c2);
+                                                             QUERY PLAN                                                             
+------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice3; segments: 2)  (cost=3299.50..1270401.50 rows=71100 width=24) (actual time=3.317..3.317 rows=0 loops=1)
+   ->  Hash Left Join  (cost=3299.50..1270401.50 rows=35550 width=24) (never executed)
+         Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
+         ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+               Hash Key: a.c1, a.c2
+               ->  Seq Scan on r1 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=2233.00..2233.00 rows=35550 width=16) (never executed)
+               ->  Redistribute Motion 2:2  (slice2; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+                     Hash Key: b.c1, b.c2
+                     ->  Seq Scan on r2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 390K bytes.
+   (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice3)    Executor memory: 4174K bytes avg x 2 workers, 4174K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 4.340 ms
+(17 rows)
 
 --
 -- x2 left join y1
 --
 :explain select * from t2 a left join t1 b using (c1);
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice3; segments: 2)  (cost=3121.75..687985.85 rows=5055210 width=28) (actual time=3.375..3.375 rows=0 loops=1)
+   ->  Hash Left Join  (cost=3121.75..687985.85 rows=2527605 width=28) (never executed)
+         Hash Cond: a.c1 = b.c1
+         ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+               Hash Key: a.c1
+               ->  Seq Scan on t2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=2233.00..2233.00 rows=35550 width=16) (never executed)
+               ->  Redistribute Motion 2:2  (slice2; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+                     Hash Key: b.c1
+                     ->  Seq Scan on t1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 390K bytes.
+   (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice3)    Executor memory: 4174K bytes avg x 2 workers, 4174K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 4.328 ms
+(17 rows)
 
 :explain select * from t2 a left join t1 b using (c1, c2);
 
 :explain select * from t2 a left join d1 b using (c1);
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Left Join  (cost=1699.75..686563.85 rows=5055210 width=28) (actual time=3.155..3.155 rows=0 loops=1)
+   Hash Cond: a.c1 = b.c1
+   Hash chain length 0.0 avg, 0 max, using 0 of 524288 buckets.
+   ->  Gather Motion 2:1  (slice1; segments: 2)  (cost=0.00..2233.00 rows=71100 width=16) (actual time=0.003..0.003 rows=0 loops=1)
+         ->  Seq Scan on t2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (actual time=1.267..1.267 rows=0 loops=1)
+         Buckets: 524288  Batches: 1  Memory Usage: 0kB
+         ->  Gather Motion 1:1  (slice2; segments: 1)  (cost=811.00..811.00 rows=71100 width=16) (actual time=1.265..1.265 rows=0 loops=1)
+               ->  Seq Scan on d1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 4234K bytes.
+   (slice1)    Executor memory: 46K bytes avg x 2 workers, 46K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 3.556 ms
+(15 rows)
 
 :explain select * from t2 a left join d1 b using (c1, c2);
+                                                             QUERY PLAN                                                             
+------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice2; segments: 2)  (cost=1877.50..1268979.50 rows=71100 width=24) (actual time=2.858..2.858 rows=0 loops=1)
+   ->  Hash Right Join  (cost=1877.50..1268979.50 rows=35550 width=24) (never executed)
+         Hash Cond: b.c1 = a.c1 AND b.c2 = a.c2
+         ->  Redistribute Motion 1:2  (slice1; segments: 1)  (cost=0.00..2233.00 rows=71100 width=16) (never executed)
+               Hash Key: b.c1, b.c2
+               ->  Seq Scan on d1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (never executed)
+               ->  Seq Scan on t2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 386K bytes.
+   (slice1)    Executor memory: 59K bytes (seg0).
+   (slice2)    Executor memory: 4182K bytes avg x 2 workers, 4182K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 3.666 ms
+(14 rows)
 
 :explain select * from t2 a left join r1 b using (c1);
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice3; segments: 2)  (cost=3121.75..687985.85 rows=5055210 width=28) (actual time=2.941..2.941 rows=0 loops=1)
+   ->  Hash Left Join  (cost=3121.75..687985.85 rows=2527605 width=28) (never executed)
+         Hash Cond: a.c1 = b.c1
+         ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+               Hash Key: a.c1
+               ->  Seq Scan on t2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=2233.00..2233.00 rows=35550 width=16) (never executed)
+               ->  Redistribute Motion 2:2  (slice2; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+                     Hash Key: b.c1
+                     ->  Seq Scan on r1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 390K bytes.
+   (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice3)    Executor memory: 4174K bytes avg x 2 workers, 4174K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 3.854 ms
+(17 rows)
 
 :explain select * from t2 a left join r1 b using (c1, c2);
+                                                             QUERY PLAN                                                             
+------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice2; segments: 2)  (cost=1877.50..1268979.50 rows=71100 width=24) (actual time=2.339..2.339 rows=0 loops=1)
+   ->  Hash Right Join  (cost=1877.50..1268979.50 rows=35550 width=24) (never executed)
+         Hash Cond: b.c1 = a.c1 AND b.c2 = a.c2
+         ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+               Hash Key: b.c1, b.c2
+               ->  Seq Scan on r1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (never executed)
+               ->  Seq Scan on t2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 386K bytes.
+   (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice2)    Executor memory: 4182K bytes avg x 2 workers, 4182K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 3.127 ms
+(14 rows)
 
 :explain select * from d2 a left join t1 b using (c1);
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Right Join  (cost=1699.75..686563.85 rows=5055210 width=28) (actual time=3.267..3.267 rows=0 loops=1)
+   Hash Cond: b.c1 = a.c1
+   Hash chain length 0.0 avg, 0 max, using 0 of 524288 buckets.
+   ->  Gather Motion 2:1  (slice1; segments: 2)  (cost=0.00..2233.00 rows=71100 width=16) (never executed)
+         ->  Seq Scan on t1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (actual time=1.340..1.340 rows=0 loops=1)
+         Buckets: 524288  Batches: 1  Memory Usage: 0kB
+         ->  Gather Motion 1:1  (slice2; segments: 1)  (cost=811.00..811.00 rows=71100 width=16) (actual time=1.339..1.339 rows=0 loops=1)
+               ->  Seq Scan on d2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 4234K bytes.
+   (slice1)    Executor memory: 46K bytes avg x 2 workers, 46K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 3.727 ms
+(15 rows)
 
 :explain select * from d2 a left join t1 b using (c1, c2);
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Right Join  (cost=1877.50..1268979.50 rows=71100 width=24) (actual time=3.153..3.153 rows=0 loops=1)
+   Hash Cond: b.c1 = a.c1 AND b.c2 = a.c2
+   Hash chain length 0.0 avg, 0 max, using 0 of 524288 buckets.
+   ->  Gather Motion 2:1  (slice1; segments: 2)  (cost=0.00..2233.00 rows=71100 width=16) (never executed)
+         ->  Seq Scan on t1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (actual time=1.324..1.324 rows=0 loops=1)
+         Buckets: 524288  Batches: 1  Memory Usage: 0kB
+         ->  Gather Motion 1:1  (slice2; segments: 1)  (cost=811.00..811.00 rows=71100 width=16) (actual time=1.322..1.322 rows=0 loops=1)
+               ->  Seq Scan on d2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 4234K bytes.
+   (slice1)    Executor memory: 46K bytes avg x 2 workers, 46K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 3.557 ms
+(15 rows)
 
 :explain select * from d2 a left join d1 b using (c1);
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 1:1  (slice1; segments: 1)  (cost=1699.75..685141.85 rows=5055210 width=28) (actual time=0.382..0.382 rows=0 loops=1)
+   ->  Hash Left Join  (cost=1699.75..685141.85 rows=2527605 width=28) (never executed)
+         Hash Cond: a.c1 = b.c1
+         ->  Seq Scan on d2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (never executed)
+               ->  Seq Scan on d1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 386K bytes.
+   (slice1)    Executor memory: 78K bytes (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 1.105 ms
+(11 rows)
 
 :explain select * from d2 a left join d1 b using (c1, c2);
+                                                             QUERY PLAN                                                             
+------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 1:1  (slice1; segments: 1)  (cost=1877.50..1267557.50 rows=71100 width=24) (actual time=0.349..0.349 rows=0 loops=1)
+   ->  Hash Left Join  (cost=1877.50..1267557.50 rows=35550 width=24) (never executed)
+         Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
+         ->  Seq Scan on d2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (never executed)
+               ->  Seq Scan on d1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 386K bytes.
+   (slice1)    Executor memory: 78K bytes (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 1.022 ms
+(11 rows)
 
 :explain select * from d2 a left join r1 b using (c1);
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Right Join  (cost=1699.75..686563.85 rows=5055210 width=28) (actual time=3.154..3.154 rows=0 loops=1)
+   Hash Cond: b.c1 = a.c1
+   Hash chain length 0.0 avg, 0 max, using 0 of 524288 buckets.
+   ->  Gather Motion 2:1  (slice1; segments: 2)  (cost=0.00..2233.00 rows=71100 width=16) (never executed)
+         ->  Seq Scan on r1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (actual time=1.336..1.336 rows=0 loops=1)
+         Buckets: 524288  Batches: 1  Memory Usage: 0kB
+         ->  Gather Motion 1:1  (slice2; segments: 1)  (cost=811.00..811.00 rows=71100 width=16) (actual time=1.335..1.335 rows=0 loops=1)
+               ->  Seq Scan on d2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 4234K bytes.
+   (slice1)    Executor memory: 46K bytes avg x 2 workers, 46K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 3.532 ms
+(15 rows)
 
 :explain select * from d2 a left join r1 b using (c1, c2);
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Right Join  (cost=1877.50..1268979.50 rows=71100 width=24) (actual time=3.151..3.151 rows=0 loops=1)
+   Hash Cond: b.c1 = a.c1 AND b.c2 = a.c2
+   Hash chain length 0.0 avg, 0 max, using 0 of 524288 buckets.
+   ->  Gather Motion 2:1  (slice1; segments: 2)  (cost=0.00..2233.00 rows=71100 width=16) (never executed)
+         ->  Seq Scan on r1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (actual time=1.404..1.404 rows=0 loops=1)
+         Buckets: 524288  Batches: 1  Memory Usage: 0kB
+         ->  Gather Motion 1:1  (slice2; segments: 1)  (cost=811.00..811.00 rows=71100 width=16) (actual time=1.403..1.403 rows=0 loops=1)
+               ->  Seq Scan on d2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 4234K bytes.
+   (slice1)    Executor memory: 46K bytes avg x 2 workers, 46K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 3.544 ms
+(15 rows)
 
 :explain select * from r2 a left join t1 b using (c1);
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice3; segments: 2)  (cost=3121.75..687985.85 rows=5055210 width=28) (actual time=2.226..2.226 rows=0 loops=1)
+   ->  Hash Left Join  (cost=3121.75..687985.85 rows=2527605 width=28) (never executed)
+         Hash Cond: a.c1 = b.c1
+         ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+               Hash Key: a.c1
+               ->  Seq Scan on r2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=2233.00..2233.00 rows=35550 width=16) (never executed)
+               ->  Redistribute Motion 2:2  (slice2; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+                     Hash Key: b.c1
+                     ->  Seq Scan on t1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 390K bytes.
+   (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice3)    Executor memory: 4174K bytes avg x 2 workers, 4174K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 4.180 ms
+(17 rows)
 
 :explain select * from r2 a left join t1 b using (c1, c2);
+                                                             QUERY PLAN                                                             
+------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice2; segments: 2)  (cost=1877.50..1268979.50 rows=71100 width=24) (actual time=3.668..3.668 rows=0 loops=1)
+   ->  Hash Left Join  (cost=1877.50..1268979.50 rows=35550 width=24) (never executed)
+         Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
+         ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+               Hash Key: a.c1, a.c2
+               ->  Seq Scan on r2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (never executed)
+               ->  Seq Scan on t1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 386K bytes.
+   (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice2)    Executor memory: 4182K bytes avg x 2 workers, 4182K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 4.458 ms
+(14 rows)
 
 :explain select * from r2 a left join d1 b using (c1);
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Left Join  (cost=1699.75..686563.85 rows=5055210 width=28) (actual time=3.215..3.215 rows=0 loops=1)
+   Hash Cond: a.c1 = b.c1
+   Hash chain length 0.0 avg, 0 max, using 0 of 524288 buckets.
+   ->  Gather Motion 2:1  (slice1; segments: 2)  (cost=0.00..2233.00 rows=71100 width=16) (actual time=0.003..0.003 rows=0 loops=1)
+         ->  Seq Scan on r2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (actual time=1.358..1.358 rows=0 loops=1)
+         Buckets: 524288  Batches: 1  Memory Usage: 0kB
+         ->  Gather Motion 1:1  (slice2; segments: 1)  (cost=811.00..811.00 rows=71100 width=16) (actual time=1.356..1.356 rows=0 loops=1)
+               ->  Seq Scan on d1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 4234K bytes.
+   (slice1)    Executor memory: 46K bytes avg x 2 workers, 46K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 3.594 ms
+(15 rows)
 
 :explain select * from r2 a left join d1 b using (c1, c2);
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Left Join  (cost=1877.50..1268979.50 rows=71100 width=24) (actual time=2.107..2.107 rows=0 loops=1)
+   Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
+   Hash chain length 0.0 avg, 0 max, using 0 of 524288 buckets.
+   ->  Gather Motion 2:1  (slice1; segments: 2)  (cost=0.00..2233.00 rows=71100 width=16) (actual time=0.003..0.003 rows=0 loops=1)
+         ->  Seq Scan on r2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (actual time=0.470..0.470 rows=0 loops=1)
+         Buckets: 524288  Batches: 1  Memory Usage: 0kB
+         ->  Gather Motion 1:1  (slice2; segments: 1)  (cost=811.00..811.00 rows=71100 width=16) (actual time=0.468..0.468 rows=0 loops=1)
+               ->  Seq Scan on d1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 4234K bytes.
+   (slice1)    Executor memory: 46K bytes avg x 2 workers, 46K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 2.521 ms
+(15 rows)
 
 :explain select * from r2 a left join r1 b using (c1);
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice3; segments: 2)  (cost=3121.75..687985.85 rows=5055210 width=28) (actual time=2.895..2.895 rows=0 loops=1)
+   ->  Hash Left Join  (cost=3121.75..687985.85 rows=2527605 width=28) (never executed)
+         Hash Cond: a.c1 = b.c1
+         ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+               Hash Key: a.c1
+               ->  Seq Scan on r2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=2233.00..2233.00 rows=35550 width=16) (never executed)
+               ->  Redistribute Motion 2:2  (slice2; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+                     Hash Key: b.c1
+                     ->  Seq Scan on r1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 390K bytes.
+   (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice3)    Executor memory: 4174K bytes avg x 2 workers, 4174K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 3.819 ms
+(17 rows)
 
 :explain select * from r2 a left join r1 b using (c1, c2);
+                                                             QUERY PLAN                                                             
+------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice3; segments: 2)  (cost=3299.50..1270401.50 rows=71100 width=24) (actual time=3.019..3.019 rows=0 loops=1)
+   ->  Hash Left Join  (cost=3299.50..1270401.50 rows=35550 width=24) (never executed)
+         Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
+         ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+               Hash Key: a.c1, a.c2
+               ->  Seq Scan on r2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=2233.00..2233.00 rows=35550 width=16) (never executed)
+               ->  Redistribute Motion 2:2  (slice2; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+                     Hash Key: b.c1, b.c2
+                     ->  Seq Scan on r1 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 390K bytes.
+   (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice3)    Executor memory: 4174K bytes avg x 2 workers, 4174K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 3.924 ms
+(17 rows)
 
 --
 -- x2 left join y2
 --
 :explain select * from t2 a left join t2 b using (c1);
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice3; segments: 2)  (cost=3121.75..687985.85 rows=5055210 width=28) (actual time=3.108..3.108 rows=0 loops=1)
+   ->  Hash Left Join  (cost=3121.75..687985.85 rows=2527605 width=28) (never executed)
+         Hash Cond: a.c1 = b.c1
+         ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+               Hash Key: a.c1
+               ->  Seq Scan on t2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=2233.00..2233.00 rows=35550 width=16) (never executed)
+               ->  Redistribute Motion 2:2  (slice2; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+                     Hash Key: b.c1
+                     ->  Seq Scan on t2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 390K bytes.
+   (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice3)    Executor memory: 4174K bytes avg x 2 workers, 4174K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 4.020 ms
+(17 rows)
 
 :explain select * from t2 a left join t2 b using (c1, c2);
+                                                             QUERY PLAN                                                             
+------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice1; segments: 2)  (cost=1877.50..1267557.50 rows=71100 width=24) (actual time=0.357..0.357 rows=0 loops=1)
+   ->  Hash Left Join  (cost=1877.50..1267557.50 rows=35550 width=24) (never executed)
+         Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
+         ->  Seq Scan on t2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (never executed)
+               ->  Seq Scan on t2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 386K bytes.
+   (slice1)    Executor memory: 78K bytes avg x 2 workers, 78K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 1.033 ms
+(11 rows)
 
 :explain select * from t2 a left join d2 b using (c1);
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice1; segments: 2)  (cost=1699.75..685141.85 rows=5055210 width=28) (actual time=0.350..0.350 rows=0 loops=1)
+   ->  Hash Left Join  (cost=1699.75..685141.85 rows=2527605 width=28) (never executed)
+         Hash Cond: a.c1 = b.c1
+         ->  Seq Scan on t2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (never executed)
+               ->  Seq Scan on d2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 386K bytes.
+   (slice1)    Executor memory: 78K bytes avg x 2 workers, 78K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 0.959 ms
+(11 rows)
 
 :explain select * from t2 a left join d2 b using (c1, c2);
+                                                             QUERY PLAN                                                             
+------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice1; segments: 2)  (cost=1877.50..1267557.50 rows=71100 width=24) (actual time=0.345..0.345 rows=0 loops=1)
+   ->  Hash Left Join  (cost=1877.50..1267557.50 rows=35550 width=24) (never executed)
+         Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
+         ->  Seq Scan on t2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (never executed)
+               ->  Seq Scan on d2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 386K bytes.
+   (slice1)    Executor memory: 78K bytes avg x 2 workers, 78K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 0.987 ms
+(11 rows)
 
 :explain select * from t2 a left join r2 b using (c1);
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice3; segments: 2)  (cost=3121.75..687985.85 rows=5055210 width=28) (actual time=2.991..2.991 rows=0 loops=1)
+   ->  Hash Left Join  (cost=3121.75..687985.85 rows=2527605 width=28) (never executed)
+         Hash Cond: a.c1 = b.c1
+         ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+               Hash Key: a.c1
+               ->  Seq Scan on t2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=2233.00..2233.00 rows=35550 width=16) (never executed)
+               ->  Redistribute Motion 2:2  (slice2; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+                     Hash Key: b.c1
+                     ->  Seq Scan on r2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 390K bytes.
+   (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice3)    Executor memory: 4174K bytes avg x 2 workers, 4174K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 3.869 ms
+(17 rows)
 
 :explain select * from t2 a left join r2 b using (c1, c2);
+                                                             QUERY PLAN                                                             
+------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice2; segments: 2)  (cost=1877.50..1268979.50 rows=71100 width=24) (actual time=1.653..1.653 rows=0 loops=1)
+   ->  Hash Right Join  (cost=1877.50..1268979.50 rows=35550 width=24) (never executed)
+         Hash Cond: b.c1 = a.c1 AND b.c2 = a.c2
+         ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+               Hash Key: b.c1, b.c2
+               ->  Seq Scan on r2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (never executed)
+               ->  Seq Scan on t2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 386K bytes.
+   (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice2)    Executor memory: 4182K bytes avg x 2 workers, 4182K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 3.177 ms
+(14 rows)
 
 :explain select * from d2 a left join t2 b using (c1);
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Right Join  (cost=1699.75..686563.85 rows=5055210 width=28) (actual time=3.102..3.102 rows=0 loops=1)
+   Hash Cond: b.c1 = a.c1
+   Hash chain length 0.0 avg, 0 max, using 0 of 524288 buckets.
+   ->  Gather Motion 2:1  (slice1; segments: 2)  (cost=0.00..2233.00 rows=71100 width=16) (never executed)
+         ->  Seq Scan on t2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (actual time=1.391..1.391 rows=0 loops=1)
+         Buckets: 524288  Batches: 1  Memory Usage: 0kB
+         ->  Gather Motion 1:1  (slice2; segments: 1)  (cost=811.00..811.00 rows=71100 width=16) (actual time=1.390..1.390 rows=0 loops=1)
+               ->  Seq Scan on d2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 4234K bytes.
+   (slice1)    Executor memory: 46K bytes avg x 2 workers, 46K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 3.489 ms
+(15 rows)
 
 :explain select * from d2 a left join t2 b using (c1, c2);
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Right Join  (cost=1877.50..1268979.50 rows=71100 width=24) (actual time=3.179..3.179 rows=0 loops=1)
+   Hash Cond: b.c1 = a.c1 AND b.c2 = a.c2
+   Hash chain length 0.0 avg, 0 max, using 0 of 524288 buckets.
+   ->  Gather Motion 2:1  (slice1; segments: 2)  (cost=0.00..2233.00 rows=71100 width=16) (never executed)
+         ->  Seq Scan on t2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (actual time=1.436..1.436 rows=0 loops=1)
+         Buckets: 524288  Batches: 1  Memory Usage: 0kB
+         ->  Gather Motion 1:1  (slice2; segments: 1)  (cost=811.00..811.00 rows=71100 width=16) (actual time=1.434..1.434 rows=0 loops=1)
+               ->  Seq Scan on d2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 4234K bytes.
+   (slice1)    Executor memory: 46K bytes avg x 2 workers, 46K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 3.550 ms
+(15 rows)
 
 :explain select * from d2 a left join d2 b using (c1);
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 1:1  (slice1; segments: 1)  (cost=1699.75..685141.85 rows=5055210 width=28) (actual time=0.376..0.376 rows=0 loops=1)
+   ->  Hash Left Join  (cost=1699.75..685141.85 rows=2527605 width=28) (never executed)
+         Hash Cond: a.c1 = b.c1
+         ->  Seq Scan on d2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (never executed)
+               ->  Seq Scan on d2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 386K bytes.
+   (slice1)    Executor memory: 78K bytes (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 1.012 ms
+(11 rows)
 
 :explain select * from d2 a left join d2 b using (c1, c2);
+                                                             QUERY PLAN                                                             
+------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 1:1  (slice1; segments: 1)  (cost=1877.50..1267557.50 rows=71100 width=24) (actual time=0.364..0.364 rows=0 loops=1)
+   ->  Hash Left Join  (cost=1877.50..1267557.50 rows=35550 width=24) (never executed)
+         Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
+         ->  Seq Scan on d2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (never executed)
+               ->  Seq Scan on d2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 386K bytes.
+   (slice1)    Executor memory: 78K bytes (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 1.008 ms
+(11 rows)
 
 :explain select * from d2 a left join r2 b using (c1);
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Right Join  (cost=1699.75..686563.85 rows=5055210 width=28) (actual time=3.197..3.197 rows=0 loops=1)
+   Hash Cond: b.c1 = a.c1
+   Hash chain length 0.0 avg, 0 max, using 0 of 524288 buckets.
+   ->  Gather Motion 2:1  (slice1; segments: 2)  (cost=0.00..2233.00 rows=71100 width=16) (never executed)
+         ->  Seq Scan on r2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (actual time=1.422..1.422 rows=0 loops=1)
+         Buckets: 524288  Batches: 1  Memory Usage: 0kB
+         ->  Gather Motion 1:1  (slice2; segments: 1)  (cost=811.00..811.00 rows=71100 width=16) (actual time=1.420..1.420 rows=0 loops=1)
+               ->  Seq Scan on d2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 4234K bytes.
+   (slice1)    Executor memory: 46K bytes avg x 2 workers, 46K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 3.546 ms
+(15 rows)
 
 :explain select * from d2 a left join r2 b using (c1, c2);
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Right Join  (cost=1877.50..1268979.50 rows=71100 width=24) (actual time=3.179..3.179 rows=0 loops=1)
+   Hash Cond: b.c1 = a.c1 AND b.c2 = a.c2
+   Hash chain length 0.0 avg, 0 max, using 0 of 524288 buckets.
+   ->  Gather Motion 2:1  (slice1; segments: 2)  (cost=0.00..2233.00 rows=71100 width=16) (never executed)
+         ->  Seq Scan on r2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (actual time=1.470..1.470 rows=0 loops=1)
+         Buckets: 524288  Batches: 1  Memory Usage: 0kB
+         ->  Gather Motion 1:1  (slice2; segments: 1)  (cost=811.00..811.00 rows=71100 width=16) (actual time=1.469..1.469 rows=0 loops=1)
+               ->  Seq Scan on d2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 4234K bytes.
+   (slice1)    Executor memory: 46K bytes avg x 2 workers, 46K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 3.549 ms
+(15 rows)
 
 :explain select * from r2 a left join t2 b using (c1);
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice3; segments: 2)  (cost=3121.75..687985.85 rows=5055210 width=28) (actual time=3.657..3.657 rows=0 loops=1)
+   ->  Hash Left Join  (cost=3121.75..687985.85 rows=2527605 width=28) (never executed)
+         Hash Cond: a.c1 = b.c1
+         ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+               Hash Key: a.c1
+               ->  Seq Scan on r2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=2233.00..2233.00 rows=35550 width=16) (never executed)
+               ->  Redistribute Motion 2:2  (slice2; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+                     Hash Key: b.c1
+                     ->  Seq Scan on t2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 390K bytes.
+   (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice3)    Executor memory: 4174K bytes avg x 2 workers, 4174K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 4.564 ms
+(17 rows)
 
 :explain select * from r2 a left join t2 b using (c1, c2);
+                                                             QUERY PLAN                                                             
+------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice2; segments: 2)  (cost=1877.50..1268979.50 rows=71100 width=24) (actual time=3.366..3.366 rows=0 loops=1)
+   ->  Hash Left Join  (cost=1877.50..1268979.50 rows=35550 width=24) (never executed)
+         Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
+         ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+               Hash Key: a.c1, a.c2
+               ->  Seq Scan on r2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (never executed)
+               ->  Seq Scan on t2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 386K bytes.
+   (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice2)    Executor memory: 4182K bytes avg x 2 workers, 4182K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 4.358 ms
+(14 rows)
 
 :explain select * from r2 a left join d2 b using (c1);
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice1; segments: 2)  (cost=1699.75..685141.85 rows=5055210 width=28) (actual time=0.320..0.320 rows=0 loops=1)
+   ->  Hash Left Join  (cost=1699.75..685141.85 rows=2527605 width=28) (never executed)
+         Hash Cond: a.c1 = b.c1
+         ->  Seq Scan on r2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (never executed)
+               ->  Seq Scan on d2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 386K bytes.
+   (slice1)    Executor memory: 78K bytes avg x 2 workers, 78K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 0.941 ms
+(11 rows)
 
 :explain select * from r2 a left join d2 b using (c1, c2);
+                                                             QUERY PLAN                                                             
+------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice1; segments: 2)  (cost=1877.50..1267557.50 rows=71100 width=24) (actual time=0.300..0.300 rows=0 loops=1)
+   ->  Hash Left Join  (cost=1877.50..1267557.50 rows=35550 width=24) (never executed)
+         Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
+         ->  Seq Scan on r2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=811.00..811.00 rows=35550 width=16) (never executed)
+               ->  Seq Scan on d2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 386K bytes.
+   (slice1)    Executor memory: 78K bytes avg x 2 workers, 78K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 0.882 ms
+(11 rows)
 
 :explain select * from r2 a left join r2 b using (c1);
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice3; segments: 2)  (cost=3121.75..687985.85 rows=5055210 width=28) (actual time=3.239..3.239 rows=0 loops=1)
+   ->  Hash Left Join  (cost=3121.75..687985.85 rows=2527605 width=28) (never executed)
+         Hash Cond: a.c1 = b.c1
+         ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+               Hash Key: a.c1
+               ->  Seq Scan on r2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=2233.00..2233.00 rows=35550 width=16) (never executed)
+               ->  Redistribute Motion 2:2  (slice2; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+                     Hash Key: b.c1
+                     ->  Seq Scan on r2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 390K bytes.
+   (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice3)    Executor memory: 4174K bytes avg x 2 workers, 4174K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 4.078 ms
+(17 rows)
 
 :explain select * from r2 a left join r2 b using (c1, c2);
+                                                             QUERY PLAN                                                             
+------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 2:1  (slice3; segments: 2)  (cost=3299.50..1270401.50 rows=71100 width=24) (actual time=3.648..3.648 rows=0 loops=1)
+   ->  Hash Left Join  (cost=3299.50..1270401.50 rows=35550 width=24) (never executed)
+         Hash Cond: a.c1 = b.c1 AND a.c2 = b.c2
+         ->  Redistribute Motion 2:2  (slice1; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+               Hash Key: a.c1, a.c2
+               ->  Seq Scan on r2 a  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+         ->  Hash  (cost=2233.00..2233.00 rows=35550 width=16) (never executed)
+               ->  Redistribute Motion 2:2  (slice2; segments: 2)  (cost=0.00..2233.00 rows=35550 width=16) (never executed)
+                     Hash Key: b.c1, b.c2
+                     ->  Seq Scan on r2 b  (cost=0.00..811.00 rows=35550 width=16) (never executed)
+   (slice0)    Executor memory: 390K bytes.
+   (slice1)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice2)    Executor memory: 59K bytes avg x 2 workers, 59K bytes max (seg0).
+   (slice3)    Executor memory: 4174K bytes avg x 2 workers, 4174K bytes max (seg0).
+ Memory used:  128000kB
+ Optimizer: legacy query optimizer
+ Total runtime: 4.591 ms
+(17 rows)
 
 --
 -- insert
