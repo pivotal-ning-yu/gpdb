@@ -94,6 +94,11 @@ makeCdbHash(int numsegs)
 
 	Assert(numsegs > 0);		/* verify number of segments is legal. */
 
+	if (numsegs == __GP_POLICY_EVIL_NUMSEGMENTS)
+	{
+		Assert(!"what's the proper value of numsegments?");
+	}
+
 	/* Create a pointer to a CdbHash that includes the hash properties */
 	h = palloc(sizeof(CdbHash));
 

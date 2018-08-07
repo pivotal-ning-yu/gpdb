@@ -892,14 +892,19 @@ prescan_walker(Node *node, PlanProfile *context)
  * Construct a new Flow in the current memory context.
  */
 Flow *
-makeFlow(FlowType flotype)
+makeFlow(FlowType flotype, int numsegments)
 {
 	Flow	   *flow = makeNode(Flow);
+
+	if (numsegments == __GP_POLICY_EVIL_NUMSEGMENTS)
+	{
+		Assert(!"what's the proper value of numsegments?");
+	}
 
 	flow->flotype = flotype;
 	flow->req_move = MOVEMENT_NONE;
 	flow->locustype = CdbLocusType_Null;
-	flow->numsegments = -1;
+	flow->numsegments = numsegments;
 
 	return flow;
 }
@@ -941,8 +946,7 @@ pull_up_Flow(Plan *plan, Plan *subplan)
 	else
 		Assert(subplan == plan->lefttree);
 
-	new_flow = makeFlow(model_flow->flotype);
-	new_flow->numsegments = model_flow->numsegments;
+	new_flow = makeFlow(model_flow->flotype, model_flow->numsegments);
 
 	if (model_flow->flotype == FLOW_SINGLETON)
 		new_flow->segindex = model_flow->segindex;

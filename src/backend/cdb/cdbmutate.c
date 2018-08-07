@@ -987,10 +987,10 @@ add_slice_to_motion(Motion *motion,
 	switch (motion->motionType)
 	{
 		case MOTIONTYPE_HASH:
-			motion->plan.flow = makeFlow(FLOW_PARTITIONED);
+			motion->plan.flow = makeFlow(FLOW_PARTITIONED,
+										 motion->plan.lefttree->flow->numsegments);
 			motion->plan.flow->locustype = CdbLocusType_Hashed;
 			motion->plan.flow->hashExpr = copyObject(motion->hashExpr);
-			motion->plan.flow->numsegments = motion->plan.lefttree->flow->numsegments;
 			motion->numOutputSegs = getgpsegmentCount();
 			motion->outputSegIdx = makeDefaultSegIdxArray(getgpsegmentCount());
 
@@ -999,20 +999,20 @@ add_slice_to_motion(Motion *motion,
 			if (motion->numOutputSegs == 0)
 			{
 				/* broadcast */
-				motion->plan.flow = makeFlow(FLOW_REPLICATED);
+				motion->plan.flow = makeFlow(FLOW_REPLICATED,
+											 motion->plan.lefttree->flow->numsegments);
 				motion->plan.flow->locustype = CdbLocusType_Replicated;
-				motion->plan.flow->numsegments = motion->plan.lefttree->flow->numsegments;
 
 			}
 			else if (motion->numOutputSegs == 1)
 			{
 				/* Focus motion */
-				motion->plan.flow = makeFlow(FLOW_SINGLETON);
+				motion->plan.flow = makeFlow(FLOW_SINGLETON,
+											 motion->plan.lefttree->flow->numsegments);
 				motion->plan.flow->segindex = motion->outputSegIdx[0];
 				motion->plan.flow->locustype = (motion->plan.flow->segindex < 0) ?
 					CdbLocusType_Entry :
 					CdbLocusType_SingleQE;
-				motion->plan.flow->numsegments = motion->plan.lefttree->flow->numsegments;
 
 			}
 			else
@@ -1022,14 +1022,14 @@ add_slice_to_motion(Motion *motion,
 			}
 			break;
 		case MOTIONTYPE_EXPLICIT:
-			motion->plan.flow = makeFlow(FLOW_PARTITIONED);
+			motion->plan.flow = makeFlow(FLOW_PARTITIONED,
+										 motion->plan.lefttree->flow->numsegments);
 
 			/*
 			 * TODO: antova - Nov 18, 2010; add a special locus type for
 			 * ExplicitRedistribute flows
 			 */
 			motion->plan.flow->locustype = CdbLocusType_Strewn;
-			motion->plan.flow->numsegments = motion->plan.lefttree->flow->numsegments;
 			break;
 		default:
 			Assert(!"Invalid motion type");

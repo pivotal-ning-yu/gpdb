@@ -1283,7 +1283,7 @@ inheritance_planner(PlannerInfo *root)
 									NULL);
 
 		if (Gp_role == GP_ROLE_DISPATCH)
-			mark_plan_general(plan);
+			mark_plan_general(plan, __GP_POLICY_EVIL_NUMSEGMENTS);
 
 		return plan;
 	}
@@ -2171,7 +2171,7 @@ grouping_planner(PlannerInfo *root, double tuple_fraction)
 												   NULL);
 				/* Result will be only one row anyway; no sort order */
 				current_pathkeys = NIL;
-				mark_plan_general(result_plan);
+				mark_plan_general(result_plan, __GP_POLICY_EVIL_NUMSEGMENTS);
 				CdbPathLocus_MakeNull(&current_locus, 0);
 			}
 		}						/* end of non-minmax-aggregate case */

@@ -1064,7 +1064,7 @@ add_append_node(PlannerInfo *root, List *subplans, GroupExtContext *context)
 		
 		/* Append all agg_plans together */
 		result_plan = (Plan *) make_append(subplans, context->tlist);
-		mark_append_locus(result_plan, optype); /* Mark the plan result locus. */
+		mark_append_locus(result_plan, optype, __GP_POLICY_EVIL_NUMSEGMENTS); /* Mark the plan result locus. */
 
 		/* set the final pathkey to NIL */
 		context->current_pathkeys = NIL;
@@ -2554,7 +2554,7 @@ plan_list_rollup_plans(PlannerInfo *root,
 
 		/* Append all rollup_plans together */
 		result_plan = (Plan *) make_append(rollup_plans, context->tlist);
-		mark_append_locus(result_plan, optype); /* Mark the plan result locus. */
+		mark_append_locus(result_plan, optype, __GP_POLICY_EVIL_NUMSEGMENTS); /* Mark the plan result locus. */
 
 		/* set the final pathkey to NIL */
 		context->current_pathkeys = NIL;

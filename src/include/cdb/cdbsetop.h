@@ -81,7 +81,7 @@ extern
 Motion* make_motion_gather(PlannerInfo *root, Plan *subplan, int segindex, List *sortPathKeys);
 
 extern
-void mark_append_locus(Plan *plan, GpSetOpType optype);
+void mark_append_locus(Plan *plan, GpSetOpType optype, int numsegments);
 
 extern
 void mark_passthru_locus(Plan *plan, bool with_hash, bool with_sort);
@@ -90,21 +90,21 @@ extern
 void mark_sort_locus(Plan *plan);
 
 extern
-void mark_plan_general(Plan* plan);
+void mark_plan_general(Plan* plan, int numsegments);
 
 extern
 void mark_plan_strewn(Plan* plan, int numsegments);
 
 extern
-void mark_plan_replicated(Plan* plan);
+void mark_plan_replicated(Plan* plan, int numsegments);
 
 extern
 void mark_plan_entry(Plan* plan);
 
 extern
-void mark_plan_singleQE(Plan* plan);
+void mark_plan_singleQE(Plan* plan, int numsegments);
 
 extern
-void mark_plan_segment_general(Plan* plan);
+void mark_plan_segment_general(Plan* plan, int numsegments);
 
 #endif   /* CDBSETOP_H */
