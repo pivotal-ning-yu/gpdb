@@ -698,6 +698,12 @@ cdbpathlocus_join(CdbPathLocus a, CdbPathLocus b)
         return a;
     }
 
+	/* FIXME: what exactly is this function doing? */
+	if (CdbPathLocus_IsSegmentGeneral(a))
+		return b;
+	else if (CdbPathLocus_IsSegmentGeneral(b))
+		return a;
+
 	/* This is an outer join, or one or both inputs are outer join results. */
 
 	Assert(CdbPathLocus_Degree(a) > 0 &&
