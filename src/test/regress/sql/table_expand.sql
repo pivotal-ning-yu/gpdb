@@ -108,6 +108,10 @@ drop table t;
 -- there might be some duplicated ones, like 't1 join d1' and 'd1 join t1',
 -- or 'd1 join r1 using (c1)' and 'd1 join r1 using (c1, c2)', this is because
 -- we generate them via scripts and do not clean them up manually.
+--
+-- please do not remove the duplicated ones as we care about the motion
+-- direction of different join orders, e.g. 't2 join t1' and 't1 join t2'
+-- should both distribute t2 to t1.
 
 --
 -- x1 join y1
