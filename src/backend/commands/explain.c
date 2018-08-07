@@ -823,7 +823,7 @@ elapsed_time(instr_time *starttime)
 }
 
 static void
-show_dispatch_info(Slice *slice, ExplainState *es)
+show_dispatch_info(Slice *slice, ExplainState *es, Plan *plan)
 {
 	int			segments;
 
@@ -861,6 +861,11 @@ show_dispatch_info(Slice *slice, ExplainState *es)
 			Assert(false);
 			break;
 	}
+
+	if (plan->flow)
+		segments = plan->flow->numsegments;
+	else
+		segments = -1;
 
 	if (es->format == EXPLAIN_FORMAT_TEXT)
 	{
@@ -1267,7 +1272,7 @@ ExplainNode(PlanState *planstate, List *ancestors,
 			 * *above* the Motion here. We will print the slice below the
 			 * Motion, below.
 			 */
-			show_dispatch_info(save_currentSlice, es);
+			show_dispatch_info(save_currentSlice, es, plan);
 			appendStringInfoChar(es->str, '\n');
 			es->indent++;
 		}
@@ -1286,7 +1291,7 @@ ExplainNode(PlanState *planstate, List *ancestors,
 		 * to the slice below the Motion.)
 		 */
 		if (IsA(plan, Motion))
-			show_dispatch_info(es->currentSlice, es);
+			show_dispatch_info(es->currentSlice, es, plan);
 
 		es->indent++;
 	}
@@ -1307,7 +1312,7 @@ ExplainNode(PlanState *planstate, List *ancestors,
 		if (plan_name)
 			ExplainPropertyText("Subplan Name", plan_name, es);
 
-		show_dispatch_info(es->currentSlice, es);
+		show_dispatch_info(es->currentSlice, es, plan);
 	}
 
 	switch (nodeTag(plan))
