@@ -1616,7 +1616,6 @@ cdbpath_dedup_fixup_unique(UniquePath *uniquePath, CdbpathDedupFixupContext *ctx
 	{
 		CdbPathLocus locus;
 
-		Assert(!"What's proper value of numsegments?");
 		Assert(partkey);
 		CdbPathLocus_MakeHashed(&locus, partkey,
 								CdbPathLocus_NumSegments(uniquePath->subpath->locus));

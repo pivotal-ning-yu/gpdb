@@ -417,8 +417,13 @@ makeHashExprsFromNonjunkTargets(List *targetlist)
  *     type determined during examination of the arguments.
  */
 void
-mark_append_locus(Plan *plan, GpSetOpType optype, int numsegments)
+mark_append_locus(Plan *plan, GpSetOpType optype)
 {
+	/*
+	 * FIXME: for append we forcely collect data on all segments
+	 */
+	int			numsegments = GP_POLICY_ALL_NUMSEGMENTS;
+
 	switch (optype)
 	{
 		case PSETOP_GENERAL:

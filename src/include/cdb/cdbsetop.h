@@ -81,7 +81,7 @@ extern
 Motion* make_motion_gather(PlannerInfo *root, Plan *subplan, int segindex, List *sortPathKeys);
 
 extern
-void mark_append_locus(Plan *plan, GpSetOpType optype, int numsegments);
+void mark_append_locus(Plan *plan, GpSetOpType optype);
 
 extern
 void mark_passthru_locus(Plan *plan, bool with_hash, bool with_sort);

@@ -510,7 +510,7 @@ generate_union_plan(SetOperationStmt *op, PlannerInfo *root,
 	 * Append the child results together.
 	 */
 	plan = (Plan *) make_append(planlist, tlist);
-	mark_append_locus(plan, optype, __GP_POLICY_EVIL_NUMSEGMENTS); /* CDB: Mark the plan result locus. */
+	mark_append_locus(plan, optype); /* CDB: Mark the plan result locus. */
 
 	/*
 	 * For UNION ALL, we just need the Append plan.  For UNION, need to add
@@ -653,7 +653,7 @@ generate_nonunion_plan(SetOperationStmt *op, PlannerInfo *root,
 	 * Append the child results together.
 	 */
 	plan = (Plan *) make_append(planlist, tlist);
-	mark_append_locus(plan, optype, __GP_POLICY_EVIL_NUMSEGMENTS); /* CDB: Mark the plan result locus. */
+	mark_append_locus(plan, optype); /* CDB: Mark the plan result locus. */
 
 	/* Identify the grouping semantics */
 	groupList = generate_setop_grouplist(op, tlist);

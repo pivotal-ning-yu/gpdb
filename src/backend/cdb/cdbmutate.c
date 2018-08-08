@@ -1770,7 +1770,8 @@ make_splitupdate(PlannerInfo *root, ModifyTable *mt, Plan *subplan, RangeTblEntr
     //find_segid_attribute_check(splitupdate->plan.targetlist, &splitupdate->tupleSegIdx, resultRelationsIdx);
 
 	/* we need an motion node above the SplitUpdate, so mark it as strewn */
-	mark_plan_strewn((Plan *) splitupdate, __GP_POLICY_EVIL_NUMSEGMENTS);
+	Assert(subplan->flow != NULL);
+	mark_plan_strewn((Plan *) splitupdate, subplan->flow->numsegments);
 
 	mt->action_col_idxes = lappend_int(mt->action_col_idxes, actionColIdx);
 	mt->ctid_col_idxes = lappend_int(mt->ctid_col_idxes, ctidColIdx);
@@ -1788,8 +1789,8 @@ make_reshuffle(PlannerInfo *root,
 			   Index resultRelationsIdx)
 {
 	Reshuffle *reshufflePlan = makeNode(Reshuffle);
-	Relation rel = relation_open(rte->relid, NoLock);
-	GpPolicy *policy = rel->rd_cdbpolicy;
+	Relation rel = relation_open(rte->relid, NoLock); /* FIXME: NoLock? */
+	GpPolicy *policy = rel->rd_cdbpolicy; /* FIXME: use GpPolicyFetch()? */
 	int i = 0;
 
 	reshufflePlan->plan.targetlist = list_copy(subplan->targetlist);
@@ -1811,7 +1812,8 @@ make_reshuffle(PlannerInfo *root,
 												 policy->attrs[i]);
 	}
 
-	mark_plan_strewn((Plan *) reshufflePlan, __GP_POLICY_EVIL_NUMSEGMENTS);
+	/* We always reshuffle to all the segments */
+	mark_plan_strewn((Plan *) reshufflePlan, GP_POLICY_ALL_NUMSEGMENTS);
 
 	heap_close(rel, NoLock);
 
