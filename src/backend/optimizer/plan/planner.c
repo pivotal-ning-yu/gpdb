@@ -1035,6 +1035,8 @@ inheritance_planner(PlannerInfo *root)
 	List	   *returningLists = NIL;
 	List	   *rowMarks;
 	ListCell   *lc;
+	GpPolicy   *parentPolicy = NULL;
+	Oid			parentOid = InvalidOid;
 
 	/* MPP */
 	Plan	   *plan;
@@ -1066,6 +1068,17 @@ inheritance_planner(PlannerInfo *root)
 		/* append_rel_list contains all append rels; ignore others */
 		if (appinfo->parent_relid != parentRTindex)
 			continue;
+
+		if (!parentPolicy)
+		{
+			parentPolicy = GpPolicyFetch(NULL, appinfo->parent_reloid);
+			parentOid = appinfo->parent_reloid;
+
+			Assert(parentPolicy != NULL);
+			Assert(parentOid != InvalidOid);
+		}
+
+		Assert(parentOid == appinfo->parent_reloid);
 
 		/*
 		 * We need a working copy of the PlannerInfo so that we can control
@@ -1264,6 +1277,8 @@ inheritance_planner(PlannerInfo *root)
 									 subroot.parse->returningList);
 	}
 
+	Assert(parentPolicy != NULL);
+
 	/* Mark result as unordered (probably unnecessary) */
 	root->query_pathkeys = NIL;
 
@@ -1284,7 +1299,7 @@ inheritance_planner(PlannerInfo *root)
 									NULL);
 
 		if (Gp_role == GP_ROLE_DISPATCH)
-			mark_plan_general(plan, __GP_POLICY_EVIL_NUMSEGMENTS);
+			mark_plan_general(plan, parentPolicy->numsegments);
 
 		return plan;
 	}
@@ -2168,13 +2183,17 @@ grouping_planner(PlannerInfo *root, double tuple_fraction)
 				 * this routine to avoid having to generate the plan in the
 				 * first place.
 				 */
+				/* FIXME: is this correct? */
+				RangeTblEntry *rangeTblEntry = linitial(parse->rtable);
+				GpPolicy   *policy = GpPolicyFetch(NULL, rangeTblEntry->relid);
+
 				result_plan = (Plan *) make_result(root,
 												   tlist,
 												   parse->havingQual,
 												   NULL);
 				/* Result will be only one row anyway; no sort order */
 				current_pathkeys = NIL;
-				mark_plan_general(result_plan, __GP_POLICY_EVIL_NUMSEGMENTS);
+				mark_plan_general(result_plan, policy->numsegments);
 				CdbPathLocus_MakeNull(&current_locus, 0);
 			}
 		}						/* end of non-minmax-aggregate case */
