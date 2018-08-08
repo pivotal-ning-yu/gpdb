@@ -265,7 +265,8 @@ GpPolicyFetch(MemoryContext mcxt, Oid tbloid)
 									0, GP_POLICY_ENTRY_NUMSEGMENTS);
 			}
 
-			return createRandomPartitionedPolicy(mcxt, __GP_POLICY_EVIL_NUMSEGMENTS);
+			return createRandomPartitionedPolicy(mcxt,
+												 GP_POLICY_ALL_NUMSEGMENTS);
 		}
 	}
 
@@ -689,7 +690,8 @@ checkPolicyForUniqueIndex(Relation rel, AttrNumber *indattr, int nidxatts,
 		}
 
 		/* update policy since table is not populated yet. See MPP-101 */
-		GpPolicy *policy = makeGpPolicy(NULL, POLICYTYPE_PARTITIONED, nidxatts, __GP_POLICY_EVIL_NUMSEGMENTS);
+		GpPolicy *policy = makeGpPolicy(NULL, POLICYTYPE_PARTITIONED, nidxatts,
+										rel->rd_cdbpolicy->numsegments);
 
 		for (i = 0; i < nidxatts; i++)
 			policy->attrs[i] = indattr[i];

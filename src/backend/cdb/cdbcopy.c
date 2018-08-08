@@ -19,6 +19,8 @@
 #include "miscadmin.h"
 #include "libpq-fe.h"
 #include "libpq-int.h"
+#include "catalog/gp_policy.h"
+#include "catalog/namespace.h"
 #include "cdb/cdbconn.h"
 #include "cdb/cdbcopy.h"
 #include "cdb/cdbdisp_query.h"
@@ -119,7 +121,12 @@ cdbCopyStart(CdbCopy *c, CopyStmt *stmt, struct GpPolicy *policy)
 	}
 	else
 	{
-		stmt->policy = createRandomPartitionedPolicy(NULL, __GP_POLICY_EVIL_NUMSEGMENTS);
+		/* FIXME: is this correct? */
+		Oid			relid = RangeVarGetRelid(stmt->relation, true);
+		GpPolicy   *relpolicy = GpPolicyFetch(NULL, relid);
+
+		stmt->policy = createRandomPartitionedPolicy(NULL,
+													 relpolicy->numsegments);
 	}
 
 	CdbDispatchCopyStart(c, (Node *)stmt,
