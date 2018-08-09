@@ -315,7 +315,7 @@ cdbpath_create_motion_path(PlannerInfo *root,
 			subpath->locus.numsegments = CdbPathLocus_NumSegments(locus);
 			return subpath;
 #endif
-			pathkeys = NIL;
+			pathkeys = subpath->pathkeys;
 		}
 		else
 			goto invalid_motion_request;

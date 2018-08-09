@@ -6493,6 +6493,10 @@ adjust_modifytable_flow(PlannerInfo *root, ModifyTable *node)
 			}
 
 			numsegments = targetPolicy->numsegments;
+#if 0
+			if (targetPolicy->ptype == POLICYTYPE_ENTRY)
+				numsegments = GP_POLICY_ALL_NUMSEGMENTS;
+#endif
 
 			if (targetPolicyType == POLICYTYPE_PARTITIONED)
 			{

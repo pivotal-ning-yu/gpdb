@@ -1537,7 +1537,7 @@ set_append_path_locus(PlannerInfo *root, Path *pathnode, RelOptInfo *rel,
 				if (!CdbPathLocus_IsEntry(subpath->locus))
 				{
 					CdbPathLocus singleEntry;
-					CdbPathLocus_MakeEntry(&singleEntry, 0);
+					CdbPathLocus_MakeEntry(&singleEntry, GP_POLICY_ENTRY_NUMSEGMENTS);
 
 					//FIXME:cdbpath_create_motion_path maybe need to refactor
 					subpath = cdbpath_create_motion_path(root, subpath, pathkeys, false, singleEntry);
@@ -2602,12 +2602,12 @@ create_functionscan_path(PlannerInfo *root, RelOptInfo *rel, RangeTblEntry *rte)
 				 * for backwards compatibility.
 				 */
 				if (contain_mutable_functions(rte->funcexpr))
-					CdbPathLocus_MakeEntry(&pathnode->locus, 0);
+					CdbPathLocus_MakeEntry(&pathnode->locus, GP_POLICY_ENTRY_NUMSEGMENTS);
 				else
 					CdbPathLocus_MakeGeneral(&pathnode->locus, getgpsegmentCount());
 				break;
 			case PROEXECLOCATION_MASTER:
-				CdbPathLocus_MakeEntry(&pathnode->locus, 0);
+				CdbPathLocus_MakeEntry(&pathnode->locus, GP_POLICY_ENTRY_NUMSEGMENTS);
 				break;
 			case PROEXECLOCATION_ALL_SEGMENTS:
 				CdbPathLocus_MakeStrewn(&pathnode->locus, getgpsegmentCount());
@@ -2624,7 +2624,7 @@ create_functionscan_path(PlannerInfo *root, RelOptInfo *rel, RangeTblEntry *rte)
 		 */
 		/* The default behavior is */
 		if (contain_mutable_functions(rte->funcexpr))
-			CdbPathLocus_MakeEntry(&pathnode->locus, 0);
+			CdbPathLocus_MakeEntry(&pathnode->locus, GP_POLICY_ENTRY_NUMSEGMENTS);
 		else
 			CdbPathLocus_MakeGeneral(&pathnode->locus, getgpsegmentCount());
 	}
@@ -2700,7 +2700,7 @@ create_valuesscan_path(PlannerInfo *root, RelOptInfo *rel, RangeTblEntry *rte)
 	 */
 	Assert(rte->rtekind == RTE_VALUES);
 	if (contain_mutable_functions((Node *)rte->values_lists))
-		CdbPathLocus_MakeEntry(&pathnode->locus, 0);
+		CdbPathLocus_MakeEntry(&pathnode->locus, GP_POLICY_ENTRY_NUMSEGMENTS);
 	else
 		CdbPathLocus_MakeGeneral(&pathnode->locus, getgpsegmentCount());
 
@@ -2761,7 +2761,7 @@ create_worktablescan_path(PlannerInfo *root, RelOptInfo *rel, CdbLocusType ctelo
 		numsegments = GP_POLICY_ALL_NUMSEGMENTS; /* FIXME */
 
 	if (ctelocus == CdbLocusType_Entry)
-		CdbPathLocus_MakeEntry(&result, 0);
+		CdbPathLocus_MakeEntry(&result, GP_POLICY_ENTRY_NUMSEGMENTS);
 	else if (ctelocus == CdbLocusType_SingleQE)
 		CdbPathLocus_MakeSingleQE(&result, numsegments);
 	else if (ctelocus == CdbLocusType_General)

@@ -2181,6 +2181,7 @@ grouping_planner(PlannerInfo *root, double tuple_fraction)
 				 * first place.
 				 */
 				/* FIXME: is this correct? */
+				/* FIXME: should use rt_fetch(resultRelation, rtable) ? */
 				RangeTblEntry *rangeTblEntry = linitial(parse->rtable);
 				GpPolicy   *policy = GpPolicyFetch(NULL, rangeTblEntry->relid);
 
@@ -2895,7 +2896,8 @@ grouping_planner(PlannerInfo *root, double tuple_fraction)
 		 * Repartition the subquery plan based on our distribution
 		 * requirements
 		 */
-		r = repartitionPlan(result_plan, false, false, exprList, __GP_POLICY_EVIL_NUMSEGMENTS);
+		r = repartitionPlan(result_plan, false, false, exprList,
+							result_plan->flow->numsegments);
 		if (!r)
 		{
 			/*

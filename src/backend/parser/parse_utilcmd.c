@@ -1667,7 +1667,7 @@ transformCreateExternalStmt(CreateExternalStmt *stmt, const char *queryString)
 			 * defaults to DISTRIBUTED RANDOMLY irrespective of the
 			 * gp_create_table_random_default_distribution guc.
 			 */
-			stmt->policy = createRandomPartitionedPolicy(NULL, __GP_POLICY_EVIL_NUMSEGMENTS);
+			stmt->policy = createRandomPartitionedPolicy(NULL, GP_POLICY_ALL_NUMSEGMENTS);
 		}
 		else
 		{
