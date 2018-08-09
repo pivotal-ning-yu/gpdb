@@ -6619,7 +6619,8 @@ adjust_modifytable_flow(PlannerInfo *root, ModifyTable *node)
 														 targetPolicy->nattrs,
 														 targetPolicy->attrs,
 														 false);
-					if (!repartitionPlan(new_subplan, false, false, hashExpr))
+					if (!repartitionPlan(new_subplan, false, false, hashExpr,
+										 targetPolicy->numsegments))
 						ereport(ERROR, (errcode(ERRCODE_GP_FEATURE_NOT_YET),
 										errmsg("Cannot parallelize that UPDATE yet")));
 

@@ -53,7 +53,7 @@ cdbpathtoplan_create_flow(PlannerInfo *root,
 	}
 	else if (CdbPathLocus_IsSegmentGeneral(locus))
 	{
-		flow = makeFlow(FLOW_SINGLETON, locus.numsegments);
+		flow = makeFlow(FLOW_SINGLETON, 1);
 		flow->segindex = 0;
 	}
 	else if (CdbPathLocus_IsReplicated(locus))
@@ -134,7 +134,8 @@ cdbpathtoplan_create_motion_plan(PlannerInfo *root,
 			else
 				motion = make_union_motion(subplan,
 										   destSegIndex,
-										   false	/* useExecutorVarFormat */
+										   false	/* useExecutorVarFormat */,
+										   path->path.locus.numsegments
 					);
 		}
 
@@ -142,14 +143,16 @@ cdbpathtoplan_create_motion_plan(PlannerInfo *root,
 		else
 			motion = make_union_motion(subplan,
 									   destSegIndex,
-									   false	/* useExecutorVarFormat */
+									   false	/* useExecutorVarFormat */,
+									   path->path.locus.numsegments
 				);
 	}
 
 	/* Send all of the tuples to all of the QEs in gang above... */
 	else if (CdbPathLocus_IsReplicated(path->path.locus))
 		motion = make_broadcast_motion(subplan,
-									   false	/* useExecutorVarFormat */
+									   false	/* useExecutorVarFormat */,
+									   path->path.locus.numsegments
 			);
 
 	/* Hashed redistribution to all QEs in gang above... */
@@ -180,7 +183,8 @@ cdbpathtoplan_create_motion_plan(PlannerInfo *root,
         }
         motion = make_hashed_motion(subplan,
                                     hashExpr,
-                                    false /* useExecutorVarFormat */);
+                                    false /* useExecutorVarFormat */,
+									path->path.locus.numsegments);
     }
     else
         Insist(0);
