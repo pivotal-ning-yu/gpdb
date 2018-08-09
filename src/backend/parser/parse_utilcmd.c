@@ -1667,7 +1667,7 @@ transformCreateExternalStmt(CreateExternalStmt *stmt, const char *queryString)
 			stmt->distributedBy = makeNode(DistributedBy);
 			stmt->distributedBy->ptype = POLICYTYPE_PARTITIONED;
 			stmt->distributedBy->keys = NIL;
-			stmt->distributedBy->numsegments = __GP_POLICY_EVIL_NUMSEGMENTS;
+			stmt->distributedBy->numsegments = GP_POLICY_ALL_NUMSEGMENTS;
 		}
 		else
 		{
