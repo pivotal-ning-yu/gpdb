@@ -6837,7 +6837,8 @@ InitDistributionData(CopyState cstate, Form_pg_attribute *attr,
 		                      &hash_ctl,
 		                      HASH_ELEM | HASH_FUNCTION | HASH_CONTEXT);
 		p_nattrs = list_length(cols);
-		policy = createHashPartitionedPolicy(NULL, cols, __GP_POLICY_EVIL_NUMSEGMENTS);
+		policy = createHashPartitionedPolicy(NULL, cols,
+											 cstate->rel->rd_cdbpolicy->numsegments);
 	}
 
 	/*

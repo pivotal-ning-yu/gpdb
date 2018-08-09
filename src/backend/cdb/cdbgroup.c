@@ -3052,7 +3052,7 @@ cdbpathlocus_from_flow(Flow *flow)
 	{
 		case FLOW_SINGLETON:
 			if (flow->segindex == -1)
-				CdbPathLocus_MakeEntry(&locus, 0);
+				CdbPathLocus_MakeEntry(&locus, GP_POLICY_ENTRY_NUMSEGMENTS);
 			else
 				CdbPathLocus_MakeSingleQE(&locus, flow->numsegments);
 			break;
