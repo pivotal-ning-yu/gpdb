@@ -2753,17 +2753,23 @@ create_worktablescan_path(PlannerInfo *root, RelOptInfo *rel, CdbLocusType ctelo
 {
 	Path	   *pathnode = makeNode(Path);
 	CdbPathLocus result;
+	int			numsegments;
+
+	if (rel->cdbpolicy)
+		numsegments = rel->cdbpolicy->numsegments;
+	else
+		numsegments = GP_POLICY_ALL_NUMSEGMENTS; /* FIXME */
 
 	if (ctelocus == CdbLocusType_Entry)
 		CdbPathLocus_MakeEntry(&result, 0);
 	else if (ctelocus == CdbLocusType_SingleQE)
-		CdbPathLocus_MakeSingleQE(&result, rel->cdbpolicy->numsegments);
+		CdbPathLocus_MakeSingleQE(&result, numsegments);
 	else if (ctelocus == CdbLocusType_General)
-		CdbPathLocus_MakeGeneral(&result, rel->cdbpolicy->numsegments);
+		CdbPathLocus_MakeGeneral(&result, numsegments);
 	else if (ctelocus == CdbLocusType_SegmentGeneral)
-		CdbPathLocus_MakeSegmentGeneral(&result, rel->cdbpolicy->numsegments);
+		CdbPathLocus_MakeSegmentGeneral(&result, numsegments);
 	else
-		CdbPathLocus_MakeStrewn(&result, rel->cdbpolicy->numsegments);
+		CdbPathLocus_MakeStrewn(&result, numsegments);
 
 	pathnode->pathtype = T_WorkTableScan;
 	pathnode->parent = rel;

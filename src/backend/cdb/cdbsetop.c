@@ -340,10 +340,13 @@ make_motion_gather(PlannerInfo *root, Plan *subplan, int segindex, List *sortPat
 	}
 	else
 	{
+		/* FIXME: numsegments */
+
 		motion = make_union_motion(
 								   subplan,
 								   segindex,
-								   false /* useExecutorVarFormat */ );
+								   false /* useExecutorVarFormat */,
+								   subplan->flow->numsegments);
 	}
 
 	return motion;
@@ -376,10 +379,13 @@ make_motion_hash(PlannerInfo *root __attribute__((unused)), Plan *subplan, List 
 
 	Assert(subplan->flow != NULL);
 
+	/* FIXME: numsegments */
+
 	motion = make_hashed_motion(
 								subplan,
 								hashexprs,
-								false /* useExecutorVarFormat */ );
+								false /* useExecutorVarFormat */,
+								subplan->flow->numsegments);
 
 	return motion;
 }

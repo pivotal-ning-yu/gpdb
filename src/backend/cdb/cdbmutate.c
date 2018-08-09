@@ -99,7 +99,8 @@ static int *makeDefaultSegIdxArray(int numSegs);
 
 static void add_slice_to_motion(Motion *motion,
 					MotionType motionType, List *hashExpr,
-					int numOutputSegs, int *outputSegIdx);
+					int numOutputSegs, int *outputSegIdx,
+					int numsegments);
 
 static Node *apply_motion_mutator(Node *node, ApplyMotionState *context);
 
@@ -797,17 +798,21 @@ apply_motion_mutator(Node *node, ApplyMotionState *context)
 
 			newnode = (Node *) make_union_motion(plan,
 												 flow->segindex,
-												 true /* useExecutorVarFormat */ );
+												 true /* useExecutorVarFormat */,
+												 (flow->segindex == -1 ?
+												  1 : flow->numsegments));
 			break;
 
 		case MOVEMENT_BROADCAST:
-			newnode = (Node *) make_broadcast_motion(plan, true /* useExecutorVarFormat */ );
+			newnode = (Node *) make_broadcast_motion(plan, true /* useExecutorVarFormat */,
+													 flow->numsegments);
 			break;
 
 		case MOVEMENT_REPARTITION:
 			newnode = (Node *) make_hashed_motion(plan,
 												  flow->hashExpr,
-												  true	/* useExecutorVarFormat */
+												  true	/* useExecutorVarFormat */,
+												  flow->numsegments
 				);
 			break;
 
@@ -928,8 +933,14 @@ assignMotionID(Node *newnode, ApplyMotionState *context, Node *oldnode)
 static void
 add_slice_to_motion(Motion *motion,
 					MotionType motionType, List *hashExpr,
-					int numOutputSegs, int *outputSegIdx)
+					int numOutputSegs, int *outputSegIdx,
+					int numsegments)
 {
+	if (numsegments == __GP_POLICY_EVIL_NUMSEGMENTS)
+	{
+		Assert(!"what's the proper value of numsegments?");
+	}
+
 	/* sanity checks */
 	/* check numOutputSegs and outputSegIdx are in sync.  */
 	AssertEquivalent(numOutputSegs == 0, outputSegIdx == NULL);
@@ -983,12 +994,16 @@ add_slice_to_motion(Motion *motion,
 	}
 
 
+#if 0
+	Assert(motion->plan.lefttree != NULL);
+	Assert(motion->plan.lefttree->flow != NULL);
+#endif
+
 	/* Attach a descriptive Flow. */
 	switch (motion->motionType)
 	{
 		case MOTIONTYPE_HASH:
-			motion->plan.flow = makeFlow(FLOW_PARTITIONED,
-										 motion->plan.lefttree->flow->numsegments);
+			motion->plan.flow = makeFlow(FLOW_PARTITIONED, numsegments);
 			motion->plan.flow->locustype = CdbLocusType_Hashed;
 			motion->plan.flow->hashExpr = copyObject(motion->hashExpr);
 			motion->numOutputSegs = getgpsegmentCount();
@@ -999,16 +1014,14 @@ add_slice_to_motion(Motion *motion,
 			if (motion->numOutputSegs == 0)
 			{
 				/* broadcast */
-				motion->plan.flow = makeFlow(FLOW_REPLICATED,
-											 motion->plan.lefttree->flow->numsegments);
+				motion->plan.flow = makeFlow(FLOW_REPLICATED, numsegments);
 				motion->plan.flow->locustype = CdbLocusType_Replicated;
 
 			}
 			else if (motion->numOutputSegs == 1)
 			{
 				/* Focus motion */
-				motion->plan.flow = makeFlow(FLOW_SINGLETON,
-											 motion->plan.lefttree->flow->numsegments);
+				motion->plan.flow = makeFlow(FLOW_SINGLETON, motion->outputSegIdx[0] < 0 ? 1 : numsegments);
 				motion->plan.flow->segindex = motion->outputSegIdx[0];
 				motion->plan.flow->locustype = (motion->plan.flow->segindex < 0) ?
 					CdbLocusType_Entry :
@@ -1022,8 +1035,7 @@ add_slice_to_motion(Motion *motion,
 			}
 			break;
 		case MOTIONTYPE_EXPLICIT:
-			motion->plan.flow = makeFlow(FLOW_PARTITIONED,
-										 motion->plan.lefttree->flow->numsegments);
+			motion->plan.flow = makeFlow(FLOW_PARTITIONED, numsegments);
 
 			/*
 			 * TODO: antova - Nov 18, 2010; add a special locus type for
@@ -1041,7 +1053,8 @@ add_slice_to_motion(Motion *motion,
 }
 
 Motion *
-make_union_motion(Plan *lefttree, int destSegIndex, bool useExecutorVarFormat)
+make_union_motion(Plan *lefttree, int destSegIndex,
+				  bool useExecutorVarFormat, int numsegments)
 {
 	Motion	   *motion;
 	int		   *outSegIdx = (int *) palloc(sizeof(int));
@@ -1049,7 +1062,8 @@ make_union_motion(Plan *lefttree, int destSegIndex, bool useExecutorVarFormat)
 	outSegIdx[0] = destSegIndex;
 
 	motion = make_motion(NULL, lefttree, NIL, useExecutorVarFormat);
-	add_slice_to_motion(motion, MOTIONTYPE_FIXED, NULL, 1, outSegIdx);
+	add_slice_to_motion(motion, MOTIONTYPE_FIXED, NULL, 1, outSegIdx,
+						numsegments);
 	return motion;
 }
 
@@ -1066,29 +1080,34 @@ make_sorted_union_motion(PlannerInfo *root,
 	outSegIdx[0] = destSegIndex;
 
 	motion = make_motion(root, lefttree, sortPathKeys, useExecutorVarFormat);
-	add_slice_to_motion(motion, MOTIONTYPE_FIXED, NULL, 1, outSegIdx);
+	add_slice_to_motion(motion, MOTIONTYPE_FIXED, NULL, 1, outSegIdx,
+						motion->plan.lefttree->flow->numsegments);
 	return motion;
 }
 
 Motion *
 make_hashed_motion(Plan *lefttree,
-				   List *hashExpr, bool useExecutorVarFormat)
+				   List *hashExpr,
+				   bool useExecutorVarFormat,
+				   int numsegments)
 {
 	Motion	   *motion;
 
 	motion = make_motion(NULL, lefttree, NIL, useExecutorVarFormat);
-	add_slice_to_motion(motion, MOTIONTYPE_HASH, hashExpr, 0, NULL);
+	add_slice_to_motion(motion, MOTIONTYPE_HASH, hashExpr, 0, NULL,
+						numsegments);
 	return motion;
 }
 
 Motion *
-make_broadcast_motion(Plan *lefttree, bool useExecutorVarFormat)
+make_broadcast_motion(Plan *lefttree, bool useExecutorVarFormat,
+					  int numsegments)
 {
 	Motion	   *motion;
 
 	motion = make_motion(NULL, lefttree, NIL, useExecutorVarFormat);
 
-	add_slice_to_motion(motion, MOTIONTYPE_FIXED, NULL, 0, NULL);
+	add_slice_to_motion(motion, MOTIONTYPE_FIXED, NULL, 0, NULL, numsegments);
 	return motion;
 }
 
@@ -1103,7 +1122,8 @@ make_explicit_motion(Plan *lefttree, AttrNumber segidColIdx, bool useExecutorVar
 
 	motion->segidColIdx = segidColIdx;
 
-	add_slice_to_motion(motion, MOTIONTYPE_EXPLICIT, NULL, 0, NULL);
+	add_slice_to_motion(motion, MOTIONTYPE_EXPLICIT, NULL, 0, NULL,
+						motion->plan.lefttree->flow->numsegments);
 	return motion;
 }
 

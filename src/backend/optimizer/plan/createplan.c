@@ -6617,23 +6617,29 @@ adjust_modifytable_flow(PlannerInfo *root, ModifyTable *node)
 					Plan	*new_subplan;
 
 					new_subplan = (Plan *) make_splitupdate(root, (ModifyTable *) node, subplan, rte, rti);
+#if 0
+					/* FIXME: we do not always want to add reshuffle node */
                     new_subplan = (Plan *) make_reshuffle(root, new_subplan, rte, rti);
+#endif
 					hashExpr = getExprListFromTargetList(new_subplan->targetlist,
 														 targetPolicy->nattrs,
 														 targetPolicy->attrs,
 														 false);
-//					if (!repartitionPlan(new_subplan, false, false, hashExpr))
-//						ereport(ERROR, (errcode(ERRCODE_GP_FEATURE_NOT_YET),
-//										errmsg("Cannot parallelize that UPDATE yet")));
+#if 1
+					if (!repartitionPlan(new_subplan, false, false, hashExpr,
+										 targetPolicy->numsegments))
+						ereport(ERROR, (errcode(ERRCODE_GP_FEATURE_NOT_YET),
+										errmsg("Cannot parallelize that UPDATE yet")));
+#endif
+#if 0
                     extern void
                     request_explicit_motion2(Plan *plan, Index resultRelationsIdx, List *rtable);
 					request_explicit_motion2(new_subplan, rti, root->glob->finalrtable);
+#endif
 
 					lcp->data.ptr_value = new_subplan;
-
 					continue;
 				}
-
 				node->action_col_idxes = lappend_int(node->action_col_idxes, -1);
 				node->ctid_col_idxes = lappend_int(node->ctid_col_idxes, -1);
 				node->oid_col_idxes = lappend_int(node->oid_col_idxes, 0);
