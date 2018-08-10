@@ -274,8 +274,7 @@ static bool TupleMatchesHashFilter(Result *resultNode, TupleTableSlot *resultSlo
 		Assert(resultNode->hashFilter);
 		ListCell	*cell = NULL;
 
-		/* FIXME: record GpPolicy->numsegments in Result struct */
-		CdbHash *hash = makeCdbHash(GpIdentity.numsegments);
+		CdbHash *hash = makeCdbHash(resultNode->plan.flow->numsegments);
 		cdbhashinit(hash);
 		foreach(cell, resultNode->hashList)
 		{
