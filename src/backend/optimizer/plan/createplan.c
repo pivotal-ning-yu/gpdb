@@ -6503,6 +6503,14 @@ adjust_modifytable_flow(PlannerInfo *root, ModifyTable *node)
 				all_subplans_entry = false;
 				all_subplans_replicated = false;
 
+				/* FIXME: also do this for other targetPolicyType? */
+				/* FIXME: also do this for all the subplans */
+				if (subplan->flow->locustype == CdbLocusType_General)
+				{
+					Assert(subplan->flow->numsegments >= numsegments);
+					subplan->flow->numsegments = numsegments;
+				}
+
 				if (gp_enable_fast_sri && IsA(subplan, Result))
 					sri_optimize_for_result(root, subplan, rte, &targetPolicy, &hashExpr);
 
