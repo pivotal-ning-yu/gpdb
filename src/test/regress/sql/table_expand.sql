@@ -317,7 +317,26 @@ insert into r2 (c1) values (1), (2), (3), (4), (5), (6)
 	returning gp_segment_id, c1, c2;
 
 begin;
+insert into t1 (c1) values (1) returning gp_segment_id, c1, c2;
+insert into d1 (c1) values (1) returning gp_segment_id, c1, c2;
+insert into r1 (c1) values (1) returning gp_segment_id, c1, c2;
+insert into t2 (c1) values (1) returning gp_segment_id, c1, c2;
+insert into d2 (c1) values (1) returning gp_segment_id, c1, c2;
+insert into r2 (c1) values (1) returning gp_segment_id, c1, c2;
+rollback;
+
+begin;
 insert into t1 (c1) select i from generate_series(1, 20) i
+	returning gp_segment_id, c1, c2;
+insert into d1 (c1) select i from generate_series(1, 20) i
+	returning gp_segment_id, c1, c2;
+insert into r1 (c1) select i from generate_series(1, 20) i
+	returning gp_segment_id, c1, c2;
+insert into t2 (c1) select i from generate_series(1, 20) i
+	returning gp_segment_id, c1, c2;
+insert into d2 (c1) select i from generate_series(1, 20) i
+	returning gp_segment_id, c1, c2;
+insert into r2 (c1) select i from generate_series(1, 20) i
 	returning gp_segment_id, c1, c2;
 rollback;
 
