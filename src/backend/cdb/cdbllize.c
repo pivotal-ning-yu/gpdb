@@ -924,6 +924,7 @@ makeFlow(FlowType flotype, int numsegments)
 {
 	Flow	   *flow = makeNode(Flow);
 
+	Assert(numsegments > 0);
 	if (numsegments == __GP_POLICY_EVIL_NUMSEGMENTS)
 	{
 		Assert(!"what's the proper value of numsegments?");
@@ -1155,6 +1156,7 @@ adjustPlanFlow(Plan *plan,
 	Assert(flow->req_move == MOVEMENT_NONE);
 	Assert(flow->flow_before_req_move == NULL);
 
+	Assert(numsegments > 0);
 	if (numsegments == __GP_POLICY_EVIL_NUMSEGMENTS)
 	{
 		Assert(!"what's the proper value of numsegments?");

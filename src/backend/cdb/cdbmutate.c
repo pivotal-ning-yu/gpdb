@@ -889,6 +889,7 @@ add_slice_to_motion(Motion *motion,
 					int numOutputSegs, int *outputSegIdx,
 					int numsegments)
 {
+	Assert(numsegments > 0);
 	if (numsegments == __GP_POLICY_EVIL_NUMSEGMENTS)
 	{
 		Assert(!"what's the proper value of numsegments?");
