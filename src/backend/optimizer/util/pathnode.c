@@ -1487,8 +1487,9 @@ set_append_path_locus(PlannerInfo *root, Path *pathnode, RelOptInfo *rel,
 	/* If no subpath, any worker can execute this Append.  Result has 0 rows. */
 	if (!subpaths)
 	{
+		Assert(rel->cdbpolicy);
 		CdbPathLocus_MakeGeneral(&pathnode->locus,
-                                 CdbPathLocus_NumSegments(pathnode->locus));
+                                 rel->cdbpolicy->numsegments);
 		return;
 	}
 
