@@ -107,6 +107,7 @@ cdbpath_create_motion_path(PlannerInfo *root,
 		   cdbpathlocus_is_valid(subpath->locus));
 
 	numsegments = CdbPathLocus_CommonSegments(subpath->locus, locus);
+	Assert(numsegments > 0);
 
 	/* Moving subpath output to a single executor process (qDisp or qExec)? */
 	if (CdbPathLocus_IsBottleneck(locus))
@@ -116,6 +117,7 @@ cdbpath_create_motion_path(PlannerInfo *root,
 			CdbPathLocus_IsEntry(locus))
 		{
 			subpath->locus.numsegments = 0;
+			Assert(subpath->locus.numsegments > 0);
 			return subpath;
 		}
 		/* singleQE-->singleQE?  No motion needed. */
@@ -153,10 +155,14 @@ cdbpath_create_motion_path(PlannerInfo *root,
 			pathnode->path.pathtype = T_Motion;
 			pathnode->path.parent = subpath->parent;
 			pathnode->path.locus = locus;
+#if 0
 			pathnode->path.locus.numsegments = 0;
+#endif
 			pathnode->path.rows = subpath->rows;
 			pathnode->path.pathkeys = pathkeys;
 			pathnode->subpath = subpath;
+
+			Assert(pathnode->path.locus.numsegments > 0);
 
 			/* Costs, etc, are same as subpath. */
 			pathnode->path.startup_cost = subpath->total_cost;
@@ -189,6 +195,7 @@ cdbpath_create_motion_path(PlannerInfo *root,
 			pathnode->subpath = subpath;
 
 			Assert(locus.numsegments == numsegments);
+			Assert(pathnode->path.locus.numsegments > 0);
 
 			/* Costs, etc, are same as subpath. */
 			pathnode->path.startup_cost = subpath->total_cost;
