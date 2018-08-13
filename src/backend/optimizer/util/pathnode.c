@@ -1638,7 +1638,7 @@ create_result_path(List *quals)
 	pathnode->path.total_cost = cpu_tuple_cost;
 
     //FIXME: assume it is on all segments
-	CdbPathLocus_MakeGeneral(&pathnode->path.locus, getgpsegmentCount());
+	CdbPathLocus_MakeGeneral(&pathnode->path.locus, GP_POLICY_ALL_NUMSEGMENTS);
 	pathnode->path.motionHazard = false;
 	pathnode->path.rescannable = true;
 
@@ -2592,7 +2592,7 @@ create_functionscan_path(PlannerInfo *root, RelOptInfo *rel, RangeTblEntry *rte)
 		switch (exec_location)
 		{
 			case PROEXECLOCATION_ANY:
-				CdbPathLocus_MakeGeneral(&pathnode->locus, getgpsegmentCount());
+				CdbPathLocus_MakeGeneral(&pathnode->locus, GP_POLICY_ALL_NUMSEGMENTS);
 
 				/*
 				 * If the function is ON ANY, we presumably could execute the
@@ -2604,7 +2604,7 @@ create_functionscan_path(PlannerInfo *root, RelOptInfo *rel, RangeTblEntry *rte)
 				if (contain_mutable_functions(rte->funcexpr))
 					CdbPathLocus_MakeEntry(&pathnode->locus, GP_POLICY_ENTRY_NUMSEGMENTS);
 				else
-					CdbPathLocus_MakeGeneral(&pathnode->locus, getgpsegmentCount());
+					CdbPathLocus_MakeGeneral(&pathnode->locus, GP_POLICY_ALL_NUMSEGMENTS);
 				break;
 			case PROEXECLOCATION_MASTER:
 				CdbPathLocus_MakeEntry(&pathnode->locus, GP_POLICY_ENTRY_NUMSEGMENTS);
@@ -2626,7 +2626,7 @@ create_functionscan_path(PlannerInfo *root, RelOptInfo *rel, RangeTblEntry *rte)
 		if (contain_mutable_functions(rte->funcexpr))
 			CdbPathLocus_MakeEntry(&pathnode->locus, GP_POLICY_ENTRY_NUMSEGMENTS);
 		else
-			CdbPathLocus_MakeGeneral(&pathnode->locus, getgpsegmentCount());
+			CdbPathLocus_MakeGeneral(&pathnode->locus, GP_POLICY_ALL_NUMSEGMENTS);
 	}
 
 	pathnode->motionHazard = false;
@@ -2702,7 +2702,7 @@ create_valuesscan_path(PlannerInfo *root, RelOptInfo *rel, RangeTblEntry *rte)
 	if (contain_mutable_functions((Node *)rte->values_lists))
 		CdbPathLocus_MakeEntry(&pathnode->locus, GP_POLICY_ENTRY_NUMSEGMENTS);
 	else
-		CdbPathLocus_MakeGeneral(&pathnode->locus, getgpsegmentCount());
+		CdbPathLocus_MakeGeneral(&pathnode->locus, GP_POLICY_ALL_NUMSEGMENTS);
 
 	pathnode->motionHazard = false;
 	pathnode->rescannable = true;
@@ -2759,6 +2759,8 @@ create_worktablescan_path(PlannerInfo *root, RelOptInfo *rel, CdbLocusType ctelo
 		numsegments = rel->cdbpolicy->numsegments;
 	else
 		numsegments = GP_POLICY_ALL_NUMSEGMENTS; /* FIXME */
+
+	Assert(numsegments > 0);
 
 	if (ctelocus == CdbLocusType_Entry)
 		CdbPathLocus_MakeEntry(&result, GP_POLICY_ENTRY_NUMSEGMENTS);

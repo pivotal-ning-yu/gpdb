@@ -53,6 +53,7 @@ makeGpPolicy(MemoryContext mcxt, GpPolicyType ptype, int nattrs, int numsegments
 	else
 		policy->attrs = NULL;
 
+	Assert(numsegments > 0);
 	if (numsegments == __GP_POLICY_EVIL_NUMSEGMENTS)
 	{
 		Assert(!"what's the proper value of numsegments?");
