@@ -122,7 +122,8 @@ cdbCopyStart(CdbCopy *c, CopyStmt *stmt, struct GpPolicy *policy)
 	else
 	{
 		/* FIXME: is this correct? */
-		Oid			relid = RangeVarGetRelid(stmt->relation, true);
+		/* FIXME: lock mode */
+		Oid			relid = RangeVarGetRelid(stmt->relation, NoLock, true);
 		GpPolicy   *relpolicy = GpPolicyFetch(NULL, relid);
 
 		stmt->policy = createRandomPartitionedPolicy(NULL,
