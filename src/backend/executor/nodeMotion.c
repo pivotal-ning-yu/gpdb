@@ -1019,7 +1019,7 @@ ExecInitMotion(Motion * node, EState *estate, int eflags)
 			node->plan.flow->numsegments > 0)
 			motionstate->cdbhash = makeCdbHash(node->plan.flow->numsegments);
 		else
-			motionstate->cdbhash = makeCdbHash(node->numOutputSegs);
+			motionstate->cdbhash = makeCdbHash(__GP_POLICY_EVIL_NUMSEGMENTS);
     }
 
 	/* Merge Receive: Set up the key comparator and priority queue. */
