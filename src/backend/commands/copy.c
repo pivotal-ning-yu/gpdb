@@ -6796,7 +6796,9 @@ InitDistributionData(CopyState cstate, Form_pg_attribute *attr,
 	CdbHash *cdbHash = NULL;
 	AttrNumber h_attnum; /* hash key attribute number */
 	int p_index;
+#if 0
 	int total_segs = getgpsegmentCount();
+#endif
 	int i = 0;
 
 	if (!multi_dist_policy)
