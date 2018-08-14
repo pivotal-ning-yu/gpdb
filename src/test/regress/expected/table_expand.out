@@ -51,7 +51,7 @@ select localoid::regclass, attrnums, policytype, numsegments
 	from gp_distribution_policy where localoid in ('t'::regclass);
  localoid | attrnums | policytype | numsegments 
 ----------+----------+------------+-------------
- t        | {1,2}    | p          |           2
+ t        | {1,2}    | p          |           3
 (1 row)
 
 drop table t;
@@ -62,7 +62,7 @@ select localoid::regclass, attrnums, policytype, numsegments
 	from gp_distribution_policy where localoid in ('t'::regclass);
  localoid | attrnums | policytype | numsegments 
 ----------+----------+------------+-------------
- t        | {1,2}    | p          |           2
+ t        | {1,2}    | p          |           3
 (1 row)
 
 drop table t;
@@ -71,7 +71,7 @@ select localoid::regclass, attrnums, policytype, numsegments
 	from gp_distribution_policy where localoid in ('t'::regclass);
  localoid | attrnums | policytype | numsegments 
 ----------+----------+------------+-------------
- t        | {1,2}    | p          |           2
+ t        | {1,2}    | p          |           3
 (1 row)
 
 drop table t;
@@ -80,7 +80,7 @@ select localoid::regclass, attrnums, policytype, numsegments
 	from gp_distribution_policy where localoid in ('t'::regclass);
  localoid | attrnums | policytype | numsegments 
 ----------+----------+------------+-------------
- t        |          | r          |           2
+ t        |          | r          |           3
 (1 row)
 
 drop table t;
@@ -89,7 +89,7 @@ select localoid::regclass, attrnums, policytype, numsegments
 	from gp_distribution_policy where localoid in ('t'::regclass);
  localoid | attrnums | policytype | numsegments 
 ----------+----------+------------+-------------
- t        |          | p          |           2
+ t        |          | p          |           3
 (1 row)
 
 drop table t;
@@ -100,7 +100,7 @@ select localoid::regclass, attrnums, policytype, numsegments
 	from gp_distribution_policy where localoid in ('t'::regclass);
  localoid | attrnums | policytype | numsegments 
 ----------+----------+------------+-------------
- t        | {1,2}    | p          |           2
+ t        | {1,2}    | p          |           3
 (1 row)
 
 drop table t;
