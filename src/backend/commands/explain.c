@@ -844,6 +844,7 @@ show_dispatch_info(Slice *slice, ExplainState *es, Plan *plan)
 		case GANGTYPE_PRIMARY_READER:
 		case GANGTYPE_SINGLETON_READER:
 		{
+#if 0
 			if (slice->directDispatch.isDirectDispatch)
 			{
 				Assert(list_length(slice->directDispatch.contentIds) == 1);
@@ -853,6 +854,13 @@ show_dispatch_info(Slice *slice, ExplainState *es, Plan *plan)
 			{
 				segments = slice->numGangMembersToBeActive;
 			}
+#endif
+
+			if (plan->lefttree && plan->lefttree->flow)
+				segments = plan->lefttree->flow->numsegments;
+			else
+				segments = 0;
+
 			break;
 		}
 
@@ -861,11 +869,6 @@ show_dispatch_info(Slice *slice, ExplainState *es, Plan *plan)
 			Assert(false);
 			break;
 	}
-
-	if (plan->lefttree && plan->lefttree->flow)
-		segments = plan->lefttree->flow->numsegments;
-	else
-		segments = -1;
 
 	if (es->format == EXPLAIN_FORMAT_TEXT)
 	{

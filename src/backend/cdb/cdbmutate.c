@@ -754,8 +754,7 @@ apply_motion_mutator(Node *node, ApplyMotionState *context)
 			newnode = (Node *) make_union_motion(plan,
 												 flow->segindex,
 												 true /* useExecutorVarFormat */,
-												 (flow->segindex == -1 ?
-												  1 : flow->numsegments));
+												 flow->numsegments);
 			break;
 
 		case MOVEMENT_BROADCAST:
@@ -1017,7 +1016,7 @@ make_union_motion(Plan *lefttree, int destSegIndex,
 
 	motion = make_motion(NULL, lefttree, NIL, useExecutorVarFormat);
 	add_slice_to_motion(motion, MOTIONTYPE_FIXED, NULL, 1, outSegIdx,
-						numsegments);
+						destSegIndex < 0 ? GP_POLICY_GATHER_NUMSEGMENTS : numsegments);
 	return motion;
 }
 
@@ -1035,7 +1034,7 @@ make_sorted_union_motion(PlannerInfo *root,
 
 	motion = make_motion(root, lefttree, sortPathKeys, useExecutorVarFormat);
 	add_slice_to_motion(motion, MOTIONTYPE_FIXED, NULL, 1, outSegIdx,
-						motion->plan.lefttree->flow->numsegments);
+						GP_POLICY_GATHER_NUMSEGMENTS);
 	return motion;
 }
 
