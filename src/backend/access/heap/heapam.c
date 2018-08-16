@@ -162,6 +162,8 @@ protectOnlineExpand(Relation relation)
 			return;
 	}
 
+	/* FIXME: why check numsegments before lock? */
+
 	/* FIXME: use a timestamp instead of size */
 	extern uint32 FtsGetTotalSegments(void);
 	if (GpIdentity.numsegments < FtsGetTotalSegments())

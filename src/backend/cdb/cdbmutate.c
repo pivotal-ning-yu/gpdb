@@ -1063,7 +1063,7 @@ make_union_motion(Plan *lefttree, int destSegIndex,
 
 	motion = make_motion(NULL, lefttree, NIL, useExecutorVarFormat);
 	add_slice_to_motion(motion, MOTIONTYPE_FIXED, NULL, 1, outSegIdx,
-						destSegIndex < 0 ? GP_POLICY_GATHER_NUMSEGMENTS : numsegments);
+						GP_POLICY_GATHER_NUMSEGMENTS);
 	return motion;
 }
 

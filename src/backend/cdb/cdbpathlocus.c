@@ -123,11 +123,22 @@ cdbpathlocus_compare(CdbPathLocus_Comparison op,
 	ListCell   *bequivpathkeycell;
 
 	Assert(op == CdbPathLocus_Comparison_Equal ||
+		   op == CdbPathLocus_Comparison_WeakEqual ||
 		   op == CdbPathLocus_Comparison_Contains);
 
-	if (CdbPathLocus_NumSegments(a) !=
-		CdbPathLocus_NumSegments(b))
-		return false;
+	if (op != CdbPathLocus_Comparison_WeakEqual)
+	{
+		if (CdbPathLocus_NumSegments(a) !=
+			CdbPathLocus_NumSegments(b))
+			return false;
+	}
+	else
+	{
+		op = CdbPathLocus_Comparison_Equal;
+		/* FIXME: do not modify a & b */
+		a.numsegments = -1;
+		b.numsegments = -1;
+	}
 
 	if (CdbPathLocus_IsStrewn(a) ||
 		CdbPathLocus_IsStrewn(b))

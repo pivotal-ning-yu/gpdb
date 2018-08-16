@@ -247,6 +247,7 @@ typedef struct CdbPathLocus
 typedef enum
 {
     CdbPathLocus_Comparison_Equal,
+    CdbPathLocus_Comparison_WeakEqual,
     CdbPathLocus_Comparison_Contains
 } CdbPathLocus_Comparison;
 
