@@ -10696,3 +10696,25 @@ SELECT gp_partition_inverse(0000::oid);
 ERROR:  Function "gp_partition_inverse" not supported
 LINE 1: SELECT gp_partition_inverse(0000::oid);
                ^
+-- Column definition and partition expression have different yet
+-- binary compatible types.
+create table type_coercion (test_date text) DISTRIBUTED randomly
+PARTITION BY RANGE(test_date)
+(PARTITION p201708 START ('20170801'::character varying)
+ END ('20170901'::character varying),
+ PARTITION p201709 START ('20170901'::character varying)
+ END ('20171001'::character varying));
+NOTICE:  CREATE TABLE will create partition "type_coercion_1_prt_p201708" for table "type_coercion"
+NOTICE:  CREATE TABLE will create partition "type_coercion_1_prt_p201709" for table "type_coercion"
+-- Const wrapped in a RelabelType
+create table type_coercion_list (c1 int4) DISTRIBUTED randomly
+PARTITION BY LIST(c1)
+(PARTITION p1 values(1::oid::int4, 2::oid),
+ PARTITION p2 values(5::oid, 6::int4::oid));
+NOTICE:  CREATE TABLE will create partition "type_coercion_list_1_prt_p1" for table "type_coercion_list"
+NOTICE:  CREATE TABLE will create partition "type_coercion_list_1_prt_p2" for table "type_coercion_list"
+-- FuncExpr (for text) wrapped in a RelabelType
+create table type_coercion_range (c1 int4) DISTRIBUTED randomly
+PARTITION BY RANGE(c1) (START(1::text::int4::oid) END(10) every(5));
+NOTICE:  CREATE TABLE will create partition "type_coercion_range_1_prt_1" for table "type_coercion_range"
+NOTICE:  CREATE TABLE will create partition "type_coercion_range_1_prt_2" for table "type_coercion_range"

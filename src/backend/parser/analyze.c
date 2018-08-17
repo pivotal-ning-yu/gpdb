@@ -6145,7 +6145,7 @@ coerce_partition_value(Node *node, Oid typid, int32 typmod,
 
 
 	/* explicit coerce */
-	if (IsA(out, FuncExpr) || IsA(out, OpExpr) || IsA(out, CoerceToDomain))
+	if (IsA(out, FuncExpr) || IsA(out, OpExpr) || IsA(out, CoerceToDomain) || IsA(out, RelabelType))
 	{
 		bool isnull;
 		Datum d = partition_arg_get_val(out, &isnull);
@@ -6173,9 +6173,11 @@ coerce_partition_value(Node *node, Oid typid, int32 typmod,
 		if (IsA(out, FuncExpr) || IsA(out, OpExpr))
 			out = (Node *)c;
 	}
-	else
-		Assert(IsA(out, Const));
-
+	else if (!IsA(out, Const))
+		ereport(ERROR, (errmsg("cannot coerce partition expression "
+							   "type %s into column type %s",
+							   format_type_be(exprType(node)),
+							   format_type_be(typid))));
 	return out;
 }
 

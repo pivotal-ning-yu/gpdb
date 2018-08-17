@@ -5356,3 +5356,21 @@ SELECT * FROM gp_partition_selection(0000::oid, 3);
 SELECT * FROM gp_partition_expansion(0000::oid);
 SELECT gp_partition_inverse(0000::oid);
 
+-- Column definition and partition expression have different yet
+-- binary compatible types.
+create table type_coercion (test_date text) DISTRIBUTED randomly
+PARTITION BY RANGE(test_date)
+(PARTITION p201708 START ('20170801'::character varying)
+ END ('20170901'::character varying),
+ PARTITION p201709 START ('20170901'::character varying)
+ END ('20171001'::character varying));
+
+-- Const wrapped in a RelabelType
+create table type_coercion_list (c1 int4) DISTRIBUTED randomly
+PARTITION BY LIST(c1)
+(PARTITION p1 values(1::oid::int4, 2::oid),
+ PARTITION p2 values(5::oid, 6::int4::oid));
+
+-- FuncExpr (for text) wrapped in a RelabelType
+create table type_coercion_range (c1 int4) DISTRIBUTED randomly
+PARTITION BY RANGE(c1) (START(1::text::int4::oid) END(10) every(5));
