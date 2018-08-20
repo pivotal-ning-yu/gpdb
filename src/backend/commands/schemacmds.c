@@ -288,6 +288,9 @@ RemoveSchema_internal(const char *schemaName, DropBehavior behavior,
 				 errmsg("cannot drop schema %s because it is required by the database system", schemaName)));
 	}
 
+	/* Lock namespace to prevent concurrent object creation inside the namespace */
+	LockDatabaseObject(NamespaceRelationId, namespaceId, 0, AccessExclusiveLock);
+
 	/*
 	 * Do the deletion.  Objects contained in the schema are removed by means
 	 * of their dependency links to the schema.

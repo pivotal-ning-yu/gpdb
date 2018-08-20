@@ -488,6 +488,9 @@ DefineRelation_int(CreateStmt *stmt,
 	 */
 	namespaceId = RangeVarGetCreationNamespace(stmt->relation);
 
+	/* Lock the creation namespace to protect against concurrent namespace drop */
+	LockDatabaseObject(NamespaceRelationId, namespaceId, 0, AccessShareLock);
+
 	if (!IsBootstrapProcessingMode())
 	{
 		AclResult	aclresult;
@@ -17460,6 +17463,9 @@ AlterTableNamespace(RangeVar *relation, const char *newschema)
 
 	/* get schema OID and check its permissions */
 	nspOid = LookupCreationNamespace(newschema);
+
+	/* Lock the creation namespace to protect against concurrent namespace drop */
+	LockDatabaseObject(NamespaceRelationId, nspOid, 0, AccessShareLock);
 
 	if (oldNspOid == nspOid)
 		ereport(ERROR,
