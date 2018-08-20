@@ -32,9 +32,9 @@ count
 CREATE EXTENSION IF NOT EXISTS gp_inject_fault;
 CREATE
 
-DROP TABLE IF EXISTS mpp29517;
+DROP TABLE IF EXISTS foo;
 DROP
-CREATE TABLE mpp29517 (c1 int, c2 int) DISTRIBUTED BY (c1);
+CREATE TABLE foo (c1 int, c2 int) DISTRIBUTED BY (c1);
 CREATE
 
 10: BEGIN;
@@ -51,9 +51,9 @@ gp_inject_fault
 t              
 (1 row)
 
-10&: SELECT * FROM mpp29517 a JOIN mpp29517 b USING (c2);  <waiting ...>
+10&: SELECT * FROM foo a JOIN foo b USING (c2);  <waiting ...>
 
-SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE query = 'SELECT * FROM mpp29517 a JOIN mpp29517 b USING (c2);';
+SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE query = 'SELECT * FROM foo a JOIN foo b USING (c2);';
 pg_terminate_backend
 --------------------
 t                   
