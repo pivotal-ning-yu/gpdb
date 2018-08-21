@@ -37,7 +37,7 @@ $$ LANGUAGE sql;
 -- It's implemented with sleep now, but should at least work.
 CREATE OR REPLACE FUNCTION barrier()
 RETURNS void AS $$
-  SELECT pg_sleep(2)
+  SELECT pg_sleep(4)
 $$ LANGUAGE sql;
 
 -- verify the function
