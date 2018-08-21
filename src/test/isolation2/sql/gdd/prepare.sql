@@ -52,4 +52,7 @@ SELECT segid(1,2);
 ! gpstop -u;
 -- end_ignore
 
+-- the new setting need some time to be loaded
+SELECT pg_sleep(2);
+
 SHOW gp_global_deadlock_detector_period;

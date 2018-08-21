@@ -78,6 +78,13 @@ segid
 
 -- end_ignore
 
+-- the new setting need some time to be loaded
+SELECT pg_sleep(2);
+pg_sleep
+--------
+        
+(1 row)
+
 SHOW gp_global_deadlock_detector_period;
 gp_global_deadlock_detector_period
 ----------------------------------
