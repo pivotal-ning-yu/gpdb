@@ -17,6 +17,8 @@ from gppylib.db import dbconn
 from gppylib.gparray import GpArray, MODE_SYNCHRONIZED, MODE_RESYNCHRONIZATION
 from gppylib.operations.backup_utils import pg, escapeDoubleQuoteInSQLString
 
+import socket
+
 PARTITION_START_DATE = '2010-01-01'
 PARTITION_END_DATE = '2013-01-01'
 
@@ -1291,7 +1293,24 @@ def create_gpfilespace_config(host, port, user,fs_name, config_file, working_dir
     fspath_standby = working_dir + '/fs_standby'
     fspath_primary = working_dir + '/fs_primary'
     fspath_mirror = working_dir + '/fs_mirror'
-    get_master_filespace_entry = 'psql -t -h %s -p %s -U %s -d template1 -c \" select hostname, dbid, fselocation from pg_filespace_entry, gp_segment_configuration where dbid=fsedbid and preferred_role =\'p\' and content=-1;\"'%(host, port, user)
+
+    if host == None:
+        host = ""
+    else:
+        host = "-h %s" % host
+
+    if port == None:
+        port = ""
+    else:
+        port = "-p %s" % port
+
+    if user == None:
+        user = ""
+    else:
+        user = "-U %s" % user
+
+    get_master_filespace_entry = '''psql -t %s %s %s -d template1 -c "select hostname, dbid, fselocation from pg_filespace_entry, gp_segment_configuration where dbid=fsedbid and preferred_role ='p' and content=-1;"''' % (
+        host, port, user)
     (rc, out, err) = run_cmd(get_master_filespace_entry)
     if rc != 0:
         raise Exception('Exception from executing psql query: %s'% get_master_filespace_entry)
@@ -1311,7 +1330,8 @@ def create_gpfilespace_config(host, port, user,fs_name, config_file, working_dir
                 file.write('\n')
         file.close()
 
-    get_standby_filespace_entry= 'psql -t -h %s -p %s -U %s -d template1 -c \"select hostname, dbid, fselocation from pg_filespace_entry, gp_segment_configuration where dbid=fsedbid and preferred_role =\'m\' and content=-1;\"'%(host, port, user)
+    get_standby_filespace_entry = '''psql -t %s %s %s -d template1 -c "select hostname, dbid, fselocation from pg_filespace_entry, gp_segment_configuration where dbid=fsedbid and preferred_role ='m' and content=-1;"''' % (
+        host, port, user)
     (rc, out, err) = run_cmd(get_standby_filespace_entry)
     if rc != 0:
         raise Exception('Exception from executing psql query: %s'% get_standby_filespace_entry)
@@ -1330,7 +1350,8 @@ def create_gpfilespace_config(host, port, user,fs_name, config_file, working_dir
                 file.write('\n')
         file.close()
 
-    get_primary_filespace_entry= 'psql -t -h %s -p %s -U %s -d template1 -c \"select hostname, dbid, fselocation from pg_filespace_entry, gp_segment_configuration where dbid=fsedbid and preferred_role =\'p\' and content>-1;\"'%(host, port, user)
+    get_primary_filespace_entry = '''psql -t %s %s %s -d template1 -c "select hostname, dbid, fselocation from pg_filespace_entry, gp_segment_configuration where dbid=fsedbid and preferred_role ='p' and content>-1;"''' % (
+        host, port, user)
     (rc, out, err) = run_cmd(get_primary_filespace_entry)
     if rc != 0:
         raise Exception('Exception from executing psql query: %s'% get_primary_filespace_entry)
@@ -1349,7 +1370,8 @@ def create_gpfilespace_config(host, port, user,fs_name, config_file, working_dir
                 file.write('\n')
         file.close()
 
-    get_mirror_filespace_entry= 'psql -t -h %s -p %s -U %s -d template1 -c \"select hostname, dbid, fselocation from pg_filespace_entry, gp_segment_configuration where dbid=fsedbid and preferred_role =\'m\' and content>-1;\"'%(host, port, user)
+    get_mirror_filespace_entry = '''psql -t %s %s %s -d template1 -c "select hostname, dbid, fselocation from pg_filespace_entry, gp_segment_configuration where dbid=fsedbid and preferred_role ='m' and content>-1;"''' % (
+        host, port, user)
     (rc, out, err) = run_cmd(get_mirror_filespace_entry)
     if rc != 0:
         raise Exception('Exception from executing psql query: %s'% get_mirror_filespace_entry)
@@ -1380,11 +1402,21 @@ def create_gpfilespace_config(host, port, user,fs_name, config_file, working_dir
     create_dir(standby_host,fspath_standby)
 
 def remove_dir(host, directory):
-    cmd = 'gpssh -h %s -e \'rm -rf %s\''%(host, directory) 
+    cmd = 'rm -rf %s' % directory
+
+    #use gpssh if remote
+    if host != socket.gethostname():
+        cmd = "gpssh -h %s -e '%s'" % (host, cmd)
+
     run_cmd(cmd)
 
 def create_dir(host, directory):
-    cmd = 'gpssh -h %s -e \'mkdir -p %s\''%(host, directory)
+    cmd = 'mkdir -p %s' % directory
+
+    #use gpssh if remote
+    if host != socket.gethostname():
+        cmd = "gpssh -h %s -e '%s'" % (host, cmd)
+
     run_cmd(cmd)
 
 def wait_till_change_tracking_transition(host='localhost', port=os.environ.get('PGPORT'), user=os.environ.get('USER')):

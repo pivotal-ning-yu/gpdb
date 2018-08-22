@@ -429,6 +429,28 @@ def impl(context, USER, HOST, PORT, config_file, dir):
     cmdStr = 'gpfilespace -h %s -p %s -U %s -c "%s"'%(host, port, user, config_file_path)
     run_command(context, cmdStr)
 
+@given('a filespace_config_file for filespace "{fs_name}" is created using config file "{config_file}" in directory "{dir}"')
+def impl(context, fs_name, config_file, dir):
+    user = None
+    host = None
+    port = None
+    config_file_path = dir + "/" + config_file
+    create_gpfilespace_config(host, port, user, fs_name, config_file_path, dir)
+
+@given('a filespace is created using config file "{config_file}" in directory "{dir}"')
+def impl(context, config_file, dir):
+    config_file_path = dir + "/" + config_file
+    cmdStr = 'gpfilespace -c "%s"' % config_file_path
+    run_command(context, cmdStr)
+
+
+@given('transaction files are moved to the filespace {fs_name}')
+@then('transaction files are moved to the filespace {fs_name}')
+def impl(context, fs_name):
+    cmdStr = 'gpfilespace  --movetransfilespace "%s"' % fs_name
+    run_command(context, cmdStr)
+
+
 @given('the user modifies the external_table.sql file "{filepath}" with host "{HOST}" and port "{port}"')
 @when('the user modifies the external_table.sql file "{filepath}" with host "{HOST}" and port "{port}"')
 def impl(context, filepath, HOST, port):
@@ -4234,7 +4256,7 @@ def impl(context, proc):
 @when('run gppersistent_rebuild with the saved content id')
 @then('run gppersistent_rebuild with the saved content id')
 def impl(context):
-    cmdStr = "echo -e 'y\ny\n' | $GPHOME/sbin/gppersistentrebuild -c %s" % context.mirror_segcid
+    cmdStr = "echo -e 'y\ny\n' | $GPHOME/sbin/gppersistentrebuild -c %s" % context.saved_segcid
     cmd=Command(name='Run gppersistentrebuild',cmdStr=cmdStr)
     cmd.run(validateAfter=True)
     context.ret_code = cmd.get_results().rc
@@ -4243,14 +4265,21 @@ def impl(context):
 @when('the information of a "{seg}" segment on any host is saved')
 @then('the information of a "{seg}" segment on any host is saved')
 def impl(context, seg):
+    gparray = GpArray.initFromCatalog(dbconn.DbURL())
+
     if seg == "mirror":
-        gparray = GpArray.initFromCatalog(dbconn.DbURL())
-        mirror_segs = [seg for seg in gparray.getDbList() if seg.isSegmentMirror()]
-        context.mirror_segdbId = mirror_segs[0].getSegmentDbId()
-        context.mirror_segcid = mirror_segs[0].getSegmentContentId()
-        context.mirror_segdbname = mirror_segs[0].getSegmentHostName()
-        context.mirror_datadir = mirror_segs[0].getSegmentDataDirectory()
-        context.mirror_port = mirror_segs[0].getSegmentPort()
+        to_save_segs = [seg for seg in gparray.getDbList() if seg.isSegmentMirror()]
+        context.mirror_segdbId = to_save_segs[0].getSegmentDbId()
+        context.mirror_segcid = to_save_segs[0].getSegmentContentId()
+        context.mirror_segdbname = to_save_segs[0].getSegmentHostName()
+        context.mirror_datadir = to_save_segs[0].getSegmentDataDirectory()
+        context.mirror_port = to_save_segs[0].getSegmentPort()
+    elif seg == "primary":
+        to_save_segs = [seg for seg in gparray.getDbList() if seg.isSegmentPrimary()]
+    elif seg == "master":
+        to_save_segs = [seg for seg in gparray.getDbList() if seg.isSegmentMaster()]
+
+    context.saved_segcid = to_save_segs[0].getSegmentContentId()
 
 @given('the user creates an index for table "{table_name}" in database "{db_name}"')
 @when('the user creates an index for table "{table_name}" in database "{db_name}"')

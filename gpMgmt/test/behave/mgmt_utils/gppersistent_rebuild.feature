@@ -24,3 +24,14 @@
     Then run gppersistent_rebuild with the saved content id
     And gppersistent_rebuild should return a return code of 0
     And verify that mirror_existence_state of segment "0" is "3"
+
+  Scenario: persistent_rebuild after transaction files have been moved to another filespace
+      Given the database is running
+      And a filespace_config_file for filespace "tempfs" is created using config file "tempfs_config" in directory "/tmp"
+      And a filespace is created using config file "tempfs_config" in directory "/tmp"
+      And transaction files are moved to the filespace "tempfs"
+      And the information of a "primary" segment on any host is saved
+      Then run gppersistent_rebuild with the saved content id
+      And gppersistent_rebuild should return a return code of 0
+      And transaction files are moved to the filespace "pg_system"
+
