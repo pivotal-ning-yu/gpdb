@@ -1255,6 +1255,9 @@ typedef struct PlanState
          * GpMon packet 
          */
         int gpmon_plan_tick;
+
+	/* MemoryAccount to use for recording the memory usage of different plan nodes. */
+	MemoryAccountIdType memoryAccountId;
         gpmon_packet_t gpmon_pkt;
 } PlanState;
 
