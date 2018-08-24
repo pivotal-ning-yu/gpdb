@@ -32,6 +32,8 @@ SELECT gp_inject_fault('create_gang_in_progress', 'suspend', 1);
 
 10&: SELECT * FROM foo a JOIN foo b USING (c2);
 
+SELECT gp_wait_until_triggered_fault('create_gang_in_progress', 1, 1);
+
 SELECT pg_terminate_backend(pid) FROM pg_stat_activity
  WHERE query = 'SELECT * FROM foo a JOIN foo b USING (c2);';
 
