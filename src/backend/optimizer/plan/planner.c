@@ -261,6 +261,7 @@ planner(Query *parse, int cursorOptions,
 {
 	PlannedStmt *result = NULL;
 	instr_time	starttime, endtime;
+	MemoryAccountIdType curMemoryAccountId;
 
 	/**
 	 * If the new optimizer is enabled, try that first. If it does not return a plan,
@@ -277,7 +278,10 @@ planner(Query *parse, int cursorOptions,
 		{
 			INSTR_TIME_SET_CURRENT(starttime);
 		}
-		START_MEMORY_ACCOUNT(MemoryAccounting_CreateAccount(0, MEMORY_OWNER_TYPE_Optimizer));
+		curMemoryAccountId = MemoryAccounting_CreatePlanningMemoryAccount(
+			MEMORY_OWNER_TYPE_Optimizer);
+
+		START_MEMORY_ACCOUNT(curMemoryAccountId);
 		{
 			result = optimize_query(parse, boundParams);
 		}
@@ -298,7 +302,10 @@ planner(Query *parse, int cursorOptions,
 		{
 			INSTR_TIME_SET_CURRENT(starttime);
 		}
-		START_MEMORY_ACCOUNT(MemoryAccounting_CreateAccount(0, MEMORY_OWNER_TYPE_Planner));
+		curMemoryAccountId =
+			MemoryAccounting_CreatePlanningMemoryAccount(MEMORY_OWNER_TYPE_Planner);
+
+		START_MEMORY_ACCOUNT(curMemoryAccountId);
 		{
 			if (NULL != planner_hook)
 			{
