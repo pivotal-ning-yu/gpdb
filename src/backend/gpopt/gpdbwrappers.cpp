@@ -3225,6 +3225,9 @@ gpdb::MakeGpPolicy
 {
 	GP_WRAP_START;
 	{
+		/*
+		 * FIXME_TABLE_EXPAND: it used by ORCA, help...
+		 */
 		return makeGpPolicy(mcxt, ptype, nattrs, numsegments);
 	}
 	GP_WRAP_END;

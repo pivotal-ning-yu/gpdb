@@ -360,6 +360,8 @@ make_motion_gather(PlannerInfo *root, Plan *subplan, int segindex, List *sortPat
 	return motion;
 }
 
+
+
 /*
  * make_motion_hash_all_targets
  *		Add a Motion node atop the given subplan to hash collocate
