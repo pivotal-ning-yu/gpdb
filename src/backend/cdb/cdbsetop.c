@@ -352,6 +352,8 @@ make_motion_gather(PlannerInfo *root, Plan *subplan, int segindex, List *sortPat
 	return motion;
 }
 
+
+
 /*
  * make_motion_hash_all_targets
  *		Add a Motion node atop the given subplan to hash collocate
@@ -361,9 +363,14 @@ make_motion_gather(PlannerInfo *root, Plan *subplan, int segindex, List *sortPat
 Motion *
 make_motion_hash_all_targets(PlannerInfo *root, Plan *subplan)
 {
+	Motion	   *motion;
 	List	   *hashexprs = makeHashExprsFromNonjunkTargets(subplan->targetlist);
 
-	return make_motion_hash(root, subplan, hashexprs);
+	return make_hashed_motion(
+			subplan,
+			hashexprs,
+			false /* useExecutorVarFormat */,
+			getgpsegmentCount()); //FIXME_TABLE_EXPAND: comments
 }
 
 /*

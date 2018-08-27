@@ -695,6 +695,16 @@ cdbpathlocus_join(CdbPathLocus a, CdbPathLocus b)
 	if (cdbpathlocus_compare(CdbPathLocus_Comparison_Equal, a, b))
 		return a;
 
+    /*
+     * SingleQE may have different segment counts.
+     */
+    if(CdbPathLocus_IsSingleQE(a) &&
+       CdbPathLocus_IsSingleQE(b))
+    {
+        CdbPathLocus_MakeSingleQE(&ojlocus, numsegments);
+        return ojlocus;
+    }
+
 	/* If one rel is general or replicated, result stays with the other rel. */
 	if (CdbPathLocus_IsGeneral(a) ||
 		CdbPathLocus_IsReplicated(a))

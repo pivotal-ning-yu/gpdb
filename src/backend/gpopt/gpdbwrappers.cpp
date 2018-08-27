@@ -3246,6 +3246,9 @@ gpdb::PMakeGpPolicy
                int numsegments
        )
 {
+	/*
+	 * FIXME_TABLE_EXPAND: it used by ORCA, help...
+	 */
        return makeGpPolicy(mcxt, ptype, nattrs, numsegments);
 }
 // EOF

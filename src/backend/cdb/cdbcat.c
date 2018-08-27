@@ -260,6 +260,9 @@ GpPolicyFetch(MemoryContext mcxt, Oid tbloid)
 		{
 			char	   *on_clause = (char *) strVal(linitial(e->execlocations));
 
+			/*
+			 * FIXME_TABLE_EXPAND: MASTER ONLY? SEGMENT COUNT?
+			 */
 			if (strcmp(on_clause, "MASTER_ONLY") == 0)
 			{
 				return makeGpPolicy(mcxt, POLICYTYPE_ENTRY,

@@ -183,7 +183,7 @@ cdbpath_create_motion_path(PlannerInfo *root,
 			pathnode->path.pathkeys = pathkeys;
 			pathnode->subpath = subpath;
 
-			Assert(locus.numsegments == numsegments);
+			//Assert(locus.numsegments == numsegments);
 			Assert(pathnode->path.locus.numsegments > 0);
 
 			/* Costs, etc, are same as subpath. */
@@ -1095,7 +1095,14 @@ cdbpath_motion_for_join(PlannerInfo *root,
 		 */
 		else if (CdbPathLocus_IsBottleneck(other->locus))
 		{
+			/*
+ 			 * if the locus type is equal and segment count is unequal,
+ 			 * we will dispatch the one on more segments to the other
+ 			 */
+			int numsegments = CdbPathLocus_CommonSegments(segGeneral->locus,
+														  other->locus);
 			segGeneral->move_to = other->locus;
+			segGeneral->move_to.numsegments = numsegments;
 		}
 		else if (!segGeneral->ok_to_replicate)
 		{
