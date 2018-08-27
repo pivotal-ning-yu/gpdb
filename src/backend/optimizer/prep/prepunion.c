@@ -617,6 +617,27 @@ generate_nonunion_plan(SetOperationStmt *op, PlannerInfo *root,
 		 */
 		ListCell   *lc;
 		List	   *l = NIL;
+        int         maxSegNum = -1;
+
+
+        //FIXME_TABLE_EXPAND
+        foreach(lc, planlist)
+        {
+            Plan	   *subplan = (Plan *) lfirst(lc);
+
+            /*
+             * If the subplan already has a Motion at the top, peel it off
+             * first, so that we don't have a Motion on top of a Motion.
+             * That would be silly. I wish we could be smarter and not
+             * create such a Motion in the first place, but it's too late
+             * for that here.
+             */
+            while (IsA(subplan, Motion))
+                subplan = subplan->lefttree;
+
+            maxSegNum = Max(maxSegNum, subplan->flow->numsegments);
+            //l = lappend(l, make_motion_hash_all_targets(root, subplan));
+        }
 
 		foreach(lc, planlist)
 		{

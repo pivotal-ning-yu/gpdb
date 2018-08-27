@@ -284,6 +284,7 @@ apply_motion(PlannerInfo *root, Plan *plan, Query *query)
 				}
 				else if (gp_create_table_random_default_distribution)
 				{
+                    //FIXME_TABLE_EXPAND: keep the numsegments same as the src relation?
 					targetPolicy = createRandomPartitionedPolicy(NULL,
 																 numsegments);
 					ereport(NOTICE,
@@ -406,8 +407,14 @@ apply_motion(PlannerInfo *root, Plan *plan, Query *query)
 						}
 					}
 
-					targetPolicy = createHashPartitionedPolicy(NULL, policykeys,
-															   numsegments);
+                    /*
+                     * FIXME_TABLE_EXPAND: change it to the flow segment count.
+                     */
+					//targetPolicy = createHashPartitionedPolicy(NULL, policykeys,
+					//										   numsegments);
+                    targetPolicy = createHashPartitionedPolicy(NULL,
+                                                               policykeys,
+                                                               plan->flow->numsegments);
 
 					if (query->intoPolicy == NULL)
 					{

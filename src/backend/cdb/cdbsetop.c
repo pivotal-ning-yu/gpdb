@@ -360,6 +360,8 @@ make_motion_gather(PlannerInfo *root, Plan *subplan, int segindex, List *sortPat
 	return motion;
 }
 
+
+
 /*
  * make_motion_hash_all_targets
  *		Add a Motion node atop the given subplan to hash collocate
@@ -391,7 +393,7 @@ make_motion_hash_all_targets(PlannerInfo *root, Plan *subplan)
 	}
 
 	if (hashexprs)
-		return make_motion_hash(root, subplan, hashexprs);
+		return make_motion_hash(root, subplan, hashexprs, getgpsegmentCount());
 	else
 	{
 		/*
@@ -401,7 +403,7 @@ make_motion_hash_all_targets(PlannerInfo *root, Plan *subplan)
 		 * produce a different plan, with Sorts in the segments, and an
 		 * order-preserving gather on the top.)
 		 */
-		return make_motion_gather(root, subplan, -1, NIL);
+		return make_motion_gather(root, subplan, -1, NIL, getgpsegmentCount());
 	}
 }
 
