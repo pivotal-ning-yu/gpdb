@@ -1175,6 +1175,7 @@ ExplainNode(PlanState *planstate, List *ancestors,
 			{
 				Motion	   *pMotion = (Motion *) plan;
 
+                /*FIXME_TABLE_EXPAND: add comment and clean code.*/
 				motion_snd = es->currentSlice->numGangMembersToBeActive;
 				motion_recv = 0;
 
@@ -1185,14 +1186,19 @@ ExplainNode(PlanState *planstate, List *ancestors,
 				{
 					case MOTIONTYPE_HASH:
 						sname = "Redistribute Motion";
-						motion_recv = pMotion->numOutputSegs;
+                        motion_recv = plan->flow->numsegments;
+                        if(plan->lefttree->flow->flotype == FLOW_SINGLETON)
+                            motion_snd = 1;
+                        else
+                            motion_snd = plan->lefttree->flow->numsegments;
 						break;
 					case MOTIONTYPE_FIXED:
 						motion_recv = pMotion->numOutputSegs;
 						if (motion_recv == 0)
 						{
 							sname = "Broadcast Motion";
-							motion_recv = getgpsegmentCount();
+                            motion_recv = plan->flow->numsegments;
+                            motion_snd = plan->lefttree->flow->numsegments;
 						}
 						else if (plan->lefttree &&
 								 plan->lefttree->flow &&
@@ -1200,30 +1206,46 @@ ExplainNode(PlanState *planstate, List *ancestors,
 						{
 							sname = "Explicit Gather Motion";
 							scaleFactor = 1;
+                            motion_recv = 1;
 						}
 						else
 						{
 							sname = "Gather Motion";
 							scaleFactor = 1;
+                            motion_recv = 1;
 						}
+
 						break;
 					case MOTIONTYPE_EXPLICIT:
 						sname = "Explicit Redistribute Motion";
-						motion_recv = getgpsegmentCount();
+                        if(plan->lefttree->flow->flotype == FLOW_SINGLETON)
+                            motion_snd = 1;
+                        else
+                            motion_snd = plan->lefttree->flow->numsegments;
 						break;
 					default:
 						sname = "???";
 						break;
 				}
-#if 1
-				if (plan->flow)
-					motion_recv = plan->flow->numsegments;
-				else
-					motion_recv = -1;
-				if (plan->lefttree && plan->lefttree->flow)
-					motion_snd = plan->lefttree->flow->numsegments;
-				else
-					motion_snd = -1;
+
+#if 0
+                /*FIXME_TABLE_EXPAND: adjust the numsegments is very difficult:) */
+                if (pMotion->motionType == MOTIONTYPE_FIXED &&
+                    strcmp(sname, "Broadcast Motion") != 0)
+                    motion_recv = 1;
+                else if (plan->flow)
+                    motion_recv = plan->flow->numsegments;
+                else
+                    motion_recv = -1;
+
+                if (motion_snd != 1)
+                {
+                    if (plan->lefttree && plan->lefttree->flow)
+                        motion_snd = plan->lefttree->flow->numsegments;
+                    else
+                        motion_snd = -1;
+                }
+
 #endif
 				pname = psprintf("%s %d:%d", sname, motion_snd, motion_recv);
 			}
