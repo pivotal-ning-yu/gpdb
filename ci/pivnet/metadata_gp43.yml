@@ -417,7 +417,7 @@ file_groups:
 
 - name: Greenplum Support Tools
   product_files:
-    - file: s3://gpfiledump-artifacts/release/gpdb4/gpfiledump-4.0.0-GPDB4.3-rhel6.zip
+    - file: s3://gpfiledump-artifacts/release/gpdb4/gp_filedump-4.0.0-GPDB4.3-rhel6.zip
       upload_as: Greenplum Database gp_filedump for RHEL6
       description:
       file_type: Software
