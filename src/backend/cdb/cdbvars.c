@@ -797,3 +797,22 @@ gp_execution_dbid(PG_FUNCTION_ARGS)
 {
 	PG_RETURN_INT32(GpIdentity.dbid);
 }
+
+/*
+ * Get new numsegments from Shared Memory and update GpIdentity
+ * If the value has changed return true.
+ */
+bool
+updateGpIdentityNumsegments(void)
+{
+	if (Gp_role == GP_ROLE_DISPATCH && MyProc && MyProc->lxid == InvalidOid)
+	{
+		uint32 newnumsegments = FtsGetTotalSegments();
+		if (newnumsegments > GpIdentity.numsegments)
+		{
+			GpIdentity.numsegments = newnumsegments;
+			return true;
+		}
+	}
+	return false;
+}

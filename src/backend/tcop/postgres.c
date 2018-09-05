@@ -5159,6 +5159,9 @@ PostgresMain(int argc, char *argv[],
 			ProcessConfigFile(PGC_SIGHUP);
 		}
 
+		if (updateGpIdentityNumsegments())
+			DisconnectAndDestroyAllGangs(false);
+
 		/*
 		 * (6) process the command.  But ignore it if we're skipping till
 		 * Sync.

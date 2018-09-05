@@ -917,6 +917,8 @@ extern void verifyGpIdentityIsSet(void);
 
 extern void increment_command_count(void);
 
+extern bool updateGpIdentityNumsegments(void);
+
 /* default to RANDOM distribution for CREATE TABLE without DISTRIBUTED BY */
 extern bool gp_create_table_random_default_distribution;
 
