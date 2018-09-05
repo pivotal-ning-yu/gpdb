@@ -26,6 +26,7 @@
 #include "cdb/cdbutil.h"
 #include "cdb/cdbvars.h"
 #include "storage/lock.h"
+#include "utils/builtins.h"
 #include "utils/rel.h"
 #include "utils/relcache.h"
 #include "utils/gpexpand.h"
