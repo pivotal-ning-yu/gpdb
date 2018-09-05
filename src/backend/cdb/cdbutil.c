@@ -192,6 +192,33 @@ getCdbComponentInfo(bool DNSLookupAsError)
 		 */
 		if (content >= 0)
 		{
+			/* FIXME: better way to know about caller? */
+			bool		calledByFts = !DNSLookupAsError;
+			int			primary_count = 0;
+			int			mirror_count = 0;
+
+			/*
+			 * Only FTS can see all the segments, others can only see the old
+			 * segments during the transaction.  GpIdentity.numsegments is only
+			 * updated at beginning of a transaction, so we should see at most
+			 * GpIdentity.numsegments primaries / mirrors.
+			 */
+			if (!calledByFts)
+			{
+				if (role == 'p')
+				{
+					if (primary_count == getgpsegmentCount())
+						continue; /* Ignore new primaries */
+					primary_count++;
+				}
+				else if (role == 'm')
+				{
+					if (mirror_count == getgpsegmentCount())
+						continue; /* Ignore new mirrors */
+					mirror_count++;
+				}
+			}
+
 			/*
 			 * if we have a dbid bigger than our array we'll have to grow the
 			 * array. (MPP-2104)
