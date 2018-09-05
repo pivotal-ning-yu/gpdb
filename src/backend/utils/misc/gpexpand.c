@@ -46,6 +46,19 @@ static LOCKTAG gp_expand_locktag =
 };
 
 /*
+ * Lock the catalog lock in exclusive mode.
+ *
+ * This should only be called by gpexpand.
+ */
+Datum
+gp_expand_lock_catalog(PG_FUNCTION_ARGS)
+{
+	LockAcquire(&gp_expand_locktag, AccessExclusiveLock, false, false);
+
+	PG_RETURN_VOID();
+}
+
+/*
  * Prevent catalog being changed during gpexpand.
  *
  * This should be called before any catalog changes.
