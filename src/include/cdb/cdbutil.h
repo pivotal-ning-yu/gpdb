@@ -74,6 +74,9 @@ typedef struct CdbComponentDatabaseInfo
 #define SEGMENT_IS_ALIVE(p) \
 	((p)->status == GP_SEGMENT_CONFIGURATION_STATUS_UP ? true : false)
 
+#define SEGMENT_IS_EXPAND(p) \
+	((p)->status == GP_SEGMENT_CONFIGURATION_STATUS_EXPAND ? true : false)
+
 #define SEGMENT_IS_IN_SYNC(p) \
 	((p)->mode == GP_SEGMENT_CONFIGURATION_MODE_INSYNC ? true : false)
 #define SEGMENT_IS_NOT_INSYNC(p) \
