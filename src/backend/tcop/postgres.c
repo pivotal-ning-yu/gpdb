@@ -5308,6 +5308,8 @@ PostgresMain(int argc, char *argv[],
 								 errmsg("QE cannot find slice to execute")));
 					}
 
+					GpIdentity.numsegments = pq_getmsgint(&input_message, 4);
+
 					resgroupInfoLen = pq_getmsgint(&input_message, 4);
 					if (resgroupInfoLen > 0)
 						resgroupInfoBuf = pq_getmsgbytes(&input_message, resgroupInfoLen);
