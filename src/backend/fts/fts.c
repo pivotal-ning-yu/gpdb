@@ -384,6 +384,7 @@ CdbComponentDatabases *readCdbComponentInfoAndUpdateStatus(MemoryContext probeCo
 	}
 
 	ftsProbeInfo->total_segment_dbs = primary;
+	GpIdentity.numsegments = primary;
 
 	/*
 	 * Initialize fts_stausVersion after populating the config details in
