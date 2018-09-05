@@ -268,6 +268,8 @@
 
  CREATE FUNCTION gp_add_segment(int2, int2, "char", "char", "char", "char", int4, text, text, text) RETURNS int2 LANGUAGE internal VOLATILE AS 'gp_add_segment' WITH (OID=5050, DESCRIPTION="Perform the catalog operations necessary for adding a new segment");
 
+ CREATE FUNCTION gp_bring_up_segments() RETURNS int4 LANGUAGE internal VOLATILE AS 'gp_bring_up_segments' WITH (OID=5052, DESCRIPTION="Update segments status from 'e' to 'u' from the system catalog");
+
  CREATE FUNCTION gp_expand_lock_catalog() RETURNS void LANGUAGE internal VOLATILE AS 'gp_expand_lock_catalog' WITH (OID=5080, DESCRIPTION="Lock catalog changes for gpexpand");
 
  CREATE FUNCTION gp_remove_segment(int2) RETURNS bool LANGUAGE internal VOLATILE AS 'gp_remove_segment' WITH (OID=5051, DESCRIPTION="Remove a primary segment from the system catalog");
