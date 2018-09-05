@@ -72,6 +72,8 @@ class ConfExpSegCmd(Command):
         """
 
         if not os.path.exists(os.path.dirname(path)):
+            self.makeOrUpdatePathAsNeeded(path)
+        if not os.path.exists(os.path.dirname(path)):
             logger.info("gpconfigurenewsegment:validatePath path %s does not exist" % path)
             raise ValidationException("Parent directory for system data directory '%s' does not exist" % path)
 
@@ -99,7 +101,7 @@ class ConfExpSegCmd(Command):
         if os.path.exists(path):
             os.chmod(path, 0700)
         else:
-            os.mkdir(path, 0700)
+            os.makedirs(path, 0700)
 
     def run(self):
         try:
