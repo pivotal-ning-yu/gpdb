@@ -1754,6 +1754,7 @@ Set PGDATABASE or use the -D option to specify the correct database to use.""" %
         """Used to setup the gpexpand schema"""
         self.statusLogger.set_status('SETUP_EXPANSION_SCHEMA_STARTED')
         self.logger.info('Creating expansion schema')
+        self.conn = dbconn.connect(self.dburl, encoding='UTF8')
         dbconn.execSQL(self.conn, create_schema_sql)
         dbconn.execSQL(self.conn, status_table_sql)
         dbconn.execSQL(self.conn, status_detail_table_sql)
