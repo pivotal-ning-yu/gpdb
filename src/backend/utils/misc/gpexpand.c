@@ -31,6 +31,8 @@
 #include "utils/gpexpand.h"
 
 
+extern uint32 FtsGetTotalSegments(void);
+
 /*
  * Catalog lock.
  */
@@ -109,4 +111,12 @@ gp_expand_protect_catalog_changes(Relation relation)
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
 				 errmsg("gpexpand in progress, catalog changes are disallowed.")));
+
+	/* FIXME: use a timestamp instead of size */
+	if (getgpsegmentCount() != FtsGetTotalSegments())
+		ereport(ERROR,
+				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+				 errmsg("cluster size is changed from %d to %d, "
+						"catalog changes are disallowed",
+						getgpsegmentCount(), FtsGetTotalSegments())));
 }
