@@ -37,6 +37,7 @@
 #include "utils/syscache.h"
 #include "utils/ps_status.h"
 #include "utils/faultinjector.h"
+#include "cdb/cdbvars.h"
 
 #include "libpq/pqsignal.h"
 #include "libpq/libpq-be.h"
@@ -374,6 +375,7 @@ GlobalDeadLockDetectorLoop(void)
 		{
 			got_SIGHUP = false;
 			ProcessConfigFile(PGC_SIGHUP);
+			updateGpIdentityNumsegments();
 		}
 
 #ifdef FAULT_INJECTOR
