@@ -41,6 +41,7 @@ ROLE_TO_MODE_MAP[ROLE_MIRROR]  = SEG_MODE_MIRROR
 
 STATUS_UP    = 'u'
 STATUS_DOWN  = 'd'
+STATUS_EXPAND = 'e'
 VALID_STATUS = [STATUS_UP, STATUS_DOWN]
 
 MODE_NOT_INITIALIZED = ''               # no mirroring
@@ -1524,7 +1525,7 @@ class GpArray:
                      dbid = dbid,
                      role = role,
                      mode = MODE_SYNCHRONIZED,
-                     status = STATUS_UP,
+                     status = STATUS_EXPAND,
                      hostname = hostname,
                      address = address,
                      port = port,

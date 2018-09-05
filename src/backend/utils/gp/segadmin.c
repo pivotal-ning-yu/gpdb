@@ -440,6 +440,12 @@ gp_add_segment(PG_FUNCTION_ARGS)
 		elog(ERROR, "content cannot be NULL");
 	new.db.segindex = PG_GETARG_INT16(1);
 
+	if (new.db.dbid < 0)
+	{
+		new.db.dbid = get_availableDbId();
+		new.db.segindex = get_maxcontentid() + 1;
+	}
+
 	if (PG_ARGISNULL(2))
 		elog(ERROR, "role cannot be NULL");
 	new.db.role = PG_GETARG_CHAR(2);
