@@ -393,7 +393,7 @@ make_motion_hash_all_targets(PlannerInfo *root, Plan *subplan)
 	}
 
 	if (hashexprs)
-		return make_motion_hash(root, subplan, hashexprs, getgpsegmentCount());
+		return make_motion_hash(root, subplan, hashexprs);
 	else
 	{
 		/*
@@ -403,7 +403,7 @@ make_motion_hash_all_targets(PlannerInfo *root, Plan *subplan)
 		 * produce a different plan, with Sorts in the segments, and an
 		 * order-preserving gather on the top.)
 		 */
-		return make_motion_gather(root, subplan, -1, NIL, getgpsegmentCount());
+		return make_motion_gather(root, subplan, -1, NIL);
 	}
 }
 

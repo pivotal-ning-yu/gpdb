@@ -3000,8 +3000,6 @@ add_distributed_by_footer(printTableContent *const cont, const char *oid)
 
 		if (isGPDB6000OrLater())
 			numsegments = atoi(PQgetvalue(result1, 0, 2));
-		else
-			numsegments = getgpsegmentCount();
 
 		if (policytype == SYM_POLICYTYPE_REPLICATED)
 		{
@@ -3058,7 +3056,8 @@ add_distributed_by_footer(printTableContent *const cont, const char *oid)
 			printfPQExpBuffer(&buf, "Distributed randomly");
 		}
 
-		appendPQExpBuffer(&buf, "\nOn %d segments", numsegments);
+		if (isGPDB6000OrLater())
+			appendPQExpBuffer(&buf, "\nOn %d segments", numsegments);
 
 		printTableAddFooter(cont, buf.data);
 	}
