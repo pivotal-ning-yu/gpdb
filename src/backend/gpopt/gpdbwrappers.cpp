@@ -3224,7 +3224,7 @@ gpdb::MakeGpPolicy
 {
 	GP_WRAP_START;
 	{
-		return makeGpPolicy(mcxt, ptype, nattrs);
+		return makeGpPolicy(mcxt, ptype, getgpsegmentCount(), nattrs);
 	}
 	GP_WRAP_END;
 }
