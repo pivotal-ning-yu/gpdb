@@ -2297,14 +2297,15 @@ getPolicyForDistributedBy(DistributedBy *distributedBy, TupleDesc tupdesc)
 					elog(ERROR, "could not find DISTRIBUTED BY column \"%s\"", colname);
 			}
 
-			return createHashPartitionedPolicy(NULL, policykeys);;
+			return createHashPartitionedPolicy(NULL, policykeys,
+											   distributedBy->numsegments);;
 
 		case POLICYTYPE_ENTRY:
 			elog(ERROR, "unexpected entry distribution policy");
 			return NULL;
 
 		case POLICYTYPE_REPLICATED:
-			return createReplicatedGpPolicy(NULL);
+			return createReplicatedGpPolicy(NULL, distributedBy->numsegments);
 	}
 	elog(ERROR, "unrecognized policy type %d", distributedBy->ptype);
 	return NULL;

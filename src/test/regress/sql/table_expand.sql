@@ -5,7 +5,7 @@
 
 \set explain 'explain analyze'
 
-set allow_system_table_mods to 'dml';
+set allow_system_table_mods to true;
 
 --
 -- prepare kinds of tables

@@ -1161,7 +1161,7 @@ cdbpath_motion_for_join(PlannerInfo *root,
 			 */
 			if (CdbPathLocus_IsHashed(other->locus) &&
 				cdbpath_match_preds_to_partkey(root,
-											   mergeclause_list,
+											   redistribution_clauses,
 											   other->locus,
 											   &segGeneral->move_to))	/* OUT */
 			{
