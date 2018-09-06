@@ -43,7 +43,7 @@ test: gp_toolkit
 
 test: create_type union olap_group olap_window_seq
 test: create_table
-test: create_function_2 errors copy alter_table_aocs aoco_privileges
+test: create_function_2 errors copy alter_table_aocs aoco_privileges resource_queue_with_rule
 test: create_operator create_misc subselect join aggregates random arrays btree_index
 test: hash_index limit prepare rowtypes resource_queue
 test: create_index create_view select select_into portals portals_p2

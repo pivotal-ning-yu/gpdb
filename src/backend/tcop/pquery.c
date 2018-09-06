@@ -251,7 +251,7 @@ ProcessQuery(Portal portal,
 		ResourceScheduler && 
 		(!ResourceSelectOnly || portal->sourceTag == T_SelectStmt) && 
 		stmt->canSetTag
-		&& !superuser())
+		&& !superuser() && portal->releaseResLock == false)
 	{
 		PortalSetStatus(portal, PORTAL_QUEUE);
 		
