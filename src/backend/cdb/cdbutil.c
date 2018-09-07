@@ -115,6 +115,8 @@ getCdbComponentInfo(bool DNSLookupAsError)
 	bool		found;
 	HostSegsEntry *hsEntry;
 	HTAB	   *hostSegsHash = hostSegsHashTableInit();
+	int			primary_count = 0;
+	int			mirror_count = 0;
 
 	/*
 	 * Allocate component_databases return structure and
@@ -194,8 +196,6 @@ getCdbComponentInfo(bool DNSLookupAsError)
 		{
 			/* FIXME: better way to know about caller? */
 			bool		calledByFts = !DNSLookupAsError;
-			int			primary_count = 0;
-			int			mirror_count = 0;
 
 			/*
 			 * Only FTS can see all the segments, others can only see the old
@@ -362,7 +362,7 @@ getCdbComponentInfo(bool DNSLookupAsError)
 	 */
 	if (getgpsegmentCount() != component_databases->total_segments)
 	{
-		ereport(ERROR,
+		ereport(DNSLookupAsError,
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("Greenplum Database number of segments inconsistency: count is %d from pg_catalog.%s table, but %d from getCdbComponentDatabases()",
 						getgpsegmentCount(), GpIdRelationName, component_databases->total_segments)));

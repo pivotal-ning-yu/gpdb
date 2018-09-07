@@ -172,5 +172,12 @@ getFtsVersion(void)
 uint32
 FtsGetTotalSegments(void)
 {
-	return ftsProbeInfo->total_segment_dbs;
+	/*
+	 * ftsProbeInfo is stored in share memory, so check whether share momory
+	 * has been initialized
+	 */
+	if (ftsProbeInfo)
+		return ftsProbeInfo->total_segment_dbs;
+	else
+		return GpIdentity.numsegments;
 }

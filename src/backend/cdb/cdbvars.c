@@ -805,7 +805,30 @@ gp_execution_dbid(PG_FUNCTION_ARGS)
 bool
 updateGpIdentityNumsegments(void)
 {
+	/*
+	 * GpIdentity.numsegments only updated on QD when there is no active
+	 * transaction. For the gang size has been determined at the beginning
+	 * of the transaction, and can't be changed.
+	 */
 	if (Gp_role == GP_ROLE_DISPATCH && MyProc && MyProc->lxid == InvalidOid)
+	{
+		uint32 newnumsegments = FtsGetTotalSegments();
+		if (newnumsegments > GpIdentity.numsegments)
+		{
+			GpIdentity.numsegments = newnumsegments;
+			return true;
+		}
+	}
+	return false;
+}
+
+/*
+ * Same as updateGpIdentityNumsegments, for backend process.
+ */
+bool
+updateBackendGpIdentityNumsegments(void)
+{
+	if (Gp_role == GP_ROLE_DISPATCH)
 	{
 		uint32 newnumsegments = FtsGetTotalSegments();
 		if (newnumsegments > GpIdentity.numsegments)

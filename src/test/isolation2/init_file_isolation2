@@ -25,5 +25,7 @@ s/^DETAIL:  Process \d+ waits for ShareLock on transaction \d+; blocked by proce
 m/^Process \d+ waits for ShareLock on transaction \d+; blocked by process \d+./
 s/^Process \d+ waits for ShareLock on transaction \d+; blocked by process \d+./Process PID waits for ShareLock on transaction XID; blocked by process PID./
 
+m/\([\w_]+.c:\d+\)/
+s/\([\w_]+.c:\d+\)/CODELINE/
 
 -- end_matchsubs

@@ -2508,6 +2508,8 @@ SIGHUP_handler(SIGNAL_ARGS)
 
 	PG_SETMASK(&BlockSig);
 
+	updateBackendGpIdentityNumsegments();
+
 	if (Shutdown <= SmartShutdown)
 	{
 		ereport(LOG,
