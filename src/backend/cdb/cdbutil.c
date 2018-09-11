@@ -294,7 +294,7 @@ getCdbComponentInfo(bool DNSLookupAsError)
 		if (pRow->hostaddrs[0] == NULL &&
 			pRow->role == GP_SEGMENT_CONFIGURATION_ROLE_PRIMARY)
 			ereport(DNSLookupAsError ? ERROR : LOG,
-					(errcode(ERRCODE_DATA_EXCEPTION),
+					(errcode(ERRCODE_CONNECTION_FAILURE),
 					errmsg("Cannot resolve network address for dbid=%d", dbid)));
 
 		if (pRow->hostaddrs[0] != NULL)
