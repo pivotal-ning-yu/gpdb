@@ -49,6 +49,7 @@
 #define CGROUP_CONFIG_ERROR(...) \
 	CGROUP_ERROR("cgroup is not properly configured: " __VA_ARGS__)
 
+#define FALLBACK_COMP_DIR ""
 #define PROC_MOUNTS "/proc/self/mounts"
 #define MAX_INT_STRING_LEN 20
 #define MAX_RETRY 10
@@ -87,7 +88,18 @@ struct PermList
 #define foreach_perm_item(i, items) \
 	for ((i) = 0; (items)[(i)].comp != RESGROUP_COMP_TYPE_UNKNOWN; (i)++)
 
+#define foreach_comp_type(comp) \
+	for ((comp) = RESGROUP_COMP_TYPE_FIRST; \
+		 (comp) < RESGROUP_COMP_TYPE_COUNT; \
+		 (comp)++)
+
 static const char *compGetName(ResGroupCompType comp);
+static ResGroupCompType compByName(const char *name);
+static const char *compGetDir(ResGroupCompType comp);
+static void compSetDir(ResGroupCompType comp, const char *dir);
+static void detectCompDirs(void);
+static bool validateCompDir(ResGroupCompType comp);
+static void dumpCompDirs(void);
 
 static char *buildPath(Oid group, const char *base, ResGroupCompType comp, const char *prop, char *path, size_t pathsize);
 static int lockDir(const char *path, bool block);
@@ -213,9 +225,20 @@ static const PermList permlists[] =
 	{ NULL, false, NULL }
 };
 
+/*
+ * Comp names.
+ */
 const char *compnames[RESGROUP_COMP_TYPE_COUNT] =
 {
 	"cpu", "cpuacct", "memory", "cpuset"
+};
+
+/*
+ * Comp dirs.
+ */
+char compdirs[RESGROUP_COMP_TYPE_COUNT][MAXPGPATH] =
+{
+	FALLBACK_COMP_DIR, FALLBACK_COMP_DIR, FALLBACK_COMP_DIR, FALLBACK_COMP_DIR
 };
 
 /*
@@ -228,6 +251,202 @@ compGetName(ResGroupCompType comp)
 	Assert(comp < RESGROUP_COMP_TYPE_COUNT);
 
 	return compnames[comp];
+}
+
+/*
+ * Get the comp type from name.
+ */
+static ResGroupCompType
+compByName(const char *name)
+{
+	ResGroupCompType comp;
+
+	for (comp = 0; comp < RESGROUP_COMP_TYPE_COUNT; comp++)
+		if (strcmp(name, compGetName(comp)) == 0)
+			return comp;
+
+	return RESGROUP_COMP_TYPE_UNKNOWN;
+}
+
+/*
+ * Get the comp dir of comp.
+ */
+static const char *
+compGetDir(ResGroupCompType comp)
+{
+	Assert(comp > RESGROUP_COMP_TYPE_UNKNOWN);
+	Assert(comp < RESGROUP_COMP_TYPE_COUNT);
+
+	return compdirs[comp];
+}
+
+/*
+ * Set the comp dir of comp.
+ */
+static void
+compSetDir(ResGroupCompType comp, const char *dir)
+{
+	Assert(comp > RESGROUP_COMP_TYPE_UNKNOWN);
+	Assert(comp < RESGROUP_COMP_TYPE_COUNT);
+	Assert(strlen(dir) < MAXPGPATH);
+
+	strcpy(compdirs[comp], dir);
+}
+
+/*
+ * Detect gpdb cgroup component dirs.
+ *
+ * Take cpu for example, by default we expect gpdb dir to locate at
+ * cgroup/cpu/gpdb.  But we'll also check for the cgroup dirs of init process
+ * (pid 1), e.g. cgroup/cpu/custom, then we'll look for gpdb dir at
+ * cgroup/cpu/custom/gpdb, if it's found and has good permissions, it can be
+ * used instead of the default one.
+ *
+ * If any of the gpdb cgroup component dir can not be found under init process'
+ * cgroup dirs or has bad permissions we'll fallback all the gpdb cgroup
+ * component dirs to the default ones.
+ *
+ * NOTE: This auto detection will look for memory & cpuset gpdb dirs even on
+ * 5X.
+ */
+static void
+detectCompDirs(void)
+{
+	ResGroupCompType comp;
+	FILE	   *f;
+	char		buf[MAXPGPATH * 2];
+	int			maskAll = (1 << RESGROUP_COMP_TYPE_COUNT) - 1;
+	int			maskDetected = 0;
+
+	f = fopen("/proc/1/cgroup", "r");
+	if (!f)
+		goto fallback;
+
+	/*
+	 * format: id:comps:path, e.g.:
+	 *
+	 *     10:cpuset:/
+	 *     4:cpu,cpuacct:/
+	 *     1:name=systemd:/init.scope
+	 *     0::/init.scope
+	 */
+	while (fscanf(f, "%*d:%s", buf) != EOF)
+	{
+		ResGroupCompType comps[RESGROUP_COMP_TYPE_COUNT];
+		int			ncomps = 0;
+		char	   *ptr;
+		char	   *tmp;
+		char		sep = '\0';
+		int			i;
+
+		/* buf is stored with "comps:path" */
+
+		if (buf[0] == ':')
+			continue; /* ignore empty comp */
+
+		/* split comps */
+		for (ptr = buf; sep != ':'; ptr = tmp)
+		{
+			tmp = strpbrk(ptr, ":,=");
+
+			sep = *tmp;
+			*tmp++ = 0;
+
+			/* for name=comp case there is nothing to do with the name */
+			if (sep == '=')
+				continue;
+
+			comp = compByName(ptr);
+
+			if (comp == RESGROUP_COMP_TYPE_UNKNOWN)
+				continue; /* not used by us */
+
+			/*
+			 * push the comp to the comps stack, but if the stack is already
+			 * full (which is unlikely to happen in real world), simply ignore
+			 * it.
+			 */
+			if (ncomps < RESGROUP_COMP_TYPE_COUNT)
+				comps[ncomps++] = comp;
+		}
+
+		/* now ptr point to the path */
+		Assert(strlen(ptr) < MAXPGPATH);
+
+		/* if the path is "/" then use empty string "" instead of it */
+		if (strcmp(ptr, "/") == 0)
+			ptr[0] = '\0';
+
+		/* validate and set path for the comps */
+		for (i = 0; i < ncomps; i++)
+		{
+			comp = comps[i];
+			compSetDir(comp, ptr);
+
+			if (!validateCompDir(comp))
+				goto fallback; /* dir missing or bad permissions */
+
+			if (maskDetected & (1 << comp))
+				goto fallback; /* comp are detected more than once */
+
+			maskDetected |= 1 << comp;
+		}
+	}
+
+	if (maskDetected != maskAll)
+		goto fallback; /* not all the comps are detected */
+
+	dumpCompDirs();
+
+	fclose(f);
+	return;
+
+fallback:
+	/* set the fallback dirs for all the comps */
+	foreach_comp_type(comp)
+	{
+		compSetDir(comp, FALLBACK_COMP_DIR);
+	}
+
+	dumpCompDirs();
+
+	fclose(f);
+}
+
+/*
+ * Validate a comp dir.
+ *
+ * Return True if it exists and has good permissions,
+ * return False otherwise.
+ */
+static bool
+validateCompDir(ResGroupCompType comp)
+{
+	char		path[MAXPGPATH];
+	size_t		pathsize = sizeof(path);
+
+	buildPath(RESGROUP_ROOT_ID, NULL, comp, "", path, pathsize);
+
+	return access(path, R_OK | W_OK | X_OK) == 0;
+}
+
+/*
+ * Dump comp dirs.
+ */
+static void
+dumpCompDirs(void)
+{
+	ResGroupCompType comp;
+	char		path[MAXPGPATH];
+	size_t		pathsize = sizeof(path);
+
+	foreach_comp_type(comp)
+	{
+		buildPath(RESGROUP_ROOT_ID, NULL, comp, "", path, pathsize);
+
+		elog(LOG, "gpdb dir for cgroup component \"%s\": %s",
+			 compGetName(comp), path);
+	}
 }
 
 /*
@@ -245,6 +464,8 @@ buildPath(Oid group,
 		  size_t pathsize)
 {
 	const char *compname = compGetName(comp);
+	const char *compdir = compGetDir(comp);
+
 	Assert(cgdir[0] != 0);
 
 	if (!base)
@@ -252,18 +473,18 @@ buildPath(Oid group,
 
 	if (group == RESGROUP_COMPROOT_ID)
 	{
-		snprintf(path, pathsize, "%s/%s/%s",
-				 cgdir, compname, prop);
+		snprintf(path, pathsize, "%s/%s%s/%s",
+				 cgdir, compname, compdir, prop);
 	}
 	else if (group != RESGROUP_ROOT_ID)
 	{
-		snprintf(path, pathsize, "%s/%s/%s/%d/%s",
-				 cgdir, compname, base, group, prop);
+		snprintf(path, pathsize, "%s/%s%s/%s/%d/%s",
+				 cgdir, compname, compdir, base, group, prop);
 	}
 	else
 	{
-		snprintf(path, pathsize, "%s/%s/%s/%s",
-				 cgdir, compname, base, prop);
+		snprintf(path, pathsize, "%s/%s%s/%s/%s",
+				 cgdir, compname, compdir, base, prop);
 	}
 
 	return path;
@@ -910,6 +1131,8 @@ ResGroupOps_Probe(void)
 	 */
 	if (!detectCgroupMountPoint())
 		return false;
+
+	detectCompDirs();
 
 	/*
 	 * Probe for optional features like the 'cgroup' memory auditor,
