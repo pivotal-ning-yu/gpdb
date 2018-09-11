@@ -9,29 +9,22 @@ import psutil
 from gppylib.commands import gp
 from gppylib import gpversion
 
+gpverstr = gp.GpVersion.local("", os.getenv("GPHOME"))
+gpver = gpversion.GpVersion(gpverstr)
+
 class dummy(object):
 
     def validate_all(self):
         exit("resource group is not supported on this platform")
 
 
-def detectCgroupMountPoint():
-    proc_mounts_path = "/proc/self/mounts"
-    if os.path.exists(proc_mounts_path):
-        with open(proc_mounts_path) as f:
-            for line in f:
-                mntent = line.split()
-                if mntent[2] != "cgroup": continue
-                mount_point = os.path.dirname(mntent[1])
-                return mount_point
-    return ""
-
 class cgroup(object):
 
-    mount_point = detectCgroupMountPoint()
-    tab = { 'r': os.R_OK, 'w': os.W_OK, 'x': os.X_OK, 'f': os.F_OK }
-    impl = "cgroup"
-    error_prefix = " is not properly configured: "
+    def __init__(self):
+        self.mount_point = self.detect_cgroup_mount_point()
+        self.tab = { 'r': os.R_OK, 'w': os.W_OK, 'x': os.X_OK, 'f': os.F_OK }
+        self.impl = "cgroup"
+        self.error_prefix = " is not properly configured: "
 
     def validate_all(self):
         """
@@ -60,8 +53,6 @@ class cgroup(object):
         # resgroup memory auditor is introduced in 6.0 devel and backported
         # to 5.x branch since 5.6.1.  To provide backward compatibilities
         # memory permissions are only checked since 6.0.
-        gpverstr = gp.GpVersion.local("", os.getenv("GPHOME"))
-        gpver = gpversion.GpVersion(gpverstr)
         if gpver.version >= [6, 0, 0]:
             self.validate_permission("memory/gpdb/", "rwx")
             self.validate_permission("memory/gpdb/memory.limit_in_bytes", "rw")
@@ -95,6 +86,17 @@ class cgroup(object):
         except IOError, e:
             self.die("can't check permission on %s '%s': %s" \
                      % (pathtype, fullpath, str(e)))
+
+    def detect_cgroup_mount_point(self):
+        proc_mounts_path = "/proc/self/mounts"
+        if os.path.exists(proc_mounts_path):
+            with open(proc_mounts_path) as f:
+                for line in f:
+                    mntent = line.split()
+                    if mntent[2] != "cgroup": continue
+                    mount_point = os.path.dirname(mntent[1])
+                    return mount_point
+        return ""
 
 if __name__ == '__main__':
     if sys.platform.startswith('linux'):

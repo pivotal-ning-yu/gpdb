@@ -16,13 +16,12 @@ import gpcheckresgroupimpl
 
 from gppylib.commands import gp
 from gppylib import gpversion
+
 gpverstr = gp.GpVersion.local("", os.getenv("GPHOME"))
 gpver = gpversion.GpVersion(gpverstr)
 
 @unittest.skipUnless(sys.platform.startswith("linux"), "requires linux")
 class GpCheckResGroupImplCGroup(unittest.TestCase):
-    cgroup_mntpnt = None
-    cgroup_default_mntpnt = gpcheckresgroupimpl.detectCgroupMountPoint()
 
     def setUp(self):
         self.cgroup_mntpnt = tempfile.mkdtemp(prefix='fake-cgroup-mnt-')
@@ -35,6 +34,8 @@ class GpCheckResGroupImplCGroup(unittest.TestCase):
         self.cgroup = gpcheckresgroupimpl.cgroup()
         self.cgroup.mount_point = self.cgroup_mntpnt
         self.cgroup.die = self.mock_cgroup_die
+
+        self.cgroup_default_mntpnt = self.cgroup.detect_cgroup_mount_point()
 
         os.mkdir(os.path.join(self.cgroup_mntpnt, "cpu", "gpdb"), 0700)
         self.touch(os.path.join(self.cgroup_mntpnt, "cpu", "gpdb", "cgroup.procs"), 0600)
