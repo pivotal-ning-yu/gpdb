@@ -10679,3 +10679,19 @@ create table type_coercion_range (c1 int4) DISTRIBUTED randomly
 PARTITION BY RANGE(c1) (START(1::text::int4::oid) END(10) every(5));
 NOTICE:  CREATE TABLE will create partition "type_coercion_range_1_prt_1" for table "type_coercion_range"
 NOTICE:  CREATE TABLE will create partition "type_coercion_range_1_prt_2" for table "type_coercion_range"
+-- MPP-26829
+-- This should fail
+CREATE TABLE MPP_26829
+(a integer, b integer NOT NULL, c integer)
+DISTRIBUTED BY (a)
+PARTITION BY RANGE (b)
+SUBPARTITION TEMPLATE (START (1) END (12) EVERY (1), DEFAULT SUBPARTITION other_months )
+SUBPARTITION BY LIST (c)
+SUBPARTITION TEMPLATE (
+SUBPARTITION p027 VALUES ('027'),
+SUBPARTITION p141 VALUES ('141'),
+SUBPARTITION p037 VALUES ('037'));
+ERROR:  SUBPARTITION TEMPLATE need to be nested under a SUBPARTITION BY at or near "SUBPARTITION"
+LINE 7: SUBPARTITION TEMPLATE (
+        ^
+-- MPP-26829

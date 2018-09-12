@@ -5374,3 +5374,17 @@ PARTITION BY LIST(c1)
 -- FuncExpr (for text) wrapped in a RelabelType
 create table type_coercion_range (c1 int4) DISTRIBUTED randomly
 PARTITION BY RANGE(c1) (START(1::text::int4::oid) END(10) every(5));
+
+-- MPP-26829
+-- This should fail
+CREATE TABLE MPP_26829
+(a integer, b integer NOT NULL, c integer)
+DISTRIBUTED BY (a)
+PARTITION BY RANGE (b)
+SUBPARTITION TEMPLATE (START (1) END (12) EVERY (1), DEFAULT SUBPARTITION other_months )
+SUBPARTITION BY LIST (c)
+SUBPARTITION TEMPLATE (
+SUBPARTITION p027 VALUES ('027'),
+SUBPARTITION p141 VALUES ('141'),
+SUBPARTITION p037 VALUES ('037'));
+-- MPP-26829 
