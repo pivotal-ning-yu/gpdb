@@ -359,21 +359,6 @@ set_failed_anchor_2: &set_failed_2_cluster
         BUCKET_PATH: clusters-google/
         BUCKET_NAME: {{tf-bucket-name}}
 
-rhel_artifacts_for_pulse_anchor: &rhel_artifacts_for_pulse_release-add-trigger
-  - get: gpdb_src
-    params: {submodules: none}
-    passed:
-    - gpdb_src_packaging
-    - gpdb_rc_packaging_centos
-  - get: gpdb_src_archive
-    passed: [gpdb_src_packaging]
-  - get: installer_gpdb_rc
-    resource: installer_rhel5_gpdb_rc
-    passed: [gpdb_rc_packaging_centos]
-  - get: qautils_tarball
-    resource: qautils_rhel5_tarball
-    passed: [gpdb_rc_packaging_centos]
-
 ccp_aggregate_gets_anchor: &ccp_aggregate_gets
   - get: gpdb_src
     params: {submodules: none}
@@ -1011,22 +996,6 @@ resources:
     region_name: {{aws-region}}
     secret_access_key: {{bucket-secret-access-key}}
     versioned_file: deliverables/plr-ossv8.3.0.15_pv2.1_gpdb4.3orca-sles11-x86_64.gppkg
-
-- name: nightly-trigger-pulse
-  type: time
-  source:
-    location: America/Los_Angeles
-    days: [Sunday, Monday, Tuesday, Wednesday, Thursday, Friday]
-    start: 5:00 AM
-    stop: 6:00 AM
-
-- name: weekly-trigger-pulse
-  type: time
-  source:
-    location: America/Los_Angeles
-    days: [Sunday]
-    start: 1:00 PM
-    stop: 2:00 PM
 
 # Resource used for Netbackup test
 - name: netbackup-client-installer
@@ -2639,14 +2608,13 @@ jobs:
 
 - name: DPM_backup-restore_filename_compatibility
   plan:
-  - get: nightly-trigger-pulse
-    trigger: true
   - aggregate:
     - get: gpdb_src
       passed: [compile_gpdb_centos]
     - get: bin_gpdb
       resource: bin_gpdb_centos
       passed: [compile_gpdb_centos]
+      trigger: true
     - get: bin_gpdb4-3-11-3
       resource: bin_gpdb4-3-11-3_centos
     - get: ccp_src
@@ -2687,9 +2655,6 @@ jobs:
 
 - name: DPM_backup-restore_ddboost_part1
   plan:
-  - get: weekly-trigger-pulse
-    tags: ["ddboost"]
-    trigger: true
   - aggregate:
     - get: ccp_src
       tags: ["ddboost"]
@@ -2704,6 +2669,7 @@ jobs:
       tags: ["ddboost"]
       resource: bin_gpdb_centos
       passed: [compile_gpdb_centos]
+      trigger: true
     - get: centos-gpdb-dev-6
       tags: ["ddboost"]
     - get: ddboost_rpm
@@ -2765,9 +2731,6 @@ jobs:
 
 - name: DPM_backup-restore_ddboost_part2
   plan:
-  - get: weekly-trigger-pulse
-    tags: ["ddboost"]
-    trigger: true
   - aggregate:
     - get: ccp_src
       tags: ["ddboost"]
@@ -2782,6 +2745,7 @@ jobs:
       tags: ["ddboost"]
       resource: bin_gpdb_centos
       passed: [compile_gpdb_centos]
+      trigger: true
     - get: centos-gpdb-dev-6
       tags: ["ddboost"]
     - get: ddboost_rpm
@@ -2843,9 +2807,6 @@ jobs:
 
 - name: DPM_backup-restore_ddboost_part3
   plan:
-  - get: weekly-trigger-pulse
-    tags: ["ddboost"]
-    trigger: true
   - aggregate:
     - get: ccp_src
       tags: ["ddboost"]
@@ -2860,6 +2821,7 @@ jobs:
       tags: ["ddboost"]
       resource: bin_gpdb_centos
       passed: [compile_gpdb_centos]
+      trigger: true
     - get: centos-gpdb-dev-6
       tags: ["ddboost"]
     - get: ddboost_rpm
@@ -3037,9 +2999,6 @@ jobs:
 
 - name: DPM_backup-restore_netbackup_part1
   plan:
-  - get: weekly-trigger-pulse
-    tags: ["netbackup"]
-    trigger: true
   - aggregate:
     - get: ccp_src
       tags: ["netbackup"]
@@ -3054,6 +3013,7 @@ jobs:
       tags: ["netbackup"]
       resource: bin_gpdb_centos
       passed: [compile_gpdb_centos]
+      trigger: true
     - get: centos-gpdb-dev-6
       tags: ["netbackup"]
     - get: netbackup_installer
@@ -3096,9 +3056,6 @@ jobs:
 
 - name: DPM_backup-restore_netbackup_part2
   plan:
-  - get: weekly-trigger-pulse
-    tags: ["netbackup"]
-    trigger: true
   - aggregate:
     - get: ccp_src
       tags: ["netbackup"]
@@ -3113,6 +3070,7 @@ jobs:
       tags: ["netbackup"]
       resource: bin_gpdb_centos
       passed: [compile_gpdb_centos]
+      trigger: true
     - get: centos-gpdb-dev-6
       tags: ["netbackup"]
     - get: netbackup_installer
@@ -3155,9 +3113,6 @@ jobs:
 
 - name: DPM_backup-restore_netbackup_part3
   plan:
-  - get: weekly-trigger-pulse
-    tags: ["netbackup"]
-    trigger: true
   - aggregate:
     - get: ccp_src
       tags: ["netbackup"]
@@ -3172,6 +3127,7 @@ jobs:
       tags: ["netbackup"]
       resource: bin_gpdb_centos
       passed: [compile_gpdb_centos]
+      trigger: true
     - get: centos-gpdb-dev-6
       tags: ["netbackup"]
     - get: netbackup_installer
@@ -3214,9 +3170,6 @@ jobs:
 
 - name: DPM_netbackup_filename_compatibility_part1
   plan:
-  - get: weekly-trigger-pulse
-    tags: ["netbackup"]
-    trigger: true
   - aggregate:
     - get: gpdb_src
       tags: ["netbackup"]
@@ -3225,6 +3178,7 @@ jobs:
       tags: ["netbackup"]
       resource: bin_gpdb_centos
       passed: [compile_gpdb_centos]
+      trigger: true
     - get: bin_gpdb4-3-11-3
       tags: ["netbackup"]
       resource: bin_gpdb4-3-11-3_centos
@@ -3284,9 +3238,6 @@ jobs:
 
 - name: DPM_netbackup_filename_compatibility_part2
   plan:
-  - get: weekly-trigger-pulse
-    tags: ["netbackup"]
-    trigger: true
   - aggregate:
     - get: gpdb_src
       tags: ["netbackup"]
@@ -3295,6 +3246,7 @@ jobs:
       tags: ["netbackup"]
       resource: bin_gpdb_centos
       passed: [compile_gpdb_centos]
+      trigger: true
     - get: bin_gpdb4-3-11-3
       tags: ["netbackup"]
       resource: bin_gpdb4-3-11-3_centos
@@ -3354,9 +3306,6 @@ jobs:
 
 - name: DPM_netbackup_filename_compatibility_part3
   plan:
-  - get: weekly-trigger-pulse
-    tags: ["netbackup"]
-    trigger: true
   - aggregate:
     - get: gpdb_src
       tags: ["netbackup"]
@@ -3365,6 +3314,7 @@ jobs:
       tags: ["netbackup"]
       resource: bin_gpdb_centos
       passed: [compile_gpdb_centos]
+      trigger: true
     - get: bin_gpdb4-3-11-3
       tags: ["netbackup"]
       resource: bin_gpdb4-3-11-3_centos
@@ -3424,9 +3374,6 @@ jobs:
 
 - name: DPM_ddboost_filename_compatibility_part1
   plan:
-  - get: weekly-trigger-pulse
-    tags: ["ddboost"]
-    trigger: true
   - aggregate:
     - get: gpdb_src
       tags: ["ddboost"]
@@ -3435,6 +3382,7 @@ jobs:
       tags: ["ddboost"]
       resource: bin_gpdb_centos
       passed: [compile_gpdb_centos]
+      trigger: true
     - get: bin_gpdb4-3-11-3
       tags: ["ddboost"]
       resource: bin_gpdb4-3-11-3_centos
@@ -3513,9 +3461,6 @@ jobs:
 
 - name: DPM_ddboost_filename_compatibility_part2
   plan:
-  - get: weekly-trigger-pulse
-    tags: ["ddboost"]
-    trigger: true
   - aggregate:
     - get: gpdb_src
       tags: ["ddboost"]
@@ -3524,6 +3469,7 @@ jobs:
       tags: ["ddboost"]
       resource: bin_gpdb_centos
       passed: [compile_gpdb_centos]
+      trigger: true
     - get: bin_gpdb4-3-11-3
       tags: ["ddboost"]
       resource: bin_gpdb4-3-11-3_centos
@@ -3602,9 +3548,6 @@ jobs:
 
 - name: DPM_ddboost_filename_compatibility_part3
   plan:
-  - get: weekly-trigger-pulse
-    tags: ["ddboost"]
-    trigger: true
   - aggregate:
     - get: gpdb_src
       tags: ["ddboost"]
@@ -3613,6 +3556,7 @@ jobs:
       tags: ["ddboost"]
       resource: bin_gpdb_centos
       passed: [compile_gpdb_centos]
+      trigger: true
     - get: bin_gpdb4-3-11-3
       tags: ["ddboost"]
       resource: bin_gpdb4-3-11-3_centos
