@@ -3787,6 +3787,10 @@ def impl(context, tablename, dbconn):
     run_gpcommand(context, command)
 
 
+def _get_gpAdminLogs_directory():
+    return "%s/gpAdminLogs" % os.path.expanduser("~")
+
+
 @given('an incomplete map file is created')
 def impl(context):
     with open('/tmp/incomplete_map_file', 'w') as fd:
@@ -4815,6 +4819,25 @@ def impl(context, gppkg_name):
 def impl(context, gppkg_name):
     _remove_gppkg_from_host(context, gppkg_name, is_master_host=True)
 
+
+@given('gpAdminLogs directory has no "{prefix}" files')
+def impl(context, prefix):
+    log_dir = _get_gpAdminLogs_directory()
+    items = glob.glob('%s/%s_*.log' % (log_dir, prefix))
+    for item in items:
+        os.remove(item)
+
+
+@then('{command} should print "{target}" to logfile')
+def impl(context, command, target):
+    log_dir = _get_gpAdminLogs_directory()
+    filename = glob.glob('%s/%s_*.log' % (log_dir, command))[0]
+    contents = ''
+    with open(filename) as fr:
+        for line in fr:
+            contents += line
+    if target not in contents:
+        raise Exception("cannot find %s in %s" % (target, filename))
 
 @given('the cluster is stopped and cluster config is regenerated only')
 def impl(context):
