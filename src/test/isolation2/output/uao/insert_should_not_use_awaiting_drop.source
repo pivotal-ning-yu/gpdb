@@ -82,14 +82,14 @@ remove_ao_entry_from_hash_table
                                
 (1 row)
 
--- And the insert fails
+-- And the insert succeeds
 !gpfaultinjector -f before_set_segno_for_write_on_dispatch -y reset -s 1;
 20181001:15:21:35:080484 gpfaultinjector:Adams-MBP:adamberlin-[INFO]:-Starting gpfaultinjector with args: -f before_set_segno_for_write_on_dispatch -y reset -s 1
 20181001:15:21:35:080484 gpfaultinjector:Adams-MBP:adamberlin-[INFO]:-Injecting fault on content=-1:dbid=1:mode=s:status=u
 20181001:15:21:35:080484 gpfaultinjector:Adams-MBP:adamberlin-[INFO]:-DONE
 
 1<:  <... completed>
-ERROR:  cannot insert into segno (1) from AO relid 17174 that is in state AOSEG_STATE_AWAITING_DROP (appendonlyam.c:532)  (seg0 Adams-MBP.fios-router.home:25432 pid=80496)
+INSERT 1
 
 -- And the vacuum completes
 !gpfaultinjector -f vacuum_relation_open_relation_during_drop_phase -y reset -s 1;
@@ -98,18 +98,18 @@ ERROR:  cannot insert into segno (1) from AO relid 17174 that is in state AOSEG_
 20181001:15:21:36:080500 gpfaultinjector:Adams-MBP:adamberlin-[INFO]:-DONE
 
 2<:  <... completed>
-ERROR:  expected segno (1) from AO relid 41063 in state COMPACTED_AWAITING_DROP but found in state 1 (appendonlywriter.c:768)
+ERROR:  expected segno (1) from AO relid 41063 in state COMPACTED_AWAITING_DROP but found in state 2 (appendonlywriter.c:768)
 
--- Then inserts into test table should not be visible
+-- Then inserts into test table should be visible
 select count(1) from test_table_@orientation@;
 count
 -----
-12   
+13   
 (1 row)
 
--- And additional inserts should continue to fail
+-- And additional inserts should continue to succeed
 insert into test_table_@orientation@ values (1,1);
-ERROR:  cannot insert into segno (1) from AO relid 41063 that is in state AOSEG_STATE_AWAITING_DROP (appendonlyam.c:476)  (seg2 127.0.1.1:25434 pid=9657) (appendonlyam.c:476)
+INSERT 1
 
 -- When the appendonly hash entry is removed
 select remove_ao_entry_from_hash_table('test_table_@orientation@'::regclass::oid);
@@ -118,6 +118,13 @@ remove_ao_entry_from_hash_table
                                
 (1 row)
 
--- Then inserts should begin to succeed
+-- Then inserts should continue to succeed
 insert into test_table_@orientation@ values (1,1);
 INSERT 1
+
+-- And inserted data should be visible
+select count(1) from test_table_@orientation@;
+count
+-----
+15   
+(1 row)
