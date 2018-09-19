@@ -18,10 +18,12 @@ SET
 -- @description Negative test for direct dispatch. Randomly distributed table
 INSERT INTO r VALUES (1,1,1);
 psql:/data/prabhd/test/tincrepo/main/dml/functional/output/mpp20225_direct_dispatch_6_opt.sql:17: INFO:  Dispatch command to ALL contents
+psql:/data/prabhd/test/tincrepo/main/dml/functional/output/mpp20225_direct_dispatch_6_opt.sql:17: INFO:  Dispatch command to ALL contents
 psql:/data/prabhd/test/tincrepo/main/dml/functional/output/mpp20225_direct_dispatch_6_opt.sql:17: INFO:  Distributed transaction command 'Distributed Prepare' to ALL contents
 psql:/data/prabhd/test/tincrepo/main/dml/functional/output/mpp20225_direct_dispatch_6_opt.sql:17: INFO:  Distributed transaction command 'Distributed Commit Prepared' to ALL contents
 INSERT 0 1
 INSERT INTO r VALUES (1,1,1),(3,3,3);
+psql:/data/prabhd/test/tincrepo/main/dml/functional/output/mpp20225_direct_dispatch_6_opt.sql:18: INFO:  Dispatch command to ALL contents
 psql:/data/prabhd/test/tincrepo/main/dml/functional/output/mpp20225_direct_dispatch_6_opt.sql:18: INFO:  Dispatch command to ALL contents
 psql:/data/prabhd/test/tincrepo/main/dml/functional/output/mpp20225_direct_dispatch_6_opt.sql:18: INFO:  Distributed transaction command 'Distributed Prepare' to ALL contents
 psql:/data/prabhd/test/tincrepo/main/dml/functional/output/mpp20225_direct_dispatch_6_opt.sql:18: INFO:  Distributed transaction command 'Distributed Commit Prepared' to ALL contents
