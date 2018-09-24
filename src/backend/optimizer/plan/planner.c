@@ -278,8 +278,7 @@ planner(Query *parse, int cursorOptions,
 		{
 			INSTR_TIME_SET_CURRENT(starttime);
 		}
-		curMemoryAccountId = MemoryAccounting_CreatePlanningMemoryAccount(
-			MEMORY_OWNER_TYPE_Optimizer);
+		curMemoryAccountId = MemoryAccounting_GetOrCreateOptimizerAccount();
 
 		START_MEMORY_ACCOUNT(curMemoryAccountId);
 		{
@@ -302,8 +301,7 @@ planner(Query *parse, int cursorOptions,
 		{
 			INSTR_TIME_SET_CURRENT(starttime);
 		}
-		curMemoryAccountId =
-			MemoryAccounting_CreatePlanningMemoryAccount(MEMORY_OWNER_TYPE_Planner);
+		curMemoryAccountId = MemoryAccounting_GetOrCreatePlannerAccount();
 
 		START_MEMORY_ACCOUNT(curMemoryAccountId);
 		{
