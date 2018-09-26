@@ -235,6 +235,7 @@ apply_motion(PlannerInfo *root, Plan *plan, Query *query)
 	ApplyMotionState state;
 	bool		needToAssignDirectDispatchContentIds = false;
 	bool		bringResultToDispatcher = false;
+	int			numsegments = GP_POLICY_ALL_NUMSEGMENTS;
 
 	/* Initialize mutator context. */
 
@@ -274,6 +275,13 @@ apply_motion(PlannerInfo *root, Plan *plan, Query *query)
 				List	   *hashExpr;
 				ListCell   *exp1;
 
+				/*
+				 * In CTAS the source distribution policy is not inherited,
+				 * always set numsegments to ALL unless a DISTRIBUTED BY clause
+				 * is specified.
+				 */
+				numsegments = GP_POLICY_ALL_NUMSEGMENTS;
+
 				if (query->intoPolicy != NULL)
 				{
 					targetPolicy = query->intoPolicy;
@@ -284,7 +292,8 @@ apply_motion(PlannerInfo *root, Plan *plan, Query *query)
 				}
 				else if (gp_create_table_random_default_distribution)
 				{
-					targetPolicy = createRandomPartitionedPolicy(NULL);
+					targetPolicy = createRandomPartitionedPolicy(NULL,
+																 numsegments);
 					ereport(NOTICE,
 							(errcode(ERRCODE_SUCCESSFUL_COMPLETION),
 							 errmsg("Using default RANDOM distribution since no distribution was specified."),
@@ -405,7 +414,8 @@ apply_motion(PlannerInfo *root, Plan *plan, Query *query)
 						}
 					}
 
-					targetPolicy = createHashPartitionedPolicy(NULL, policykeys);
+					targetPolicy = createHashPartitionedPolicy(NULL, policykeys,
+															   numsegments);
 
 					if (query->intoPolicy == NULL)
 					{
