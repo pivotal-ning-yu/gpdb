@@ -158,7 +158,7 @@ build_simple_rel(PlannerInfo *root, int relid, RelOptKind reloptkind)
 															   origpolicy->numsegments);
 
 				/* Scribble the tuple number of rel to reflect the real size */
-				rel->tuples = rel->tuples * planner_segment_count();
+				rel->tuples = rel->tuples * planner_segment_count(rel->cdbpolicy);
 			}
 
 			if ((root->parse->commandType == CMD_UPDATE ||
