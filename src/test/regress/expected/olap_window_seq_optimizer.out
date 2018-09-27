@@ -8241,7 +8241,7 @@ explain insert into window_preds select k from ( select row_number() over()+2 as
                                                           QUERY PLAN                                                           
 -------------------------------------------------------------------------------------------------------------------------------
  Insert  (cost=0.00..862.04 rows=1 width=4)
-   ->  Redistribute Motion 1:3  (slice3)  (cost=0.00..862.00 rows=2 width=16)
+   ->  Redistribute Motion 1:3  (slice3; segments: 1)  (cost=0.00..862.00 rows=2 width=16)
          Hash Key: (((row_number() OVER (?)) + 2)::integer)
          ->  Result  (cost=0.00..862.00 rows=1 width=16)
                ->  Append  (cost=0.00..862.00 rows=1 width=8)
@@ -8371,7 +8371,7 @@ explain insert into window_preds select k from ( select k from (select row_numbe
                                                        QUERY PLAN                                                        
 -------------------------------------------------------------------------------------------------------------------------
  Insert  (cost=0.00..862.04 rows=1 width=4)
-   ->  Redistribute Motion 1:3  (slice3)  (cost=0.00..862.00 rows=2 width=16)
+   ->  Redistribute Motion 1:3  (slice3; segments: 1)  (cost=0.00..862.00 rows=2 width=16)
          Hash Key: ((row_number() OVER (?))::integer)
          ->  Result  (cost=0.00..862.00 rows=1 width=16)
                ->  Append  (cost=0.00..862.00 rows=1 width=8)
