@@ -307,6 +307,7 @@ typedef struct
 {
     PlannerInfo    *root;
     List           *mergeclause_list;
+    Path           *path;
     CdbPathLocus    locus;
     CdbPathLocus   *colocus;
     bool            colocus_eq_locus;
@@ -342,24 +343,33 @@ cdbpath_match_preds_to_partkey_tail(CdbpathMatchPredsContext   *ctx,
         foreach(rcell, ctx->mergeclause_list)
         {
             RestrictInfo   *rinfo = (RestrictInfo *)lfirst(rcell);
+            List           *a_pathkey; /* Corresponding to the path in context. */
+            List           *b_pathkey;
 
             if (!rinfo->left_pathkey)
                 cache_mergeclause_pathkeys(ctx->root, rinfo);
 
+            if (bms_is_subset(rinfo->left_relids, ctx->path->parent->relids))
+            {
+                a_pathkey = rinfo->left_pathkey;
+                b_pathkey = rinfo->right_pathkey;
+            }
+            else
+            {
+                a_pathkey = rinfo->right_pathkey;
+                b_pathkey = rinfo->left_pathkey;
+                Assert(bms_is_subset(rinfo->right_relids, ctx->path->parent->relids));
+            }
+
             if (CdbPathLocus_IsHashed(ctx->locus))
             {
-                if (sublist == rinfo->left_pathkey)
-                    copathkey = rinfo->right_pathkey;
-                else if (sublist == rinfo->right_pathkey)
-                    copathkey = rinfo->left_pathkey;
+                if (sublist == a_pathkey)
+                    copathkey = b_pathkey;
             }
             else if (CdbPathLocus_IsHashedOJ(ctx->locus))
             {
-                if (list_member_ptr(sublist, rinfo->left_pathkey))
-                    copathkey = rinfo->right_pathkey;
-                else if (rinfo->left_pathkey != rinfo->right_pathkey &&
-                    list_member_ptr(sublist, rinfo->right_pathkey))
-                    copathkey = rinfo->left_pathkey;
+                if (list_member_ptr(sublist, a_pathkey))
+                    copathkey = b_pathkey;
             }
 
             if (copathkey)
@@ -415,6 +425,7 @@ cdbpath_match_preds_to_partkey_tail(CdbpathMatchPredsContext   *ctx,
 static bool
 cdbpath_match_preds_to_partkey(PlannerInfo     *root,
                                List            *mergeclause_list,
+                               Path            *path,
                                CdbPathLocus     locus,
                                CdbPathLocus    *colocus)            /* OUT */
 {
@@ -428,6 +439,7 @@ cdbpath_match_preds_to_partkey(PlannerInfo     *root,
 
     ctx.root                = root;
     ctx.mergeclause_list    = mergeclause_list;
+    ctx.path                = path;
     ctx.locus               = locus;
     ctx.colocus             = colocus;
     ctx.colocus_eq_locus    = true;
@@ -803,6 +815,7 @@ cdbpath_motion_for_join(PlannerInfo    *root,
         /* Redistribute single rel if joining on other rel's partitioning key */
         else if (cdbpath_match_preds_to_partkey(root,
                                                 mergeclause_list,
+                                                other->path,
                                                 other->locus,
                                                 &single->move_to))  /* OUT */
         {}
@@ -876,6 +889,7 @@ cdbpath_motion_for_join(PlannerInfo    *root,
         if (!small->require_existing_order &&
             cdbpath_match_preds_to_partkey(root,
                                            mergeclause_list,
+                                           large->path,
                                            large->locus,
                                            &small->move_to))    /* OUT */
         {}
@@ -892,6 +906,7 @@ cdbpath_motion_for_join(PlannerInfo    *root,
         else if (!large->require_existing_order &&
                  cdbpath_match_preds_to_partkey(root,
                                                 mergeclause_list,
+                                                small->path,
                                                 small->locus,
                                                 &large->move_to))   /* OUT */
         {}
