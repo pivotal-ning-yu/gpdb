@@ -4974,7 +4974,6 @@ open_relation_and_check_permission(VacuumStmt *vacstmt,
 	 * thing that can happen is that both transaction see each other and
 	 * both cancel the drop.
 	 */
-
 	if (isDropTransaction)
 	{
 		MyProc->inDropTransaction = true;

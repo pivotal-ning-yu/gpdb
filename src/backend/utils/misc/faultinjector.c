@@ -285,6 +285,8 @@ FaultInjectorIdentifierEnumToString[] = {
 		/* inject fault before an append-only delete */
 	_("appendonly_update"),
 		/* inject fault before an append-only update */
+	_("before_set_segno_for_write_on_dispatch"),
+		/* inject fault before set segno for write on dispatch */
 	_("reindex_db"),
 		/* inject fault while reindex db is in progress */
 	_("reindex_relation"),
