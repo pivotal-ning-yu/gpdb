@@ -31,11 +31,6 @@ typedef enum
 } ResGroupCompType;
 
 #define RESGROUP_ROOT_ID (InvalidOid)
-/*
- * If group id is RESGROUP_COMPROOT_ID, it will build the root path of comp,
- * which is the parent directory of gpdb
- */
-#define RESGROUP_COMPROOT_ID (-1)
 
 /*
  * Default cpuset group is a group manages the cpu cores which not belong to
