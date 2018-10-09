@@ -30,6 +30,7 @@
 #include <unistd.h>
 #include <sched.h>
 #include <sys/file.h>
+#include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/sysinfo.h>
 #include <stdio.h>
@@ -109,6 +110,7 @@ static bool validateCompDir(ResGroupCompType comp);
 static void dumpCompDirs(void);
 
 static char *buildPath(Oid group, BaseType base, ResGroupCompType comp, const char *prop, char *path, size_t pathsize);
+static char *buildPathSafe(Oid group, BaseType base, ResGroupCompType comp, const char *prop, char *path, size_t pathsize);
 static int lockDir(const char *path, bool block);
 static void unassignGroup(Oid group, ResGroupCompType comp, int fddir);
 static bool createDir(Oid group, ResGroupCompType comp);
@@ -138,7 +140,7 @@ static void createDefaultCpuSetGroup(void);
 static Oid currentGroupIdInCGroup = InvalidOid;
 static ResGroupCaps oldCaps;
 
-static char cgdir[MAXPGPATH];
+static char cgdir[MAXPATHLEN];
 
 static int64 system_cfs_quota_us = -1LL;
 static int64 parent_cfs_quota_us = -1LL;
@@ -252,7 +254,7 @@ const char *compnames[RESGROUP_COMP_TYPE_COUNT] =
 /*
  * Comp dirs.
  */
-char compdirs[RESGROUP_COMP_TYPE_COUNT][MAXPGPATH] =
+char compdirs[RESGROUP_COMP_TYPE_COUNT][MAXPATHLEN] =
 {
 	FALLBACK_COMP_DIR, FALLBACK_COMP_DIR, FALLBACK_COMP_DIR, FALLBACK_COMP_DIR
 };
@@ -304,7 +306,7 @@ compSetDir(ResGroupCompType comp, const char *dir)
 {
 	Assert(comp > RESGROUP_COMP_TYPE_UNKNOWN);
 	Assert(comp < RESGROUP_COMP_TYPE_COUNT);
-	Assert(strlen(dir) < MAXPGPATH);
+	Assert(strlen(dir) < MAXPATHLEN);
 
 	strcpy(compdirs[comp], dir);
 }
@@ -330,7 +332,7 @@ detectCompDirs(void)
 {
 	ResGroupCompType comp;
 	FILE	   *f;
-	char		buf[MAXPGPATH * 2];
+	char		buf[MAXPATHLEN * 2];
 	int			maskAll = (1 << RESGROUP_COMP_TYPE_COUNT) - 1;
 	int			maskDetected = 0;
 
@@ -387,7 +389,7 @@ detectCompDirs(void)
 		}
 
 		/* now ptr point to the path */
-		Assert(strlen(ptr) < MAXPGPATH);
+		Assert(strlen(ptr) < MAXPATHLEN);
 
 		/* if the path is "/" then use empty string "" instead of it */
 		if (strcmp(ptr, "/") == 0)
@@ -440,10 +442,12 @@ fallback:
 static bool
 validateCompDir(ResGroupCompType comp)
 {
-	char		path[MAXPGPATH];
+	char		path[MAXPATHLEN];
 	size_t		pathsize = sizeof(path);
 
-	buildPath(RESGROUP_ROOT_ID, BASETYPE_GPDB, comp, "", path, pathsize);
+	if (!buildPathSafe(RESGROUP_ROOT_ID, BASETYPE_GPDB, comp, "",
+					   path, pathsize))
+		return false;
 
 	return access(path, R_OK | W_OK | X_OK) == 0;
 }
@@ -455,7 +459,7 @@ static void
 dumpCompDirs(void)
 {
 	ResGroupCompType comp;
-	char		path[MAXPGPATH];
+	char		path[MAXPATHLEN];
 	size_t		pathsize = sizeof(path);
 
 	foreach_comp_type(comp)
@@ -470,11 +474,9 @@ dumpCompDirs(void)
 /*
  * Build path string with parameters.
  *
- * Examples (path and pathsize are omitted):
- * - buildPath(ROOT, CPU, PARENT, ""     ): /sys/fs/cgroup/cpu
- * - buildPath(ROOT, CPU, PARENT, "tasks"): /sys/fs/cgroup/cpu/tasks
- * - buildPath(ROOT, CPU, GPDB  , "tasks"): /sys/fs/cgroup/cpu/gpdb/tasks
- * - buildPath(6437, CPU, GPDB  , "tasks"): /sys/fs/cgroup/cpu/gpdb/6437/tasks
+ * Will raise an exception if the path buffer is not large enough.
+ *
+ * Refer to buildPathSafe() for details.
  */
 static char *
 buildPath(Oid group,
@@ -484,9 +486,43 @@ buildPath(Oid group,
 		  char *path,
 		  size_t pathsize)
 {
+	char	   *result = buildPathSafe(group, base, comp, prop, path, pathsize);
+
+	if (!result)
+	{
+		CGROUP_CONFIG_ERROR("invalid %s name '%s': %s",
+							prop[0] ? "file" : "directory",
+							path,
+							strerror(errno));
+	}
+
+	return result;
+}
+
+/*
+ * Build path string with parameters.
+ *
+ * Return NULL if the path buffer is not large enough, errno will also be set.
+ *
+ * Examples (path and pathsize are omitted):
+ * - buildPath(ROOT, PARENT, CPU, ""     ): /sys/fs/cgroup/cpu
+ * - buildPath(ROOT, PARENT, CPU, "tasks"): /sys/fs/cgroup/cpu/tasks
+ * - buildPath(ROOT, GPDB  , CPU, "tasks"): /sys/fs/cgroup/cpu/gpdb/tasks
+ * - buildPath(6437, GPDB  , CPU, "tasks"): /sys/fs/cgroup/cpu/gpdb/6437/tasks
+ */
+static char *
+buildPathSafe(Oid group,
+			  BaseType base,
+			  ResGroupCompType comp,
+			  const char *prop,
+			  char *path,
+			  size_t pathsize)
+{
 	const char *compname = compGetName(comp);
 	const char *compdir = compGetDir(comp);
 	const char *basedir = "";
+	char		groupdir[MAXPATHLEN] = "";
+	int			len;
 
 	Assert(cgdir[0] != 0);
 	Assert(base == BASETYPE_GPDB ||
@@ -499,13 +535,19 @@ buildPath(Oid group,
 
 	if (group != RESGROUP_ROOT_ID)
 	{
-		snprintf(path, pathsize, "%s/%s%s%s/%d/%s",
-				 cgdir, compname, compdir, basedir, group, prop);
+		len = snprintf(groupdir, sizeof(groupdir), "/%u", group);
+
+		/* We are sure groupdir is large enough */
+		Assert(len > 0 &&
+			   len < sizeof(groupdir));
 	}
-	else
+
+	len = snprintf(path, pathsize, "%s/%s%s%s%s/%s",
+				   cgdir, compname, compdir, basedir, groupdir, prop);
+	if (len >= pathsize || len < 0)
 	{
-		snprintf(path, pathsize, "%s/%s%s%s/%s",
-				 cgdir, compname, compdir, basedir, prop);
+		errno = ENAMETOOLONG;
+		return NULL;
 	}
 
 	return path;
@@ -523,7 +565,7 @@ buildPath(Oid group,
 static void
 unassignGroup(Oid group, ResGroupCompType comp, int fddir)
 {
-	char path[MAXPGPATH];
+	char path[MAXPATHLEN];
 	size_t pathsize = sizeof(path);
 	char *buf;
 	size_t bufsize;
@@ -716,7 +758,7 @@ lockDir(const char *path, bool block)
 static bool
 createDir(Oid group, ResGroupCompType comp)
 {
-	char path[MAXPGPATH];
+	char path[MAXPATHLEN];
 	size_t pathsize = sizeof(path);
 
 	buildPath(group, BASETYPE_GPDB, comp, "", path, pathsize);
@@ -735,7 +777,7 @@ createDir(Oid group, ResGroupCompType comp)
 static bool
 removeDir(Oid group, ResGroupCompType comp, const char *prop, bool unassign)
 {
-	char path[MAXPGPATH];
+	char path[MAXPATHLEN];
 	size_t pathsize = sizeof(path);
 	int retry = unassign ? 0 : MAX_RETRY - 1;
 	int fddir;
@@ -885,7 +927,7 @@ readInt64(Oid group, BaseType base, ResGroupCompType comp, const char *prop)
 	int64 x;
 	char data[MAX_INT_STRING_LEN];
 	size_t datasize = sizeof(data);
-	char path[MAXPGPATH];
+	char path[MAXPATHLEN];
 	size_t pathsize = sizeof(path);
 
 	buildPath(group, base, comp, prop, path, pathsize);
@@ -907,7 +949,7 @@ writeInt64(Oid group, BaseType base,
 {
 	char data[MAX_INT_STRING_LEN];
 	size_t datasize = sizeof(data);
-	char path[MAXPGPATH];
+	char path[MAXPATHLEN];
 	size_t pathsize = sizeof(path);
 
 	buildPath(group, base, comp, prop, path, pathsize);
@@ -925,7 +967,7 @@ readStr(Oid group, BaseType base,
 {
 	char data[MAX_INT_STRING_LEN];
 	size_t datasize = sizeof(data);
-	char path[MAXPGPATH];
+	char path[MAXPATHLEN];
 	size_t pathsize = sizeof(path);
 
 	buildPath(group, base, comp, prop, path, pathsize);
@@ -942,7 +984,7 @@ static void
 writeStr(Oid group, BaseType base,
 		 ResGroupCompType comp, const char *prop, const char *strValue)
 {
-	char path[MAXPGPATH];
+	char path[MAXPATHLEN];
 	size_t pathsize = sizeof(path);
 
 	buildPath(group, base, comp, prop, path, pathsize);
@@ -960,7 +1002,7 @@ writeStr(Oid group, BaseType base,
 static bool
 permListCheck(const PermList *permlist, Oid group, bool report)
 {
-	char path[MAXPGPATH];
+	char path[MAXPATHLEN];
 	size_t pathsize = sizeof(path);
 	int i;
 
@@ -973,7 +1015,19 @@ permListCheck(const PermList *permlist, Oid group, bool report)
 		const char	*prop = permlist->items[i].prop;
 		int			perm = permlist->items[i].perm;
 
-		buildPath(group, BASETYPE_GPDB, comp, prop, path, pathsize);
+		if (!buildPathSafe(group, BASETYPE_GPDB, comp, prop, path, pathsize))
+		{
+			/* Buffer is not large enough for the path */
+
+			if (report && !permlist->optional)
+			{
+				CGROUP_CONFIG_ERROR("invalid %s name '%s': %s",
+									prop[0] ? "file" : "directory",
+									path,
+									strerror(errno));
+			}
+			return false;
+		}
 
 		if (access(path, perm))
 		{
@@ -1155,6 +1209,9 @@ initCpu(void)
 		cfs_quota_us = parent_cfs_quota_us * gp_resource_group_cpu_limit;
 	}
 
+	writeInt64(RESGROUP_ROOT_ID, BASETYPE_GPDB,
+			   comp, "cpu.cfs_quota_us", cfs_quota_us);
+
 	/*
 	 * shares := parent.shares * gp_resource_group_cpu_priority
 	 *
@@ -1170,8 +1227,6 @@ initCpu(void)
 	shares = readInt64(RESGROUP_ROOT_ID, BASETYPE_PARENT, comp, "cpu.shares");
 	shares = shares * gp_resource_group_cpu_priority;
 
-	writeInt64(RESGROUP_ROOT_ID, BASETYPE_GPDB,
-			   comp, "cpu.cfs_quota_us", cfs_quota_us);
 	writeInt64(RESGROUP_ROOT_ID, BASETYPE_GPDB,
 			   comp, "cpu.shares", shares);
 }
@@ -1520,7 +1575,7 @@ ResGroupOps_AssignGroup(Oid group, ResGroupCaps *caps, int pid)
 int
 ResGroupOps_LockGroup(Oid group, ResGroupCompType comp, bool block)
 {
-	char path[MAXPGPATH];
+	char path[MAXPATHLEN];
 	size_t pathsize = sizeof(path);
 
 	buildPath(group, BASETYPE_GPDB, comp, "", path, pathsize);
@@ -1645,22 +1700,8 @@ int64
 ResGroupOps_GetCpuUsage(Oid group)
 {
 	ResGroupCompType comp = RESGROUP_COMP_TYPE_CPUACCT;
-	/* usage indicates the cpu usage on the system */
-	int64		usage = readInt64(group, BASETYPE_GPDB, comp, "cpuacct.usage");
 
-	/* cgroup promises that cfs_quota_us will nevery be 0 */
-	Assert(parent_cfs_quota_us != 0);
-
-	if (parent_cfs_quota_us < 0LL)
-	{
-		/* parent cgroup is unlimited, return usage directly */
-		return usage;
-	}
-	else
-	{
-		/* parent cgroup is also limited, return the usage in parent cgroup */
-		return usage * system_cfs_quota_us / parent_cfs_quota_us;
-	}
+	return readInt64(group, BASETYPE_GPDB, comp, "cpuacct.usage");
 }
 
 /*
@@ -1788,4 +1829,58 @@ ResGroupOps_GetCpuSet(Oid group, char *cpuset, int len)
 		return ;
 
 	readStr(group, BASETYPE_GPDB, comp, "cpuset.cpus", cpuset, len);
+}
+
+/*
+ * Convert the cpu usage to percentage within the duration.
+ *
+ * usage is the delta of GetCpuUsage() of a duration,
+ * duration is in micro seconds.
+ *
+ * When fully consuming one cpu core the return value will be 100.0 .
+ */
+float
+ResGroupOps_ConvertCpuUsageToPercent(int64 usage, int64 duration)
+{
+	float		percent;
+
+	Assert(usage >= 0LL);
+	Assert(duration > 0LL);
+
+	/* CGroup promises that cfs_quota_us will never be 0 */
+	Assert(parent_cfs_quota_us != 0);
+	/* There should always be at least one core on the system */
+	Assert(ncores > 0);
+
+	/*
+	 * Usage is the cpu time (nano seconds) obtained by this group in the time
+	 * duration (micro seconds), so cpu time on one core can be calculated as:
+	 *
+	 *     usage / 1000 / duration / ncores
+	 *
+	 * To convert it to percentage we should multiple 100%:
+	 *
+	 *     usage / 1000 / duration / ncores * 100%
+	 *   = usage / 10 / duration / ncores
+	 */
+	percent = usage / 10.0 / duration / ncores;
+
+	/*
+	 * Now we have the system level percentage, however when running in a
+	 * container with limited cpu quota we need to further scale it with
+	 * parent.  Suppose parent has 50% cpu quota and gpdb is consuming all of
+	 * it, then we want gpdb to report the cpu usage as 100% instead of 50%.
+	 */
+
+	if (parent_cfs_quota_us > 0LL)
+	{
+		/*
+		 * Parent cgroup is also limited, scale the percentage to the one in
+		 * parent cgroup.  Do not change the expression to `percent *= ...`,
+		 * that will lose the precision.
+		 */
+		percent = percent * system_cfs_quota_us / parent_cfs_quota_us;
+	}
+
+	return percent;
 }

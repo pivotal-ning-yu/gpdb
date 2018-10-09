@@ -68,5 +68,6 @@ extern int ResGroupOps_GetCpuCores(void);
 extern int ResGroupOps_GetTotalMemory(void);
 extern void ResGroupOps_SetCpuSet(Oid group, const char *cpuset);
 extern void ResGroupOps_GetCpuSet(Oid group, char *cpuset, int len);
+float ResGroupOps_ConvertCpuUsageToPercent(int64 usage, int64 duration);
 
 #endif   /* RES_GROUP_OPS_H */
