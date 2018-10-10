@@ -820,7 +820,7 @@ create_unique_plan(PlannerInfo *root, UniquePath *best_path)
         /* Top off the subplan with a LIMIT 1 node. */
         limitplan = makeNode(Limit);
         copy_path_costsize(root, &limitplan->plan, &best_path->path);
-        limitplan->plan.targetlist = copyObject(subplan->targetlist);
+        limitplan->plan.targetlist = subplan->targetlist;
         limitplan->plan.qual = NIL;
         limitplan->plan.lefttree = subplan;
         limitplan->plan.righttree = NULL;
