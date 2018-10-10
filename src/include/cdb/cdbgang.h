@@ -100,26 +100,6 @@ char *makeOptions(void);
 extern bool segment_failure_due_to_recovery(const char *error_message);
 
 /*
- * DisconnectAndDestroyIdleQEs()
- *
- * This routine is used when a session has been idle for a while (waiting for the
- * client to send us SQL to execute). The idea is to consume less resources while sitting idle.
- *
- * The expectation is that if the session is logged on, but nobody is sending us work to do,
- * we want to free up whatever resources we can. Usually it means there is a human being at the
- * other end of the connection, and that person has walked away from their terminal, or just hasn't
- * decided what to do next. We could be idle for a very long time (many hours).
- *
- * Of course, freeing QEs means that the next time the user does send in an SQL statement,
- * we need to allocate QEs (at least the writer QEs) to do anything. This entails extra work,
- * so we don't want to do this if we don't think the session has gone idle.
- *
- * Only call these routines from an idle session.
- *
- * This routine is also called from the sigalarm signal handler (hopefully that is safe to do).
- */
-
-/*
  * cdbgang_parse_gpqeid_params
  *
  * Called very early in backend initialization, to interpret the "gpqeid"
