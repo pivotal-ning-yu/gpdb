@@ -16,11 +16,6 @@
 
 #include "cdb/cdbutil.h"
 #include "executor/execdesc.h"
-#ifdef WIN32
-#include "pthread-win32.h"
-#else
-#include <pthread.h>
-#endif
 #include "utils/faultinjector.h"
 #include "utils/portal.h"
 
@@ -64,6 +59,17 @@ extern int host_segments;
 
 extern MemoryContext GangContext;
 extern Gang *CurrentGangCreating;
+
+/*
+ * cdbgang_createGang:
+ *
+ * Creates a new gang by logging on a session to each segDB involved.
+ *
+ * call this function in GangContext memory context.
+ * elog ERROR or return a non-NULL gang.
+ */
+extern Gang *
+cdbgang_createGang(List *segments, SegmentType segmentType);
 
 extern const char *gangTypeToString(GangType type);
 
@@ -112,11 +118,6 @@ extern bool segment_failure_due_to_recovery(const char *error_message);
  *
  * This routine is also called from the sigalarm signal handler (hopefully that is safe to do).
  */
-#ifdef WIN32
-extern int gp_pthread_create(DWORD *thread, void *(*start_routine)(void *), void *arg, const char *caller);
-#else
-extern int gp_pthread_create(pthread_t *thread, void *(*start_routine)(void *), void *arg, const char *caller);
-#endif
 
 /*
  * cdbgang_parse_gpqeid_params
@@ -158,7 +159,6 @@ typedef struct CdbProcess
 
 typedef Gang *(*CreateGangFunc)(List *segments, SegmentType segmentType);
 
-extern void cdbgang_setAsync(bool async);
 extern void cdbgang_resetPrimaryWriterGang(void);
 extern void cdbgang_decreaseNumReaderGang(void);
 #endif   /* _CDBGANG_H_ */
