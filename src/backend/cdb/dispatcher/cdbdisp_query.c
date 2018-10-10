@@ -48,6 +48,8 @@
 #include "cdb/cdbcopy.h"
 #include "executor/execUtils.h"
 
+#define QUERY_STRING_TRUNCATE_SIZE (1024)
+
 extern bool Test_print_direct_dispatch_info;
 
 /*
@@ -118,6 +120,9 @@ cdbdisp_dispatchX(QueryDesc *queryDesc,
 static char *serializeParamListInfo(ParamListInfo paramLI, int *len_p);
 
 static List * formIdleSegmentIdList(void);
+
+static char *truncate_string(char *str, size_t maxsize);
+
 /*
  * Compose and dispatch the MPPEXEC commands corresponding to a plan tree
  * within a complete parallel plan. (A plan tree will correspond either
@@ -790,8 +795,8 @@ static char *
 buildGpQueryString(DispatchCommandQueryParms *pQueryParms,
 				   int *finalLen)
 {
-	const char *command = pQueryParms->strCommand;
-	int			command_len = strlen(pQueryParms->strCommand) + 1;
+	const char *command;
+	int			command_len;
 	const char *querytree = pQueryParms->serializedQuerytree;
 	int			querytree_len = pQueryParms->serializedQuerytreelen;
 	const char *plantree = pQueryParms->serializedPlantree;
@@ -823,6 +828,17 @@ buildGpQueryString(DispatchCommandQueryParms *pQueryParms,
 	 */
 	Assert(DispatcherContext);
 	oldContext = MemoryContextSwitchTo(DispatcherContext);
+
+	/*
+	 * If either querytree or plantree is set then the query string is not so
+	 * important, dispatch a truncated version to increase the performance.
+	 */
+	if (querytree || plantree)
+		command = truncate_string((char *) pQueryParms->strCommand,
+								  QUERY_STRING_TRUNCATE_SIZE);
+	else
+		command = pQueryParms->strCommand;
+	command_len = strlen(command) + 1;
 
 	initStringInfo(&resgroupInfo);
 	if (IsResGroupActivated())
@@ -1470,4 +1486,21 @@ formIdleSegmentIdList(void)
 	}
 
 	return segments;
+}
+
+/*
+ * If 'str' is longer than 'maxsize', return a truncated copy of the first
+ * 'maxsize' bytes.  Otherwise return the original string.
+ */
+static char *
+truncate_string(char *str, size_t maxsize)
+{
+	size_t		len;
+
+	len = strnlen(str, maxsize);
+
+	if (len >= maxsize)
+		return pnstrdup(str, maxsize);
+	else
+		return str;
 }
