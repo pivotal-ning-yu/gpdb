@@ -79,6 +79,10 @@ groups:
   - MADlib_Test_gppkg_Orca_centos5
   - MADlib_Test_gppkg_Planner_centos5
 
+- name: Release
+  jobs:
+  - Release_Candidate
+
 - name: CentOS/RHEL
   jobs:
   - compile_gpdb_centos
@@ -3823,3 +3827,92 @@ jobs:
     params:
       TEST_OS: centos
       ORCA: "off"
+
+## ======================================================================
+##  ____      _
+## |  _ \ ___| | ___  __ _ ___  ___
+## | |_) / _ \ |/ _ \/ _` / __|/ _ \
+## |  _ <  __/ |  __/ (_| \__ \  __/
+## |_| \_\___|_|\___|\__,_|___/\___|
+## ======================================================================
+
+- name: Release_Candidate
+  plan:
+  - aggregate:
+    - get: gpdb_src
+      trigger: true
+      passed:
+      - compile_gpdb_centos
+      - compile_gpdb_centos6
+      - compile_gpdb_centos7
+      - compile_gpdb_sles
+      - cs-fts_centos
+      - cs-storage_centos
+      - cs-subtransaction_centos
+      - cs-uao_centos
+      - cs-bin-swap
+      - cs_walrep_1
+      - cs_walrep_2
+      - cs_pg_twophase_01_10
+      - cs_pg_twophase_11_20
+      - cs_pg_twophase_21_30
+      - cs_pg_twophase_31_40
+      - cs_pg_twophase_41_49
+      - cs_pg_twophase_switch
+      - cs_crash_recovery_schema_topology
+      - cs_crash_recovery_04_10
+      - cs_crash_recovery_11_20
+      - cs_crash_recovery_21_30
+      - cs_crash_recovery_31_42
+      - cs_filerep_end_to_end_full_primary
+      - cs_filerep_end_to_end_incr_primary
+      - cs_filerep_end_to_end_full_mirror
+      - cs_filerep_end_to_end_incr_mirror
+      - icb_orca_centos
+      - icb_planner_centos
+      - icg_orca_centos
+      - icg_orca_sles
+      - icg_planner_centos
+      - icg_planner_sles
+      - ic_externaltable_centos
+      - ic_externaltable_sles
+      - regression_tests_gpfdist_centos
+      - regression_tests_gpfdist_sles
+      - regression_tests_gpcloud_centos
+      - regression_tests_gphdfs_hadoop_centos
+      - regression_tests_gphdfs_mapr_centos
+      - MU_check_centos
+      - pt-rebuild
+      - gpdb_rc_packaging_centos
+      - gpdb_src_packaging
+      - gpdb_rc_packaging_sles
+      - DPM_backup-restore
+      - DPM_backup-restore_filename_compatibility
+      # - DPM_backup-restore_netbackup_part1
+      # - DPM_backup-restore_netbackup_part2
+      # - DPM_backup-restore_netbackup_part3
+      # - DPM_netbackup_filename_compatibility_part1
+      # - DPM_netbackup_filename_compatibility_part2
+      # - DPM_netbackup_filename_compatibility_part3
+      - DPM_backup-restore_ddboost_part1
+      - DPM_backup-restore_ddboost_part2
+      - DPM_backup-restore_ddboost_part3
+      - DPM_ddboost_filename_compatibility_part1
+      - DPM_ddboost_filename_compatibility_part2
+      - DPM_ddboost_filename_compatibility_part3
+      - DPM_gptransfer-43x-to-43x
+      - QP_memory-accounting
+      - QP_optimizer-functional
+      - mpp-interconnect
+      - mpp_interconnect_sles
+      - compile_gpdb_windows_ccl
+      - TINC_pgcrypto
+      - MM_analyzedb
+      - MM_gpcheckcat
+      - MM_gpexpand_1
+      - MM_gpexpand_2
+      - MM_gppkg
+      - MM_gprecoverseg
+      - MADlib_Test_gppkg_Orca_centos5
+      - MADlib_Test_gppkg_Planner_centos5
+
