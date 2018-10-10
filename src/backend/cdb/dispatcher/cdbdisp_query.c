@@ -120,9 +120,6 @@ cdbdisp_dispatchX(QueryDesc *queryDesc,
 static char *serializeParamListInfo(ParamListInfo paramLI, int *len_p);
 
 static List * formIdleSegmentIdList(void);
-
-static char *truncate_string(char *str, size_t maxsize);
-
 /*
  * Compose and dispatch the MPPEXEC commands corresponding to a plan tree
  * within a complete parallel plan. (A plan tree will correspond either
@@ -795,7 +792,7 @@ static char *
 buildGpQueryString(DispatchCommandQueryParms *pQueryParms,
 				   int *finalLen)
 {
-	const char *command;
+	const char *command = pQueryParms->strCommand;
 	int			command_len;
 	const char *querytree = pQueryParms->serializedQuerytree;
 	int			querytree_len = pQueryParms->serializedQuerytreelen;
@@ -832,13 +829,14 @@ buildGpQueryString(DispatchCommandQueryParms *pQueryParms,
 	/*
 	 * If either querytree or plantree is set then the query string is not so
 	 * important, dispatch a truncated version to increase the performance.
+	 *
+	 * Here we only need to determine the truncated size, the actual work is
+	 * done later when copying it to the result buffer.
 	 */
 	if (querytree || plantree)
-		command = truncate_string((char *) pQueryParms->strCommand,
-								  QUERY_STRING_TRUNCATE_SIZE);
+		command_len = strnlen(command, QUERY_STRING_TRUNCATE_SIZE - 1) + 1;
 	else
-		command = pQueryParms->strCommand;
-	command_len = strlen(command) + 1;
+		command_len = strlen(command) + 1;
 
 	initStringInfo(&resgroupInfo);
 	if (IsResGroupActivated())
@@ -947,6 +945,8 @@ buildGpQueryString(DispatchCommandQueryParms *pQueryParms,
 	pos += sizeof(tmp);
 
 	memcpy(pos, command, command_len);
+	/* If command is truncated we need to set the terminating '\0' manually */
+	pos[command_len - 1] = '\0';
 	pos += command_len;
 
 	if (querytree_len > 0)
@@ -1486,21 +1486,4 @@ formIdleSegmentIdList(void)
 	}
 
 	return segments;
-}
-
-/*
- * If 'str' is longer than 'maxsize', return a truncated copy of the first
- * 'maxsize' bytes.  Otherwise return the original string.
- */
-static char *
-truncate_string(char *str, size_t maxsize)
-{
-	size_t		len;
-
-	len = strnlen(str, maxsize);
-
-	if (len >= maxsize)
-		return pnstrdup(str, maxsize);
-	else
-		return str;
 }
