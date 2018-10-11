@@ -375,7 +375,7 @@ GlobalDeadLockDetectorLoop(void)
 		{
 			got_SIGHUP = false;
 			ProcessConfigFile(PGC_SIGHUP);
-			updateBackendGpIdentityNumsegments();
+			updateSystemProcessGpIdentityNumsegments();
 		}
 
 #ifdef FAULT_INJECTOR

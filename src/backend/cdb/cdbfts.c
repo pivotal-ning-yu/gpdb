@@ -173,7 +173,7 @@ uint32
 FtsGetTotalSegments(void)
 {
 	/*
-	 * ftsProbeInfo is stored in share memory, so check whether share momory
+	 * ftsProbeInfo is stored in shared memory, so check whether shared memory
 	 * has been initialized
 	 */
 	if (ftsProbeInfo)

@@ -99,7 +99,7 @@ gp_expand_protect_catalog_changes(Relation relation)
 	}
 
 	/*
-	 * The online expand util will hold this lwlock in LW_EXCLUSIVE mode.
+	 * The online expand util will hold this lock in AccessExclusiveLock mode.
 	 * Acquire expand lock in dontWait mode. If the lock is not available,
 	 * report error. Because online expand must be running, after that, the
 	 * cluster size has been changed, and the catalog data has been copied

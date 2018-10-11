@@ -6,13 +6,9 @@ create table t30 (c1 int, c2 int) distributed by (c1);
 
 -- c10, c11 simulate gpexpand's catalog lock protection
 -- they will acquire the catalog lock in exclusive mode
-10: begin; end;
-11: begin; end;
 
 -- c20, c30 simulate client sessions
 -- they will acquire the catalog lock in shared mode
-20: begin; end;
-30: begin; end;
 
 --
 -- the catalog lock can not be acquired concurrently in exclusive mode

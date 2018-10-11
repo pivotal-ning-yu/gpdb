@@ -818,10 +818,10 @@ updateGpIdentityNumsegments(void)
 }
 
 /*
- * Same as updateGpIdentityNumsegments, for backend process.
+ * Same as updateGpIdentityNumsegments, for system process.
  */
 bool
-updateBackendGpIdentityNumsegments(void)
+updateSystemProcessGpIdentityNumsegments(void)
 {
 	if (Gp_role == GP_ROLE_DISPATCH)
 	{
