@@ -500,6 +500,7 @@ resources:
     branch: {{pivnet-client-branch}}
     private_key: {{pivnet-client-remote-deploy-key}}
     uri: {{pivnet-client-git-remote}}
+    tag_filter: {{pivnet-client-version}}
 
 - name: commit_log_email
   type: email
@@ -1272,6 +1273,7 @@ jobs:
 
         params:
           PIVNET_ENDPOINT: {{4_3-release_pivnet_endpoint}}
+          PIVNET_AUTH_TOKEN: {{4_3-release_pivnet_api_token}}
           PIVNET_REFRESH_TOKEN: {{4_3-release_pivnet_refresh_token}}
           PIVNET_PRODUCT_SLUG: {{4_3-release_pivnet_product_slug}}
           PIVNET_BUCKET_ACCESS_KEY_ID: {{4_3-release_pivnet_bucket_access_key_id}}
