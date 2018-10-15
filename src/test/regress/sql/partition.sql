@@ -5388,3 +5388,12 @@ SUBPARTITION p027 VALUES ('027'),
 SUBPARTITION p141 VALUES ('141'),
 SUBPARTITION p037 VALUES ('037'));
 -- MPP-26829 
+-- MPP-29360
+-- When set gp_dynamic_partition_pruning off, the query would not match any result rows
+create table mpp29360_1(c1 int);
+create table mpp29360_2(c2 int);
+set gp_dynamic_partition_pruning = off;
+insert into mpp29360_1 values(1), (2);
+insert into mpp29360_2 values(1), (2), (3), (4);
+select * from mpp29360_2 where c2 in (select c2 from mpp29360_1);
+set gp_dynamic_partition_pruning = on;
