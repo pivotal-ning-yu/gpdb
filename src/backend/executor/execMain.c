@@ -137,7 +137,7 @@ static char *ExecBuildSlotValueDescription(TupleTableSlot *slot,
 static void EvalPlanQualStart(EPQState *epqstate, EState *parentestate,
 				  Plan *planTree);
 
-static void FillSliceGangInfo(Slice *slice);
+static void FillSliceGangInfo(Slice *slice, int numsegments);
 static void FillSliceTable(EState *estate, PlannedStmt *stmt);
 
 static PartitionNode *BuildPartitionNodeFromRoot(Oid relid);
@@ -4381,8 +4381,13 @@ typedef struct
 } FillSliceTable_cxt;
 
 static void
-FillSliceGangInfo(Slice *slice)
+FillSliceGangInfo(Slice *slice, int numsegments)
 {
+	int			i;
+
+	Assert(numsegments > 0);
+	Assert(numsegments != __GP_POLICY_EVIL_NUMSEGMENTS);
+
 	switch (slice->gangType)
 	{
 		case GANGTYPE_UNALLOCATED:
@@ -4396,8 +4401,11 @@ FillSliceGangInfo(Slice *slice)
 			}
 			else
 			{
-				slice->segments = cdbcomponent_getCdbComponentsList();
-				slice->gangSize = list_length(slice->segments);
+				slice->gangSize = numsegments;
+				slice->segments = NIL;
+
+				for (i = 0; i < numsegments; i++)
+					slice->segments = lappend_int(slice->segments, i);
 			}
 			break;
 		case GANGTYPE_ENTRYDB_READER:
@@ -4405,8 +4413,12 @@ FillSliceGangInfo(Slice *slice)
 			slice->segments = list_make1_int(-1);
 			break;
 		case GANGTYPE_SINGLETON_READER:
+			/*
+			 * FIXME: a good chance to determine the singleton segment,
+			 * however do we have to keep in sync with gp_singleton_segindex?
+			 */
 			slice->gangSize = 1;
-			slice->segments = list_make1_int(gp_singleton_segindex);
+			slice->segments = list_make1_int(gp_session_id % numsegments);
 			break;
 		default:
 			elog(ERROR, "unexpected gang type");
@@ -4439,9 +4451,11 @@ FillSliceTable_walker(Node *node, void *context)
 			ListCell   *lc = list_head(mt->resultRelations);
 			int			idx = lfirst_int(lc);
 			Oid			reloid = getrelid(idx, stmt->rtable);
+			GpPolicy   *policy;
 			GpPolicyType policyType;
 
-			policyType = GpPolicyFetch(CurrentMemoryContext, reloid)->ptype;
+			policy = GpPolicyFetch(CurrentMemoryContext, reloid);
+			policyType = policy->ptype;
 
 #ifdef USE_ASSERT_CHECKING
 			{
@@ -4464,7 +4478,9 @@ FillSliceTable_walker(Node *node, void *context)
 
 				currentSlice->gangType = GANGTYPE_PRIMARY_WRITER;
 
-				FillSliceGangInfo(currentSlice);
+				/* FIXME: also check for mt->plan.flow->numsegments? */
+				/* catalog changes must be dispatched on all segments */
+				FillSliceGangInfo(currentSlice, GP_POLICY_ALL_NUMSEGMENTS);
 			}
 		}
 	}
@@ -4474,9 +4490,11 @@ FillSliceTable_walker(Node *node, void *context)
 		DML		   *dml = (DML *) node;
 		int			idx = dml->scanrelid;
 		Oid			reloid = getrelid(idx, stmt->rtable);
+		GpPolicy   *policy;
 		GpPolicyType policyType;
 
-		policyType = GpPolicyFetch(CurrentMemoryContext, reloid)->ptype;
+		policy = GpPolicyFetch(CurrentMemoryContext, reloid);
+		policyType = policy->ptype;
 
 		if (policyType != POLICYTYPE_ENTRY)
 		{
@@ -4484,7 +4502,8 @@ FillSliceTable_walker(Node *node, void *context)
 
 			currentSlice->gangType = GANGTYPE_PRIMARY_WRITER;
 
-			FillSliceGangInfo(currentSlice);
+			/* FIXME: also check for dml->plan.flow->numsegments? */
+			FillSliceGangInfo(currentSlice, policy->numsegments);
 		}
 	}
 
@@ -4524,7 +4543,7 @@ FillSliceTable_walker(Node *node, void *context)
 		{
 			sendSlice->gangType = GANGTYPE_PRIMARY_READER;
 
-			FillSliceGangInfo(sendSlice);
+			FillSliceGangInfo(sendSlice, sendFlow->numsegments);
 		}
 		else
 		{
@@ -4532,7 +4551,7 @@ FillSliceTable_walker(Node *node, void *context)
 				sendFlow->segindex == -1 ?
 				GANGTYPE_ENTRYDB_READER : GANGTYPE_SINGLETON_READER;
 
-			FillSliceGangInfo(sendSlice);
+			FillSliceGangInfo(sendSlice, sendFlow->numsegments);
 		}
 
 		sendSlice->numGangMembersToBeActive =
@@ -4588,9 +4607,21 @@ FillSliceTable(EState *estate, PlannedStmt *stmt)
 	if (stmt->intoClause != NULL)
 	{
 		Slice	   *currentSlice = (Slice *) linitial(sliceTable->slices);
+		int			numsegments;
+
+		if (stmt->commandType == CMD_SELECT && stmt->intoPolicy)
+			/*
+			 * For CTAS although the data is distributed on part of the
+			 * segments, the catalog changes must be dispatched to all the
+			 * segments, so a full gang is required.
+			 */
+			numsegments = GP_POLICY_ALL_NUMSEGMENTS;
+		else
+			/* FIXME: ->lefttree or planTree? */
+			numsegments = stmt->planTree->flow->numsegments;
 
 		currentSlice->gangType = GANGTYPE_PRIMARY_WRITER;
-		FillSliceGangInfo(currentSlice);
+		FillSliceGangInfo(currentSlice, numsegments);
 	}
 
 	/*
