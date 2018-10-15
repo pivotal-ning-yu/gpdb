@@ -569,7 +569,18 @@ RESET ALL;
 -- ----------------------------------------------------------------------
 -- Test: Correlated Subquery: CSQ using HAVING clause (Heap) 
 -- ----------------------------------------------------------------------
-
+---- start test -----
+-- When a query is a subselect with a window function
+-- Then it should be able to pass parameters from the outer
+-- query to the inner query
+-- Note: we had a bug in the window planner that failed to pass variables
+--       into the inner query
+select (
+    SELECT min(1) OVER()
+    FROM pg_class
+    WHERE relname = outer_pg_class.relname
+) as output FROM pg_class AS outer_pg_class LIMIT 1;
+---- end test -----
 -- start_ignore
 drop table if exists qp_csq_t1;
 drop table if exists qp_csq_t2;
