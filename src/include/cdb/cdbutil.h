@@ -215,8 +215,4 @@ extern int	getgpsegmentCount(void);
        if (gp_log_gang >= GPVARS_VERBOSITY_DEBUG) elog(LOG, __VA_ARGS__); \
     } while(false);
 
-#define WRITE_LOG_DISPATCHER_DEBUG(...) do { \
-	if (gp_log_gang >= GPVARS_VERBOSITY_DEBUG) write_log(__VA_ARGS__); \
-    } while(false);
-
 #endif   /* CDBUTIL_H */
