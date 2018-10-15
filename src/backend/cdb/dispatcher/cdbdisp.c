@@ -422,13 +422,6 @@ cdbdisp_getWaitSocketFd(CdbDispatcherState *ds)
 	return (pDispatchFuncs->getWaitSocketFd) (ds);
 }
 
-void
-cdbdisp_onProcExit(void)
-{
-	if (pDispatchFuncs != NULL && pDispatchFuncs->procExitCallBack != NULL)
-		(pDispatchFuncs->procExitCallBack) ();
-}
-
 dispatcher_handle_t *
 allocate_dispatcher_handle(void)
 {
