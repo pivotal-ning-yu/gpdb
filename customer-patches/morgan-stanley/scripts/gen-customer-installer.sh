@@ -123,6 +123,10 @@ if [ -z "${JRE_FILE}" ]; then
     JRE_FILE=$(echo ${BASE_DIR}/jre/*.tgz)
 fi
 
+if [ -z "${GPCOPY_FILE}" ]; then
+    GPCOPY_FILE=$(echo ${BASE_DIR}/component_gpcopy/gpcopy-*.tar.gz)
+fi
+
 cat <<-EOF
 ======================================================================
 TIMESTAMP ..... : $(date)
@@ -372,6 +376,18 @@ fi
 
 mkdir -p ${GPDB_INSTALLDIR}/drivers/jdbc/$( basename ${JDBC_DRIVER_FILE} .zip )
 mv greenplum.jar ${GPDB_INSTALLDIR}/drivers/jdbc/$( basename ${JDBC_DRIVER_FILE} .zip )
+
+## ----------------------------------------------------------------------
+## Process gpcopy gpdb_installer
+## ----------------------------------------------------------------------
+
+echo ""
+echo "----------------------------------------------------------------------"
+echo "GPCOPY retrieval: $( basename ${GPCOPY_FILE} )"
+echo "----------------------------------------------------------------------"
+
+tar -xf ${GPCOPY_FILE} -C /tmp
+tar -xf /tmp/gpdb_component_gpcopy.tar.gz -C ${GPDB_INSTALLDIR}
 
 ## ----------------------------------------------------------------------
 ## Update KRB5 gpdb_installer
