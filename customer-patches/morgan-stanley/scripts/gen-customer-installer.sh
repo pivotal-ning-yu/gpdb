@@ -387,7 +387,7 @@ echo "GPCOPY retrieval: $( basename ${GPCOPY_FILE} )"
 echo "----------------------------------------------------------------------"
 
 tar -xf ${GPCOPY_FILE} -C /tmp
-tar -xf /tmp/gpdb_component_gpcopy.tar.gz -C ${GPDB_INSTALLDIR}
+tar -xf /tmp/gpdb_component_gpcopy.tar.gz -C ${GPDB_INSTALLDIR}/bin
 
 ## ----------------------------------------------------------------------
 ## Update KRB5 gpdb_installer
