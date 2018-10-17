@@ -836,12 +836,6 @@ replication_ccp_gen_cluster_params_anchor: &replication_ccp_gen_cluster_params
   params:
     <<: *ccp_gen_cluster_default_params
 
-replication_ccp_run_tests_params_anchor: &replication_ccp_run_tests_params
-  file: gpdb_src/concourse/tasks/run_tinc.yml
-  image: centos-gpdb-dev-6
-  on_success:
-    <<: *ccp_destroy
-
 ## ======================================================================
 ##    _       _
 ##   (_) ___ | |__  ___
@@ -1607,11 +1601,12 @@ jobs:
           ssh -t centos@mdw << 'SSH_CMD'
             sudo yum --cacheonly list installed kernel-devel-$(uname -r)
           SSH_CMD
-  - task: run_tests
-    <<: *replication_ccp_run_tests_params
+  - task: ic_gpdb
+    file: gpdb_src/concourse/tasks/ic_gpdb.yml
+    image: centos-gpdb-dev-6
     params:
-      TINC_TARGET: mpp_interconnect
-    # ccp_destroy should be part of *replication_ccp_run_tests_params
+      MAKE_TEST_COMMAND: -k PGOPTIONS='-c optimizer=off' -C src/test/regress installcheck-icudp
+      TEST_OS: centos
   ensure:
     <<: *set_failed
 {% endif %}
