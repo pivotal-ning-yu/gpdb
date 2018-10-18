@@ -3,21 +3,6 @@
 # These tests conflict with each, do not parallel them.
 #
 
-test: icudp/gp_interconnect_queue_depth
-test: icudp/gp_interconnect_queue_depth_longtime
-test: icudp/gp_interconnect_snd_queue_depth
-test: icudp/gp_interconnect_snd_queue_depth_longtime
-test: icudp/gp_interconnect_min_retries_before_timeout
-test: icudp/gp_interconnect_transmit_timeout
-test: icudp/gp_interconnect_cache_future_packets
-test: icudp/gp_interconnect_default_rtt
-test: icudp/gp_interconnect_fc_method
-test: icudp/gp_interconnect_hash_multiplier
-test: icudp/gp_interconnect_min_rto
-test: icudp/gp_interconnect_timer_checking_period
-test: icudp/gp_interconnect_timer_period
-test: icudp/queue_depth_combination_loss
-test: icudp/queue_depth_combination_capacity
 test: icudp/icudp_full
 
 # This test relies on some mechanism to simulate network package dropping,

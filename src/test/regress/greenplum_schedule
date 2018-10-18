@@ -34,6 +34,23 @@ test: indexjoin as_alias regex_gp gpparams with_clause transient_types gp_rules
 # dispatch should always run seperately from other cases.
 test: dispatch
 
+# interconnect tests conflict with each, do not parallel them.
+test: icudp/gp_interconnect_queue_depth
+test: icudp/gp_interconnect_queue_depth_longtime
+test: icudp/gp_interconnect_snd_queue_depth
+test: icudp/gp_interconnect_snd_queue_depth_longtime
+test: icudp/gp_interconnect_min_retries_before_timeout
+test: icudp/gp_interconnect_transmit_timeout
+test: icudp/gp_interconnect_cache_future_packets
+test: icudp/gp_interconnect_default_rtt
+test: icudp/gp_interconnect_fc_method
+test: icudp/gp_interconnect_hash_multiplier
+test: icudp/gp_interconnect_min_rto
+test: icudp/gp_interconnect_timer_checking_period
+test: icudp/gp_interconnect_timer_period
+test: icudp/queue_depth_combination_loss
+test: icudp/queue_depth_combination_capacity
+
 # event triggers cannot run concurrently with any test that runs DDL
 test: event_trigger_gp
 
