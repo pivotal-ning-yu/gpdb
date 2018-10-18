@@ -4479,8 +4479,7 @@ FillSliceTable_walker(Node *node, void *context)
 				currentSlice->gangType = GANGTYPE_PRIMARY_WRITER;
 
 				/* FIXME: also check for mt->plan.flow->numsegments? */
-				/* catalog changes must be dispatched on all segments */
-				FillSliceGangInfo(currentSlice, GP_POLICY_ALL_NUMSEGMENTS);
+				FillSliceGangInfo(currentSlice, policy->numsegments);
 			}
 		}
 	}
