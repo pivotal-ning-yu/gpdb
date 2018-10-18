@@ -1575,19 +1575,17 @@ ExecModifyTable(ModifyTableState *node)
 	junkfilter = resultRelInfo->ri_junkFilter;
 
 	/*
-	 * Prevent replicated tables being updated on segments outside
-	 * the [0, numsegments-1] range.
-	 *
-	 * FIXME: remove this once the flexible gang size feature is ready.
+	 * Replicated tables will only be updated on segments [0, numsegments-1]
 	 */
-	if (Gp_role == GP_ROLE_EXECUTE &&
-		resultRelInfo->ri_RelationDesc->rd_cdbpolicy->ptype == POLICYTYPE_REPLICATED &&
-		(GpIdentity.segindex >=
-		 resultRelInfo->ri_RelationDesc->rd_cdbpolicy->numsegments))
+#ifdef USE_ASSERT_CHECKING
 	{
-		node->mt_done = true;
-		return NULL;
+		GpPolicy   *policy = resultRelInfo->ri_RelationDesc->rd_cdbpolicy;
+
+		AssertImply((Gp_role == GP_ROLE_EXECUTE &&
+					 policy->ptype == POLICYTYPE_REPLICATED),
+					GpIdentity.segindex < policy->numsegments);
 	}
+#endif
 
 	/*
 	 * es_result_relation_info must point to the currently active result
