@@ -5,7 +5,7 @@
 -- @tags executor
 -- @gpdb_version [4.2.3.0,main]
 -- Create a table
-CREATE TABLE small_table(dkey INT, jkey INT, rval REAL, tval TEXT default 'abcdefghijklmnopqrstuvwxyz') DISTRIBUTED BY (dkey);
+CREATE TEMP TABLE small_table(dkey INT, jkey INT, rval REAL, tval TEXT default 'abcdefghijklmnopqrstuvwxyz') DISTRIBUTED BY (dkey);
 -- Generate some data
 INSERT INTO small_table VALUES(generate_series(1, 5000), generate_series(5001, 10000), sqrt(generate_series(5001, 10000)));
 -- Functional tests
@@ -258,20 +258,4 @@ SELECT ROUND(foo.rval * foo.rval)::INT % 30 AS rval2, COUNT(*) AS count, SUM(len
     28 |   100 |         2600
     29 |   100 |         2600
 (30 rows)
-
--- drop table testemp
-DROP TABLE small_table;
-RESET gp_interconnect_snd_queue_depth;
-RESET gp_interconnect_queue_depth;
-SHOW gp_interconnect_snd_queue_depth;
- gp_interconnect_snd_queue_depth 
----------------------------------
- 2
-(1 row)
-
-SHOW gp_interconnect_queue_depth;
- gp_interconnect_queue_depth 
------------------------------
- 4
-(1 row)
 

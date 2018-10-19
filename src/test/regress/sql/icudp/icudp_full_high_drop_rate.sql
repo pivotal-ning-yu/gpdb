@@ -359,8 +359,5 @@ SELECT SUM(length(long_tval)) AS sum_len_tval
 SET search_path = ic_udp_test;
 */
 
--- Cleanup
-DROP TABLE small_table;
-
 RESET search_path;
 DROP SCHEMA ic_udp_test CASCADE;

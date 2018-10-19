@@ -5,9 +5,9 @@
 -- @tags executor
 -- @gpdb_version [4.2.3.0,main]
 -- Create tables
-CREATE TABLE small_table(dkey INT, jkey INT, rval REAL, tval TEXT default 'abcdefghijklmnopqrstuvwxyz') DISTRIBUTED BY (dkey);
-CREATE TABLE media_table(dkey INT, jkey INT, rval REAL, tval TEXT default 'i like travelling') DISTRIBUTED BY (jkey);
-CREATE TABLE big_table(dkey INT, jkey INT, rval REAL, tval TEXT default 'can you tell me a joke') DISTRIBUTED BY (rval);
+CREATE TEMP TABLE small_table(dkey INT, jkey INT, rval REAL, tval TEXT default 'abcdefghijklmnopqrstuvwxyz') DISTRIBUTED BY (dkey);
+CREATE TEMP TABLE media_table(dkey INT, jkey INT, rval REAL, tval TEXT default 'i like travelling') DISTRIBUTED BY (jkey);
+CREATE TEMP TABLE big_table(dkey INT, jkey INT, rval REAL, tval TEXT default 'can you tell me a joke') DISTRIBUTED BY (rval);
 -- Generate some data
 INSERT INTO small_table VALUES(generate_series(1, 5000), generate_series(5001, 10000), sqrt(generate_series(5001, 10000)));
 INSERT INTO media_table VALUES(generate_series(1, 5000), generate_series(5001, 10000), sqrt(generate_series(5001, 10000)));
@@ -66,9 +66,9 @@ DROP TABLE small_table;
 DROP TABLE media_table;
 DROP TABLE big_table;
 -- Create tables
-CREATE TABLE small_table(dkey INT, jkey INT, rval REAL, tval TEXT default 'abcdefghijklmnopqrstuvwxyz') DISTRIBUTED BY (dkey);
-CREATE TABLE media_table(dkey INT, jkey INT, rval REAL, tval TEXT default 'i like travelling') DISTRIBUTED BY (jkey);
-CREATE TABLE big_table(dkey INT, jkey INT, rval REAL, tval TEXT default 'can you tell me a joke') DISTRIBUTED BY (rval);
+CREATE TEMP TABLE small_table(dkey INT, jkey INT, rval REAL, tval TEXT default 'abcdefghijklmnopqrstuvwxyz') DISTRIBUTED BY (dkey);
+CREATE TEMP TABLE media_table(dkey INT, jkey INT, rval REAL, tval TEXT default 'i like travelling') DISTRIBUTED BY (jkey);
+CREATE TEMP TABLE big_table(dkey INT, jkey INT, rval REAL, tval TEXT default 'can you tell me a joke') DISTRIBUTED BY (rval);
 -- Generate some data
 INSERT INTO small_table VALUES(generate_series(1, 5000), generate_series(5001, 10000), sqrt(generate_series(5001, 10000)));
 INSERT INTO media_table VALUES(generate_series(1, 5000), generate_series(5001, 10000), sqrt(generate_series(5001, 10000)));
@@ -133,9 +133,9 @@ DROP TABLE small_table;
 DROP TABLE media_table;
 DROP TABLE big_table;
 -- Create tables
-CREATE TABLE small_table(dkey INT, jkey INT, rval REAL, tval TEXT default 'abcdefghijklmnopqrstuvwxyz') DISTRIBUTED BY (dkey);
-CREATE TABLE media_table(dkey INT, jkey INT, rval REAL, tval TEXT default 'i like travelling') DISTRIBUTED BY (jkey);
-CREATE TABLE big_table(dkey INT, jkey INT, rval REAL, tval TEXT default 'can you tell me a joke') DISTRIBUTED BY (rval);
+CREATE TEMP TABLE small_table(dkey INT, jkey INT, rval REAL, tval TEXT default 'abcdefghijklmnopqrstuvwxyz') DISTRIBUTED BY (dkey);
+CREATE TEMP TABLE media_table(dkey INT, jkey INT, rval REAL, tval TEXT default 'i like travelling') DISTRIBUTED BY (jkey);
+CREATE TEMP TABLE big_table(dkey INT, jkey INT, rval REAL, tval TEXT default 'can you tell me a joke') DISTRIBUTED BY (rval);
 -- Generate some data
 INSERT INTO small_table VALUES(generate_series(1, 5000), generate_series(5001, 10000), sqrt(generate_series(5001, 10000)));
 INSERT INTO media_table VALUES(generate_series(1, 5000), generate_series(5001, 10000), sqrt(generate_series(5001, 10000)));
@@ -195,7 +195,3 @@ ORDER BY rval2;
     29 |   417333 | 7499.0000000000000000 |         4342 |          2839 |          3674
 (30 rows)
 
--- drop table testemp
-DROP TABLE small_table;
-DROP TABLE media_table;
-DROP TABLE big_table;
