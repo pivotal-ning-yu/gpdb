@@ -50,6 +50,8 @@ test: icudp/gp_interconnect_timer_checking_period
 test: icudp/gp_interconnect_timer_period
 test: icudp/queue_depth_combination_loss
 test: icudp/queue_depth_combination_capacity
+# a low drop rate version of icudp_full
+test: icudp/icudp_full_low_drop_rate
 
 # event triggers cannot run concurrently with any test that runs DDL
 test: event_trigger_gp
