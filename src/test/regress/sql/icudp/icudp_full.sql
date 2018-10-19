@@ -362,17 +362,5 @@ SET search_path = ic_udp_test;
 -- Cleanup
 DROP TABLE small_table;
 
-RESET gp_udpic_dropacks_percent;
-RESET gp_udpic_dropxmit_percent;
-RESET gp_udpic_fault_inject_percent;
-RESET gp_interconnect_full_crc;
-RESET gp_udpic_fault_inject_bitmap;
-RESET gp_interconnect_snd_queue_depth;
-RESET gp_interconnect_queue_depth;
-RESET gp_udpic_network_disable_ipv6;
-RESET gp_interconnect_hash_multiplier;
-RESET gp_log_interconnect;
-RESET log_min_messages;
-
 RESET search_path;
 DROP SCHEMA ic_udp_test CASCADE;

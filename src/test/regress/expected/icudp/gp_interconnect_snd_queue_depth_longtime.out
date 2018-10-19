@@ -199,10 +199,3 @@ ORDER BY rval2;
 DROP TABLE small_table;
 DROP TABLE media_table;
 DROP TABLE big_table;
-RESET gp_interconnect_snd_queue_depth;
-SHOW gp_interconnect_snd_queue_depth;
- gp_interconnect_snd_queue_depth 
----------------------------------
- 2
-(1 row)
-

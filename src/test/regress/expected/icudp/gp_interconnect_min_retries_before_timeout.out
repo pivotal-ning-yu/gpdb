@@ -145,10 +145,3 @@ SELECT ROUND(foo.rval * foo.rval)::INT % 30 AS rval2, COUNT(*) AS count, SUM(len
 
 -- drop table testemp
 DROP TABLE small_table;
-RESET gp_interconnect_min_retries_before_timeout;
-SHOW gp_interconnect_min_retries_before_timeout;
- gp_interconnect_min_retries_before_timeout 
---------------------------------------------
- 100
-(1 row)
-

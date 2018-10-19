@@ -28,12 +28,6 @@ SELECT ROUND(foo.rval * foo.rval)::INT % 30 AS rval2, COUNT(*) AS count, SUM(len
   GROUP BY rval2
   ORDER BY rval2;
 
--- Reset GUC value
-RESET gp_interconnect_cache_future_packets;
-
--- Show GUC value
-SHOW gp_interconnect_cache_future_packets;
-
 -- drop table testemp
 DROP TABLE small_table;
 

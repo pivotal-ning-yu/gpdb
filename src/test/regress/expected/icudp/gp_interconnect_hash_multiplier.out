@@ -143,14 +143,5 @@ SELECT ROUND(foo.rval * foo.rval)::INT % 30 AS rval2, COUNT(*) AS count, SUM(len
     29 |   100 |         2600
 (30 rows)
 
--- Reset GUC value
-RESET gp_interconnect_hash_multiplier;
--- Show GUC value
-SHOW gp_interconnect_hash_multiplier;
- gp_interconnect_hash_multiplier 
----------------------------------
- 2
-(1 row)
-
 -- drop table testemp
 DROP TABLE small_table;

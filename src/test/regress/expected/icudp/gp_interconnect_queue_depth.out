@@ -145,10 +145,3 @@ SELECT ROUND(foo.rval * foo.rval)::INT % 30 AS rval2, COUNT(*) AS count, SUM(len
 
 -- drop table testemp
 DROP TABLE small_table;
-RESET gp_interconnect_queue_depth;
-SHOW gp_interconnect_queue_depth;
- gp_interconnect_queue_depth 
------------------------------
- 4
-(1 row)
-

@@ -99,6 +99,3 @@ ORDER BY rval2;
 DROP TABLE small_table;
 DROP TABLE media_table;
 DROP TABLE big_table;
-
-RESET gp_interconnect_queue_depth;
-SHOW gp_interconnect_queue_depth;

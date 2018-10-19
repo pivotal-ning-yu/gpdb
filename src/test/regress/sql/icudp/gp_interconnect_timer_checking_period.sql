@@ -39,6 +39,3 @@ SELECT ROUND(foo.rval * foo.rval)::INT % 30 AS rval2, COUNT(*) AS count, SUM(len
 
 -- drop table testemp
 DROP TABLE small_table;
-
-RESET gp_interconnect_timer_checking_period;
-SHOW gp_interconnect_timer_checking_period;
