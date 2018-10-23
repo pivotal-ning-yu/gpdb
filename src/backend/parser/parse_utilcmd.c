@@ -416,8 +416,25 @@ transformCreateStmt(CreateStmt *stmt, const char *queryString, bool createPartit
 	 *  explicitly). Not for foreign tables, though.
 	 */
 	if (stmt->relKind == RELKIND_RELATION)
+	{
+#ifdef USE_ASSERT_CHECKING
+		int			numsegments = (stmt->distributedBy ?
+								   stmt->distributedBy->numsegments :
+								   -1);
+#endif
+
 		stmt->distributedBy = transformDistributedBy(&cxt, stmt->distributedBy,
 							   likeDistributedBy, bQuiet);
+
+#ifdef USE_ASSERT_CHECKING
+		if (numsegments > 0)
+		{
+			/* Partitions must have the same numsegments with parent */
+			AssertImply(stmt->is_part_child,
+						stmt->distributedBy->numsegments == numsegments);
+		}
+#endif
+	}
 
 	if (stmt->partitionBy != NULL &&
 		stmt->distributedBy &&
@@ -1724,8 +1741,7 @@ transformDistributedBy(CreateStmtContext *cxt,
 {
 	ListCell	*keys = NULL;
 	List		*distrkeys = NIL;
-	/* By default tables should be distributed on ALL segments */
-	int			numsegments = GP_POLICY_DEFAULT_NUMSEGMENTS;
+	int			numsegments = -1;
 	ListCell   *lc;
 
 	/*
@@ -1842,6 +1858,8 @@ transformDistributedBy(CreateStmtContext *cxt,
 	{
 		ListCell   *entry;
 
+		numsegments = -1;
+
 		foreach(entry, cxt->inhRelations)
 		{
 			RangeVar   *parent = (RangeVar *) lfirst(entry);
@@ -1881,6 +1899,20 @@ transformDistributedBy(CreateStmtContext *cxt,
 								  "non-distributed tables.")));
 			}
 
+			if (numsegments < 0)
+			{
+				/* Inherit numsegments from parents */
+				numsegments = oldTablePolicy->numsegments;
+			}
+			else if (numsegments != oldTablePolicy->numsegments)
+			{
+				/* And all parents must have the same numsegments */
+				ereport(ERROR,
+						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+						 errmsg("cannot inherit from parent tables with different numsegments"),
+						 errdetail("An inheritance hierarchy must be on the same segments.")));
+			}
+
 			/*
 			 * If we still don't know what distribution to use, and this
 			 * is an inherited table, set the distribution based on the
@@ -1898,6 +1930,18 @@ transformDistributedBy(CreateStmtContext *cxt,
 			}
 			heap_close(parentrel, AccessShareLock);
 		}
+
+		Assert(numsegments > 0);
+	}
+	else if (distributedBy)
+	{
+		/* For non-inherited tables use numsegments from DISTRIBUTED BY */
+		numsegments = distributedBy->numsegments;
+	}
+	else
+	{
+		/* Or fallback to use default numsegments */
+		numsegments = GP_POLICY_DEFAULT_NUMSEGMENTS;
 	}
 
 	if (distrkeys == NIL && likeDistributedBy != NULL)
@@ -1906,11 +1950,22 @@ transformDistributedBy(CreateStmtContext *cxt,
 			elog(NOTICE, "Table doesn't have 'DISTRIBUTED BY' clause, "
 				 "defaulting to distribution columns from LIKE table");
 
-		/*
-		 * Distribution policy is inherited from the LIKE table, do the same
-		 * to numsegments.
-		 */
-		numsegments = likeDistributedBy->numsegments;
+		if (cxt->inhRelations != NIL)
+		{
+			if (numsegments != likeDistributedBy->numsegments)
+				ereport(ERROR,
+						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+						 errmsg("numsegments from LIKE and INHERITS are different"),
+						 errdetail("An inheritance hierarchy must be on the same segments.")));
+		}
+		else
+		{
+			/*
+			 * Distribution policy is inherited from the LIKE table, do the
+			 * same to numsegments.
+			 */
+			numsegments = likeDistributedBy->numsegments;
+		}
 
 		if (likeDistributedBy->ptype == POLICYTYPE_PARTITIONED &&
 			likeDistributedBy->keys == NIL)
@@ -1943,10 +1998,7 @@ transformDistributedBy(CreateStmtContext *cxt,
 				 errhint("Consider including the 'DISTRIBUTED BY' clause to determine the distribution of rows.")));
 		}
 
-		/*
-		 * Create with default distribution policy and numsegments.
-		 */
-		numsegments = GP_POLICY_DEFAULT_NUMSEGMENTS;
+		Assert(numsegments > 0);
 
 		distributedBy = makeNode(DistributedBy);
 		distributedBy->ptype = POLICYTYPE_PARTITIONED;
@@ -2053,10 +2105,7 @@ transformDistributedBy(CreateStmtContext *cxt,
 			if (!bQuiet)
 				elog(NOTICE, "Table doesn't have 'DISTRIBUTED BY' clause, and no column type is suitable for a distribution key. Creating a NULL policy entry.");
 
-			/*
-			 * Create with default distribution policy and numsegments.
-			 */
-			numsegments = GP_POLICY_DEFAULT_NUMSEGMENTS;
+			Assert(numsegments > 0);
 
 			distributedBy = makeNode(DistributedBy);
 			distributedBy->ptype = POLICYTYPE_PARTITIONED;
