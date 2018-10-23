@@ -424,10 +424,12 @@ ERROR:  permission denied for relation atest5
 DELETE FROM atest5 WHERE two = 2; -- ok
 -- check inheritance cases
 SET SESSION AUTHORIZATION regressuser1;
+set gp_create_table_default_numsegments to minimal;
 CREATE TABLE atestp1 (f1 int, f2 int) WITH OIDS;
 NOTICE:  OIDS=TRUE is not recommended for user-created tables. Use OIDS=FALSE to prevent wrap-around of the OID counter
 CREATE TABLE atestp2 (fx int, fy int) WITH OIDS;
 NOTICE:  OIDS=TRUE is not recommended for user-created tables. Use OIDS=FALSE to prevent wrap-around of the OID counter
+reset gp_create_table_default_numsegments;
 CREATE TABLE atestc (fz int) INHERITS (atestp1, atestp2);
 NOTICE:  OIDS=TRUE is not recommended for user-created tables. Use OIDS=FALSE to prevent wrap-around of the OID counter
 GRANT SELECT(fx,fy,oid) ON atestp2 TO regressuser2;

@@ -542,9 +542,13 @@ INSERT INTO z VALUES (NULL, 'text'); -- should fail
 ERROR:  null value in column "dummy" violates not-null constraint  (seg1 172.17.0.2:25433 pid=366731)
 DETAIL:  Failing row contains (null, text, null).
 -- Check UPDATE with inherited target and an inherited source table
+set gp_create_table_default_numsegments to minimal;
 create temp table foo(f1 int, f2 int);
+reset gp_create_table_default_numsegments;
 create temp table foo2(f3 int) inherits (foo);
+set gp_create_table_default_numsegments to minimal;
 create temp table bar(f1 int, f2 int);
+reset gp_create_table_default_numsegments;
 create temp table bar2(f3 int) inherits (bar);
 insert into foo values(1,1);
 insert into foo values(3,3);
@@ -591,11 +595,15 @@ select tableoid::regclass::text as relname, bar.* from bar order by 1,2;
 (8 rows)
 
 /* Test multiple inheritance of column defaults */
+set gp_create_table_default_numsegments to minimal;
 CREATE TABLE firstparent (tomorrow date default now()::date + 1);
 CREATE TABLE secondparent (tomorrow date default  now() :: date  +  1);
+reset gp_create_table_default_numsegments;
 CREATE TABLE jointchild () INHERITS (firstparent, secondparent);  -- ok
 NOTICE:  merging multiple inherited definitions of column "tomorrow"
+set gp_create_table_default_numsegments to minimal;
 CREATE TABLE thirdparent (tomorrow date default now()::date - 1);
+reset gp_create_table_default_numsegments;
 CREATE TABLE otherchild () INHERITS (firstparent, thirdparent);  -- not ok
 NOTICE:  merging multiple inherited definitions of column "tomorrow"
 ERROR:  column "tomorrow" inherits conflicting default values
@@ -666,10 +674,12 @@ select derived::base from derived;
 
 drop table derived;
 drop table base;
+set gp_create_table_default_numsegments to minimal;
 create table p1(ff1 int);
 create table p2(f1 text);
 NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column named 'f1' as the Greenplum Database data distribution key for this table.
 HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.
+reset gp_create_table_default_numsegments;
 create function p2text(p2) returns text as 'select $1.f1' language sql;
 create table c1(f3 int) inherits(p1,p2);
 insert into c1 values(123456789, 'hi', 42);
@@ -768,8 +778,10 @@ select pc.relname, pgc.conname, pgc.contype, pgc.conislocal, pgc.coninhcount, pg
 
 drop table bc;
 drop table ac;
+set gp_create_table_default_numsegments to minimal;
 create table ac (a int constraint check_a check (a <> 0));
 create table bc (b int constraint check_b check (b <> 0));
+reset gp_create_table_default_numsegments;
 create table cc (c int constraint check_c check (c <> 0)) inherits (ac, bc);
 select pc.relname, pgc.conname, pgc.contype, pgc.conislocal, pgc.coninhcount, pgc.consrc from pg_class as pc inner join pg_constraint as pgc on (pgc.conrelid = pc.oid) where pc.relname in ('ac', 'bc', 'cc') order by 1,2;
  relname | conname | contype | conislocal | coninhcount |  consrc  
@@ -795,8 +807,10 @@ select pc.relname, pgc.conname, pgc.contype, pgc.conislocal, pgc.coninhcount, pg
 drop table cc;
 drop table bc;
 drop table ac;
+set gp_create_table_default_numsegments to minimal;
 create table p1(f1 int);
 create table p2(f2 int);
+reset gp_create_table_default_numsegments;
 create table c1(f3 int) inherits(p1,p2);
 insert into c1 values(1,-1,2);
 alter table p2 add constraint cc check (f2>0);  -- fail
@@ -906,8 +920,10 @@ NOTICE:  drop cascades to 2 other objects
 DETAIL:  drop cascades to table cc1
 drop cascades to table cc2
 -- Test for renaming in simple multiple inheritance
+set gp_create_table_default_numsegments to minimal;
 CREATE TABLE inht1 (a int, b int);
 CREATE TABLE inhs1 (b int, c int);
+reset gp_create_table_default_numsegments;
 CREATE TABLE inhts (d int) INHERITS (inht1, inhs1);
 NOTICE:  merging multiple inherited definitions of column "b"
 ALTER TABLE inht1 RENAME a TO aa;

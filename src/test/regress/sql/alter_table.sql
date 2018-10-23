@@ -453,8 +453,10 @@ insert into atacc1 (test2, test) values (3, 4);
 drop table atacc1;
 
 -- inheritance related tests
+set gp_create_table_default_numsegments to minimal;
 create table atacc1 (test int);
 create table atacc2 (test2 int);
+reset gp_create_table_default_numsegments;
 create table atacc3 (test3 int) inherits (atacc1, atacc2);
 alter table atacc2 add constraint foo check (test2>0);
 -- fail and then succeed on atacc2
@@ -468,8 +470,10 @@ drop table atacc2;
 drop table atacc1;
 
 -- same things with one created with INHERIT
+set gp_create_table_default_numsegments to minimal;
 create table atacc1 (test int);
 create table atacc2 (test2 int);
+reset gp_create_table_default_numsegments;
 create table atacc3 (test3 int) inherits (atacc1, atacc2);
 alter table atacc3 no inherit atacc2;
 -- fail
@@ -1022,8 +1026,10 @@ alter table c1 drop column f1;
 
 drop table p1 cascade;
 
+set gp_create_table_default_numsegments to minimal;
 create table p1(id int, name text);
 create table p2(id2 int, name text, height int);
+reset gp_create_table_default_numsegments;
 create table c1(age int) inherits(p1,p2);
 create table gc1() inherits (c1);
 

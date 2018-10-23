@@ -428,6 +428,7 @@ select c.relname, policytype, attrnums from pg_class c, gp_distribution_policy p
 --
 -- Test that DISTRIBUTED BY is interpreted correctly with inheritance.
 --
+set gp_create_table_default_numsegments to minimal;
 CREATE TABLE inhdisttest_a (
 ssn integer,
 lastname character varying,
@@ -439,6 +440,7 @@ id integer,
 lastname character varying,
 morejunk integer
 ) DISTRIBUTED BY (id);
+reset gp_create_table_default_numsegments;
 
 CREATE TABLE inhdisttest_c (
 ssn integer,

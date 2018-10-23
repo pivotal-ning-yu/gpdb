@@ -291,8 +291,10 @@ DELETE FROM atest5 WHERE two = 2; -- ok
 
 -- check inheritance cases
 SET SESSION AUTHORIZATION regressuser1;
+set gp_create_table_default_numsegments to minimal;
 CREATE TABLE atestp1 (f1 int, f2 int) WITH OIDS;
 CREATE TABLE atestp2 (fx int, fy int) WITH OIDS;
+reset gp_create_table_default_numsegments;
 CREATE TABLE atestc (fz int) INHERITS (atestp1, atestp2);
 GRANT SELECT(fx,fy,oid) ON atestp2 TO regressuser2;
 GRANT SELECT(fx) ON atestc TO regressuser2;

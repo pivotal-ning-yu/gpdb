@@ -98,9 +98,13 @@ CREATE TEMP TABLE z (b TEXT, PRIMARY KEY(aa, b)) inherits (a);
 INSERT INTO z VALUES (NULL, 'text'); -- should fail
 
 -- Check UPDATE with inherited target and an inherited source table
+set gp_create_table_default_numsegments to minimal;
 create temp table foo(f1 int, f2 int);
+reset gp_create_table_default_numsegments;
 create temp table foo2(f3 int) inherits (foo);
+set gp_create_table_default_numsegments to minimal;
 create temp table bar(f1 int, f2 int);
+reset gp_create_table_default_numsegments;
 create temp table bar2(f3 int) inherits (bar);
 
 insert into foo values(1,1);
@@ -130,10 +134,14 @@ select tableoid::regclass::text as relname, bar.* from bar order by 1,2;
 
 /* Test multiple inheritance of column defaults */
 
+set gp_create_table_default_numsegments to minimal;
 CREATE TABLE firstparent (tomorrow date default now()::date + 1);
 CREATE TABLE secondparent (tomorrow date default  now() :: date  +  1);
+reset gp_create_table_default_numsegments;
 CREATE TABLE jointchild () INHERITS (firstparent, secondparent);  -- ok
+set gp_create_table_default_numsegments to minimal;
 CREATE TABLE thirdparent (tomorrow date default now()::date - 1);
+reset gp_create_table_default_numsegments;
 CREATE TABLE otherchild () INHERITS (firstparent, thirdparent);  -- not ok
 CREATE TABLE otherchild (tomorrow date default now())
   INHERITS (firstparent, thirdparent);  -- ok, child resolves ambiguous default
@@ -168,8 +176,10 @@ select derived::base from derived;
 drop table derived;
 drop table base;
 
+set gp_create_table_default_numsegments to minimal;
 create table p1(ff1 int);
 create table p2(f1 text);
+reset gp_create_table_default_numsegments;
 create function p2text(p2) returns text as 'select $1.f1' language sql;
 create table c1(f3 int) inherits(p1,p2);
 insert into c1 values(123456789, 'hi', 42);
@@ -220,8 +230,10 @@ select pc.relname, pgc.conname, pgc.contype, pgc.conislocal, pgc.coninhcount, pg
 drop table bc;
 drop table ac;
 
+set gp_create_table_default_numsegments to minimal;
 create table ac (a int constraint check_a check (a <> 0));
 create table bc (b int constraint check_b check (b <> 0));
+reset gp_create_table_default_numsegments;
 create table cc (c int constraint check_c check (c <> 0)) inherits (ac, bc);
 select pc.relname, pgc.conname, pgc.contype, pgc.conislocal, pgc.coninhcount, pgc.consrc from pg_class as pc inner join pg_constraint as pgc on (pgc.conrelid = pc.oid) where pc.relname in ('ac', 'bc', 'cc') order by 1,2;
 
@@ -232,8 +244,10 @@ drop table cc;
 drop table bc;
 drop table ac;
 
+set gp_create_table_default_numsegments to minimal;
 create table p1(f1 int);
 create table p2(f2 int);
+reset gp_create_table_default_numsegments;
 create table c1(f3 int) inherits(p1,p2);
 insert into c1 values(1,-1,2);
 alter table p2 add constraint cc check (f2>0);  -- fail
@@ -260,8 +274,10 @@ alter table pp1 add column a2 int check (a2 > 0);
 drop table pp1 cascade;
 
 -- Test for renaming in simple multiple inheritance
+set gp_create_table_default_numsegments to minimal;
 CREATE TABLE inht1 (a int, b int);
 CREATE TABLE inhs1 (b int, c int);
+reset gp_create_table_default_numsegments;
 CREATE TABLE inhts (d int) INHERITS (inht1, inhs1);
 
 ALTER TABLE inht1 RENAME a TO aa;
