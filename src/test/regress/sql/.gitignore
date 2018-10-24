@@ -33,3 +33,4 @@ partindex_test.sql
 guc_env_var.sql
 gpcopy.sql
 external_table.sql
+/oid_wraparound.sql

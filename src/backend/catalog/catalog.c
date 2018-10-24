@@ -1161,7 +1161,7 @@ CheckNewRelFileNodeIsOk(Oid newOid, Oid reltablespace, bool relisshared,
 	if (collides && !relisshared)
 		elog(ERROR, "oid %d already in use", newOid);	
 
-	while(GetNewObjectId() < newOid);
+	AdvanceObjectId(newOid);
 
 	return !collides;
 }

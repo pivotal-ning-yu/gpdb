@@ -109,5 +109,7 @@ extern void SetTransactionIdLimit(TransactionId oldest_datfrozenxid_connectabled
 					  TransactionId oldest_datfrozenxid,
 					  Name oldest_datname);
 extern Oid	GetNewObjectId(void);
+extern void AdvanceObjectId(Oid newOid);
+extern bool OidFollowsNextOid(Oid id);
 
 #endif   /* TRAMSAM_H */

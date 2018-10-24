@@ -28,3 +28,4 @@ partindex_test.out
 guc_env_var.out
 gpcopy.out
 external_table.out
+/oid_wraparound.out

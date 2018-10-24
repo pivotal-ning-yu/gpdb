@@ -76,6 +76,10 @@ extern Datum test_consume_xids(PG_FUNCTION_ARGS);
 extern Datum udf_setenv(PG_FUNCTION_ARGS);
 extern Datum udf_unsetenv(PG_FUNCTION_ARGS);
 
+/* oid wraparound tests */
+extern void gp_set_next_oid(PG_FUNCTION_ARGS);
+extern Datum gp_get_next_oid(PG_FUNCTION_ARGS);
+
 #ifdef PG_MODULE_MAGIC
 PG_MODULE_MAGIC;
 #endif
@@ -2458,4 +2462,21 @@ test_consume_xids(PG_FUNCTION_ARGS)
 	}
 
 	PG_RETURN_VOID();
+}
+
+PG_FUNCTION_INFO_V1(gp_set_next_oid);
+void
+gp_set_next_oid(PG_FUNCTION_ARGS)
+{
+	Oid new_oid = PG_GETARG_OID(0);
+	LWLockAcquire(OidGenLock, LW_EXCLUSIVE);
+	ShmemVariableCache->nextOid = new_oid;
+	LWLockRelease(OidGenLock);
+}
+
+PG_FUNCTION_INFO_V1(gp_get_next_oid);
+Datum
+gp_get_next_oid(PG_FUNCTION_ARGS)
+{
+	PG_RETURN_OID(ShmemVariableCache->nextOid);
 }
