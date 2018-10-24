@@ -145,8 +145,13 @@ abort;
 -- restore the analyze information
 analyze t1;
 --
+-- regression tests
+--
+--
 -- create table
 --
+-- like.numsegments = t1.numsegments = 1
+-- t.numsegments should equal to like.numsegments
 create table t (like t1);
 NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause, defaulting to distribution columns from LIKE table
 select localoid::regclass, attrnums, policytype, numsegments
@@ -161,6 +166,43 @@ drop table t;
 -- let it be a fixed value to get stable output
 set gp_create_table_default_numsegments to 'any';
 set gp_create_table_any_numsegments to 2;
+-- like.numsegments = t1.numsegments = 1
+-- distributedBy.numsegments = default.numsegments = 3
+-- t.numsegments should equal to like.numsegments
+create table t (like t1) distributed randomly;
+select localoid::regclass, attrnums, policytype, numsegments
+	from gp_distribution_policy where localoid in ('t'::regclass);
+ localoid | attrnums | policytype | numsegments 
+----------+----------+------------+-------------
+ t        |          | p          |           1
+(1 row)
+
+drop table t;
+-- like.numsegments = t1.numsegments = 1
+-- inherits.numsegments = t1.numsegments = 1
+-- distributedBy.numsegments = default.numsegments = 3
+-- t.numsegments should equal to like.numsegments
+create table t (like t1) inherits (t1) distributed randomly;
+NOTICE:  merging column "c1" with inherited definition
+NOTICE:  merging column "c2" with inherited definition
+NOTICE:  merging column "c3" with inherited definition
+NOTICE:  merging column "c4" with inherited definition
+select localoid::regclass, attrnums, policytype, numsegments
+	from gp_distribution_policy where localoid in ('t'::regclass);
+ localoid | attrnums | policytype | numsegments 
+----------+----------+------------+-------------
+ t        |          | p          |           1
+(1 row)
+
+drop table t;
+-- like.numsegments = t1.numsegments = 1
+-- inherits.numsegments = t2.numsegments = 2
+-- it should fail as like.numsegments != inherits.numsegments
+create table t (like t1) inherits (t2);
+ERROR:  numsegments of LIKE and INHERITS must be same
+-- drop anyway, otherwise following CREATEs will fail if above one does not fail
+drop table if exists t;
+NOTICE:  table "t" does not exist, skipping
 create table t as table t1;
 NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column(s) named 'c1, c2' as the Greenplum Database data distribution key for this table.
 HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.

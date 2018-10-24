@@ -99,9 +99,15 @@ abort;
 analyze t1;
 
 --
+-- regression tests
+--
+
+--
 -- create table
 --
 
+-- like.numsegments = t1.numsegments = 1
+-- t.numsegments should equal to like.numsegments
 create table t (like t1);
 select localoid::regclass, attrnums, policytype, numsegments
 	from gp_distribution_policy where localoid in ('t'::regclass);
@@ -111,6 +117,30 @@ drop table t;
 -- let it be a fixed value to get stable output
 set gp_create_table_default_numsegments to 'any';
 set gp_create_table_any_numsegments to 2;
+
+-- like.numsegments = t1.numsegments = 1
+-- distributedBy.numsegments = default.numsegments = 3
+-- t.numsegments should equal to like.numsegments
+create table t (like t1) distributed randomly;
+select localoid::regclass, attrnums, policytype, numsegments
+	from gp_distribution_policy where localoid in ('t'::regclass);
+drop table t;
+
+-- like.numsegments = t1.numsegments = 1
+-- inherits.numsegments = t1.numsegments = 1
+-- distributedBy.numsegments = default.numsegments = 3
+-- t.numsegments should equal to like.numsegments
+create table t (like t1) inherits (t1) distributed randomly;
+select localoid::regclass, attrnums, policytype, numsegments
+	from gp_distribution_policy where localoid in ('t'::regclass);
+drop table t;
+
+-- like.numsegments = t1.numsegments = 1
+-- inherits.numsegments = t2.numsegments = 2
+-- it should fail as like.numsegments != inherits.numsegments
+create table t (like t1) inherits (t2);
+-- drop anyway, otherwise following CREATEs will fail if above one does not fail
+drop table if exists t;
 
 create table t as table t1;
 select localoid::regclass, attrnums, policytype, numsegments

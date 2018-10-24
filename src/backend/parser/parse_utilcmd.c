@@ -117,6 +117,7 @@ static void transformColumnType(CreateStmtContext *cxt, ColumnDef *column);
 static void setSchemaName(char *context_schema, char **stmt_schema_name);
 
 static DistributedBy *getLikeDistributionPolicy(TableLikeClause *e);
+static int inhRelationsGetNumsegments(List *inhRelations);
 static bool co_explicitly_disabled(List *opts);
 static DistributedBy *transformDistributedBy(CreateStmtContext *cxt,
 					   DistributedBy *distributedBy,
@@ -310,11 +311,30 @@ transformCreateStmt(CreateStmt *stmt, const char *queryString, bool createPartit
 
 					transformTableLikeClause(&cxt, (TableLikeClause *) element, false);
 
-					if (Gp_role == GP_ROLE_DISPATCH && isBeginning &&
-						stmt->distributedBy == NULL &&
-						stmt->inhRelations == NIL)
+					if (Gp_role == GP_ROLE_DISPATCH && isBeginning)
 					{
 						likeDistributedBy = getLikeDistributionPolicy((TableLikeClause*) element);
+
+						if (likeDistributedBy && stmt->distributedBy)
+						{
+							/* Always use numsegments from LIKE clause */
+							stmt->distributedBy->numsegments = likeDistributedBy->numsegments;
+							likeDistributedBy = NULL;
+						}
+
+						if (likeDistributedBy && stmt->inhRelations != NIL)
+						{
+							/* LIKE and INHERITS must have same numsegments */
+							if (inhRelationsGetNumsegments(stmt->inhRelations) !=
+								likeDistributedBy->numsegments)
+							{
+								ereport(ERROR,
+										(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+										 errmsg("numsegments of LIKE and INHERITS must be same")));
+							}
+
+							likeDistributedBy = NULL;
+						}
 					}
 				}
 				break;
@@ -1750,6 +1770,12 @@ transformDistributedBy(CreateStmtContext *cxt,
 	if (Gp_role != GP_ROLE_DISPATCH && !IsBinaryUpgrade)
 		return NULL;
 
+	if (distributedBy && likeDistributedBy)
+	{
+		AssertEquivalent(distributedBy->numsegments,
+						 likeDistributedBy->numsegments);
+	}
+
 	/* Explictly specified distributed randomly, no futher check needed */
 	if (distributedBy &&
 		(distributedBy->ptype == POLICYTYPE_PARTITIONED && distributedBy->keys == NIL))
@@ -1858,7 +1884,7 @@ transformDistributedBy(CreateStmtContext *cxt,
 	{
 		ListCell   *entry;
 
-		numsegments = -1;
+		numsegments = inhRelationsGetNumsegments(cxt->inhRelations);
 
 		foreach(entry, cxt->inhRelations)
 		{
@@ -1897,20 +1923,6 @@ transformDistributedBy(CreateStmtContext *cxt,
 						errdetail("An inheritance hierarchy cannot contain a "
 								  "mixture of distributed and "
 								  "non-distributed tables.")));
-			}
-
-			if (numsegments < 0)
-			{
-				/* Inherit numsegments from parents */
-				numsegments = oldTablePolicy->numsegments;
-			}
-			else if (numsegments != oldTablePolicy->numsegments)
-			{
-				/* And all parents must have the same numsegments */
-				ereport(ERROR,
-						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-						 errmsg("cannot inherit from parent tables with different numsegments"),
-						 errdetail("An inheritance hierarchy must be on the same segments.")));
 			}
 
 			/*
@@ -4247,6 +4259,39 @@ getLikeDistributionPolicy(TableLikeClause *e)
 	relation_close(rel, AccessShareLock);
 
 	return likeDistributedBy;
+}
+
+static int
+inhRelationsGetNumsegments(List *inhRelations)
+{
+	ListCell   *entry;
+	int			numsegments = -1;
+
+	if (inhRelations == NIL)
+		return __GP_POLICY_EVIL_NUMSEGMENTS;
+
+	foreach(entry, inhRelations)
+	{
+		RangeVar   *parent = (RangeVar *) lfirst(entry);
+		Oid			relId = RangeVarGetRelid(parent, NoLock, false);
+		GpPolicy  *oldTablePolicy = GpPolicyFetch(CurrentMemoryContext, relId);
+
+		if (numsegments < 0)
+		{
+			/* Inherit numsegments from parents */
+			numsegments = oldTablePolicy->numsegments;
+		}
+		else if (numsegments != oldTablePolicy->numsegments)
+		{
+			/* And all parents must have the same numsegments */
+			ereport(ERROR,
+					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+					 errmsg("cannot inherit from parent tables with different numsegments"),
+					 errdetail("An inheritance hierarchy must be on the same segments.")));
+		}
+	}
+
+	return numsegments;
 }
 
 /*
