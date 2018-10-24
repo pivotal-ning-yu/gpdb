@@ -27,6 +27,7 @@ language C volatile NO SQL AS '@abs_builddir@/regress.so', 'gp_get_physical_inde
 -- *	- no default parts, no dropped columns
 -- ************************************************************
 --
+set gp_create_table_default_numsegments to minimal;
 create table part_table1
 (
   part_key int,
@@ -41,6 +42,7 @@ NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column named 'part_
 HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.
 NOTICE:  CREATE TABLE will create partition "part_table1_1_prt_part1" for table "part_table1"
 NOTICE:  CREATE TABLE will create partition "part_table1_1_prt_part2" for table "part_table1"
+reset gp_create_table_default_numsegments;
 -- physical index on all parts
 -- output show 1 logical index 
 create index rp_i1 on part_table1(part_key);
@@ -121,6 +123,7 @@ select indKey, defaultLevels, partCons from gp_build_logical_index('part_table1'
 -- *	- testing exchange 
 -- ************************************************************
 --
+set gp_create_table_default_numsegments to minimal;
 create table exchange_tab
 (
   part_key int,
@@ -128,6 +131,7 @@ create table exchange_tab
 );
 NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column named 'part_key' as the Greenplum Database data distribution key for this table.
 HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.
+reset gp_create_table_default_numsegments;
 create index e1 on exchange_tab(lower(content));
 -- exchanging with part2 - part2's indexes are gone
 -- the 1 index on exchange_tab is retained

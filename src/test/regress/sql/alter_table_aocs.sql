@@ -330,6 +330,7 @@ alter table addcol1 set (appendonly=true, compresslevel=5, fillfactor=50);
 alter table addcol1 reset (appendonly, compresslevel, fillfactor);
 
 -- test some aocs partition table altering
+set gp_create_table_default_numsegments to minimal;
 create table alter_aocs_part_table (a int, b int) with (appendonly=true, orientation=column) distributed by (a)
     partition by range(b) (start (1) end (5) exclusive every (1), default partition foo);
 insert into alter_aocs_part_table values (generate_series(1,10), generate_series(1,10));
@@ -345,10 +346,13 @@ alter table alter_aocs_part_table exchange partition for (rank(1)) with table al
 create table alter_aocs_heap_table (a int, b int) distributed by (a);
 insert into alter_aocs_heap_table values (3,3);
 alter table alter_aocs_part_table exchange partition for (rank(2)) with table alter_aocs_heap_table;
+reset gp_create_table_default_numsegments;
 
 -- Test truncating and exchanging partition and then rolling back
 begin work;
+set gp_create_table_default_numsegments to minimal;
 create table alter_aocs_ptable_exchange (a int, b int) with (appendonly=true, orientation=column) distributed by (a);
+reset gp_create_table_default_numsegments;
 insert into alter_aocs_ptable_exchange values (3,3), (3,3), (3,3);
 alter table alter_aocs_part_table truncate partition for (rank(2));
 select count(*) from alter_aocs_part_table;

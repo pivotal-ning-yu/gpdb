@@ -372,6 +372,7 @@ tuple 0: got
 -- Subtransactions with partition table DDLs.
 --
 BEGIN;
+set gp_create_table_default_numsegments to minimal;
 Create table subt_alter_part_tab_ao1 (
  i int, x text, c char, v varchar, d date, n numeric,
  t timestamp without time zone, tz time with time zone)
@@ -383,6 +384,7 @@ Create table subt_alter_part_tab_ao1 (
 NOTICE:  CREATE TABLE will create partition "subt_alter_part_tab_ao1_1_prt_p1" for table "subt_alter_part_tab_ao1"
 NOTICE:  CREATE TABLE will create partition "subt_alter_part_tab_ao1_1_prt_p2" for table "subt_alter_part_tab_ao1"
 NOTICE:  CREATE TABLE will create partition "subt_alter_part_tab_ao1_1_prt_p3" for table "subt_alter_part_tab_ao1"
+reset gp_create_table_default_numsegments;
 Savepoint sp1;
 Alter table subt_alter_part_tab_ao1 add partition p4 start(10) end(14);
 NOTICE:  CREATE TABLE will create partition "subt_alter_part_tab_ao1_1_prt_p4" for table "subt_alter_part_tab_ao1"
@@ -430,8 +432,10 @@ select count(*) = 0 as passed from subt_alter_part_tab_ao1 where i > 13;
 (1 row)
 
 savepoint sp4; -- child of sp2
+set gp_create_table_default_numsegments to minimal;
 Create table exg_pt_ao1(i int, x text,c char,v varchar, d date, n numeric,
  t timestamp without time zone, tz time with time zone) distributed by (i);
+reset gp_create_table_default_numsegments;
 Insert into exg_pt_ao1 values (
  7, 'to be exchanged', 's', 'partition table', '12-11-2012', 3,
  '2012-10-09 10:23:54', '2011-08-19 10:23:54+02');

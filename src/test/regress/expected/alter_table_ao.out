@@ -357,6 +357,7 @@ create schema mpp17582;
 set search_path=mpp17582;
 DROP TABLE testbug_char5;
 ERROR:  table "testbug_char5" does not exist
+set gp_create_table_default_numsegments to minimal;
 CREATE TABLE testbug_char5
 (
 timest character varying(6),
@@ -375,6 +376,7 @@ PARTITION part201205 VALUES('201205')
 NOTICE:  CREATE TABLE will create partition "testbug_char5_1_prt_part201203" for table "testbug_char5"
 NOTICE:  CREATE TABLE will create partition "testbug_char5_1_prt_part201204" for table "testbug_char5"
 NOTICE:  CREATE TABLE will create partition "testbug_char5_1_prt_part201205" for table "testbug_char5"
+reset gp_create_table_default_numsegments;
 create index testbug_char5_tag1 on testbug_char5 using btree(tag1);
 NOTICE:  building index for child partition "testbug_char5_1_prt_part201203"
 NOTICE:  building index for child partition "testbug_char5_1_prt_part201204"
@@ -438,8 +440,10 @@ select * from testbug_char5 order by 1,2;
 
 -- Test exchanging partition and then rolling back
 begin work;
+set gp_create_table_default_numsegments to minimal;
 create table testbug_char5_exchange (timest character varying(6), user_id numeric(16,0) NOT NULL, tag1 char(5), tag2 char(5))
   with (appendonly=true, compresstype=zlib, compresslevel=3) distributed by (user_id);
+reset gp_create_table_default_numsegments;
 insert into testbug_char5_exchange values ('201205', 3333, '2', '2');
 alter table testbug_char5 truncate partition part201205;
 select count(*) from testbug_char5;

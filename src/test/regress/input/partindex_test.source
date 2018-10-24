@@ -30,6 +30,7 @@ language C volatile NO SQL AS '@abs_builddir@/regress@DLSUFFIX@', 'gp_get_physic
 -- *	- no default parts, no dropped columns
 -- ************************************************************
 --
+set gp_create_table_default_numsegments to minimal;
 create table part_table1
 (
   part_key int,
@@ -40,6 +41,7 @@ partition by range(part_key)
 	partition part1 start ('1') end ('10'),
 	partition part2 start('11') end ('20')
 );
+reset gp_create_table_default_numsegments;
 
 -- physical index on all parts
 -- output show 1 logical index 
@@ -88,11 +90,13 @@ select indKey, defaultLevels, partCons from gp_build_logical_index('part_table1'
 -- *	- testing exchange 
 -- ************************************************************
 --
+set gp_create_table_default_numsegments to minimal;
 create table exchange_tab
 (
   part_key int,
   content text
 );
+reset gp_create_table_default_numsegments;
 
 create index e1 on exchange_tab(lower(content));
 

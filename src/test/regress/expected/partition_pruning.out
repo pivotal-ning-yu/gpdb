@@ -3140,6 +3140,7 @@ select * from date_parts_1_prt_2_2_prt_other_months_3_prt_other_days where id < 
 -- Dropped columns with exchange
 drop table if exists sales;
 NOTICE:  table "sales" does not exist, skipping
+set gp_create_table_default_numsegments to minimal;
 CREATE TABLE sales (trans_id int, to_be_dropped1 int, date date, amount 
 decimal(9,2), to_be_dropped2 int, region text) 
 DISTRIBUTED BY (trans_id)
@@ -3179,16 +3180,19 @@ NOTICE:  CREATE TABLE will create partition "sales_1_prt_5_2_prt_usa" for table 
 NOTICE:  CREATE TABLE will create partition "sales_1_prt_5_2_prt_asia" for table "sales_1_prt_5"
 NOTICE:  CREATE TABLE will create partition "sales_1_prt_5_2_prt_europe" for table "sales_1_prt_5"
 NOTICE:  CREATE TABLE will create partition "sales_1_prt_5_2_prt_other_regions" for table "sales_1_prt_5"
+reset gp_create_table_default_numsegments;
 -- This will introduce different column numbers in subsequent part tables
 alter table sales drop column to_be_dropped1;
 alter table sales drop column to_be_dropped2;
 -- Create the exchange candidate without dropped columns
 drop table if exists sales_exchange_part;
 NOTICE:  table "sales_exchange_part" does not exist, skipping
+set gp_create_table_default_numsegments to minimal;
 create table sales_exchange_part (trans_id int, date date, amount 
 decimal(9,2), region text);
 NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column named 'trans_id' as the Greenplum Database data distribution key for this table.
 HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.
+reset gp_create_table_default_numsegments;
 -- Insert some data
 insert into sales_exchange_part values(1, '2011-01-01', 10.1, 'usa');
 -- Exchange

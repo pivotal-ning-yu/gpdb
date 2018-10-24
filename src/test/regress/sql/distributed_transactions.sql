@@ -311,6 +311,7 @@ drop table if exists dtmcurse_bar;
 -- Subtransactions with partition table DDLs.
 --
 BEGIN;
+set gp_create_table_default_numsegments to minimal;
 Create table subt_alter_part_tab_ao1 (
  i int, x text, c char, v varchar, d date, n numeric,
  t timestamp without time zone, tz time with time zone)
@@ -319,6 +320,7 @@ Create table subt_alter_part_tab_ao1 (
  (partition p1 start(1) end(5),
   partition p2 start(5) end(8),
   partition p3 start(8) end(10));
+reset gp_create_table_default_numsegments;
 
 Savepoint sp1;
 Alter table subt_alter_part_tab_ao1 add partition p4 start(10) end(14);
@@ -342,8 +344,10 @@ Select count(*) from subt_alter_part_tab_ao1;
 select count(*) = 0 as passed from subt_alter_part_tab_ao1 where i > 13;
 
 savepoint sp4; -- child of sp2
+set gp_create_table_default_numsegments to minimal;
 Create table exg_pt_ao1(i int, x text,c char,v varchar, d date, n numeric,
  t timestamp without time zone, tz time with time zone) distributed by (i);
+reset gp_create_table_default_numsegments;
 Insert into exg_pt_ao1 values (
  7, 'to be exchanged', 's', 'partition table', '12-11-2012', 3,
  '2012-10-09 10:23:54', '2011-08-19 10:23:54+02');

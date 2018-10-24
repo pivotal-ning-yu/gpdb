@@ -240,6 +240,7 @@ create schema mpp17582;
 set search_path=mpp17582;
 
 DROP TABLE testbug_char5;
+set gp_create_table_default_numsegments to minimal;
 CREATE TABLE testbug_char5
 (
 timest character varying(6),
@@ -255,6 +256,7 @@ PARTITION part201203 VALUES('201203') WITH (APPENDONLY=true, COMPRESSLEVEL=5, OR
 PARTITION part201204 VALUES('201204') WITH (APPENDONLY=true, COMPRESSLEVEL=5, ORIENTATION=row),
 PARTITION part201205 VALUES('201205')
 );
+reset gp_create_table_default_numsegments;
 
 create index testbug_char5_tag1 on testbug_char5 using btree(tag1);
 
@@ -286,8 +288,10 @@ select * from testbug_char5 order by 1,2;
 
 -- Test exchanging partition and then rolling back
 begin work;
+set gp_create_table_default_numsegments to minimal;
 create table testbug_char5_exchange (timest character varying(6), user_id numeric(16,0) NOT NULL, tag1 char(5), tag2 char(5))
   with (appendonly=true, compresstype=zlib, compresslevel=3) distributed by (user_id);
+reset gp_create_table_default_numsegments;
 insert into testbug_char5_exchange values ('201205', 3333, '2', '2');
 alter table testbug_char5 truncate partition part201205;
 select count(*) from testbug_char5;

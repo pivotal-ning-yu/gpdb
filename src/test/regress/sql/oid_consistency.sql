@@ -129,6 +129,7 @@ $$
                where conrelid = $1::regclass)) foo;
 $$ language sql;
 
+set gp_create_table_default_numsegments to minimal;
 CREATE TABLE constraint_pt1 (id int, date date, amt decimal(10,2)) DISTRIBUTED BY (id)
 PARTITION BY RANGE (date)
       (PARTITION Jan08 START (date '2008-01-01') INCLUSIVE ,
@@ -136,6 +137,7 @@ PARTITION BY RANGE (date)
       PARTITION Mar08 START (date '2008-03-01') INCLUSIVE
       END (date '2008-04-01') EXCLUSIVE);
 CREATE TABLE constraint_t1 (id int, date date, amt decimal(10,2)) DISTRIBUTED BY (id);
+reset gp_create_table_default_numsegments;
 
 INSERT INTO constraint_pt1 SELECT i, '2008-01-13', i FROM generate_series(1,5)i;
 INSERT INTO constraint_pt1 SELECT i, '2008-02-13', i FROM generate_series(1,5)i;
@@ -158,6 +160,7 @@ SELECT * FROM constraint_t1 ORDER BY date, id;
 SELECT * FROM constraint_pt1 ORDER BY date, id;
 
 -- exchange with appendonly
+set gp_create_table_default_numsegments to minimal;
 CREATE TABLE constraint_pt2 (id int, date date, amt decimal(10,2)
        CHECK (amt > 0)) DISTRIBUTED BY (id)
 PARTITION BY RANGE (date)
@@ -168,6 +171,7 @@ PARTITION BY RANGE (date)
 
 CREATE TABLE constraint_t2 (id int, date date, amt decimal(10,2))
        WITH (appendonly=true, orientation=column) DISTRIBUTED BY (id);
+reset gp_create_table_default_numsegments;
 
 INSERT INTO constraint_pt2 SELECT i, '2008-01-13', i FROM generate_series(1,5)i;
 INSERT INTO constraint_pt2 SELECT i, '2008-01-20', i FROM generate_series(11,15)i;
@@ -186,8 +190,10 @@ select verify('constraint_t2');
 SELECT * FROM constraint_pt2 ORDER BY date, id;
 SELECT * FROM constraint_t2 ORDER BY date, id;
 
+set gp_create_table_default_numsegments to minimal;
 CREATE TABLE constraint_t3 (id int, date date, amt decimal(10,2))
        WITH (appendonly=true, orientation=column) DISTRIBUTED BY (id);
+reset gp_create_table_default_numsegments;
 INSERT INTO constraint_t3 SELECT i, '2008-03-02', i FROM generate_series(11,15)i;
 
 -- add, rename and exchange
@@ -209,6 +215,7 @@ select verify('constraint_pt2_1_prt_feb08');
 
 -- exchange a subpartition
 SET client_min_messages='warning';
+set gp_create_table_default_numsegments to minimal;
 CREATE TABLE constraint_pt3 (id int, year int, month int CHECK (month > 0),
        day int CHECK (day > 0), region text)
 DISTRIBUTED BY (id)
@@ -225,6 +232,7 @@ PARTITION BY RANGE (year)
       DEFAULT SUBPARTITION other_regions )
 ( START (2001) END (2003) EVERY (1),
 DEFAULT PARTITION outlying_years );
+reset gp_create_table_default_numsegments;
 RESET client_min_messages;
 INSERT INTO constraint_pt3 SELECT i, 2001, 02, i, 'usa' FROM generate_series(1,5)i;
 INSERT INTO constraint_pt3 SELECT i, 2001, 02, i, 'europe' FROM generate_series(1,5)i;
@@ -237,8 +245,10 @@ SELECT conname,consrc from pg_constraint where conrelid =
        'constraint_pt3_1_prt_2_2_prt_3_3_prt_europe'::regclass;
 
 drop table if exists constraint_t3;
+set gp_create_table_default_numsegments to minimal;
 CREATE TABLE constraint_t3 (id int, year int, month int, day int, region text)
        WITH (appendonly=true) DISTRIBUTED BY (id);
+reset gp_create_table_default_numsegments;
 
 ALTER TABLE constraint_pt3 ALTER PARTITION FOR ('2001')
       ALTER PARTITION FOR ('2')
