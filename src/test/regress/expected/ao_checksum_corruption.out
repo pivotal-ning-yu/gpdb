@@ -6,7 +6,7 @@
 --
 -- start_matchsubs
 -- m/^ERROR:  (Block|Header) checksum does not match./
--- s/Expected 0x(........) and found 0x(........)/Expected 0xXXXXXXXX and found 0xXXXXXXXX/
+-- s/Expected 0x(.*) and found 0x(.*)/Expected 0xXXXXXXXX and found 0xXXXXXXXX/
 -- end_matchsubs
 -- Ignore the status messages from the helper function. They're useful for
 -- debugging, but the output is different on every invocation.
