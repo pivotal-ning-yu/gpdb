@@ -808,7 +808,7 @@ select * from date_parts_1_prt_2_2_prt_other_months_3_prt_other_days where id < 
 
 -- Dropped columns with exchange
 drop table if exists sales;
-set gp_create_table_default_numsegments to minimal;
+set gp_create_table_default_numsegments to full;
 CREATE TABLE sales (trans_id int, to_be_dropped1 int, date date, amount 
 decimal(9,2), to_be_dropped2 int, region text) 
 DISTRIBUTED BY (trans_id)
@@ -831,7 +831,7 @@ alter table sales drop column to_be_dropped2;
 
 -- Create the exchange candidate without dropped columns
 drop table if exists sales_exchange_part;
-set gp_create_table_default_numsegments to minimal;
+set gp_create_table_default_numsegments to full;
 create table sales_exchange_part (trans_id int, date date, amount 
 decimal(9,2), region text);
 reset gp_create_table_default_numsegments;
