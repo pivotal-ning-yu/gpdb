@@ -623,6 +623,7 @@ DROP TABLE unique_tbl;
 --
 -- EXCLUDE constraints
 --
+set gp_create_table_default_numsegments to full;
 CREATE TABLE circles (
   c1 CIRCLE,
   c2 TEXT,
@@ -630,6 +631,7 @@ CREATE TABLE circles (
     (c1 WITH &&, (c2::circle) WITH &&)
     WHERE (circle_center(c1) <> '(0,0)')
 );
+reset gp_create_table_default_numsegments;
 -- these should succeed because they don't match the index predicate
 INSERT INTO circles VALUES('<(0,0), 5>', '<(0,0), 5>');
 -- In the original version of the postgres test, they create a different set of
