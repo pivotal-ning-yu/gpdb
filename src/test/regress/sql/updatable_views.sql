@@ -709,8 +709,10 @@ DROP TABLE base_tbl CASCADE;
 
 -- WITH CHECK OPTION with subquery
 
+set gp_create_table_default_numsegments to minimal;
 CREATE TABLE base_tbl (a int);
 CREATE TABLE ref_tbl (a int PRIMARY KEY);
+reset gp_create_table_default_numsegments;
 INSERT INTO ref_tbl SELECT * FROM generate_series(1,10);
 
 CREATE VIEW rw_view1 AS
