@@ -1388,6 +1388,7 @@ set_append_path_locus(PlannerInfo *root, Path *pathnode, RelOptInfo *rel,
 	ListCell   *l;
 	bool		fIsNotPartitioned = false;
 	bool		fIsPartitionInEntry = false;
+	int			numsegments = -1;
 	List	   *subpaths;
 	List	  **subpaths_out;
 	List	   *new_subpaths;
@@ -1418,6 +1419,20 @@ set_append_path_locus(PlannerInfo *root, Path *pathnode, RelOptInfo *rel,
 	{
 		Path	   *subpath = (Path *) lfirst(l);
 
+		/* If one of subplan is SingleQE, align target numsegments with it */
+		if (CdbPathLocus_IsSingleQE(subpath->locus))
+		{
+			if (numsegments < 0)
+				numsegments = CdbPathLocus_NumSegments(subpath->locus);
+			else
+			{
+				/* Multiple SingleQE must have the same numsegments */
+				/* TODO: raise error instead of assert */
+				AssertEquivalent(numsegments,
+								 CdbPathLocus_NumSegments(subpath->locus));
+			}
+		}
+
 		/* If one of subplan is segment general, gather others to single QE */
 		if (CdbPathLocus_IsBottleneck(subpath->locus) ||
 			CdbPathLocus_IsSegmentGeneral(subpath->locus) ||
@@ -1427,12 +1442,13 @@ set_append_path_locus(PlannerInfo *root, Path *pathnode, RelOptInfo *rel,
 
 			/* check whether any partition is on entry db */
 			if (CdbPathLocus_IsEntry(subpath->locus))
-			{
 				fIsPartitionInEntry = true;
-				break;
-			}
 		}
 	}
+
+	/* If no SingleQE then set target numsegments to maximum parallel */
+	if (numsegments < 0)
+		numsegments = GP_POLICY_ALL_NUMSEGMENTS;
 
 	new_subpaths = NIL;
 	foreach(l, subpaths)
@@ -1466,6 +1482,8 @@ set_append_path_locus(PlannerInfo *root, Path *pathnode, RelOptInfo *rel,
 				{
 					CdbPathLocus    singleQE;
 					/*
+					 * TODO: update this comment.
+					 *
 					 * It's important to ensure that all the subpaths can be
 					 * gathered to the SAME segment, we must set the same
 					 * numsegments for all the SingleQE, there are many
@@ -1482,7 +1500,6 @@ set_append_path_locus(PlannerInfo *root, Path *pathnode, RelOptInfo *rel,
 					 * option 4, ALL helps to balance the load on all the
 					 * segments and no extra scan is needed.
 					 */
-					int			numsegments = GP_POLICY_ALL_NUMSEGMENTS;
 					CdbPathLocus_MakeSingleQE(&singleQE, numsegments);
 
 					subpath = cdbpath_create_motion_path(root, subpath, subpath->pathkeys, false, singleQE);
@@ -1542,8 +1559,11 @@ set_append_path_locus(PlannerInfo *root, Path *pathnode, RelOptInfo *rel,
 										CdbPathLocus_NumSegments(projectedlocus)));
 		}
 		else
+		{
+			Assert(!"cannot append paths with incompatible distribution");
 			ereport(ERROR, (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 							errmsg_internal("cannot append paths with incompatible distribution")));
+		}
 
 		pathnode->sameslice_relids = bms_union(pathnode->sameslice_relids, subpath->sameslice_relids);
 
