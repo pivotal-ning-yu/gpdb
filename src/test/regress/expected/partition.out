@@ -8138,3 +8138,4 @@ select oid::regclass, relkind, relstorage, reloptions from pg_class where oid = 
 ---------------------------+---------+------------+------------------------------------------------------------------------
  pt_tab_encode_1_prt_s_xyz | r       | c          | {appendonly=true,orientation=column,compresstype=zlib,compresslevel=1}
 (1 row)
+
