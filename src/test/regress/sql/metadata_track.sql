@@ -88,6 +88,7 @@ drop table mdt_part_tbl;
 
 
 --
+set gp_create_table_default_numsegments to minimal;
 CREATE TABLE mdt_part_tbl_partrange (
         unique1         int4,
         unique2         int4
@@ -98,6 +99,7 @@ CREATE TABLE mdt_part_tbl_partrange (
 CREATE TABLE mdt_part_tbl_partrange_A (
         unique1         int4,
         unique2         int4);
+reset gp_create_table_default_numsegments;
 
 alter table mdt_part_tbl_partrange exchange default partition with table mdt_part_tbl_partrange_A with validation;
 
