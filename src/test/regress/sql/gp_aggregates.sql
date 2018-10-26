@@ -117,7 +117,12 @@ create aggregate mysum_prefunc(int4) (
   stype=bigint,
   prefunc=int8pl_with_notice
 );
-select mysum_prefunc(a::int4) from aggtest;
+
+set gp_create_table_default_numsegments to full;
+create temp table aggtest_full (a int4) distributed by (a);
+reset gp_create_table_default_numsegments;
+insert into aggtest_full select i from generate_series(1, 100) i;
+select mysum_prefunc(a::int4) from aggtest_full;
 
 
 -- Test an aggregate with 'internal' transition type, and a combine function,
