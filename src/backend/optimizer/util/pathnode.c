@@ -1388,7 +1388,7 @@ set_append_path_locus(PlannerInfo *root, Path *pathnode, RelOptInfo *rel,
 	ListCell   *l;
 	bool		fIsNotPartitioned = false;
 	bool		fIsPartitionInEntry = false;
-	int			numsegments = -1;
+	int			numsegments = GP_POLICY_ALL_NUMSEGMENTS;
 	List	   *subpaths;
 	List	  **subpaths_out;
 	List	   *new_subpaths;
@@ -1422,15 +1422,9 @@ set_append_path_locus(PlannerInfo *root, Path *pathnode, RelOptInfo *rel,
 		/* If one of subplan is SingleQE, align target numsegments with it */
 		if (CdbPathLocus_IsSingleQE(subpath->locus))
 		{
-			if (numsegments < 0)
-				numsegments = CdbPathLocus_NumSegments(subpath->locus);
-			else
-			{
-				/* Multiple SingleQE must have the same numsegments */
-				/* TODO: raise error instead of assert */
-				AssertEquivalent(numsegments,
-								 CdbPathLocus_NumSegments(subpath->locus));
-			}
+			/* When there are multiple SingleQE, use the common segments */
+			numsegments = Min(numsegments,
+							  CdbPathLocus_NumSegments(subpath->locus));
 		}
 
 		/* If one of subplan is segment general, gather others to single QE */
@@ -1445,10 +1439,6 @@ set_append_path_locus(PlannerInfo *root, Path *pathnode, RelOptInfo *rel,
 				fIsPartitionInEntry = true;
 		}
 	}
-
-	/* If no SingleQE then set target numsegments to maximum parallel */
-	if (numsegments < 0)
-		numsegments = GP_POLICY_ALL_NUMSEGMENTS;
 
 	new_subpaths = NIL;
 	foreach(l, subpaths)
@@ -1503,6 +1493,11 @@ set_append_path_locus(PlannerInfo *root, Path *pathnode, RelOptInfo *rel,
 					CdbPathLocus_MakeSingleQE(&singleQE, numsegments);
 
 					subpath = cdbpath_create_motion_path(root, subpath, subpath->pathkeys, false, singleQE);
+				}
+				else
+				{
+					/* For SingleQE align with the common segments */
+					subpath->locus.numsegments = numsegments;
 				}
 			}
 		}

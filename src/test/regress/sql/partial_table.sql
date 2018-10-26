@@ -70,6 +70,21 @@ create table r2 (c1 int, c2 int, c3 int, c4 int) distributed randomly;
 
 reset gp_create_table_default_numsegments;
 
+insert into t1 (c1) values (1), (2), (3), (4), (5), (6)
+	returning c1, c2;
+insert into t2 (c1) values (1), (2), (3), (4), (5), (6)
+	returning c1, c2;
+
+insert into d1 (c1) values (1), (2), (3), (4), (5), (6)
+	returning c1, c2;
+insert into d2 (c1) values (1), (2), (3), (4), (5), (6)
+	returning c1, c2;
+
+insert into r1 (c1) values (1), (2), (3), (4), (5), (6)
+	returning c1, c2;
+insert into r2 (c1) values (1), (2), (3), (4), (5), (6)
+	returning c1, c2;
+
 select localoid::regclass, attrnums, policytype, numsegments
 	from gp_distribution_policy where localoid in (
 		't1'::regclass, 'd1'::regclass, 'r1'::regclass,
@@ -101,6 +116,9 @@ analyze t1;
 --
 -- regression tests
 --
+
+-- append SingleQE of different sizes
+select max(c1) as v, 1 as r from t2 union all select 1 as v, 2 as r;
 
 --
 -- create table
@@ -386,21 +404,6 @@ drop table t;
 --
 -- insert
 --
-
-insert into t1 (c1) values (1), (2), (3), (4), (5), (6)
-	returning c1, c2;
-insert into t2 (c1) values (1), (2), (3), (4), (5), (6)
-	returning c1, c2;
-
-insert into d1 (c1) values (1), (2), (3), (4), (5), (6)
-	returning c1, c2;
-insert into d2 (c1) values (1), (2), (3), (4), (5), (6)
-	returning c1, c2;
-
-insert into r1 (c1) values (1), (2), (3), (4), (5), (6)
-	returning c1, c2;
-insert into r2 (c1) values (1), (2), (3), (4), (5), (6)
-	returning c1, c2;
 
 begin;
 insert into t1 (c1) values (1) returning c1, c2;

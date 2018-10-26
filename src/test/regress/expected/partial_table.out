@@ -82,6 +82,78 @@ create table t2 (c1 int, c2 int, c3 int, c4 int) distributed by (c1, c2);
 create table d2 (c1 int, c2 int, c3 int, c4 int) distributed replicated;
 create table r2 (c1 int, c2 int, c3 int, c4 int) distributed randomly;
 reset gp_create_table_default_numsegments;
+insert into t1 (c1) values (1), (2), (3), (4), (5), (6)
+	returning c1, c2;
+ c1 | c2 
+----+----
+  1 |   
+  2 |   
+  3 |   
+  4 |   
+  5 |   
+  6 |   
+(6 rows)
+
+insert into t2 (c1) values (1), (2), (3), (4), (5), (6)
+	returning c1, c2;
+ c1 | c2 
+----+----
+  4 |   
+  5 |   
+  1 |   
+  2 |   
+  3 |   
+  6 |   
+(6 rows)
+
+insert into d1 (c1) values (1), (2), (3), (4), (5), (6)
+	returning c1, c2;
+ c1 | c2 
+----+----
+  1 |   
+  2 |   
+  3 |   
+  4 |   
+  5 |   
+  6 |   
+(6 rows)
+
+insert into d2 (c1) values (1), (2), (3), (4), (5), (6)
+	returning c1, c2;
+ c1 | c2 
+----+----
+  1 |   
+  2 |   
+  3 |   
+  4 |   
+  5 |   
+  6 |   
+(6 rows)
+
+insert into r1 (c1) values (1), (2), (3), (4), (5), (6)
+	returning c1, c2;
+ c1 | c2 
+----+----
+  1 |   
+  2 |   
+  3 |   
+  4 |   
+  5 |   
+  6 |   
+(6 rows)
+
+insert into r2 (c1) values (1), (2), (3), (4), (5), (6)
+	returning c1, c2;
+ c1 | c2 
+----+----
+  2 |   
+  6 |   
+  1 |   
+  3 |   
+  4 |   
+  5 |   
+(6 rows)
+
 select localoid::regclass, attrnums, policytype, numsegments
 	from gp_distribution_policy where localoid in (
 		't1'::regclass, 'd1'::regclass, 'r1'::regclass,
@@ -147,6 +219,14 @@ analyze t1;
 --
 -- regression tests
 --
+-- append SingleQE of different sizes
+select max(c1) as v, 1 as r from t2 union all select 1 as v, 2 as r;
+ v | r 
+---+---
+ 6 | 1
+ 1 | 2
+(2 rows)
+
 --
 -- create table
 --
@@ -2974,78 +3054,6 @@ drop table t;
 --
 -- insert
 --
-insert into t1 (c1) values (1), (2), (3), (4), (5), (6)
-	returning c1, c2;
- c1 | c2 
-----+----
-  1 |   
-  2 |   
-  3 |   
-  4 |   
-  5 |   
-  6 |   
-(6 rows)
-
-insert into t2 (c1) values (1), (2), (3), (4), (5), (6)
-	returning c1, c2;
- c1 | c2 
-----+----
-  1 |   
-  2 |   
-  3 |   
-  6 |   
-  4 |   
-  5 |   
-(6 rows)
-
-insert into d1 (c1) values (1), (2), (3), (4), (5), (6)
-	returning c1, c2;
- c1 | c2 
-----+----
-  1 |   
-  2 |   
-  3 |   
-  4 |   
-  5 |   
-  6 |   
-(6 rows)
-
-insert into d2 (c1) values (1), (2), (3), (4), (5), (6)
-	returning c1, c2;
- c1 | c2 
-----+----
-  1 |   
-  2 |   
-  3 |   
-  4 |   
-  5 |   
-  6 |   
-(6 rows)
-
-insert into r1 (c1) values (1), (2), (3), (4), (5), (6)
-	returning c1, c2;
- c1 | c2 
-----+----
-  1 |   
-  2 |   
-  3 |   
-  4 |   
-  5 |   
-  6 |   
-(6 rows)
-
-insert into r2 (c1) values (1), (2), (3), (4), (5), (6)
-	returning c1, c2;
- c1 | c2 
-----+----
-  1 |   
-  3 |   
-  4 |   
-  5 |   
-  6 |   
-  2 |   
-(6 rows)
-
 begin;
 insert into t1 (c1) values (1) returning c1, c2;
  c1 | c2 
