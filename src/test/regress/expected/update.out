@@ -148,8 +148,10 @@ SELECT * from update_distr_key;
 
 DROP TABLE update_distr_key;
 -- below cases is to test multi-hash-cols
+set gp_create_table_default_numsegments to full;
 CREATE TABLE tab3(c1 int, c2 int, c3 int, c4 int, c5 int) DISTRIBUTED BY (c1, c2, c3);
 CREATE TABLE tab5(c1 int, c2 int, c3 int, c4 int, c5 int) DISTRIBUTED BY (c1, c2, c3, c4, c5);
+reset gp_create_table_default_numsegments;
 INSERT INTO tab3 SELECT i, i, i, i, i FROM generate_series(1, 10)i;
 INSERT INTO tab5 SELECT i, i, i, i, i FROM generate_series(1, 10)i;
 -- test tab3
