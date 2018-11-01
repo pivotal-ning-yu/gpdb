@@ -324,6 +324,7 @@ transformCreateStmt(CreateStmt *stmt, const char *queryString, bool createPartit
 
 						if (likeDistributedBy && stmt->inhRelations != NIL)
 						{
+#if 0
 							/* LIKE and INHERITS must have same numsegments */
 							if (inhRelationsGetNumsegments(stmt->inhRelations) !=
 								likeDistributedBy->numsegments)
@@ -332,6 +333,7 @@ transformCreateStmt(CreateStmt *stmt, const char *queryString, bool createPartit
 										(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 										 errmsg("numsegments of LIKE and INHERITS must be same")));
 							}
+#endif
 
 							likeDistributedBy = NULL;
 						}
@@ -1962,6 +1964,7 @@ transformDistributedBy(CreateStmtContext *cxt,
 			elog(NOTICE, "Table doesn't have 'DISTRIBUTED BY' clause, "
 				 "defaulting to distribution columns from LIKE table");
 
+#if 0
 		if (cxt->inhRelations != NIL)
 		{
 			if (numsegments != likeDistributedBy->numsegments)
@@ -1971,6 +1974,7 @@ transformDistributedBy(CreateStmtContext *cxt,
 						 errdetail("An inheritance hierarchy must be on the same segments.")));
 		}
 		else
+#endif
 		{
 			/*
 			 * Distribution policy is inherited from the LIKE table, do the
@@ -4276,6 +4280,9 @@ inhRelationsGetNumsegments(List *inhRelations)
 		Oid			relId = RangeVarGetRelid(parent, NoLock, false);
 		GpPolicy  *oldTablePolicy = GpPolicyFetch(CurrentMemoryContext, relId);
 
+		numsegments = Max(numsegments,
+						  oldTablePolicy->numsegments);
+#if 0
 		if (numsegments < 0)
 		{
 			/* Inherit numsegments from parents */
@@ -4289,7 +4296,10 @@ inhRelationsGetNumsegments(List *inhRelations)
 					 errmsg("cannot inherit from parent tables with different numsegments"),
 					 errdetail("An inheritance hierarchy must be on the same segments.")));
 		}
+#endif
 	}
+
+	Assert(numsegments > 0);
 
 	return numsegments;
 }
