@@ -1608,10 +1608,8 @@ drop table qp_misc_jiras.pg_foo;
 drop table qp_misc_jiras.bar;
 
 -- Create 2 tables from which we can inherit.  
-set gp_create_table_default_numsegments to minimal;
 CREATE TABLE qp_misc_jiras.tableA (ssn INT, lastName VARCHAR, junk INT) DISTRIBUTED BY (ssn);
 CREATE TABLE qp_misc_jiras.tableB (id INT, lastName VARCHAR, moreJunk INT) DISTRIBUTED BY (id);
-reset gp_create_table_default_numsegments;
 -- Create a table that inherits from the previous two.
 CREATE TABLE qp_misc_jiras.tableC (uid INT) INHERITS (qp_misc_jiras.tableA, qp_misc_jiras.tableB) DISTRIBUTED BY (uid);
 
@@ -1625,10 +1623,8 @@ DROP TABLE qp_misc_jiras.tableA;
 -- end_ignore
 
 
-set gp_create_table_default_numsegments to minimal;
 CREATE TABLE qp_misc_jiras.tableA (ssn INT, lastName VARCHAR, junk INT) DISTRIBUTED BY (ssn);
 CREATE TABLE qp_misc_jiras.tableB (id INT, lastName VARCHAR, moreJunk INT) DISTRIBUTED BY (id);
-reset gp_create_table_default_numsegments;
 INSERT INTO qp_misc_jiras.tablea VALUES (1, 'foo',2);
 INSERT INTO qp_misc_jiras.tableb VALUES (2, 'bar',4);
 CREATE TABLE qp_misc_jiras.tableC (uid1 INT, uid2 INT, uid3 INT) INHERITS (qp_misc_jiras.tableA, qp_misc_jiras.tableB) DISTRIBUTED BY (uid1, uid2, uid3);
@@ -1642,9 +1638,7 @@ SELECT * FROM qp_misc_jiras.tableB ORDER BY id;
 SELECT * FROM qp_misc_jiras.tableC;
 
 
-set gp_create_table_default_numsegments to minimal;
 CREATE TABLE qp_misc_jiras.tableD (a INT, b INT, c INT) DISTRIBUTED BY (a);
-reset gp_create_table_default_numsegments;
 INSERT INTO qp_misc_jiras.tableD VALUES (11, 12, 13);
 CREATE TABLE qp_misc_jiras.tableE (x INT) INHERITS (qp_misc_jiras.tableA, qp_misc_jiras.tableD) DISTRIBUTED BY (x);
 INSERT INTO qp_misc_jiras.tableE VALUES (1,'foo', -2, 11, 12, -13, 14);
@@ -1656,10 +1650,8 @@ SELECT * FROM qp_misc_jiras.tableE;
 SELECT * FROM qp_misc_jiras.tableA ORDER BY ssn, junk;
 
 
-set gp_create_table_default_numsegments to minimal;
 CREATE TABLE qp_misc_jiras.tableAA (ssn INT, lastName VARCHAR, junk INT) DISTRIBUTED randomly;
 CREATE TABLE qp_misc_jiras.tableBB (id INT, lastName VARCHAR, moreJunk INT) DISTRIBUTED randomly;
-reset gp_create_table_default_numsegments;
 INSERT INTO qp_misc_jiras.tableAA VALUES (1, 'foo',2);
 INSERT INTO qp_misc_jiras.tableBB VALUES (2, 'bar',4);
 CREATE TABLE qp_misc_jiras.tableCC (uid1 INT, uid2 INT, uid3 INT) INHERITS (qp_misc_jiras.tableAA, qp_misc_jiras.tableBB) DISTRIBUTED randomly;

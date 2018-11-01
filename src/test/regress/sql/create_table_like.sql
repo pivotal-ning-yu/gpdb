@@ -56,9 +56,7 @@ DROP TABLE inhg;
 DROP TABLE inhz;
 
 -- including storage and comments
-set gp_create_table_default_numsegments to minimal;
 CREATE TABLE ctlt1 (a text CHECK (length(a) > 2) PRIMARY KEY, b text);
-reset gp_create_table_default_numsegments;
 CREATE INDEX ctlt1_b_key ON ctlt1 (b);
 CREATE INDEX ctlt1_fnidx ON ctlt1 ((a || b));
 COMMENT ON COLUMN ctlt1.a IS 'A';
@@ -72,18 +70,14 @@ CREATE TABLE ctlt2 (c text);
 ALTER TABLE ctlt2 ALTER COLUMN c SET STORAGE EXTERNAL;
 COMMENT ON COLUMN ctlt2.c IS 'C';
 
-set gp_create_table_default_numsegments to minimal;
 CREATE TABLE ctlt3 (a text CHECK (length(a) < 5), c text);
-reset gp_create_table_default_numsegments;
 ALTER TABLE ctlt3 ALTER COLUMN c SET STORAGE EXTERNAL;
 ALTER TABLE ctlt3 ALTER COLUMN a SET STORAGE MAIN;
 COMMENT ON COLUMN ctlt3.a IS 'A3';
 COMMENT ON COLUMN ctlt3.c IS 'C';
 COMMENT ON CONSTRAINT ctlt3_a_check ON ctlt3 IS 't3_a_check';
 
-set gp_create_table_default_numsegments to minimal;
 CREATE TABLE ctlt4 (a text, c text);
-reset gp_create_table_default_numsegments;
 ALTER TABLE ctlt4 ALTER COLUMN c SET STORAGE EXTERNAL;
 
 CREATE TABLE ctlt12_storage (LIKE ctlt1 INCLUDING STORAGE, LIKE ctlt2 INCLUDING STORAGE);

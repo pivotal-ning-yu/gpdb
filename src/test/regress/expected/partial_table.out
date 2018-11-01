@@ -277,12 +277,21 @@ select localoid::regclass, attrnums, policytype, numsegments
 drop table t;
 -- like.numsegments = t1.numsegments = 1
 -- inherits.numsegments = t2.numsegments = 2
--- it should fail as like.numsegments != inherits.numsegments
+-- t.numsegments should equal to like.numsegments
 create table t (like t1) inherits (t2);
-ERROR:  numsegments of LIKE and INHERITS must be same
--- drop anyway, otherwise following CREATEs will fail if above one does not fail
-drop table if exists t;
-NOTICE:  table "t" does not exist, skipping
+NOTICE:  Table has parent, setting distribution columns to match parent table
+NOTICE:  merging column "c1" with inherited definition
+NOTICE:  merging column "c2" with inherited definition
+NOTICE:  merging column "c3" with inherited definition
+NOTICE:  merging column "c4" with inherited definition
+select localoid::regclass, attrnums, policytype, numsegments
+	from gp_distribution_policy where localoid in ('t'::regclass);
+ localoid | attrnums | policytype | numsegments 
+----------+----------+------------+-------------
+ t        | {1,2}    | p          |           2
+(1 row)
+
+drop table t;
 create table t as table t1;
 NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column(s) named 'c1, c2' as the Greenplum Database data distribution key for this table.
 HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.

@@ -155,10 +155,11 @@ drop table t;
 
 -- like.numsegments = t1.numsegments = 1
 -- inherits.numsegments = t2.numsegments = 2
--- it should fail as like.numsegments != inherits.numsegments
+-- t.numsegments should equal to like.numsegments
 create table t (like t1) inherits (t2);
--- drop anyway, otherwise following CREATEs will fail if above one does not fail
-drop table if exists t;
+select localoid::regclass, attrnums, policytype, numsegments
+	from gp_distribution_policy where localoid in ('t'::regclass);
+drop table t;
 
 create table t as table t1;
 select localoid::regclass, attrnums, policytype, numsegments
