@@ -5,25 +5,70 @@
 
 \set explain 'explain analyze'
 
-set allow_system_table_mods to true;
+drop schema if exists test_partial_table;
+create schema test_partial_table;
+set search_path='test_partial_table';
+
+--
+-- verify the debugging GUCs
+--
+
+set gp_create_table_default_numsegments to full;
+create table t (c1 int, c2 int, c3 int, c4 int) distributed by (c1, c2);
+select localoid::regclass, attrnums, policytype, numsegments
+	from gp_distribution_policy where localoid in ('t'::regclass);
+drop table t;
+
+set gp_create_table_default_numsegments to minimal;
+create table t (c1 int, c2 int, c3 int, c4 int) distributed by (c1, c2);
+select localoid::regclass, attrnums, policytype, numsegments
+	from gp_distribution_policy where localoid in ('t'::regclass);
+drop table t;
+
+set gp_create_table_default_numsegments to 'any';
+
+set gp_create_table_any_numsegments to 1;
+create table t (c1 int, c2 int, c3 int, c4 int) distributed by (c1, c2);
+select localoid::regclass, attrnums, policytype, numsegments
+	from gp_distribution_policy where localoid in ('t'::regclass);
+drop table t;
+
+set gp_create_table_any_numsegments to 2;
+create table t (c1 int, c2 int, c3 int, c4 int) distributed by (c1, c2);
+select localoid::regclass, attrnums, policytype, numsegments
+	from gp_distribution_policy where localoid in ('t'::regclass);
+drop table t;
+
+set gp_create_table_any_numsegments to 3;
+create table t (c1 int, c2 int, c3 int, c4 int) distributed by (c1, c2);
+select localoid::regclass, attrnums, policytype, numsegments
+	from gp_distribution_policy where localoid in ('t'::regclass);
+drop table t;
+
+-- error: out of range [1, 3]
+set gp_create_table_any_numsegments to -1;
+set gp_create_table_any_numsegments to 0;
+set gp_create_table_any_numsegments to 4;
+
+reset gp_create_table_default_numsegments;
 
 --
 -- prepare kinds of tables
 --
 
-create temp table t1 (c1 int, c2 int, c3 int, c4 int) distributed by (c1, c2);
-create temp table d1 (c1 int, c2 int, c3 int, c4 int) distributed replicated;
-create temp table r1 (c1 int, c2 int, c3 int, c4 int) distributed randomly;
+set gp_create_table_default_numsegments to 'any';
 
-create temp table t2 (c1 int, c2 int, c3 int, c4 int) distributed by (c1, c2);
-create temp table d2 (c1 int, c2 int, c3 int, c4 int) distributed replicated;
-create temp table r2 (c1 int, c2 int, c3 int, c4 int) distributed randomly;
+set gp_create_table_any_numsegments to 1;
+create table t1 (c1 int, c2 int, c3 int, c4 int) distributed by (c1, c2);
+create table d1 (c1 int, c2 int, c3 int, c4 int) distributed replicated;
+create table r1 (c1 int, c2 int, c3 int, c4 int) distributed randomly;
 
-update gp_distribution_policy set numsegments=1
-	where localoid in ('t1'::regclass, 'd1'::regclass, 'r1'::regclass);
+set gp_create_table_any_numsegments to 2;
+create table t2 (c1 int, c2 int, c3 int, c4 int) distributed by (c1, c2);
+create table d2 (c1 int, c2 int, c3 int, c4 int) distributed replicated;
+create table r2 (c1 int, c2 int, c3 int, c4 int) distributed randomly;
 
-update gp_distribution_policy set numsegments=2
-	where localoid in ('t2'::regclass, 'd2'::regclass, 'r2'::regclass);
+reset gp_create_table_default_numsegments;
 
 select localoid::regclass, attrnums, policytype, numsegments
 	from gp_distribution_policy where localoid in (
@@ -34,40 +79,47 @@ select localoid::regclass, attrnums, policytype, numsegments
 -- create table
 --
 
-create temp table t (like t1);
+create table t (like t1);
 select localoid::regclass, attrnums, policytype, numsegments
 	from gp_distribution_policy where localoid in ('t'::regclass);
 drop table t;
 
-create temp table t as table t1;
+-- CTAS set numsegments with DEFAULT,
+-- let it be a fixed value to get stable output
+set gp_create_table_default_numsegments to 'any';
+set gp_create_table_any_numsegments to 2;
+
+create table t as table t1;
 select localoid::regclass, attrnums, policytype, numsegments
 	from gp_distribution_policy where localoid in ('t'::regclass);
 drop table t;
 
-create temp table t as select * from t1;
+create table t as select * from t1;
 select localoid::regclass, attrnums, policytype, numsegments
 	from gp_distribution_policy where localoid in ('t'::regclass);
 drop table t;
 
-create temp table t as select * from t1 distributed by (c1, c2);
+create table t as select * from t1 distributed by (c1, c2);
 select localoid::regclass, attrnums, policytype, numsegments
 	from gp_distribution_policy where localoid in ('t'::regclass);
 drop table t;
 
-create temp table t as select * from t1 distributed replicated;
+create table t as select * from t1 distributed replicated;
 select localoid::regclass, attrnums, policytype, numsegments
 	from gp_distribution_policy where localoid in ('t'::regclass);
 drop table t;
 
-create temp table t as select * from t1 distributed randomly;
+create table t as select * from t1 distributed randomly;
 select localoid::regclass, attrnums, policytype, numsegments
 	from gp_distribution_policy where localoid in ('t'::regclass);
 drop table t;
 
-select * into temp table t from t1;
+select * into table t from t1;
 select localoid::regclass, attrnums, policytype, numsegments
 	from gp_distribution_policy where localoid in ('t'::regclass);
 drop table t;
+
+reset gp_create_table_default_numsegments;
 
 --
 -- alter table
@@ -277,6 +329,7 @@ drop table t;
 :explain select * from r2 a left join r2 b using (c1);
 :explain select * from r2 a left join r2 b using (c1, c2);
 :explain select * from t1, t2 where t1.c1 > any (select max(t2.c1) from t2 where t2.c2 = t1.c2) and t2.c1 > any(select max(c1) from t1 where t1.c2 = t2.c2);
+
 --
 -- insert
 --

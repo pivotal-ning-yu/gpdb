@@ -64,6 +64,45 @@ FOREIGN_KEY(localoid REFERENCES pg_class(oid));
 #define GP_POLICY_ALL_NUMSEGMENTS			Max(1, getgpsegmentCount())
 
 /*
+ * Minimal set of segments.
+ */
+#define GP_POLICY_MINIMAL_NUMSEGMENTS		1
+
+/*
+ * A random set of segments, the value is different on each call.
+ */
+#define GP_POLICY_RANDOM_NUMSEGMENTS		\
+	cdb_randint(GP_POLICY_ALL_NUMSEGMENTS, GP_POLICY_MINIMAL_NUMSEGMENTS)
+
+/*
+ * Default set of segments, the value is controlled by the GUC
+ * gp_create_table_default_numsegments, and when its 'ANY' it's further
+ * controlled by the GUC gp_create_table_any_numsegments.
+ */
+#define GP_POLICY_DEFAULT_NUMSEGMENTS		\
+( gp_create_table_default_numsegments == GP_DEFAULT_NUMSEGMENTS_FULL    ? GP_POLICY_ALL_NUMSEGMENTS \
+: gp_create_table_default_numsegments == GP_DEFAULT_NUMSEGMENTS_RANDOM  ? GP_POLICY_RANDOM_NUMSEGMENTS \
+: gp_create_table_default_numsegments == GP_DEFAULT_NUMSEGMENTS_MINIMAL ? GP_POLICY_MINIMAL_NUMSEGMENTS \
+: gp_create_table_default_numsegments == GP_DEFAULT_NUMSEGMENTS_ANY     ? gp_create_table_any_numsegments \
+: __GP_POLICY_EVIL_NUMSEGMENTS )
+
+/*
+ * The the default numsegments policies when creating a table.
+ *
+ * - FULL: all the segments;
+ * - RANDOM: pick a random set of segments each time;
+ * - MINIMAL: the minimal set of segments;
+ * - ANY: use the segments specified by gp_create_table_any_numsegments;
+ */
+enum
+{
+	GP_DEFAULT_NUMSEGMENTS_FULL,
+	GP_DEFAULT_NUMSEGMENTS_RANDOM,
+	GP_DEFAULT_NUMSEGMENTS_MINIMAL,
+	GP_DEFAULT_NUMSEGMENTS_ANY,
+};
+
+/*
  * The segments suitable for Entry locus, which include both master and all
  * the segments.
  *

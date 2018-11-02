@@ -79,6 +79,7 @@ static bool check_optimizer(bool *newval, void **extra, GucSource source);
 static bool check_verify_gpfdists_cert(bool *newval, void **extra, GucSource source);
 static bool check_dispatch_log_stats(bool *newval, void **extra, GucSource source);
 static bool check_gp_hashagg_default_nbatches(int *newval, void **extra, GucSource source);
+static bool check_gp_create_table_any_numsegments(int *newval, void **extra, GucSource source);
 
 /* Helper function for guc setter */
 bool gpvars_check_gp_resqueue_priority_default_value(char **newval,
@@ -157,6 +158,8 @@ bool		Debug_datumstream_block_write_check_integrity = false;
 bool		Debug_datumstream_read_print_varlena_info = false;
 bool		Debug_datumstream_write_use_small_initial_buffers = false;
 bool		gp_create_table_random_default_distribution = true;
+int			gp_create_table_default_numsegments = GP_DEFAULT_NUMSEGMENTS_FULL;
+int			gp_create_table_any_numsegments = 1;
 bool		gp_allow_non_uniform_partitioning_ddl = true;
 bool		gp_enable_exchange_default_partition = false;
 int			dtx_phase2_retry_count = 0;
@@ -609,6 +612,14 @@ static const struct config_enum_entry optimizer_join_order_options[] = {
 	{"query", JOIN_ORDER_IN_QUERY},
 	{"greedy", JOIN_ORDER_GREEDY_SEARCH},
 	{"exhaustive", JOIN_ORDER_EXHAUSTIVE_SEARCH},
+	{NULL, 0}
+};
+
+static const struct config_enum_entry gp_create_table_default_numsegments_options[] = {
+	{"full", GP_DEFAULT_NUMSEGMENTS_FULL},
+	{"random", GP_DEFAULT_NUMSEGMENTS_RANDOM},
+	{"minimal", GP_DEFAULT_NUMSEGMENTS_MINIMAL},
+	{"any", GP_DEFAULT_NUMSEGMENTS_ANY},
 	{NULL, 0}
 };
 
@@ -4303,6 +4314,19 @@ struct config_int ConfigureNamesInt_gp[] =
 		0, 0, INT_MAX, NULL, NULL
 	},
 
+	{
+		{"gp_create_table_any_numsegments", PGC_USERSET, COMPAT_OPTIONS,
+			gettext_noop("The numsegments to be used when "
+						 "gp_create_table_default_numsegments is ANY."),
+			gettext_noop("1 <= value <= gp_num_contents_in_cluster."),
+			GUC_NOT_IN_SAMPLE
+		},
+		&gp_create_table_any_numsegments,
+		1, 1, INT_MAX,
+		check_gp_create_table_any_numsegments,
+		NULL
+	},
+
 	/* End-of-list marker */
 	{
 		{NULL, 0, 0, NULL, NULL}, NULL, 0, 0, 0, NULL, NULL
@@ -5088,6 +5112,17 @@ struct config_enum ConfigureNamesEnum_gp[] =
 		NULL, NULL, NULL
 	},
 
+	{
+		{"gp_create_table_default_numsegments", PGC_USERSET, COMPAT_OPTIONS,
+			gettext_noop("Default numsegments when creating tables."),
+			gettext_noop("Valid values are 'full', 'random', 'minimal' and 'any'"),
+			GUC_NOT_IN_SAMPLE
+		},
+		&gp_create_table_default_numsegments,
+		GP_DEFAULT_NUMSEGMENTS_FULL, gp_create_table_default_numsegments_options,
+		NULL, NULL, NULL
+	},
+
 	/* End-of-list marker */
 	{
 		{NULL, 0, 0, NULL, NULL}, NULL, 0, NULL, NULL, NULL
@@ -5219,6 +5254,25 @@ check_gp_hashagg_default_nbatches(int *newval, void **extra, GucSource source)
 	else
 	{
 		GUC_check_errmsg("gp_hashagg_default_nbatches must be a power of two");
+		return false;
+	}
+}
+
+static bool
+check_gp_create_table_any_numsegments(int *newval, void **extra, GucSource source)
+{
+	if (*newval >= GP_POLICY_MINIMAL_NUMSEGMENTS &&
+		*newval <= GP_POLICY_ALL_NUMSEGMENTS)
+	{
+		return true;
+	}
+	else
+	{
+		GUC_check_errmsg("%d is outside the valid range for parameter "
+						 "\"gp_create_table_any_numsegments\" (%d .. %d)",
+						 *newval,
+						 GP_POLICY_MINIMAL_NUMSEGMENTS,
+						 GP_POLICY_ALL_NUMSEGMENTS);
 		return false;
 	}
 }
