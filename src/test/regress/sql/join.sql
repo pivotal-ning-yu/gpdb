@@ -1168,8 +1168,8 @@ select * from int4_tbl i left join
 select * from int4_tbl i left join
   lateral (select coalesce(i) from int2_tbl j where i.f1 = j.f1) k on true;
 set gp_create_table_default_numsegments to full;
-create table int4_tbl_full as table int4_tbl;
-create table int8_tbl_full as table int8_tbl;
+create temp table int4_tbl_full as table int4_tbl;
+create temp table int8_tbl_full as table int8_tbl;
 reset gp_create_table_default_numsegments;
 explain (verbose, costs off)
 select * from int4_tbl_full a,

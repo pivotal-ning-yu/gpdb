@@ -4133,20 +4133,20 @@ select * from int4_tbl_full a,
          Output: a.f1, b.f1, c.q1, c.q2
          ->  Broadcast Motion 3:3  (slice1; segments: 3)
                Output: a.f1
-               ->  Seq Scan on public.int4_tbl_full a
+               ->  Seq Scan on pg_temp_1061.int4_tbl_full a
                      Output: a.f1
          ->  Materialize
                Output: b.f1, c.q1, c.q2
-               ->  Hash Right Join
+               ->  Hash Left Join
                      Output: b.f1, c.q1, c.q2
-                     Hash Cond: (c.q1 = b.f1)
-                     ->  Seq Scan on public.int8_tbl_full c
-                           Output: c.q1, c.q2
-                           Filter: (a.f1 = c.q2)
-                     ->  Hash
+                     Hash Cond: (b.f1 = c.q1)
+                     ->  Seq Scan on pg_temp_1061.int4_tbl_full b
                            Output: b.f1
-                           ->  Seq Scan on public.int4_tbl_full b
-                                 Output: b.f1
+                     ->  Hash
+                           Output: c.q1, c.q2
+                           ->  Seq Scan on pg_temp_1061.int8_tbl_full c
+                                 Output: c.q1, c.q2
+                                 Filter: (a.f1 = c.q2)
  Optimizer: legacy query optimizer
  Settings: optimizer=off
 (22 rows)

@@ -709,8 +709,7 @@ DROP TABLE base_tbl CASCADE;
 
 -- WITH CHECK OPTION with subquery
 
-set gp_create_table_default_numsegments to 'any';
-set gp_create_table_any_numsegments to 2;
+set gp_create_table_default_numsegments to full;
 CREATE TABLE base_tbl (a int);
 CREATE TABLE ref_tbl (a int PRIMARY KEY);
 reset gp_create_table_default_numsegments;
