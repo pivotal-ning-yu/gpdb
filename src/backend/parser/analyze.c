@@ -56,6 +56,7 @@
 #include "optimizer/clauses.h"
 #include "optimizer/tlist.h"
 #include "parser/parse_func.h"
+#include "utils/guc.h"
 #include "utils/lsyscache.h"
 
 
@@ -3667,7 +3668,7 @@ setQryDistributionPolicy(IntoClause *into, Query *qry)
 	dist = (DistributedBy *)into->distributedBy;
 
 	if (dist->numsegments < 0)
-		dist->numsegments = GP_POLICY_ALL_NUMSEGMENTS;
+		dist->numsegments = GP_POLICY_DEFAULT_NUMSEGMENTS;
 
 	/*
 	 * We have a DISTRIBUTED BY column list specified by the user
