@@ -2,10 +2,13 @@
 -- schema (see qp_functions_in_contexts_setup.sql)
 CREATE SCHEMA qp_funcs_in_subquery;
 set search_path='qp_funcs_in_subquery', 'qp_funcs_in_contexts';
+set gp_create_table_default_numsegments to 'any';
+set gp_create_table_any_numsegments to 2;
 CREATE TABLE foo (a int, b int);
 INSERT INTO foo select i, i+1 from generate_series(1,10) i;
 CREATE TABLE bar (c int, d int);
 INSERT INTO bar select i, i+1 from generate_series(1,10) i;
+reset gp_create_table_default_numsegments;
 -- @description function_in_subqry_0.sql
 SELECT * FROM foo, (SELECT func1_nosql_vol(5)) r order by 1,2,3;
  a  | b  | func1_nosql_vol 
