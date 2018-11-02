@@ -114,7 +114,7 @@ segno|state
 20181001:15:21:36:080500 gpfaultinjector:Adams-MBP:adamberlin-[INFO]:-DONE
 
 2<:  <... completed>
-ERROR:  expected segno (1) from AO relid 41063 in state COMPACTED_AWAITING_DROP but found in state 2 (appendonlywriter.c:768)
+VACUUM
 
 -- Then inserts into test table should be visible
 select count(1) from test_table_@orientation@;
