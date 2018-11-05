@@ -4278,7 +4278,7 @@ inhRelationsGetNumsegments(List *inhRelations)
 	{
 		RangeVar   *parent = (RangeVar *) lfirst(entry);
 		Oid			relId = RangeVarGetRelid(parent, NoLock, false);
-		GpPolicy  *oldTablePolicy = GpPolicyFetch(CurrentMemoryContext, relId);
+		GpPolicy   *oldTablePolicy = GpPolicyFetch(relId);
 
 		numsegments = Max(numsegments,
 						  oldTablePolicy->numsegments);
