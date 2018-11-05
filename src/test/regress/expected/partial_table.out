@@ -156,57 +156,80 @@ select max(c1) as v, 1 as r from t2 union all select 1 as v, 2 as r;
 (2 rows)
 
 --
--- create table
+-- create table: LIKE, INHERITS and DISTRIBUTED BY
 --
--- like.numsegments = t1.numsegments = 1
--- t.numsegments should equal to like.numsegments
-create table t (like t1);
+-- in below cases t.numsegments is decideded in the order of:
+-- - distributedBy.numsegments = default.numsegments = 3;
+-- - inherits.numsegments = t2.numsegments = 2;
+-- - like.numsegments = d1.numsegments = 1;
+--
+-- this is the same decision order as the distribution policy.
+set gp_create_table_default_numsegments to full;
+-- none of the clauses
+create table t ();
+NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause, and no column type is suitable for a distribution key. Creating a NULL policy entry.
+select localoid::regclass, attrnums, policytype, numsegments
+	from gp_distribution_policy where localoid in ('t'::regclass);
+ localoid | attrnums | policytype | numsegments 
+----------+----------+------------+-------------
+ t        |          | p          |           3
+(1 row)
+
+drop table t;
+-- DISTRIBUTED BY only
+create table t () distributed randomly;
+select localoid::regclass, attrnums, policytype, numsegments
+	from gp_distribution_policy where localoid in ('t'::regclass);
+ localoid | attrnums | policytype | numsegments 
+----------+----------+------------+-------------
+ t        |          | p          |           3
+(1 row)
+
+drop table t;
+-- INHERITS only
+create table t () inherits (t2);
+NOTICE:  Table has parent, setting distribution columns to match parent table
+select localoid::regclass, attrnums, policytype, numsegments
+	from gp_distribution_policy where localoid in ('t'::regclass);
+ localoid | attrnums | policytype | numsegments 
+----------+----------+------------+-------------
+ t        | {1,2}    | p          |           2
+(1 row)
+
+drop table t;
+-- LIKE only
+create table t (like d1);
 NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause, defaulting to distribution columns from LIKE table
 select localoid::regclass, attrnums, policytype, numsegments
 	from gp_distribution_policy where localoid in ('t'::regclass);
  localoid | attrnums | policytype | numsegments 
 ----------+----------+------------+-------------
- t        | {1,2}    | p          |           1
+ t        |          | r          |           1
 (1 row)
 
 drop table t;
--- CTAS set numsegments with DEFAULT,
--- let it be a fixed value to get stable output
-set gp_create_table_default_numsegments to 'any';
-set gp_create_table_any_numsegments to 2;
--- like.numsegments = t1.numsegments = 1
--- distributedBy.numsegments = default.numsegments = 3
--- t.numsegments should equal to like.numsegments
-create table t (like t1) distributed randomly;
+-- DISTRIBUTED BY + INHERITS
+create table t () inherits (t2) distributed randomly;
 select localoid::regclass, attrnums, policytype, numsegments
 	from gp_distribution_policy where localoid in ('t'::regclass);
  localoid | attrnums | policytype | numsegments 
 ----------+----------+------------+-------------
- t        |          | p          |           1
+ t        |          | p          |           3
 (1 row)
 
 drop table t;
--- like.numsegments = t1.numsegments = 1
--- inherits.numsegments = t1.numsegments = 1
--- distributedBy.numsegments = default.numsegments = 3
--- t.numsegments should equal to like.numsegments
-create table t (like t1) inherits (t1) distributed randomly;
-NOTICE:  merging column "c1" with inherited definition
-NOTICE:  merging column "c2" with inherited definition
-NOTICE:  merging column "c3" with inherited definition
-NOTICE:  merging column "c4" with inherited definition
+-- DISTRIBUTED BY + LIKE
+create table t (like d1) distributed randomly;
 select localoid::regclass, attrnums, policytype, numsegments
 	from gp_distribution_policy where localoid in ('t'::regclass);
  localoid | attrnums | policytype | numsegments 
 ----------+----------+------------+-------------
- t        |          | p          |           1
+ t        |          | p          |           3
 (1 row)
 
 drop table t;
--- like.numsegments = t1.numsegments = 1
--- inherits.numsegments = t2.numsegments = 2
--- t.numsegments should equal to like.numsegments
-create table t (like t1) inherits (t2);
+-- INHERITS + LIKE
+create table t (like d1) inherits (t2);
 NOTICE:  Table has parent, setting distribution columns to match parent table
 NOTICE:  merging column "c1" with inherited definition
 NOTICE:  merging column "c2" with inherited definition
@@ -220,6 +243,62 @@ select localoid::regclass, attrnums, policytype, numsegments
 (1 row)
 
 drop table t;
+-- DISTRIBUTED BY + INHERITS + LIKE
+create table t (like d1) inherits (t2) distributed randomly;
+NOTICE:  merging column "c1" with inherited definition
+NOTICE:  merging column "c2" with inherited definition
+NOTICE:  merging column "c3" with inherited definition
+NOTICE:  merging column "c4" with inherited definition
+select localoid::regclass, attrnums, policytype, numsegments
+	from gp_distribution_policy where localoid in ('t'::regclass);
+ localoid | attrnums | policytype | numsegments 
+----------+----------+------------+-------------
+ t        |          | p          |           3
+(1 row)
+
+drop table t;
+reset gp_create_table_default_numsegments;
+--
+-- create table: INHERITS from multiple parents
+--
+set gp_create_table_default_numsegments to full;
+-- t.numsegments should be the max numsegments of the parents.
+create table t () inherits (r1, t2);
+NOTICE:  Table has parent, setting distribution columns to match parent table
+NOTICE:  merging multiple inherited definitions of column "c1"
+NOTICE:  merging multiple inherited definitions of column "c2"
+NOTICE:  merging multiple inherited definitions of column "c3"
+NOTICE:  merging multiple inherited definitions of column "c4"
+select localoid::regclass, attrnums, policytype, numsegments
+	from gp_distribution_policy where localoid in ('t'::regclass);
+ localoid | attrnums | policytype | numsegments 
+----------+----------+------------+-------------
+ t        |          | p          |           2
+(1 row)
+
+drop table t;
+-- but if there is DISTRIBUTED BY clause then use DEFAULT numsegments.
+create table t () inherits (r1, t2) distributed by (c1);
+NOTICE:  merging multiple inherited definitions of column "c1"
+NOTICE:  merging multiple inherited definitions of column "c2"
+NOTICE:  merging multiple inherited definitions of column "c3"
+NOTICE:  merging multiple inherited definitions of column "c4"
+select localoid::regclass, attrnums, policytype, numsegments
+	from gp_distribution_policy where localoid in ('t'::regclass);
+ localoid | attrnums | policytype | numsegments 
+----------+----------+------------+-------------
+ t        | {1}      | p          |           3
+(1 row)
+
+drop table t;
+reset gp_create_table_default_numsegments;
+--
+-- create table: CTAS
+--
+-- CTAS set numsegments with DEFAULT,
+-- let it be a fixed value to get stable output
+set gp_create_table_default_numsegments to 'any';
+set gp_create_table_any_numsegments to 2;
 create table t as table t1;
 NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column(s) named 'c1, c2' as the Greenplum Database data distribution key for this table.
 HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.

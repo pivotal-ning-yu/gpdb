@@ -106,45 +106,95 @@ analyze t1;
 select max(c1) as v, 1 as r from t2 union all select 1 as v, 2 as r;
 
 --
--- create table
+-- create table: LIKE, INHERITS and DISTRIBUTED BY
 --
+-- in below cases t.numsegments is decideded in the order of:
+-- - distributedBy.numsegments = default.numsegments = 3;
+-- - inherits.numsegments = t2.numsegments = 2;
+-- - like.numsegments = d1.numsegments = 1;
+--
+-- this is the same decision order as the distribution policy.
 
--- like.numsegments = t1.numsegments = 1
--- t.numsegments should equal to like.numsegments
-create table t (like t1);
+set gp_create_table_default_numsegments to full;
+
+-- none of the clauses
+create table t ();
 select localoid::regclass, attrnums, policytype, numsegments
 	from gp_distribution_policy where localoid in ('t'::regclass);
 drop table t;
+
+-- DISTRIBUTED BY only
+create table t () distributed randomly;
+select localoid::regclass, attrnums, policytype, numsegments
+	from gp_distribution_policy where localoid in ('t'::regclass);
+drop table t;
+
+-- INHERITS only
+create table t () inherits (t2);
+select localoid::regclass, attrnums, policytype, numsegments
+	from gp_distribution_policy where localoid in ('t'::regclass);
+drop table t;
+
+-- LIKE only
+create table t (like d1);
+select localoid::regclass, attrnums, policytype, numsegments
+	from gp_distribution_policy where localoid in ('t'::regclass);
+drop table t;
+
+-- DISTRIBUTED BY + INHERITS
+create table t () inherits (t2) distributed randomly;
+select localoid::regclass, attrnums, policytype, numsegments
+	from gp_distribution_policy where localoid in ('t'::regclass);
+drop table t;
+
+-- DISTRIBUTED BY + LIKE
+create table t (like d1) distributed randomly;
+select localoid::regclass, attrnums, policytype, numsegments
+	from gp_distribution_policy where localoid in ('t'::regclass);
+drop table t;
+
+-- INHERITS + LIKE
+create table t (like d1) inherits (t2);
+select localoid::regclass, attrnums, policytype, numsegments
+	from gp_distribution_policy where localoid in ('t'::regclass);
+drop table t;
+
+-- DISTRIBUTED BY + INHERITS + LIKE
+create table t (like d1) inherits (t2) distributed randomly;
+select localoid::regclass, attrnums, policytype, numsegments
+	from gp_distribution_policy where localoid in ('t'::regclass);
+drop table t;
+
+reset gp_create_table_default_numsegments;
+
+--
+-- create table: INHERITS from multiple parents
+--
+
+set gp_create_table_default_numsegments to full;
+
+-- t.numsegments should be the max numsegments of the parents.
+create table t () inherits (r1, t2);
+select localoid::regclass, attrnums, policytype, numsegments
+	from gp_distribution_policy where localoid in ('t'::regclass);
+drop table t;
+
+-- but if there is DISTRIBUTED BY clause then use DEFAULT numsegments.
+create table t () inherits (r1, t2) distributed by (c1);
+select localoid::regclass, attrnums, policytype, numsegments
+	from gp_distribution_policy where localoid in ('t'::regclass);
+drop table t;
+
+reset gp_create_table_default_numsegments;
+
+--
+-- create table: CTAS
+--
 
 -- CTAS set numsegments with DEFAULT,
 -- let it be a fixed value to get stable output
 set gp_create_table_default_numsegments to 'any';
 set gp_create_table_any_numsegments to 2;
-
--- like.numsegments = t1.numsegments = 1
--- distributedBy.numsegments = default.numsegments = 3
--- t.numsegments should equal to like.numsegments
-create table t (like t1) distributed randomly;
-select localoid::regclass, attrnums, policytype, numsegments
-	from gp_distribution_policy where localoid in ('t'::regclass);
-drop table t;
-
--- like.numsegments = t1.numsegments = 1
--- inherits.numsegments = t1.numsegments = 1
--- distributedBy.numsegments = default.numsegments = 3
--- t.numsegments should equal to like.numsegments
-create table t (like t1) inherits (t1) distributed randomly;
-select localoid::regclass, attrnums, policytype, numsegments
-	from gp_distribution_policy where localoid in ('t'::regclass);
-drop table t;
-
--- like.numsegments = t1.numsegments = 1
--- inherits.numsegments = t2.numsegments = 2
--- t.numsegments should equal to like.numsegments
-create table t (like t1) inherits (t2);
-select localoid::regclass, attrnums, policytype, numsegments
-	from gp_distribution_policy where localoid in ('t'::regclass);
-drop table t;
 
 create table t as table t1;
 select localoid::regclass, attrnums, policytype, numsegments
