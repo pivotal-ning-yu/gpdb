@@ -4251,13 +4251,13 @@ decideNumsegments(CreateStmtContext *cxt,
 {
 	int			numsegments;
 
-	AssertImply(distributedBy,
-				distributedBy->numsegments == -1);
 	AssertImply(likeDistributedBy,
 				likeDistributedBy->numsegments != -1);
 
 	if (distributedBy)
-		numsegments = GP_POLICY_DEFAULT_NUMSEGMENTS;
+		numsegments = (distributedBy->numsegments > 0 ?
+					   distributedBy->numsegments :
+					   GP_POLICY_DEFAULT_NUMSEGMENTS);
 	else if (cxt->inhRelations)
 		numsegments = decideNumsegmentsFromInherits(cxt->inhRelations);
 	else if (likeDistributedBy)
