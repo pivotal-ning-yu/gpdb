@@ -4,12 +4,13 @@
  * Parameter combination tests
  * Improve code coverage tests
  */
--- start_ignore
-CREATE EXTENSION IF NOT EXISTS gp_inject_fault;
--- end_ignore
 
 CREATE SCHEMA ic_udp_test;
 SET search_path = ic_udp_test;
+
+-- start_ignore
+CREATE EXTENSION IF NOT EXISTS gp_inject_fault;
+-- end_ignore
 
 -- Prepare some tables
 CREATE TABLE small_table(dkey INT, jkey INT, rval REAL, tval TEXT default 'abcdefghijklmnopqrstuvwxyz') DISTRIBUTED BY (dkey);
@@ -184,9 +185,6 @@ SET gp_interconnect_queue_depth TO 4097; -- ERROR
 -- Cleanup
 DROP TABLE small_table;
 DROP TABLE a;
-
-RESET search_path;
-DROP SCHEMA ic_udp_test CASCADE;
 
 /*
  * If ack packet is lost in doSendStopMessageUDPIFC(), transaction with cursor

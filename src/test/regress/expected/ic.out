@@ -4,11 +4,11 @@
  * Parameter combination tests
  * Improve code coverage tests
  */
+CREATE SCHEMA ic_udp_test;
+SET search_path = ic_udp_test;
 -- start_ignore
 CREATE EXTENSION IF NOT EXISTS gp_inject_fault;
 -- end_ignore
-CREATE SCHEMA ic_udp_test;
-SET search_path = ic_udp_test;
 -- Prepare some tables
 CREATE TABLE small_table(dkey INT, jkey INT, rval REAL, tval TEXT default 'abcdefghijklmnopqrstuvwxyz') DISTRIBUTED BY (dkey);
 INSERT INTO small_table VALUES(generate_series(1, 500), generate_series(501, 1000), sqrt(generate_series(501, 1000)));
@@ -449,8 +449,6 @@ ERROR:  4097 is outside the valid range for parameter "gp_interconnect_queue_dep
 -- Cleanup
 DROP TABLE small_table;
 DROP TABLE a;
-RESET search_path;
-DROP SCHEMA ic_udp_test CASCADE;
 /*
  * If ack packet is lost in doSendStopMessageUDPIFC(), transaction with cursor
  * should still be able to commit.
