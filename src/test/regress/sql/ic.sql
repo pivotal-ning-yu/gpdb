@@ -4,13 +4,12 @@
  * Parameter combination tests
  * Improve code coverage tests
  */
-
-CREATE SCHEMA ic_udp_test;
-SET search_path = ic_udp_test;
-
 -- start_ignore
 CREATE EXTENSION IF NOT EXISTS gp_inject_fault;
 -- end_ignore
+
+CREATE SCHEMA ic_udp_test;
+SET search_path = ic_udp_test,public;
 
 -- Prepare some tables
 CREATE TABLE small_table(dkey INT, jkey INT, rval REAL, tval TEXT default 'abcdefghijklmnopqrstuvwxyz') DISTRIBUTED BY (dkey);
