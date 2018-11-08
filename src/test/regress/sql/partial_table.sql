@@ -105,6 +105,10 @@ analyze t1;
 -- append SingleQE of different sizes
 select max(c1) as v, 1 as r from t2 union all select 1 as v, 2 as r;
 
+:explain select * from t1, t2
+   where t1.c1 > any (select max(t2.c1) from t2 where t2.c2 = t1.c2)
+     and t2.c1 > any (select max(t1.c1) from t1 where t1.c2 = t2.c2);
+
 --
 -- create table: LIKE, INHERITS and DISTRIBUTED BY
 --
@@ -435,7 +439,86 @@ drop table t;
 :explain select * from r2 a left join d2 b using (c1, c2);
 :explain select * from r2 a left join r2 b using (c1);
 :explain select * from r2 a left join r2 b using (c1, c2);
-:explain select * from t1, t2 where t1.c1 > any (select max(t2.c1) from t2 where t2.c2 = t1.c2) and t2.c1 > any(select max(c1) from t1 where t1.c2 = t2.c2);
+
+-- x1 full join y1
+:explain select * from t1 a full join t1 b using (c1);
+:explain select * from t1 a full join t1 b using (c1, c2);
+:explain select * from t1 a full join d1 b using (c1);
+:explain select * from t1 a full join d1 b using (c1, c2);
+:explain select * from t1 a full join r1 b using (c1);
+:explain select * from t1 a full join r1 b using (c1, c2);
+:explain select * from d1 a full join t1 b using (c1);
+:explain select * from d1 a full join t1 b using (c1, c2);
+:explain select * from d1 a full join d1 b using (c1);
+:explain select * from d1 a full join d1 b using (c1, c2);
+:explain select * from d1 a full join r1 b using (c1);
+:explain select * from d1 a full join r1 b using (c1, c2);
+:explain select * from r1 a full join t1 b using (c1);
+:explain select * from r1 a full join t1 b using (c1, c2);
+:explain select * from r1 a full join d1 b using (c1);
+:explain select * from r1 a full join d1 b using (c1, c2);
+:explain select * from r1 a full join r1 b using (c1);
+:explain select * from r1 a full join r1 b using (c1, c2);
+
+-- x1 full join y2
+:explain select * from t1 a full join t2 b using (c1);
+:explain select * from t1 a full join t2 b using (c1, c2);
+:explain select * from t1 a full join d2 b using (c1);
+:explain select * from t1 a full join d2 b using (c1, c2);
+:explain select * from t1 a full join r2 b using (c1);
+:explain select * from t1 a full join r2 b using (c1, c2);
+:explain select * from d1 a full join t2 b using (c1);
+:explain select * from d1 a full join t2 b using (c1, c2);
+:explain select * from d1 a full join d2 b using (c1);
+:explain select * from d1 a full join d2 b using (c1, c2);
+:explain select * from d1 a full join r2 b using (c1);
+:explain select * from d1 a full join r2 b using (c1, c2);
+:explain select * from r1 a full join t2 b using (c1);
+:explain select * from r1 a full join t2 b using (c1, c2);
+:explain select * from r1 a full join d2 b using (c1);
+:explain select * from r1 a full join d2 b using (c1, c2);
+:explain select * from r1 a full join r2 b using (c1);
+:explain select * from r1 a full join r2 b using (c1, c2);
+
+-- x2 full join y1
+:explain select * from t2 a full join t1 b using (c1);
+:explain select * from t2 a full join t1 b using (c1, c2);
+:explain select * from t2 a full join d1 b using (c1);
+:explain select * from t2 a full join d1 b using (c1, c2);
+:explain select * from t2 a full join r1 b using (c1);
+:explain select * from t2 a full join r1 b using (c1, c2);
+:explain select * from d2 a full join t1 b using (c1);
+:explain select * from d2 a full join t1 b using (c1, c2);
+:explain select * from d2 a full join d1 b using (c1);
+:explain select * from d2 a full join d1 b using (c1, c2);
+:explain select * from d2 a full join r1 b using (c1);
+:explain select * from d2 a full join r1 b using (c1, c2);
+:explain select * from r2 a full join t1 b using (c1);
+:explain select * from r2 a full join t1 b using (c1, c2);
+:explain select * from r2 a full join d1 b using (c1);
+:explain select * from r2 a full join d1 b using (c1, c2);
+:explain select * from r2 a full join r1 b using (c1);
+:explain select * from r2 a full join r1 b using (c1, c2);
+
+-- x2 full join y2
+:explain select * from t2 a full join t2 b using (c1);
+:explain select * from t2 a full join t2 b using (c1, c2);
+:explain select * from t2 a full join d2 b using (c1);
+:explain select * from t2 a full join d2 b using (c1, c2);
+:explain select * from t2 a full join r2 b using (c1);
+:explain select * from t2 a full join r2 b using (c1, c2);
+:explain select * from d2 a full join t2 b using (c1);
+:explain select * from d2 a full join t2 b using (c1, c2);
+:explain select * from d2 a full join d2 b using (c1);
+:explain select * from d2 a full join d2 b using (c1, c2);
+:explain select * from d2 a full join r2 b using (c1);
+:explain select * from d2 a full join r2 b using (c1, c2);
+:explain select * from r2 a full join t2 b using (c1);
+:explain select * from r2 a full join t2 b using (c1, c2);
+:explain select * from r2 a full join d2 b using (c1);
+:explain select * from r2 a full join d2 b using (c1, c2);
+:explain select * from r2 a full join r2 b using (c1);
+:explain select * from r2 a full join r2 b using (c1, c2);
 
 --
 -- insert
