@@ -1916,6 +1916,7 @@ transformDistributedBy(CreateStmtContext *cxt,
 				distributedBy = make_distributedby_for_rel(parentrel);
 				heap_close(parentrel, AccessShareLock);
 
+				distributedBy->numsegments = numsegments;
 				return distributedBy;
 			}
 			heap_close(parentrel, AccessShareLock);
