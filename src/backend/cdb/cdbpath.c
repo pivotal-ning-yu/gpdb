@@ -1361,8 +1361,12 @@ cdbpath_motion_for_join(PlannerInfo *root,
 		if (large_rel->bytes < small_rel->bytes)
 			CdbSwap(CdbpathMfjRel *, large_rel, small_rel);
 
-		/* Both side are distribued in 1 segment, it can join without motion. */
-		if (CdbPathLocus_NumSegments(large_rel->locus) == 1 &&
+		/*
+		 * Both side are distribued in 1 segment, it can join without motion
+		 * unless it is FULL JOIN.
+		 */
+		if (jointype != JOIN_FULL &&
+			CdbPathLocus_NumSegments(large_rel->locus) == 1 &&
 			CdbPathLocus_NumSegments(small_rel->locus) == 1)
 			return large_rel->locus;
 
