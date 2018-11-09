@@ -109,6 +109,14 @@ select max(c1) as v, 1 as r from t2 union all select 1 as v, 2 as r;
    where t1.c1 > any (select max(t2.c1) from t2 where t2.c2 = t1.c2)
      and t2.c1 > any (select max(t1.c1) from t1 where t1.c2 = t2.c2);
 
+-- reorganize data, should use numsegments from original table
+set gp_create_table_default_numsegments to minimal;
+create table t as values (1), (2);
+set gp_create_table_default_numsegments to full;
+alter table t set with (reorganize=true) distributed by (column1);
+select gp_segment_id, * from t;
+drop table t;
+
 --
 -- create table: LIKE, INHERITS and DISTRIBUTED BY
 --
