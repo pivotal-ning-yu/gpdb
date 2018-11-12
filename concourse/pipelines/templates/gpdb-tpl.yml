@@ -1281,7 +1281,6 @@ jobs:
           dispatch
           distributed_transactions
           explain_format
-          external_table
           freeze_aux_tables
           gp_aggregates
           gp_tablespace
@@ -1392,7 +1391,6 @@ jobs:
           dispatch
           distributed_transactions
           explain_format
-          external_table
           freeze_aux_tables
           gp_aggregates
           gp_tablespace
