@@ -192,21 +192,43 @@ select max(c1) as v, 1 as r from t2 union all select 1 as v, 2 as r;
  Total runtime: 14.189 ms
 (30 rows)
 
--- reorganize data, should use numsegments from original table
-set gp_create_table_default_numsegments to minimal;
-create table t as values (1), (2);
-NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column(s) named 'column1' as the Greenplum Database data distribution key for this table.
-HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.
-set gp_create_table_default_numsegments to full;
-alter table t set with (reorganize=true) distributed by (column1);
-select gp_segment_id, * from t;
- gp_segment_id | column1 
----------------+---------
-             0 |       1
-             0 |       2
-(2 rows)
+-- a temp table is created during reorganization, its numsegments should be
+-- the same with original table, otherwise some data will be lost after the
+-- reorganization.
+begin;
+	insert into t1 select i, i from generate_series(1,10) i;
+	select gp_segment_id, * from t1;
+ gp_segment_id | c1 | c2 | c3 | c4 
+---------------+----+----+----+----
+             0 |  1 |  1 |    |   
+             0 |  2 |  2 |    |   
+             0 |  3 |  3 |    |   
+             0 |  4 |  4 |    |   
+             0 |  5 |  5 |    |   
+             0 |  6 |  6 |    |   
+             0 |  7 |  7 |    |   
+             0 |  8 |  8 |    |   
+             0 |  9 |  9 |    |   
+             0 | 10 | 10 |    |   
+(10 rows)
 
-drop table t;
+	alter table t1 set with (reorganize=true) distributed by (c1);
+	select gp_segment_id, * from t1;
+ gp_segment_id | c1 | c2 | c3 | c4 
+---------------+----+----+----+----
+             0 |  1 |  1 |    |   
+             0 |  2 |  2 |    |   
+             0 |  3 |  3 |    |   
+             0 |  4 |  4 |    |   
+             0 |  5 |  5 |    |   
+             0 |  6 |  6 |    |   
+             0 |  7 |  7 |    |   
+             0 |  8 |  8 |    |   
+             0 |  9 |  9 |    |   
+             0 | 10 | 10 |    |   
+(10 rows)
+
+abort;
 -- append node should use the max numsegments of all the subpaths
 begin;
 	truncate t1;

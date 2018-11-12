@@ -109,13 +109,15 @@ select max(c1) as v, 1 as r from t2 union all select 1 as v, 2 as r;
    where t1.c1 > any (select max(t2.c1) from t2 where t2.c2 = t1.c2)
      and t2.c1 > any (select max(t1.c1) from t1 where t1.c2 = t2.c2);
 
--- reorganize data, should use numsegments from original table
-set gp_create_table_default_numsegments to minimal;
-create table t as values (1), (2);
-set gp_create_table_default_numsegments to full;
-alter table t set with (reorganize=true) distributed by (column1);
-select gp_segment_id, * from t;
-drop table t;
+-- a temp table is created during reorganization, its numsegments should be
+-- the same with original table, otherwise some data will be lost after the
+-- reorganization.
+begin;
+	insert into t1 select i, i from generate_series(1,10) i;
+	select gp_segment_id, * from t1;
+	alter table t1 set with (reorganize=true) distributed by (c1);
+	select gp_segment_id, * from t1;
+abort;
 
 -- append node should use the max numsegments of all the subpaths
 begin;
