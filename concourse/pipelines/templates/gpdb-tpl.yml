@@ -1306,7 +1306,6 @@ jobs:
           qp_dropped_cols
           qp_functions_in_from
           qp_functions_in_subquery
-          qp_gist_indexes2
           qp_misc_jiras
           qp_targeted_dispatch
           qp_with_functional_inlining
@@ -1415,7 +1414,6 @@ jobs:
           qp_dropped_cols
           qp_functions_in_from
           qp_functions_in_subquery
-          qp_gist_indexes2
           qp_misc_jiras
           qp_targeted_dispatch
           qp_with_functional_inlining
