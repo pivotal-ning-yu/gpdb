@@ -3,6 +3,10 @@
 -- TODO: ao tables
 -- TODO: tables and temp tables
 
+-- start_matchignore
+-- m/^NOTICE:  Using default RANDOM distribution since no distribution was specified.$/
+-- end_matchignore
+
 \set explain 'explain analyze'
 
 drop schema if exists test_partial_table;
@@ -219,10 +223,36 @@ reset gp_create_table_default_numsegments;
 -- create table: CTAS
 --
 
--- CTAS set numsegments with DEFAULT,
--- let it be a fixed value to get stable output
-set gp_create_table_default_numsegments to 'any';
-set gp_create_table_any_numsegments to 2;
+-- CTAS has different behavior in planner mode and orca mode:
+--
+-- - in planner mode the dist policy inherits from the source table,
+--   numsegments is set with DEFAULT;
+-- - in orca mode the dist policy is always NULL and numsegments is always FULL;
+--
+-- adjust the GUCs to simulate orca behaviors to get stable output.
+set gp_create_table_default_numsegments to full;
+set gp_create_table_random_default_distribution to on;
+
+create table t as values (1, 2), (3, 4);
+select localoid::regclass, attrnums, policytype, numsegments
+	from gp_distribution_policy where localoid in ('t'::regclass);
+drop table t;
+
+create table t as values (1, 2), (3, 4) distributed by (column1, column2);
+select localoid::regclass, attrnums, policytype, numsegments
+	from gp_distribution_policy where localoid in ('t'::regclass);
+drop table t;
+
+create table t as select i as c1, 0 as c2 from generate_series(1, 10) i;
+select localoid::regclass, attrnums, policytype, numsegments
+	from gp_distribution_policy where localoid in ('t'::regclass);
+drop table t;
+
+create table t as select i as c1, 0 as c2 from generate_series(1, 10) i
+	distributed by (c1, c2);
+select localoid::regclass, attrnums, policytype, numsegments
+	from gp_distribution_policy where localoid in ('t'::regclass);
+drop table t;
 
 create table t as table t1;
 select localoid::regclass, attrnums, policytype, numsegments
@@ -255,6 +285,7 @@ select localoid::regclass, attrnums, policytype, numsegments
 drop table t;
 
 reset gp_create_table_default_numsegments;
+reset gp_create_table_random_default_distribution;
 
 --
 -- alter table
