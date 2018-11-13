@@ -284,12 +284,25 @@ apply_motion(PlannerInfo *root, Plan *plan, Query *query)
 				List	   *hashExpr;
 				ListCell   *exp1;
 
-				/*
-				 * In CTAS the source distribution policy is not inherited,
-				 * always set numsegments to DEFAULT unless a DISTRIBUTED BY
-				 * clause is specified.
-				 */
-				numsegments = GP_POLICY_DEFAULT_NUMSEGMENTS;
+				if (optimizer)
+				{
+					/*
+					 * When falling back from orca we want to follow orca's
+					 * behavior on CTAS, always create tables on ALL segments
+					 * randomly distributed unless a DISTRIBUTED BY clause is
+					 * specified.
+					 */
+					numsegments = GP_POLICY_ALL_NUMSEGMENTS;
+				}
+				else
+				{
+					/*
+					 * In CTAS the source distribution policy is not inherited,
+					 * always set numsegments to DEFAULT unless a DISTRIBUTED BY
+					 * clause is specified.
+					 */
+					numsegments = GP_POLICY_DEFAULT_NUMSEGMENTS;
+				}
 
 				if (query->intoPolicy != NULL)
 				{
@@ -298,6 +311,15 @@ apply_motion(PlannerInfo *root, Plan *plan, Query *query)
 					Assert(query->intoPolicy->ptype != POLICYTYPE_ENTRY);
 					Assert(query->intoPolicy->nattrs >= 0);
 					Assert(query->intoPolicy->nattrs <= MaxPolicyAttributeNumber);
+				}
+				else if (optimizer)
+				{
+					/*
+					 * When falling back from ORCA we always create tabls
+					 * randomly distributed unless a DISTRIBUTED BY clause is
+					 * specified.  Do not generate a NOTICE in such a case.
+					 */
+					targetPolicy = createRandomPartitionedPolicy(numsegments);
 				}
 				else if (gp_create_table_random_default_distribution)
 				{
