@@ -3,7 +3,9 @@
 
 -- First, create some helper functions.
 
+set gp_create_table_default_numsegments to full;
 CREATE TEMPORARY TABLE dummytable (id int4) distributed randomly;
+reset gp_create_table_default_numsegments;
 
 CREATE FUNCTION advance_xid_counter(n integer) RETURNS void as $$
 declare
