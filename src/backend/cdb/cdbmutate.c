@@ -312,8 +312,16 @@ apply_motion(PlannerInfo *root, Plan *plan, Query *query)
 					Assert(query->intoPolicy->nattrs >= 0);
 					Assert(query->intoPolicy->nattrs <= MaxPolicyAttributeNumber);
 				}
-				else if (gp_create_table_random_default_distribution ||
-						 optimizer)
+				else if (optimizer)
+				{
+					/*
+					 * When falling back from ORCA we always create tabls
+					 * randomly distributed unless a DISTRIBUTED BY clause is
+					 * specified.  Do not generate a NOTICE in such a case.
+					 */
+					targetPolicy = createRandomPartitionedPolicy(numsegments);
+				}
+				else if (gp_create_table_random_default_distribution)
 				{
 					targetPolicy = createRandomPartitionedPolicy(numsegments);
 					ereport(NOTICE,
