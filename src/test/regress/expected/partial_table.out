@@ -84,8 +84,7 @@ analyze t1;
 --
 -- append node should use the max numsegments of all the subpaths
 begin;
-	truncate t1;
-	truncate t2;
+	-- insert enough data to ensure executors got reached on segments
 	insert into t1 select i from generate_series(1,100) i;
 	insert into t2 select i from generate_series(1,100) i;
 	:explain  select * from t2 a join t2 b using(c2)
