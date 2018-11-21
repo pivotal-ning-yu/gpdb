@@ -317,6 +317,7 @@ typedef struct _tableInfo
 	 * (it's either a table to dump, or a direct parent of a dumpable table).
 	 */
 	int			numatts;		/* number of attributes */
+	int			numsegments;	/* number of segments */
 	char	  **attnames;		/* the attribute names */
 	char	  **atttypnames;	/* attribute type names */
 	int		   *atttypmod;		/* type-specific type modifiers */

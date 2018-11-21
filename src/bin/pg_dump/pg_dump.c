@@ -324,6 +324,7 @@ static bool testAttributeEncodingSupport(Archive *fout);
 
 static char *nextToken(register char **stringp, register const char *delim);
 static void addDistributedBy(Archive *fout, PQExpBuffer q, TableInfo *tbinfo, int actual_atts);
+static void updateNumsegments(Archive *fout, PQExpBuffer q, TableInfo *tbinfo);
 static bool isGPDB4300OrLater(Archive *fout);
 static bool isGPDB(Archive *fout);
 static bool isGPDB5000OrLater(Archive *fout);
@@ -14062,6 +14063,8 @@ dumpExternal(Archive *fout, TableInfo *tbinfo, PQExpBuffer q, PQExpBuffer delq)
 
 		appendPQExpBufferStr(q, ";\n");
 
+		updateNumsegments(fout, q, tbinfo);
+
 		PQclear(res);
 
 
@@ -14626,6 +14629,8 @@ dumpTableSchema(Archive *fout, TableInfo *tbinfo)
 		}
 		else
 			appendPQExpBufferStr(q, ";\n");
+
+		updateNumsegments(fout, q, tbinfo);
 
 		/*
 		 * Exchange external partitions. This is an expensive process, so only
@@ -16979,15 +16984,18 @@ addDistributedBy(Archive *fout, PQExpBuffer q, TableInfo *tbinfo, int actual_att
 	char	   policytype;
 	char	   *policydef;
 	char	   *policycol;
+	char	   *numsegments_str;
 
 	if (isGPDB6000OrLater(fout))
 		appendPQExpBuffer(query,
-						  "SELECT attrnums, policytype FROM gp_distribution_policy as p "
+						  "SELECT attrnums, policytype, numsegments FROM gp_distribution_policy as p "
 						  "WHERE p.localoid = %u",
 						  tbinfo->dobj.catId.oid);
 	else
 		appendPQExpBuffer(query,
-						  "SELECT attrnums, 'p' as policytype FROM gp_distribution_policy as p "
+						  "SELECT attrnums, 'p' as policytype, s.numsegments "
+						  "FROM gp_distribution_policy as p, "
+						  "     gp_toolkit.__gp_number_of_segments as s "
 						  "WHERE p.localoid = %u",
 						  tbinfo->dobj.catId.oid);
 
@@ -17032,6 +17040,11 @@ addDistributedBy(Archive *fout, PQExpBuffer q, TableInfo *tbinfo, int actual_att
 		 */
 		policydef = PQgetvalue(res, 0, 0);
 		policytype = *(char *)PQgetvalue(res, 0, 1);
+		numsegments_str = PQgetvalue(res, 0, 2);
+
+		Assert(numsegments_str != NULL &&
+			   numsegments_str[0] != 0);
+		tbinfo->numsegments = atoi(numsegments_str);
 
 		if (policytype == SYM_POLICYTYPE_REPLICATED)
 		{
@@ -17062,6 +17075,25 @@ addDistributedBy(Archive *fout, PQExpBuffer q, TableInfo *tbinfo, int actual_att
 
 	PQclear(res);
 	destroyPQExpBuffer(query);
+}
+
+/*
+ *	updateNumsegments
+ *
+ *  update the numsegments of the passed in relation.  Must be executed after
+ *  the CREATE TABLE command.
+ */
+static void
+updateNumsegments(Archive *fout, PQExpBuffer q, TableInfo *tbinfo)
+{
+	appendPQExpBuffer(q,
+					  "SET allow_system_table_mods = true;\n"
+					  "UPDATE gp_distribution_policy\n"
+					  "   SET numsegments = %d\n"
+					  " WHERE localoid = '%s'::regclass;\n"
+					  "RESET allow_system_table_mods;\n",
+					  tbinfo->numsegments,
+					  tbinfo->dobj.name);
 }
 
 /*
