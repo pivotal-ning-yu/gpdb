@@ -72,7 +72,8 @@ FOREIGN_KEY(localoid REFERENCES pg_class(oid));
  * A random set of segments, the value is different on each call.
  */
 #define GP_POLICY_RANDOM_NUMSEGMENTS		\
-	cdb_randint(GP_POLICY_ALL_NUMSEGMENTS, GP_POLICY_MINIMAL_NUMSEGMENTS)
+	(GP_POLICY_MINIMAL_NUMSEGMENTS + \
+	 random() % (GP_POLICY_ALL_NUMSEGMENTS - GP_POLICY_MINIMAL_NUMSEGMENTS + 1))
 
 /*
  * Default set of segments, the value is controlled by the GUC
