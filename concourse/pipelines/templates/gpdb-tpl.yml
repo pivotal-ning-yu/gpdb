@@ -1341,7 +1341,8 @@ jobs:
           workfile/sisc_mat_sort
           workfile/sisc_sort_spill
           workfile/sort_spill
-          workfile/spilltodisk'"
+          workfile/spilltodisk
+          writer_aborts_reader'"
         EXTRA_REGRESS_OPTS='--ignore-plans'
       TEST_OS: centos
       TEST_BINARY_SWAP: false
@@ -1450,7 +1451,8 @@ jobs:
           workfile/sisc_mat_sort
           workfile/sisc_sort_spill
           workfile/sort_spill
-          workfile/spilltodisk'"
+          workfile/spilltodisk
+          writer_aborts_reader'"
         EXTRA_REGRESS_OPTS='--ignore-plans'
       TEST_OS: centos
       TEST_BINARY_SWAP: false
