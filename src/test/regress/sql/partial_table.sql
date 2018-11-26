@@ -71,6 +71,10 @@ begin;
 	union all select * from t2 c join t2 d using(c2) ;
 abort;
 
+:explain select * from t1, t2
+   where t1.c1 > any (select max(t2.c1) from t2 where t2.c2 = t1.c2)
+     and t2.c1 > any (select max(t1.c1) from t1 where t1.c2 = t2.c2);
+
 --
 -- create table: LIKE, INHERITS and DISTRIBUTED BY
 --
@@ -389,7 +393,6 @@ select gp_debug_reset_create_table_default_numsegments();
 :explain select * from r2 a left join d2 b using (c1, c2);
 :explain select * from r2 a left join r2 b using (c1);
 :explain select * from r2 a left join r2 b using (c1, c2);
-:explain select * from t1, t2 where t1.c1 > any (select max(t2.c1) from t2 where t2.c2 = t1.c2) and t2.c1 > any(select max(c1) from t1 where t1.c2 = t2.c2);
 
 --
 -- insert
