@@ -66,7 +66,8 @@ Feature: Validate command line arguments
 
     @nbupartI
     @ddpartI
-    Scenario: 5a Full Backup and Restore
+    @skip_filename_compatibility
+    Scenario: 5a Full Backup and Restore with constraints
         Given the old timestamps are read from json
         When the user runs gpdbrestore -e with the stored timestamp
         Then gpdbrestore should return a return code of 0
@@ -74,6 +75,8 @@ Feature: Validate command line arguments
         And verify that there is a "ao" table "public.ao_part_table" in "bkdb5a" with data
         And verify that report file is generated in master_data_directory
         And verify that status file is generated in segment_data_directory
+        And verify that the "restore_report" file in " " dir does not contain "ERROR"
+        And verify that the "restore_status" file in " " dir does not contain "ERROR"
         And verify that there is a constraint "check_constraint_no_domain" in "bkdb5a"
         And verify that there is a constraint "check_constraint_with_domain" in "bkdb5a"
         And verify that there is a constraint "unique_constraint" in "bkdb5a"

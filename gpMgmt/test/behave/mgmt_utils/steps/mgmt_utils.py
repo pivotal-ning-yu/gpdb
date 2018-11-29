@@ -1183,6 +1183,9 @@ def verify_file_contents(context, file_type, file_dir, text_find, should_contain
     if not hasattr(context, "dump_prefix"):
         context.dump_prefix = ''
 
+    file_dir = get_dump_dir(context, file_dir)
+    subdirectory = context.backup_timestamp[0:8]
+
     if file_type == 'pg_dump_log':
         fn = 'pg_dump_log'
         context.backup_timestamp = '0'
@@ -1200,12 +1203,17 @@ def verify_file_contents(context, file_type, file_dir, text_find, should_contain
         fn = '%sgp_cdatabase_*_1_%s' % (context.dump_prefix, context.backup_timestamp)
     elif file_type == 'dump':
         fn = '%sgp_dump_*_1_%s.gz' % (context.dump_prefix, context.backup_timestamp)
+    elif file_type == 'restore_status':
+        fn = '%sgp_restore_status_*_1_%s' % (context.dump_prefix, context.backup_timestamp)
+        file_dir = master_data_dir
+    elif file_type == 'restore_report':
+        fn = '%sgp_restore_%s.rpt' % (context.dump_prefix, context.backup_timestamp)
+        file_dir = master_data_dir
 
-    file_dir = get_dump_dir(context, file_dir)
-    subdirectory = context.backup_timestamp[0:8]
-
-    if file_type == 'pg_dump_log':
+    if file_type == 'pg_dump_log' or file_type == 'restore_report':
         full_path = os.path.join(file_dir, fn)
+    elif file_type == 'restore_status':
+        full_path = glob.glob(os.path.join(file_dir, fn))[0]
     else:
         full_path = glob.glob(os.path.join(file_dir, subdirectory, fn))[0]
 
