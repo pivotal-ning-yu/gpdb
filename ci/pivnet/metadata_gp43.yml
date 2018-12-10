@@ -351,7 +351,10 @@ file_groups:
 
 - name: Greenplum Data Direct Drivers
   product_files:
-    - file: s3://gpdb5-release-builds/data_direct/greenplum.jar
+    # Documentation for how to update this artifact:
+    # gp-release/README.md
+    - file: s3://gpdb5-release-builds/data_direct/jdbc/5.1.4.000183/greenplum.jar
+      file_version: 5.1.4.000183
       upload_as: Greenplum Database JDBC Driver
       description:
       file_type: Software
@@ -359,7 +362,6 @@ file_groups:
       system_requirements:
       platforms:
       included_files:
-      file_version:
     - file: s3://gpdb5-release-builds/data_direct/PROGRESS_DATADIRECT_CONNECT_ODBC_(.*).HOTFIX_AIX_32.tar.Z
       upload_as: Greenplum Database ODBC Driver AIX 32
       description:
