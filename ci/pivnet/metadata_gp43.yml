@@ -362,7 +362,8 @@ file_groups:
       system_requirements:
       platforms:
       included_files:
-    - file: s3://gpdb5-release-builds/data_direct/PROGRESS_DATADIRECT_CONNECT_ODBC_(.*).HOTFIX_AIX_32.tar.Z
+    - file: s3://gpdb5-release-builds/data_direct/PROGRESS_DATADIRECT_CONNECT_ODBC_7.1.6.HOTFIX_AIX_32.tar.Z
+      file_version: 7.1.6
       upload_as: Greenplum Database ODBC Driver AIX 32
       description:
       file_type: Software
@@ -370,8 +371,8 @@ file_groups:
       system_requirements:
       platforms:
       included_files:
-      file_version: ${VERSION_REGEX}
-    - file: s3://gpdb5-release-builds/data_direct/PROGRESS_DATADIRECT_CONNECT_ODBC_(.*).HOTFIX_LINUX_32.tar.Z
+    - file: s3://gpdb5-release-builds/data_direct/PROGRESS_DATADIRECT_CONNECT_ODBC_7.1.6.HOTFIX_LINUX_32.tar.Z
+      file_version: 7.1.6
       upload_as: Greenplum Database ODBC Driver Linux 32
       description:
       file_type: Software
@@ -379,8 +380,8 @@ file_groups:
       system_requirements:
       platforms:
       included_files:
-      file_version: ${VERSION_REGEX}
-    - file: s3://gpdb5-release-builds/data_direct/PROGRESS_DATADIRECT_CONNECT_ODBC_(.*).HOTFIX_WIN_32.zip
+    - file: s3://gpdb5-release-builds/data_direct/PROGRESS_DATADIRECT_CONNECT_ODBC_7.1.6.HOTFIX_WIN_32.zip
+      file_version: 7.1.6
       upload_as: Greenplum Database ODBC Driver Windows 32
       description:
       file_type: Software
@@ -388,8 +389,8 @@ file_groups:
       system_requirements:
       platforms:
       included_files:
-      file_version: ${VERSION_REGEX}
-    - file: s3://gpdb5-release-builds/data_direct/PROGRESS_DATADIRECT_CONNECT64_ODBC_(.*).HOTFIX_AIX_64.tar.Z
+    - file: s3://gpdb5-release-builds/data_direct/PROGRESS_DATADIRECT_CONNECT64_ODBC_7.1.6.HOTFIX_AIX_64.tar.Z
+      file_version: 7.1.6
       upload_as: Greenplum Database ODBC Driver AIX 64
       description:
       file_type: Software
@@ -397,8 +398,8 @@ file_groups:
       system_requirements:
       platforms:
       included_files:
-      file_version: ${VERSION_REGEX}
-    - file: s3://gpdb5-release-builds/data_direct/PROGRESS_DATADIRECT_CONNECT64_ODBC_(.*).HOTFIX_LINUX_64.tar.Z
+    - file: s3://gpdb5-release-builds/data_direct/PROGRESS_DATADIRECT_CONNECT64_ODBC_7.1.6.HOTFIX_LINUX_64.tar.Z
+      file_version: 7.1.6
       upload_as: Greenplum Database ODBC Driver Linux 64
       description:
       file_type: Software
@@ -406,8 +407,8 @@ file_groups:
       system_requirements:
       platforms:
       included_files:
-      file_version: ${VERSION_REGEX}
-    - file: s3://gpdb5-release-builds/data_direct/PROGRESS_DATADIRECT_CONNECT64_ODBC_(.*).HOTFIX_WIN_64.zip
+    - file: s3://gpdb5-release-builds/data_direct/PROGRESS_DATADIRECT_CONNECT64_ODBC_7.1.6.HOTFIX_WIN_64.zip
+      file_version: 7.1.6
       upload_as: Greenplum Database ODBC Driver Windows 64
       description:
       file_type: Software
@@ -415,7 +416,6 @@ file_groups:
       system_requirements:
       platforms:
       included_files:
-      file_version: ${VERSION_REGEX}
 
 - name: Greenplum Support Tools
   product_files:
