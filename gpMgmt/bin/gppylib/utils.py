@@ -2,10 +2,11 @@ import shutil, filecmp,re
 import os, fcntl, select, getpass, socket
 import stat
 from subprocess import *
-from sys import *
+import sys
 from xml.dom import minidom
 from xml.dom import Node
 
+from gppylib.db import dbconn
 from gppylib.gplog import *
 
 logger = get_default_logger()
@@ -701,3 +702,19 @@ def escapeDoubleQuoteInSQLString(string, forceDoubleQuote=True):
     if forceDoubleQuote:
         string = '"' + string + '"'
     return string
+
+
+def GpexpandRunningStatus():
+    dburl = dbconn.DbURL()
+    conn = dbconn.connect(dburl)
+    sql = "select * from gp_expand_get_status()"
+    code = dbconn.execSQLForSingletonRow(conn, sql)[0]
+    conn.close()
+    if code == 0:
+        return "not running"
+    elif code >= 100 and code < 200:
+        return "phase1"
+    elif code >= 200:
+        return "phase2"
+    else:
+        return "unknown gpexpand status"

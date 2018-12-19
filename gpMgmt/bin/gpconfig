@@ -15,6 +15,7 @@ try:
     from gppylib.commands.gp import *
     from gppylib.db import dbconn
     from gppylib.userinput import *
+    from gppylib.utils import GpexpandRunningStatus
     from pygresql.pg import DatabaseError
     from gpconfig_modules.segment_guc import SegmentGuc
     from gpconfig_modules.database_segment_guc import DatabaseSegmentGuc
@@ -500,7 +501,17 @@ def do_show(options):
 
 
 def do_main():
+    # gpconfig should first check gpexpand status
+    gpexpand_status = GpexpandRunningStatus()
+    if gpexpand_status == "phase1":
+        logger.error("Usage of %s is not supported while the cluster is in a reconfiguration state." % "gpcheckcat")
+        sys.exit(127)
+    elif gpexpand_status == "unknown gpexpand status":
+        logger.error("Unknown gpexpand status, stop %s" % "gpcheckcat")
+        sys.exit(127)
+
     options = parseargs()
+
     if options.list:
         do_list(options.skipvalidation)
 

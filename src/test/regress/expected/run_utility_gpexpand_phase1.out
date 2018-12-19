@@ -1,0 +1,14 @@
+-- start_matchsubs
+-- m/^.*-/
+-- s/^.*-//
+-- end_matchsubs
+\! echo 'EXPANSION_PREPARE_STARTED:<path> to inputfile' > $MASTER_DATA_DIRECTORY/gpexpand.status
+\! gpcheckcat
+Error: Usage of gpcheckcat is not supported while the cluster is in a reconfiguration state.
+\! gpcheck -h `hostname`
+20181226:11:32:28:032968 gpcheck:zlv:gpadmin-[ERROR]:-Usage of gpcheck is not supported while the cluster is in a reconfiguration state.
+\! gpconfig -c gp_resource_manager -v group
+20181226:11:32:28:032987 gpconfig:zlv:gpadmin-[ERROR]:-Usage of gpcheckcat is not supported while the cluster is in a reconfiguration state.
+\! gppkg
+20181226:11:32:28:033006 gppkg:default-[ERROR]:-Usage of gpcheckcat is not supported while the cluster is in a reconfiguration state.
+\! rm $MASTER_DATA_DIRECTORY/gpexpand.status

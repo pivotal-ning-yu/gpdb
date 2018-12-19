@@ -6,6 +6,16 @@
 # THIS IMPORT SHOULD COME FIRST
 from gppylib.mainUtils import *
 from gppylib.programs.gppkg import *
+from gppylib.utils import GpexpandRunningStatus
 
 if __name__ == '__main__':
+    # gppkg should check gpexpand status
+    gpexpand_status = GpexpandRunningStatus()
+    if gpexpand_status == "phase1":
+        logger.error("Usage of %s is not supported while the cluster is in a reconfiguration state." % "gpcheckcat")
+        sys.exit(127)
+    elif gpexpand_status == "unknown gpexpand status":
+        logger.error("Unknown gpexpand status, stop %s" % "gpcheckcat")
+        sys.exit(127)
+
     simple_main(GpPkgProgram.create_parser, GpPkgProgram.create_program)
