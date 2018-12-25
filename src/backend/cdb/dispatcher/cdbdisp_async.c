@@ -816,18 +816,21 @@ checkSegmentAlive(CdbDispatchCmdAsync *pParms)
 static inline void
 send_sequence_response(PGconn *conn, Oid oid, int64 last, int64 cached, int64 increment, bool overflow, bool error)
 {
-	pqPutMsgStart(SEQ_NEXTVAL_QUERY_RESPONSE, false, conn);
-	pqPutInt(oid, 4, conn);
-	pqPutInt(last >> 32, 4, conn);
-	pqPutInt(last, 4, conn);
-	pqPutInt(cached >> 32, 4, conn);
-	pqPutInt(cached, 4, conn);
-	pqPutInt(increment >> 32, 4, conn);
-	pqPutInt(increment, 4, conn);
-	pqPutc(overflow ? SEQ_NEXTVAL_TRUE : SEQ_NEXTVAL_FALSE, conn);
-	pqPutc(error ? SEQ_NEXTVAL_TRUE : SEQ_NEXTVAL_FALSE, conn);
-	pqPutMsgEnd(conn);
-	pqFlush(conn);
+	if (pqPutMsgStart(SEQ_NEXTVAL_QUERY_RESPONSE, false, conn) < 0 ||
+		pqPutInt(oid, 4, conn) < 0 ||
+		pqPutInt(last >> 32, 4, conn) < 0 ||
+		pqPutInt(last, 4, conn) < 0 ||
+		pqPutInt(cached >> 32, 4, conn) < 0 ||
+		pqPutInt(cached, 4, conn) < 0 ||
+		pqPutInt(increment >> 32, 4, conn) < 0 ||
+		pqPutInt(increment, 4, conn) < 0 ||
+		pqPutc(overflow ? SEQ_NEXTVAL_TRUE : SEQ_NEXTVAL_FALSE, conn) < 0 ||
+		pqPutc(error ? SEQ_NEXTVAL_TRUE : SEQ_NEXTVAL_FALSE, conn) < 0 ||
+		pqPutMsgEnd(conn) < 0 ||
+		pqFlush(conn) < 0)
+	{
+		pqHandleSendFailure(conn);
+	}
 }
 
 /*
