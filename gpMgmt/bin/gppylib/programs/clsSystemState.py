@@ -9,6 +9,7 @@ from gppylib.mainUtils import *
 from optparse import Option, OptionGroup, OptionParser, OptionValueError, SUPPRESS_USAGE
 import os, sys, getopt, socket, StringIO, signal
 import datetime
+import re
 
 from gppylib import gparray, gplog, pgconf, userinput, utils
 from gppylib.commands import base, gp, pg, unix
@@ -463,6 +464,7 @@ class GpSystemStateProgram:
         returns the exit code
         """
         hostNameToResults = self.__fetchAllSegmentData(gpArray)
+        expandStatus = self.__fetchExpandStatus(gpEnv)
 
         logger.info("Greenplum instance status summary")
 
@@ -559,6 +561,20 @@ class GpSystemStateProgram:
                 tabLog.info( ["Total number mirror segments acting as mirror segments", "= %d" % numMirrorsPassive])
 
             tabLog.addSeparator()
+
+        if expandStatus["code"] > 0:
+            tabLog.info(["Gpexpand Status"])
+            tabLog.addSeparator()
+            tabLog.info(["Phase", "= %s" % expandStatus["phase"]])
+            tabLog.info(["Code", "= %d" % expandStatus["code"]])
+            tabLog.info(["Status", "= %s" % expandStatus["status"]])
+            # tabLog.info(["Detail", "= %s" % expandStatus["detail"]])
+            if "total" in expandStatus:
+                assert("completed" in expandStatus)
+                tabLog.info(["Total number of relations to redistribute", "= %d" % expandStatus["total"]])
+                tabLog.info(["Number of redistributed relations", "= %d" % expandStatus["completed"]])
+            tabLog.addSeparator()
+
         tabLog.outputTable()
 
     def __fetchAllSegmentData(self, gpArray):
@@ -590,6 +606,43 @@ class GpSystemStateProgram:
         for hostName, cmd in hostNameToCmd.iteritems():
             hostNameToResults[hostName] = cmd.decodeResults()
         return hostNameToResults
+
+    def __fetchExpandStatus(self, gpEnv):
+        dbUrl = dbconn.DbURL(port=gpEnv.getMasterPort(), dbname='template1')
+        conn = dbconn.connect(dbUrl, utility=False)
+        output = dbconn.execSQLForSingletonRow(conn, "select * from gp_expand_get_status();")
+        conn.close()
+        conn = None
+
+        m = re.search('detailed phase2 information are only available in database "(.*)"', output[2])
+        if m:
+            assert(output[1] == "UNKNOWN PHASE2 STATUS")
+            dbname = m.group(1)
+            dbUrl = dbconn.DbURL(port=gpEnv.getMasterPort(), dbname=dbname)
+            try:
+                conn = dbconn.connect(dbUrl, utility=False)
+                output = dbconn.execSQLForSingletonRow(conn, "select * from gp_expand_get_status();")
+            except Exception:
+                pass
+            finally:
+                if conn:
+                    conn.close()
+
+        status = {}
+        status["code"] = int(output[0])
+        status["status"] = output[1]
+        status["detail"] = output[2]
+
+        m = re.search('progress: (\d+) of (\d+) completed', output[2])
+        if m:
+            status["completed"] = int(m.group(1))
+            status["total"] = int(m.group(2))
+
+        if status["code"] / 100 == 1:
+            status["phase"] = "initialization phase"
+        elif status["code"] / 100 == 2:
+            status["phase"] = "redistribution phase"
+        return status
 
     def __showSummaryOfSegmentsWhichRequireAttention(self, gpEnv, gpArray):
         """
