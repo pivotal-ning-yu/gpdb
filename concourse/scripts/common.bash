@@ -49,17 +49,122 @@ function install_and_configure_gpdb() {
   configure
 }
 
+# usage: gen_gpexpand_input <old_size> <new_size>
 function gen_gpexpand_input() {
-  HOSTNAME=`hostname`
-  PWD=`pwd`
-  cat > input <<-EOF
-$HOSTNAME:$HOSTNAME:25436:$PWD/datadirs/expand/primary:7:2:p
-$HOSTNAME:$HOSTNAME:25437:$PWD/datadirs/expand/mirror:8:2:m
-EOF
+  local old="$1"
+  local new="$2"
+  local inputfile="/tmp/inputfile.${old}-${new}"
+  local i
 
-  chmod a+r input
+  for ((i=old; i<new; i++)); do
+    cat <<EOF
+$HOSTNAME:$HOSTNAME:$((25432+i*2)):$PWD/datadirs/expand/primary${i}:$((3+i*2)):${i}:p
+$HOSTNAME:$HOSTNAME:$((25433+i*2)):$PWD/datadirs/expand/mirror${i}:$((4+i*2)):${i}:m
+EOF
+  done | tee $inputfile
+
+  chmod a+r $inputfile
 }
 
+# extract PGOPTIONS from MAKE_TEST_COMMAND
+function get_pgoptions() {
+  local pgoptions
+
+  cat >/tmp/get_pgoptions.mk <<"EOF"
+$(info $(PGOPTIONS))
+EOF
+
+  pgoptions="$(eval make $MAKE_TEST_COMMAND -f /tmp/get_pgoptions.mk -nq 2>/dev/null)"
+  echo "$pgoptions"
+}
+
+function bypass_known_expand_failures() {
+  local pgoptions="$(get_pgoptions)"
+
+  PGOPTIONS="$pgoptions" runuser -pu gpadmin -- psql -a -d regression <<"EOF"
+\pset pager off
+set allow_system_table_mods to true;
+
+-- created by gp_upgrade_cornercases.sql, a column is dropped on a partition
+-- table only on the parent, so children have more columns than parent,
+-- UPDATE will raise an error on this, so the reshuffle method will also fail
+-- as it is based on UPDATE.  There is a plan to prohibit dropping columns
+-- only on parent, so we will not fix the issue, we will simply skip it.
+drop table if exists upgrade_cornercases.part cascade;
+
+-- created by gp_rules.sql and oid_consistency.sql, the tables are converted
+-- to views by setting _RETURN rules on them, they no longer accept operations
+-- for tables, such as ALTER/DROP TABLE, however gpexpand still consider them
+-- as tables and attempt to expand them.  Hack the catalog to make them views
+-- entirely, it is enough to hack only on master.
+update pg_class set relstorage='v' where relname in
+  ( 'table_to_view_test1'
+  , 'oid_consistency_tt1'
+  );
+delete from gp_distribution_policy where localoid in
+  ( 'table_to_view_test1'::regclass
+  , 'oid_consistency_tt1'::regclass
+  );
+
+-- created by gpcopy.source, gpexpand does not handle db names with special
+-- characters correctly, so their tables can not be expanded.
+\connect "funny copy""db'with\\quotes"
+drop table if exists public.foo cascade;
+EOF
+}
+
+# usage: expand_cluster <old_size> <new_size>
+function expand_cluster() {
+  local old="$1"
+  local new="$2"
+  local inputfile="/tmp/inputfile.${old}-${new}"
+  local pidfile="/tmp/postmaster.pid.${old}-${new}"
+  local dbname="gpstatus"
+  local pgoptions="$(get_pgoptions)"
+  local uncompleted
+  local partial
+
+  pushd gpdb_src/gpAux/gpdemo
+
+  gen_gpexpand_input "$old" "$new"
+
+  # Backup master pid, by checking it later we can know whether the cluster is
+  # restarted during the tests.
+  su gpadmin -c "head -n 1 $MASTER_DATA_DIRECTORY/postmaster.pid >$pidfile"
+  su gpadmin -c "createdb $dbname" 2>/dev/null || : # ignore failure
+  # begin expansion
+  su gpadmin -c "yes | PGOPTIONS='$pgoptions' gpexpand -D $dbname -s -i $inputfile"
+  # redistribute tables
+  su gpadmin -c "yes | PGOPTIONS='$pgoptions' gpexpand -D $dbname -s"
+  # check the result
+  uncompleted=$(su gpadmin -c "psql -Aqtd $dbname -c \"select count(*) from gpexpand.status_detail where status <> 'COMPLETED'\"")
+  # cleanup
+  su gpadmin -c "yes | PGOPTIONS='$pgoptions' gpexpand -D $dbname -s -c"
+
+  popd
+
+  if [ "$uncompleted" -ne 0 ]; then
+	  echo "error: some tables are not successfully expanded"
+	  return 1
+  fi
+
+  # double check gp_distribution_policy.numsegments
+  partial=$(su gpadmin -c "psql -Aqtd $dbname -c \"select count(*) from gp_distribution_policy where numsegments <> $new\"")
+  if [ "$partial" -ne 0 ]; then
+	  echo "error: not all the tables are expanded by gpexpand"
+	  return 1
+  fi
+
+  echo "all the tables are successfully expanded"
+  return 0
+}
+
+# usage: make_cluster [<demo_cluster_options>]
+#
+# demo_cluster_options are passed to `make create-demo-cluster` literally,
+# any options accepted by that command are acceptable here.
+#
+# e.g. make_cluster WITH_MIRRORS=false
 function make_cluster() {
   source /usr/local/greenplum-db-devel/greenplum_path.sh
   export BLDWRAP_POSTGRES_CONF_ADDONS=${BLDWRAP_POSTGRES_CONF_ADDONS}
@@ -70,22 +175,7 @@ function make_cluster() {
   export PGPORT=15432
   pushd gpdb_src/gpAux/gpdemo
   export MASTER_DATA_DIRECTORY=`pwd`"/datadirs/qddir/demoDataDir-1"
-  # If $ONLINE_EXPAND is set, the job is to run ICW after expansion to see
-  # whether all the cases have been passed without restarting cluster.
-  # So it will create a cluster with two segments and execute gpexpand to
-  # expand the cluster to three segments
-  if [ ! -z "$ONLINE_EXPAND" ]
-  then
-    su gpadmin -c "make create-demo-cluster NUM_PRIMARY_MIRROR_PAIRS=2"
-    # Backup master pid, to check it after the whole test, be sure there is
-    # no test case restarting the cluster
-    su gpadmin -c "head -n 1 $MASTER_DATA_DIRECTORY/postmaster.pid > master.pid.bk"
-    gen_gpexpand_input
-    su gpadmin -c "createdb gpstatus"
-    su gpadmin -c "gpexpand -i input -D gpstatus"
-  else
-    su gpadmin -c "make create-demo-cluster"
-  fi
+  su gpadmin -c "make create-demo-cluster $@"
   popd
 }
 
