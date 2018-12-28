@@ -387,6 +387,7 @@ class GpExpandStatus():
         self._master_data_directory = master_data_directory
         self._master_mirror = master_mirror
         self._status_filename = master_data_directory + '/gpexpand.status'
+        self._status_phase2_filename = master_data_directory + '/gpexpand.phase2.status'
         self._status_standby_filename = master_data_directory + '/gpexpand.standby.status'
         self._fp = None
         self._fp_standby = None
@@ -479,6 +480,10 @@ class GpExpandStatus():
            status file"""
         if (len(self._status) > 0 and len(self._status_info) > 0):
             return (self._status[-1], self._status_info[-1])
+        elif os.path.exists(self._status_phase2_filename):
+            # a special phase2 status, schema is already cleaned up,
+            # but the p2 status file still exists.
+            return ('SCHEMA CLEANUP DONE', 'UNKNOWN')
         else:
             return (None, None)
 
@@ -502,6 +507,30 @@ class GpExpandStatus():
             RemoveFile.remote('gpexpand master mirror status file cleanup',
                               self._master_mirror.getSegmentHostName(),
                               self._status_filename)
+
+    def create_phase2_status_file(self, dbname):
+        """Just create an empty file to indicate it's phase2 now"""
+        fd = open(self._status_phase2_filename, 'wb')
+        fd.write(dbname)
+        os.fsync(fd)
+        fd.close()
+
+        """Syncs the gpexpand phase2 status file with the master mirror"""
+        if self._master_mirror:
+            cpCmd = Scp('gpexpand copying status file to master mirror',
+                        srcFile=self._status_phase2_filename,
+                        dstFile=self._status_phase2_filename,
+                        dstHost=self._master_mirror.getSegmentHostName())
+            cpCmd.run(validateAfter=True)
+
+    def remove_phase2_status_file(self):
+        if os.path.exists(self._status_phase2_filename):
+            os.unlink(self._status_phase2_filename)
+
+        if self._master_mirror:
+            RemoveFile.remote('gpexpand master mirror phase2 status file cleanup',
+                              self._master_mirror.getSegmentHostName(),
+                              self._status_phase2_filename)
 
     def remove_segment_configuration_backup_file(self):
         """ Remove the segment configuration backup file """
@@ -1016,6 +1045,7 @@ Set PGDATABASE or use the -D option to specify the correct database to use.""" %
         self.conn.close()
 
         self.statusLogger.remove_status_file()
+        self.statusLogger.remove_phase2_status_file()
         self.statusLogger.remove_segment_configuration_backup_file()
 
     def get_state(self):
@@ -1376,6 +1406,13 @@ Set PGDATABASE or use the -D option to specify the correct database to use.""" %
             self.statusLogger.set_status('EXPANSION_PREPARE_STARTED', os.path.abspath(self.options.filename))
 
     def finalize_prepare(self):
+        """
+        phase2 status file indicate that segment preparation is finished. We create
+        this file first to avoid the time-window when there is neither gpexpand status
+        file nor phase2 status file. The udf gp_expand_get_status gets the status
+        based on these status files.
+        """
+        self.statusLogger.create_phase2_status_file(self.options.database)
         """Removes the gpexpand status file and segment configuration backup file"""
         self.statusLogger.remove_status_file()
         self.statusLogger.remove_segment_configuration_backup_file()
@@ -1433,7 +1470,8 @@ Set PGDATABASE or use the -D option to specify the correct database to use.""" %
         self.conn.close()
 
         self.statusLogger.set_status('PREPARE_EXPANSION_SCHEMA_DONE')
-        self.statusLogger.set_status('EXPANSION_PREPARE_DONE')
+        # record the owner db name of the phase2 schema tables
+        self.statusLogger.set_status('EXPANSION_PREPARE_DONE', self.dburl.pgdb)
 
         # At this point, no rollback is possible and the the system
         # including new segments has been started once before so finalize
@@ -2299,7 +2337,9 @@ def main(options, args, parser):
             gpexpand_file_status = _gp_expand.get_state()
 
         if options.clean and gpexpand_db_status is not None:
-            _gp_expand.cleanup_schema(gpexpand_db_status)
+            if gpexpand_db_status[0] != 'SCHEMA CLEANUP DONE':
+                _gp_expand.cleanup_schema(gpexpand_db_status)
+            _gp_expand.statusLogger.remove_phase2_status_file()
             logger.info('Cleanup Finished.  exiting...')
             sys.exit(0)
 
