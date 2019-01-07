@@ -256,23 +256,14 @@ ExecReshuffle(ReshuffleState *node)
 					Int32GetDatum(oldSegs + random() % (newSegs - oldSegs));
 			}
 		}
+
+		/*
+		 * When dmlAction is DML_DELETE we used to assert that the tuple does
+		 * belong to current segment, however we should not do this as it is
+		 * easy to insert data into wrong segments with hacks (e.g. triggers).
+		 */
+
 #ifdef USE_ASSERT_CHECKING
-		else
-		{
-			if (NULL != reshuffle->policyAttrs)
-			{
-				Datum oldSegID = values[reshuffle->tupleSegIdx - 1];
-				Datum newSegID = Int32GetDatum(
-						EvalHashSegID(values,
-									  nulls,
-									  reshuffle->numPolicyAttrs,
-									  reshuffle->policyAttrs,
-									  node->oldcdbhash));
-
-				Assert(oldSegID == newSegID);
-			}
-		}
-
 		/* check */
 		if (DatumGetInt32(values[reshuffle->tupleSegIdx - 1]) >=
 			getgpsegmentCount())
