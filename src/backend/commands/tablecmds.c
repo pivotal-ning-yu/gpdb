@@ -14774,16 +14774,6 @@ ReshuffleRelationData(Relation rel)
 	prelname = pstrdup(RelationGetRelationName(rel));
 	namespace_name = get_namespace_name(rel->rd_rel->relnamespace);
 
-	if (policy->numsegments >= getgpsegmentCount())
-	{
-		ereport(NOTICE,
-				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-				 errmsg("Do not need to reshuffle %s.%s",
-						namespace_name,prelname)));
-
-		return;
-	}
-
 	relation = makeRangeVar(namespace_name, prelname, -1);
 	stmt->relation = relation;
 
@@ -14937,17 +14927,6 @@ ATExecExpandTable(List **wqueue, Relation rel, AlterTableCmd *cmd)
 		ereport(ERROR,
 			(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
 			errmsg("permission denied: \"%s\" is a system catalog", RelationGetRelationName(rel))));
-
-	if (rel->rd_cdbpolicy->numsegments == getgpsegmentCount())
-	{
-		/*
-		 * Table is already fully expanded. Nothing to do, just report success.
-		 *
-		 * The caller expects us to close the relation, so do that.
-		 */
-		relation_close(rel, NoLock);
-		return;
-	}
 
 	/* make a modifiable copy of the policy */
 	newPolicy = GpPolicyCopy(policy);
