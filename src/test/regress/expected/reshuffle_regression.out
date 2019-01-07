@@ -75,3 +75,115 @@ select gp_segment_id, * from b;
              0 |  345
 (10 rows)
 
+--
+-- derived from gp_upgrade_cornercases.sql
+--
+-- for inherited tables the parent and its children are allowed to have
+-- different numsegments, this happens when a child is expanded before its
+-- parent.  then when expanding the parent its children are also expanded, so
+-- the child is re-expanded although there is nothing to do.  reshuffle node
+-- should ignore these already expanded children instead of raising an error.
+--
+select gp_debug_set_create_table_default_numsegments(1);
+ gp_debug_set_create_table_default_numsegments 
+-----------------------------------------------
+ 1
+(1 row)
+
+create table root2 (a int, b int, c int) distributed randomly;
+create table child2 (d int) inherits (root2);
+NOTICE:  table has parent, setting distribution columns to match parent table
+select gp_debug_reset_create_table_default_numsegments();
+ gp_debug_reset_create_table_default_numsegments 
+-------------------------------------------------
+ 
+(1 row)
+
+insert into root2 values (1, 2, 3), (4, 5, 6), (7, 8, 9);
+insert into child2 select i, i+1, i+2, i+3 from generate_series(100, 199) i;
+select localoid::regclass, numsegments from gp_distribution_policy
+ where localoid in ('child2'::regclass, 'root2'::regclass);
+ localoid | numsegments 
+----------+-------------
+ root2    |           1
+ child2   |           1
+(2 rows)
+
+-- expand the child first
+alter table child2 expand table;
+-- then expand the parent, so the child is re-expanded
+alter table root2 expand table;
+-- verify that data has been redistributed
+select count(*) > 0 from child2 where gp_segment_id <> 0;
+ ?column? 
+----------
+ t
+(1 row)
+
+-- verify the data integration after redistribution
+select count(*) from child2;
+ count 
+-------
+   100
+(1 row)
+
+-- verify the numsegments property after redistribution
+select localoid::regclass, numsegments from gp_distribution_policy
+ where localoid in ('child2'::regclass, 'root2'::regclass);
+ localoid | numsegments 
+----------+-------------
+ child2   |           3
+ root2    |           3
+(2 rows)
+
+--
+-- variant of above case: only child is unexpanded
+--
+drop table root2 cascade;
+NOTICE:  drop cascades to table child2
+select gp_debug_set_create_table_default_numsegments('full');
+ gp_debug_set_create_table_default_numsegments 
+-----------------------------------------------
+ FULL
+(1 row)
+
+create table root2 (a int, b int, c int) distributed randomly;
+select gp_debug_set_create_table_default_numsegments(1);
+ gp_debug_set_create_table_default_numsegments 
+-----------------------------------------------
+ 1
+(1 row)
+
+create table child2 (d int) inherits (root2);
+NOTICE:  table has parent, setting distribution columns to match parent table
+select gp_debug_reset_create_table_default_numsegments();
+ gp_debug_reset_create_table_default_numsegments 
+-------------------------------------------------
+ 
+(1 row)
+
+insert into root2 values (1, 2, 3), (4, 5, 6), (7, 8, 9);
+insert into child2 select i, i+1, i+2, i+3 from generate_series(100, 199) i;
+-- verify that data has been redistributed
+select count(*) > 0 from child2 where gp_segment_id <> 0;
+ ?column? 
+----------
+ t
+(1 row)
+
+-- verify the data integration after redistribution
+select count(*) from child2;
+ count 
+-------
+   100
+(1 row)
+
+-- verify the numsegments property after redistribution
+select localoid::regclass, numsegments from gp_distribution_policy
+ where localoid in ('child2'::regclass, 'root2'::regclass);
+ localoid | numsegments 
+----------+-------------
+ root2    |           3
+ child2   |           3
+(2 rows)
+
