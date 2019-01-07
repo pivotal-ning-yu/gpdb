@@ -46,8 +46,10 @@ analyze r2;
 
 -- Test numsegments properity cannot be larger than the size of cluster
 create table size_sanity_check(c1 int, c2 int);
+begin;
 update gp_distribution_policy set numsegments = 10 where localoid = 'size_sanity_check'::regclass;
 select * from size_sanity_check;
+abort;
 
 -- a temp table is created during reorganization, its numsegments should be
 -- the same with original table, otherwise some data will be lost after the
