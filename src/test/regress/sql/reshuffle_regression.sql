@@ -39,3 +39,35 @@ select gp_segment_id, * from b;
 -- reshuffle node should tolerant it
 alter table b expand table;
 select gp_segment_id, * from b;
+
+--
+-- derived from gp_upgrade_cornercases.sql
+--
+-- for inherited tables the parent and its children are allowed to have
+-- different numsegments, this happens when a child is expanded before its
+-- parent.  then when expanding the parent its children are also expanded, so
+-- the child is re-expanded although there is nothing to do.  reshuffle node
+-- should ignore these already expanded children instead of raising an error.
+--
+
+select gp_debug_set_create_table_default_numsegments(1);
+create table root2 (a int, b int, c int) distributed by (a);
+create table child2 (d int) inherits (root2);
+select gp_debug_reset_create_table_default_numsegments();
+
+insert into root2 values (1, 2, 3), (4, 5, 6), (7, 8, 9);
+insert into child2
+values (10, 100, 1000, 10000),
+       (11, 111, 1111, 11111),
+       (12, 123, 1234, 12345);
+
+select gp_segment_id, * from root2;
+select gp_segment_id, * from child2;
+
+-- expand the child first
+alter table child2 expand table;
+-- then expand the parent, so the child is re-expanded
+alter table root2 expand table;
+
+select gp_segment_id, * from root2;
+select gp_segment_id, * from child2;
