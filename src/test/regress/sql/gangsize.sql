@@ -140,7 +140,22 @@ begin;
 delete from hash_2_3_4 where a = 4 or a = 5;
 end;
 
--- add test for table expand
+-- add test for table expand using ctas
+set gp_expand_method = 'rebuild';
+begin;
+alter table random_2_0 expand table;
+abort;
+
+begin;
+alter table replicate_2_1 expand table;
+abort;
+
+begin;
+alter table hash_2_3_4 expand table;
+abort;
+
+-- add test for table expand using reshuffle
+set gp_expand_method = 'move';
 begin;
 alter table random_2_0 expand table;
 abort;

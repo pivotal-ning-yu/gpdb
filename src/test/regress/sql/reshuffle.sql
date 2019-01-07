@@ -9,6 +9,7 @@ create schema test_reshuffle;
 set search_path=test_reshuffle,public;
 set gp_default_storage_options='appendonly=false';
 set allow_system_table_mods=true;
+set gp_expand_method = move;
 
 -- Hash distributed tables
 select gp_debug_set_create_table_default_numsegments(2);
@@ -418,6 +419,12 @@ select count(*) > 0 from inherit_t1_p1 where gp_segment_id = 2;
 
 DROP TABLE inherit_t1_p1 CASCADE;
 
+--
+-- Test EXPAND, on a table that doesn't need expanding. Should be a no-op.
+--
+CREATE TABLE expand_noop(i int) distributed by (i);
+ALTER TABLE expand_noop EXPAND TABLE;
+ALTER TABLE expand_noop EXPAND TABLE;
 
 --
 -- Test expanding a table with a domain type as distribution key.
