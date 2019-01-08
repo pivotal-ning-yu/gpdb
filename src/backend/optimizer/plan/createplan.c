@@ -847,7 +847,6 @@ create_unique_plan(PlannerInfo *root, UniquePath *best_path)
 	 *----------
 	 */
 	uniq_exprs = best_path->distinct_on_exprs;  /*CDB*/
-    Insist(uniq_exprs);
 
 	/* initialize modified subplan tlist as just the "required" vars */
 	newtlist = build_relation_tlist(best_path->path.parent);

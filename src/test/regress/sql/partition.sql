@@ -5399,3 +5399,21 @@ insert into mpp29360_2 values(1), (2), (3), (4);
 select * from mpp29360_2 where c2 in (select c2 from mpp29360_1);
 set gp_dynamic_partition_pruning = on;
 -- end_ignore
+
+-- We assume that the parent rel of the append path is baserel, so we access the param
+-- relid of RelOptInfo. But this assumption is not true. Dummy path is a kind of append
+-- path. But, each type of RelOptInfo could be parent rel of dummy path. This will cause
+-- an assert failure.
+create table dummy_path_main(date date NOT NULL, id bigint NOT NULL)
+WITH (appendonly=false) DISTRIBUTED BY (id) PARTITION BY RANGE(date)
+(
+PARTITION p20171206 START ('2017-12-06'::date) END ('2017-12-07'::date)
+WITH (tablename='dummy_path_main_1_prt_p20171206', appendonly=true, orientation=row, compresstype=zlib, compresslevel=5 ),
+PARTITION p20171207 START ('2017-12-07'::date) END ('2017-12-08'::date)
+WITH (tablename='dummy_path_main_1_prt_p20171207', appendonly=true, orientation=row, compresstype=zlib, compresslevel=5 )
+);
+CREATE TABLE dummy_path_id(id bigint NOT NULL, date date NOT NULL);
+CREATE TABLE dummy_path_tempid(id bigint NOT NULL, date date NOT NULL);
+select dummy_path_main.id, dummy_path_main.date from dummy_path_main
+where dummy_path_main.date = '2016-12-06 00:00:00' and dummy_path_main.id in
+(select id from dummy_path_id where id in (select id from dummy_path_tempid));

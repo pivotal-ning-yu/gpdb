@@ -1130,7 +1130,6 @@ cdbpath_dedup_fixup_unique(UniquePath *uniquePath, CdbpathDedupFixupContext *ctx
             other_vars = lappend(other_vars, var);
     }
 
-    Assert(ctid_exprs);
     uniquePath->distinct_on_exprs = list_concat(ctid_exprs, other_vars);
 
     /* To repartition, add a MotionPath below this UniquePath. */
@@ -1290,6 +1289,9 @@ cdbpath_dedup_fixup_append(AppendPath *appendPath, CdbpathDedupFixupContext *ctx
     ListCell   *cell;
     int         ncol;
     bool        save_need_subplan_id = ctx->need_subplan_id;
+
+    if (appendPath->subpaths == NIL)
+        return;
 
     Assert(!ctx->rowid_vars);
 
