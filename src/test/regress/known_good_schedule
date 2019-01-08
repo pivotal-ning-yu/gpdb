@@ -103,6 +103,7 @@ ignore: domain
 ignore: rangefuncs
 test: table_functions
 test: rangefuncs_cdb
+test: subselect_gp2
 test: prepare
 test: without_oid
 test: conversion
