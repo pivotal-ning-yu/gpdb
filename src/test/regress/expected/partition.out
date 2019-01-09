@@ -10758,12 +10758,12 @@ set gp_dynamic_partition_pruning = on;
 -- path. But, each type of RelOptInfo could be parent rel of dummy path. This will cause
 -- an assert failure.
 create table dummy_path_main(date date NOT NULL, id bigint NOT NULL)
-WITH (appendonly=false) DISTRIBUTED BY (id) PARTITION BY RANGE(date)
+DISTRIBUTED BY (id) PARTITION BY RANGE(date)
 (
 PARTITION p20171206 START ('2017-12-06'::date) END ('2017-12-07'::date)
-WITH (tablename='dummy_path_main_1_prt_p20171206', appendonly=true, orientation=row, compresstype=zlib, compresslevel=5 ),
+WITH (tablename='dummy_path_main_1_prt_p20171206'),
 PARTITION p20171207 START ('2017-12-07'::date) END ('2017-12-08'::date)
-WITH (tablename='dummy_path_main_1_prt_p20171207', appendonly=true, orientation=row, compresstype=zlib, compresslevel=5 )
+WITH (tablename='dummy_path_main_1_prt_p20171207')
 );
 NOTICE:  CREATE TABLE will create partition "dummy_path_main_1_prt_p20171206" for table "dummy_path_main"
 NOTICE:  CREATE TABLE will create partition "dummy_path_main_1_prt_p20171207" for table "dummy_path_main"
