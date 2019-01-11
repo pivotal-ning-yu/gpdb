@@ -98,8 +98,12 @@ ftsUnlock(void)
 void
 FtsNotifyProber(void)
 {
-	Assert(Gp_role == GP_ROLE_DISPATCH);
-	uint8 probeTick = ftsProbeInfo->probeTick;
+	uint8		probeTick;
+
+	if (Gp_role != GP_ROLE_DISPATCH)
+		return;
+
+	probeTick = ftsProbeInfo->probeTick;
 
 	/* signal fts-probe */
 	SendPostmasterSignal(PMSIGNAL_WAKEN_FTS);

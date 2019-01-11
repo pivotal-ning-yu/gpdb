@@ -334,13 +334,17 @@ getCdbComponentInfo(bool DNSLookupAsError)
 	 * Validate that there exists at least one entry and one segment database
 	 * in the configuration
 	 */
-	if (component_databases->total_segment_dbs == 0)
+	AssertImply(Gp_role == GP_ROLE_DISPATCH,
+				component_databases->total_segment_dbs > 0);
+	if (Gp_role == GP_ROLE_DISPATCH &&
+		component_databases->total_segment_dbs == 0)
 	{
 		ereport(ERROR,
 				(errcode(ERRCODE_CARDINALITY_VIOLATION),
 				 errmsg("Greenplum Database number of segment databases cannot be 0")));
 	}
-	if (component_databases->total_entry_dbs == 0)
+	if (Gp_role == GP_ROLE_DISPATCH &&
+		component_databases->total_entry_dbs == 0)
 	{
 		ereport(ERROR,
 				(errcode(ERRCODE_CARDINALITY_VIOLATION),
@@ -383,7 +387,8 @@ getCdbComponentInfo(bool DNSLookupAsError)
 			break;
 		}
 	}
-	if (i == component_databases->total_entry_dbs)
+	if (Gp_role == GP_ROLE_DISPATCH &&
+		i == component_databases->total_entry_dbs)
 	{
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
@@ -1517,6 +1522,12 @@ getgpsegmentCount(void)
 		numsegments = cdbcomponent_getCdbComponents(true)->total_segments;
 	else if (Gp_role == GP_ROLE_EXECUTE)
 		numsegments = numsegmentsFromQD;
+	/*
+	 * If it is utility mode QD we could also count the cluster size from
+	 * gp_segment_configuration.
+	 */
+	else if (Gp_role == GP_ROLE_UTILITY && GpIdentity.segindex == -1)
+		numsegments = cdbcomponent_getCdbComponents(true)->total_segments;
 
 	return numsegments;
 }
