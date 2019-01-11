@@ -51,7 +51,7 @@ select gp_segment_id, * from b;
 --
 
 select gp_debug_set_create_table_default_numsegments(1);
-create table root2 (a int, b int, c int) distributed randomly;
+create table root2 (a int, b int, c int) distributed by (a);
 create table child2 (d int) inherits (root2);
 select gp_debug_reset_create_table_default_numsegments();
 
