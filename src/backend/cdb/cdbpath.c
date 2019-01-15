@@ -1133,7 +1133,7 @@ cdbpath_dedup_fixup_unique(UniquePath *uniquePath, CdbpathDedupFixupContext *ctx
     uniquePath->distinct_on_exprs = list_concat(ctid_exprs, other_vars);
 
     /* To repartition, add a MotionPath below this UniquePath. */
-    if (uniquePath->must_repartition)
+    if (uniquePath->must_repartition && partkey)
     {
         CdbPathLocus    locus;
 
