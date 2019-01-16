@@ -2663,6 +2663,11 @@ def main(options, args, parser):
             _gp_expand.setup_schema()
             _gp_expand.prepare_schema()
             _gp_expand.sync_new_mirrors()
+            logger.info('************************************************')
+            logger.info('Initialization of the system expansion complete.')
+            logger.info('To begin table expansion onto the new segments')
+            logger.info('rerun gpexpand')
+            logger.info('************************************************')
         elif options.filename is None and gpexpand_file_status is None:
             interview_setup(gparray, options)
         else:
