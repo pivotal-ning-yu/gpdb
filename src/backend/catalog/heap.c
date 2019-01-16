@@ -1455,6 +1455,17 @@ heap_create_with_catalog(const char *relname,
 	 */
 	existing_relid = get_relname_relid(relname, relnamespace);
 	if (existing_relid != InvalidOid)
+	{
+		Relation   *existing_rel = relation_open(existing_relid, ExclusiveLock);
+		(void) existing_relid;
+
+		elog(WARNING, "relname: %s, existing_relid: %d, existing_rel: %p",
+			 relname, existing_relid, existing_rel);
+
+		gp_debug_linger = 36000;
+		Assert(existing_relid == InvalidOid);
+	}
+	if (existing_relid != InvalidOid)
 		ereport(ERROR,
 				(errcode(ERRCODE_DUPLICATE_TABLE),
 				 errmsg("relation \"%s\" already exists", relname)));
