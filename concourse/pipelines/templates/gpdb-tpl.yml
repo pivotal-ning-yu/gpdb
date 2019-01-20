@@ -63,6 +63,7 @@ groups:
 {% endif %}
 {% if "ubuntu16" in os_types %}
   - icw_planner_ubuntu16
+  - icw_planner_ubuntu16_expand_rebuild
   - icw_gporca_conan_ubuntu16
 {% endif %}
 {% if "ubuntu16" in os_types %}
@@ -207,6 +208,7 @@ groups:
 {% endif %}
 {% if "ubuntu16" in os_types %}
   - icw_planner_ubuntu16
+  - icw_planner_ubuntu16_expand_rebuild
   - icw_gporca_conan_ubuntu16
   - compile_gpdb_ubuntu16
   - gpdb_packaging_ubuntu16
@@ -443,12 +445,6 @@ resources:
     uri: git@github.com:greenplum-db/gpaddon.git
 
 {% endif %}
-- name: gpaddon_src
-  type: git
-  source:
-    branch: {{gpaddon-git-branch}}
-    private_key: {{gpaddon-git-key}}
-    uri: {{gpaddon-git-remote}}
 
 {% if "ubuntu16" in os_types %}
 - name: debian_release
@@ -1517,6 +1513,36 @@ jobs:
       MAKE_TEST_COMMAND: -k PGOPTIONS='-c optimizer=off' installcheck-world
       CONFIGURE_FLAGS: {{configure_flags}}
 
+- name: icw_planner_ubuntu16_expand_rebuild
+  plan:
+  - aggregate:
+    - get: gpdb_src
+      passed: [compile_gpdb_ubuntu16]
+    - get: compiled_bits_ubuntu16
+      passed: [compile_gpdb_ubuntu16]
+      trigger: [[ test_trigger ]]
+    - get: ubuntu-gpdb-dev-16
+  - task: ic_gpdb
+    file: gpdb_src/concourse/tasks/ic_gpdb_ubuntu.yml
+    image: ubuntu-gpdb-dev-16
+    params:
+      MAKE_TEST_COMMAND: -k
+        PGOPTIONS='-c optimizer=off -c gp_expand_method=rebuild'
+        EXCLUDE_TESTS="'
+          cursor
+          instr_in_shmem
+          instr_in_shmem_setup
+          instr_in_shmem_terminate
+          instr_in_shmem_verify
+          segspace
+          segspace_cleanup
+          segspace_setup'"
+        -C src/test/regress installcheck-good
+      TEST_OS: ubuntu
+      TEST_BINARY_SWAP: false
+      CONFIGURE_FLAGS: {{configure_flags}}
+      TEST_EXPAND: true
+
 - name: icw_gporca_conan_ubuntu16
   plan:
   - aggregate:
@@ -2499,6 +2525,7 @@ jobs:
       - icw_gporca_sles12
       - icw_planner_sles12
       - icw_planner_ubuntu16
+      - icw_planner_ubuntu16_expand_rebuild
       - icw_gporca_conan_ubuntu16
       - gpdb_packaging_ubuntu16
       - icw_planner_ictcp_centos6
