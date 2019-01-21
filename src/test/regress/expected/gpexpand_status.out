@@ -31,6 +31,39 @@ RETURNS setof record AS $$
     sql2 = '''select 'gpexpand2' as db, * from gp_expand_get_status()'''
     return db1.query(sql1).getresult() + db2.query(sql2).getresult()
 $$ LANGUAGE plpythonu VOLATILE;
+-- get 'gpstate -x' output
+CREATE OR REPLACE FUNCTION gpstate(
+    out "timestamp" text,
+    out command text,
+    out hostname text,
+    out username text,
+    out level text,
+    out message text)
+RETURNS setof record AS $$
+    import os
+    import re
+    pattern = ''.join([
+        '^(?P<timestamp>.*)',
+        ' (?P<command>.*)',
+        ':(?P<hostname>.*)',
+        ':(?P<username>.*)',
+        '-\[(?P<level>.*)\]',
+        ':-(?P<message>.*)',
+        '\s*$',
+        ])
+    results = []
+    for line in os.popen('gpstate -x').readlines():
+        m = re.search(pattern, line)
+        results.append((
+            m.group('timestamp'),
+            m.group('command'),
+            m.group('hostname'),
+            m.group('username'),
+            m.group('level'),
+            m.group('message'),
+        ))
+    return results
+$$ LANGUAGE plpythonu VOLATILE;
 -- the status can only be queried on master, so below query should fail
 select gp_expand_get_status() from gp_dist_random('gp_id');
 ERROR:  function with EXECUTE ON restrictions cannot be used in the SELECT list of a query with FROM
@@ -42,6 +75,16 @@ select * from get_all_status();
  gpexpand2 |    0 | NOT EXPANSION | 
 (2 rows)
 
+select level, message from gpstate() offset 5;
+ level |                     message                     
+-------+-------------------------------------------------
+ INFO  | Cluster Expansion State = No Expansion Detected
+(1 row)
+
+-- gpstate also output gpexpand status summary in default or detail modes.
+-- output nothing in phase0.
+\! gpstate    | grep 'Cluster Expansion' | cut -d= -f2-
+\! gpstate -s | grep 'Cluster Expansion' | cut -d= -f2-
 -- phase1: as long as status file exists it is phase1, even if it is empty
 \! touch $MASTER_DATA_DIRECTORY/gpexpand.status
 select * from get_all_status();
@@ -51,6 +94,20 @@ select * from get_all_status();
  gpexpand2 |  114 | UNKNOWN_PHASE1_STATUS | invalid status file
 (2 rows)
 
+select level, message from gpstate() offset 5;
+ level |                     message                     
+-------+-------------------------------------------------
+ INFO  | Cluster Expansion State = Replicating Meta Data
+ INFO  |   Some database tools and functionality
+ INFO  |   are disabled during this process
+(3 rows)
+
+-- gpstate also output gpexpand status summary in default or detail modes.
+-- output 'In Progress' in phase1 or phase2.
+\! gpstate    | grep 'Cluster Expansion' | cut -d= -f2-
+ In Progress
+\! gpstate -s | grep 'Cluster Expansion' | cut -d= -f2-
+ In Progress
 -- phase1: tolerate syntax error
 \! echo 'INVALID FORMAT' >>$MASTER_DATA_DIRECTORY/gpexpand.status
 select * from get_all_status();
@@ -59,6 +116,14 @@ select * from get_all_status();
  gpexpand1 |  114 | UNKNOWN_PHASE1_STATUS | invalid status file
  gpexpand2 |  114 | UNKNOWN_PHASE1_STATUS | invalid status file
 (2 rows)
+
+select level, message from gpstate() offset 5;
+ level |                     message                     
+-------+-------------------------------------------------
+ INFO  | Cluster Expansion State = Replicating Meta Data
+ INFO  |   Some database tools and functionality
+ INFO  |   are disabled during this process
+(3 rows)
 
 -- phase1: tolerate unknown status name
 \! echo 'UNKNOWN PHASE1 STATUS:None' >>$MASTER_DATA_DIRECTORY/gpexpand.status
@@ -69,6 +134,14 @@ select * from get_all_status();
  gpexpand2 |  114 | UNKNOWN_PHASE1_STATUS | None
 (2 rows)
 
+select level, message from gpstate() offset 5;
+ level |                     message                     
+-------+-------------------------------------------------
+ INFO  | Cluster Expansion State = Replicating Meta Data
+ INFO  |   Some database tools and functionality
+ INFO  |   are disabled during this process
+(3 rows)
+
 -- phase1: below are all known phase1 phase2 status names
 \! echo 'UNINITIALIZED:None' >>$MASTER_DATA_DIRECTORY/gpexpand.status
 select * from get_all_status();
@@ -78,6 +151,14 @@ select * from get_all_status();
  gpexpand2 |  101 | UNINITIALIZED | None
 (2 rows)
 
+select level, message from gpstate() offset 5;
+ level |                     message                     
+-------+-------------------------------------------------
+ INFO  | Cluster Expansion State = Replicating Meta Data
+ INFO  |   Some database tools and functionality
+ INFO  |   are disabled during this process
+(3 rows)
+
 \! echo 'EXPANSION_PREPARE_STARTED:<path> to inputfile' >>$MASTER_DATA_DIRECTORY/gpexpand.status
 select * from get_all_status();
     db     | code |          status           |       detail        
@@ -85,6 +166,14 @@ select * from get_all_status();
  gpexpand1 |  102 | EXPANSION_PREPARE_STARTED | <path> to inputfile
  gpexpand2 |  102 | EXPANSION_PREPARE_STARTED | <path> to inputfile
 (2 rows)
+
+select level, message from gpstate() offset 5;
+ level |                     message                     
+-------+-------------------------------------------------
+ INFO  | Cluster Expansion State = Replicating Meta Data
+ INFO  |   Some database tools and functionality
+ INFO  |   are disabled during this process
+(3 rows)
 
 \! echo 'BUILD_SEGMENT_TEMPLATE_STARTED:<path> to template dir' >>$MASTER_DATA_DIRECTORY/gpexpand.status
 select * from get_all_status();
@@ -94,6 +183,14 @@ select * from get_all_status();
  gpexpand2 |  103 | BUILD_SEGMENT_TEMPLATE_STARTED | <path> to template dir
 (2 rows)
 
+select level, message from gpstate() offset 5;
+ level |                     message                     
+-------+-------------------------------------------------
+ INFO  | Cluster Expansion State = Replicating Meta Data
+ INFO  |   Some database tools and functionality
+ INFO  |   are disabled during this process
+(3 rows)
+
 \! echo 'BUILD_SEGMENT_TEMPLATE_DONE:None' >>$MASTER_DATA_DIRECTORY/gpexpand.status
 select * from get_all_status();
     db     | code |           status            | detail 
@@ -101,6 +198,14 @@ select * from get_all_status();
  gpexpand1 |  104 | BUILD_SEGMENT_TEMPLATE_DONE | None
  gpexpand2 |  104 | BUILD_SEGMENT_TEMPLATE_DONE | None
 (2 rows)
+
+select level, message from gpstate() offset 5;
+ level |                     message                     
+-------+-------------------------------------------------
+ INFO  | Cluster Expansion State = Replicating Meta Data
+ INFO  |   Some database tools and functionality
+ INFO  |   are disabled during this process
+(3 rows)
 
 \! echo 'BUILD_SEGMENTS_STARTED:<path> to schema tarball' >>$MASTER_DATA_DIRECTORY/gpexpand.status
 select * from get_all_status();
@@ -110,6 +215,14 @@ select * from get_all_status();
  gpexpand2 |  105 | BUILD_SEGMENTS_STARTED | <path> to schema tarball
 (2 rows)
 
+select level, message from gpstate() offset 5;
+ level |                     message                     
+-------+-------------------------------------------------
+ INFO  | Cluster Expansion State = Replicating Meta Data
+ INFO  |   Some database tools and functionality
+ INFO  |   are disabled during this process
+(3 rows)
+
 \! echo 'BUILD_SEGMENTS_DONE:1' >>$MASTER_DATA_DIRECTORY/gpexpand.status
 select * from get_all_status();
     db     | code |       status        | detail 
@@ -117,6 +230,14 @@ select * from get_all_status();
  gpexpand1 |  106 | BUILD_SEGMENTS_DONE | 1
  gpexpand2 |  106 | BUILD_SEGMENTS_DONE | 1
 (2 rows)
+
+select level, message from gpstate() offset 5;
+ level |                     message                     
+-------+-------------------------------------------------
+ INFO  | Cluster Expansion State = Replicating Meta Data
+ INFO  |   Some database tools and functionality
+ INFO  |   are disabled during this process
+(3 rows)
 
 \! echo 'UPDATE_CATALOG_STARTED:<path> to gp_segment_configuration backup' >>$MASTER_DATA_DIRECTORY/gpexpand.status
 select * from get_all_status();
@@ -126,6 +247,14 @@ select * from get_all_status();
  gpexpand2 |  107 | UPDATE_CATALOG_STARTED | <path> to gp_segment_configuration backup
 (2 rows)
 
+select level, message from gpstate() offset 5;
+ level |                     message                     
+-------+-------------------------------------------------
+ INFO  | Cluster Expansion State = Replicating Meta Data
+ INFO  |   Some database tools and functionality
+ INFO  |   are disabled during this process
+(3 rows)
+
 \! echo 'UPDATE_CATALOG_DONE:None' >>$MASTER_DATA_DIRECTORY/gpexpand.status
 select * from get_all_status();
     db     | code |       status        | detail 
@@ -134,6 +263,14 @@ select * from get_all_status();
  gpexpand2 |  108 | UPDATE_CATALOG_DONE | None
 (2 rows)
 
+select level, message from gpstate() offset 5;
+ level |                     message                     
+-------+-------------------------------------------------
+ INFO  | Cluster Expansion State = Replicating Meta Data
+ INFO  |   Some database tools and functionality
+ INFO  |   are disabled during this process
+(3 rows)
+
 \! echo 'SETUP_EXPANSION_SCHEMA_STARTED:None' >>$MASTER_DATA_DIRECTORY/gpexpand.status
 select * from get_all_status();
     db     | code |             status             | detail 
@@ -141,6 +278,14 @@ select * from get_all_status();
  gpexpand1 |  109 | SETUP_EXPANSION_SCHEMA_STARTED | None
  gpexpand2 |  109 | SETUP_EXPANSION_SCHEMA_STARTED | None
 (2 rows)
+
+select level, message from gpstate() offset 5;
+ level |                     message                     
+-------+-------------------------------------------------
+ INFO  | Cluster Expansion State = Replicating Meta Data
+ INFO  |   Some database tools and functionality
+ INFO  |   are disabled during this process
+(3 rows)
 
 -- phase1: it is still phase1 even if phase2 schema is created
 select query_gpexpand1('
@@ -176,6 +321,14 @@ select * from get_all_status();
  gpexpand2 |  109 | SETUP_EXPANSION_SCHEMA_STARTED | None
 (2 rows)
 
+select level, message from gpstate() offset 5;
+ level |                     message                     
+-------+-------------------------------------------------
+ INFO  | Cluster Expansion State = Replicating Meta Data
+ INFO  |   Some database tools and functionality
+ INFO  |   are disabled during this process
+(3 rows)
+
 \! echo 'SETUP_EXPANSION_SCHEMA_DONE:None' >>$MASTER_DATA_DIRECTORY/gpexpand.status
 select * from get_all_status();
     db     | code |           status            | detail 
@@ -184,6 +337,14 @@ select * from get_all_status();
  gpexpand2 |  110 | SETUP_EXPANSION_SCHEMA_DONE | None
 (2 rows)
 
+select level, message from gpstate() offset 5;
+ level |                     message                     
+-------+-------------------------------------------------
+ INFO  | Cluster Expansion State = Replicating Meta Data
+ INFO  |   Some database tools and functionality
+ INFO  |   are disabled during this process
+(3 rows)
+
 \! echo 'PREPARE_EXPANSION_SCHEMA_STARTED:None' >>$MASTER_DATA_DIRECTORY/gpexpand.status
 select * from get_all_status();
     db     | code |              status              | detail 
@@ -191,6 +352,14 @@ select * from get_all_status();
  gpexpand1 |  111 | PREPARE_EXPANSION_SCHEMA_STARTED | None
  gpexpand2 |  111 | PREPARE_EXPANSION_SCHEMA_STARTED | None
 (2 rows)
+
+select level, message from gpstate() offset 5;
+ level |                     message                     
+-------+-------------------------------------------------
+ INFO  | Cluster Expansion State = Replicating Meta Data
+ INFO  |   Some database tools and functionality
+ INFO  |   are disabled during this process
+(3 rows)
 
 -- phase1: it is still phase1 even if phase2 schema is filled
 select query_gpexpand1('
@@ -212,6 +381,14 @@ select * from get_all_status();
  gpexpand2 |  111 | PREPARE_EXPANSION_SCHEMA_STARTED | None
 (2 rows)
 
+select level, message from gpstate() offset 5;
+ level |                     message                     
+-------+-------------------------------------------------
+ INFO  | Cluster Expansion State = Replicating Meta Data
+ INFO  |   Some database tools and functionality
+ INFO  |   are disabled during this process
+(3 rows)
+
 \! echo 'PREPARE_EXPANSION_SCHEMA_DONE:None' >>$MASTER_DATA_DIRECTORY/gpexpand.status
 select * from get_all_status();
     db     | code |            status             | detail 
@@ -219,6 +396,14 @@ select * from get_all_status();
  gpexpand1 |  112 | PREPARE_EXPANSION_SCHEMA_DONE | None
  gpexpand2 |  112 | PREPARE_EXPANSION_SCHEMA_DONE | None
 (2 rows)
+
+select level, message from gpstate() offset 5;
+ level |                     message                     
+-------+-------------------------------------------------
+ INFO  | Cluster Expansion State = Replicating Meta Data
+ INFO  |   Some database tools and functionality
+ INFO  |   are disabled during this process
+(3 rows)
 
 \! echo 'EXPANSION_PREPARE_DONE:gpexpand1' >>$MASTER_DATA_DIRECTORY/gpexpand.status
 select * from get_all_status();
@@ -228,6 +413,14 @@ select * from get_all_status();
  gpexpand2 |  113 | EXPANSION_PREPARE_DONE | gpexpand1
 (2 rows)
 
+select level, message from gpstate() offset 5;
+ level |                     message                     
+-------+-------------------------------------------------
+ INFO  | Cluster Expansion State = Replicating Meta Data
+ INFO  |   Some database tools and functionality
+ INFO  |   are disabled during this process
+(3 rows)
+
 -- phase1: it is still phase1 even if phase2 status file exists
 \! echo 'FAKE PHASE2 STATUS:still phase1' >>$MASTER_DATA_DIRECTORY/gpexpand.phase2.status
 select * from get_all_status();
@@ -236,6 +429,14 @@ select * from get_all_status();
  gpexpand1 |  113 | EXPANSION_PREPARE_DONE | gpexpand1
  gpexpand2 |  113 | EXPANSION_PREPARE_DONE | gpexpand1
 (2 rows)
+
+select level, message from gpstate() offset 5;
+ level |                     message                     
+-------+-------------------------------------------------
+ INFO  | Cluster Expansion State = Replicating Meta Data
+ INFO  |   Some database tools and functionality
+ INFO  |   are disabled during this process
+(3 rows)
 
 -- phase2: no longer phase1 as long as phase1 status file is removed
 -- - when connected to gpexpand1 the progress information is available
@@ -249,10 +450,108 @@ select * from get_all_status();
  gpexpand2 |  205 | UNKNOWN PHASE2 STATUS | detailed phase2 information are only available in database "gpexpand1"
 (2 rows)
 
+select level, message from gpstate() offset 5;
+ level |                       message                        
+-------+------------------------------------------------------
+ INFO  | Cluster Expansion State = Data Distribution - Paused
+ INFO  | ----------------------------------------------------
+ INFO  | Number of tables to be redistributed
+ INFO  |      Database    Count of Tables to redistribute
+ INFO  |      gpexpand1   2
+ INFO  | ----------------------------------------------------
+(6 rows)
+
+-- gpstate also output gpexpand status summary in default or detail modes.
+-- output 'In Progress' in phase1 or phase2.
+\! gpstate    | grep 'Cluster Expansion' | cut -d= -f2-
+ In Progress
+\! gpstate -s | grep 'Cluster Expansion' | cut -d= -f2-
+ In Progress
 select query_gpexpand1('
     insert into gpexpand.status values ( ''EXPANSION STARTED'', ''01-01-03'' );
+');
+ query_gpexpand1 
+-----------------
+ 
+(1 row)
+
+select * from get_all_status();
+    db     | code |        status         |                                 detail                                 
+-----------+------+-----------------------+------------------------------------------------------------------------
+ gpexpand1 |  203 | EXPANSION STARTED     | progress: 0 of 2 completed
+ gpexpand2 |  205 | UNKNOWN PHASE2 STATUS | detailed phase2 information are only available in database "gpexpand1"
+(2 rows)
+
+select level, message from gpstate() offset 5;
+ level |                       message                        
+-------+------------------------------------------------------
+ INFO  | Cluster Expansion State = Data Distribution - Active
+ INFO  | ----------------------------------------------------
+ INFO  | Number of tables to be redistributed
+ INFO  |      Database    Count of Tables to redistribute
+ INFO  |      gpexpand1   2
+ INFO  | ----------------------------------------------------
+(6 rows)
+
+select query_gpexpand1('
+    update gpexpand.status_detail set status=''IN PROGRESS''
+     where fq_name=''public.t1'';
+');
+ query_gpexpand1 
+-----------------
+ 
+(1 row)
+
+select * from get_all_status();
+    db     | code |        status         |                                 detail                                 
+-----------+------+-----------------------+------------------------------------------------------------------------
+ gpexpand1 |  203 | EXPANSION STARTED     | progress: 0 of 2 completed
+ gpexpand2 |  205 | UNKNOWN PHASE2 STATUS | detailed phase2 information are only available in database "gpexpand1"
+(2 rows)
+
+select level, message from gpstate() offset 5;
+ level |                       message                        
+-------+------------------------------------------------------
+ INFO  | Cluster Expansion State = Data Distribution - Active
+ INFO  | ----------------------------------------------------
+ INFO  | Number of tables to be redistributed
+ INFO  |      Database    Count of Tables to redistribute
+ INFO  |      gpexpand1   2
+ INFO  | ----------------------------------------------------
+ INFO  | Active redistributions = 1
+ INFO  |      Action         Database    Table
+ INFO  |      Redistribute   gpexpand1   public.t1
+ INFO  | ----------------------------------------------------
+(10 rows)
+
+select query_gpexpand1('
     update gpexpand.status_detail set status=''COMPLETED''
      where fq_name=''public.t1'';
+');
+ query_gpexpand1 
+-----------------
+ 
+(1 row)
+
+select * from get_all_status();
+    db     | code |        status         |                                 detail                                 
+-----------+------+-----------------------+------------------------------------------------------------------------
+ gpexpand1 |  203 | EXPANSION STARTED     | progress: 1 of 2 completed
+ gpexpand2 |  205 | UNKNOWN PHASE2 STATUS | detailed phase2 information are only available in database "gpexpand1"
+(2 rows)
+
+select level, message from gpstate() offset 5;
+ level |                       message                        
+-------+------------------------------------------------------
+ INFO  | Cluster Expansion State = Data Distribution - Active
+ INFO  | ----------------------------------------------------
+ INFO  | Number of tables to be redistributed
+ INFO  |      Database    Count of Tables to redistribute
+ INFO  |      gpexpand1   1
+ INFO  | ----------------------------------------------------
+(6 rows)
+
+select query_gpexpand1('
     insert into gpexpand.status values ( ''EXPANSION STOPPED'', ''01-01-04'' );
 ');
  query_gpexpand1 
@@ -266,6 +565,17 @@ select * from get_all_status();
  gpexpand1 |  202 | EXPANSION STOPPED     | progress: 1 of 2 completed
  gpexpand2 |  205 | UNKNOWN PHASE2 STATUS | detailed phase2 information are only available in database "gpexpand1"
 (2 rows)
+
+select level, message from gpstate() offset 5;
+ level |                       message                        
+-------+------------------------------------------------------
+ INFO  | Cluster Expansion State = Data Distribution - Paused
+ INFO  | ----------------------------------------------------
+ INFO  | Number of tables to be redistributed
+ INFO  |      Database    Count of Tables to redistribute
+ INFO  |      gpexpand1   1
+ INFO  | ----------------------------------------------------
+(6 rows)
 
 select query_gpexpand1('
     insert into gpexpand.status values ( ''EXPANSION STARTED'', ''01-01-05'' );
@@ -285,6 +595,12 @@ select * from get_all_status();
  gpexpand2 |  205 | UNKNOWN PHASE2 STATUS | detailed phase2 information are only available in database "gpexpand1"
 (2 rows)
 
+select level, message from gpstate() offset 5;
+ level |                   message                    
+-------+----------------------------------------------
+ INFO  | Cluster Expansion State = Expansion Complete
+(1 row)
+
 -- phase2: it is still phase2 even if the schema is dropped
 select query_gpexpand1('
     drop schema gpexpand cascade;
@@ -301,6 +617,12 @@ select * from get_all_status();
  gpexpand2 |  205 | UNKNOWN PHASE2 STATUS | detailed phase2 information are only available in database "gpexpand1"
 (2 rows)
 
+select level, message from gpstate() offset 5;
+ level |                        message                        
+-------+-------------------------------------------------------
+ INFO  | Cluster Expansion State = Data Distribution - Unknown
+(1 row)
+
 -- phase0: it is phase0 again after phase2 status file is also removed
 \! rm $MASTER_DATA_DIRECTORY/gpexpand.phase2.status
 select * from get_all_status();
@@ -310,3 +632,13 @@ select * from get_all_status();
  gpexpand2 |    0 | NOT EXPANSION | 
 (2 rows)
 
+select level, message from gpstate() offset 5;
+ level |                     message                     
+-------+-------------------------------------------------
+ INFO  | Cluster Expansion State = No Expansion Detected
+(1 row)
+
+-- gpstate also output gpexpand status summary in default or detail modes.
+-- output nothing in phase0.
+\! gpstate    | grep 'Cluster Expansion' | cut -d= -f2-
+\! gpstate -s | grep 'Cluster Expansion' | cut -d= -f2-

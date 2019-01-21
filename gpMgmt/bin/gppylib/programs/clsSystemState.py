@@ -8,8 +8,10 @@ from gppylib.mainUtils import *
 
 from optparse import Option, OptionGroup, OptionParser, OptionValueError, SUPPRESS_USAGE
 import os, sys, getopt, socket, StringIO, signal
+import collections
 import datetime
 from contextlib import closing
+import re
 
 from pygresql import pgdb
 
@@ -551,6 +553,7 @@ class GpSystemStateProgram:
                 tabLog.info( ["Total number mirror segments acting as mirror segments", "= %d" % numMirrorsPassive])
 
             tabLog.addSeparator()
+        self.__showExpandStatusSummary(gpEnv, tabLog, showPostSep=True)
         tabLog.outputTable()
 
     def __fetchAllSegmentData(self, gpArray):
@@ -737,6 +740,143 @@ class GpSystemStateProgram:
         self.__writePipeSeparated(rows, printToLogger=False)
         return 0
 
+
+    def __fetchExpandStatus(self, gpEnv):
+        # gpexpand detailed status of phase2 are only available when connected
+        # to the same database used by gpexpand to store the schema tables.
+        # As an attempt we first connect to any existing database,
+        # gp_expand_get_status() will tell us the correct database name, then
+        # we could recheck with that database.
+        dbname = "template1"
+
+        dbUrl = dbconn.DbURL(port=gpEnv.getMasterPort(), dbname=dbname)
+        conn = dbconn.connect(dbUrl, utility=False)
+        sql = "select * from gp_expand_get_status();"
+        output = dbconn.execSQLForSingletonRow(conn, sql)
+        conn.close()
+        conn = None
+
+        m = re.search(r'detailed phase2 information are only available in database "(.*)"', output[2])
+        if m:
+            assert output[1] == "UNKNOWN PHASE2 STATUS"
+            dbname = m.group(1)
+            dbUrl = dbconn.DbURL(port=gpEnv.getMasterPort(), dbname=dbname)
+            try:
+                conn = dbconn.connect(dbUrl, utility=False)
+                output = dbconn.execSQLForSingletonRow(conn, sql)
+            except Exception:
+                # fail to connect to the actual database to get detailed phase2
+                # information, but that is not a big deal, ignore the error.
+                pass
+
+        status = {}
+        status["dbname"] = dbname
+        status["code"] = int(output[0])
+        status["status"] = output[1]
+        status["detail"] = output[2]
+
+        return status
+
+    def __showExpandPhase2Progress(self, gpEnv, dbname):
+        try:
+            dbUrl = dbconn.DbURL(port=gpEnv.getMasterPort(), dbname=dbname)
+            conn = dbconn.connect(dbUrl, utility=False)
+            sql = "select dbname, status, fq_name from gpexpand.status_detail;"
+            cursor = dbconn.execSQL(conn, sql)
+            rows = cursor.fetchall()
+        except Exception:
+            logger.warning("Can not get gpexpand progress information")
+            logger.warning("Fail to query %s.gpexpand.status_detail" % dbname)
+            return 1
+
+        active = []
+        uncompleted = collections.defaultdict(int)
+        for row in rows:
+            dbname = str(row[0])
+            status = str(row[1])
+            fq_name = str(row[2])
+            # group uncompleted tables by dbname
+            if status != "COMPLETED":
+                uncompleted[dbname] += 1
+            # record in progress tables in a list
+            if status == "IN PROGRESS":
+                active.append((dbname, fq_name))
+
+        tabLog = TableLogger().setWarnWithArrows(True)
+        tabLog.addSeparator()
+        tabLog.outputTable()
+        tabLog = None
+
+        if uncompleted:
+            tabLog = TableLogger().setWarnWithArrows(True)
+            logger.info("Number of tables to be redistributed")
+            tabLog.info(["  Database", "Count of Tables to redistribute"])
+            for dbname, count in uncompleted.iteritems():
+                tabLog.info(["  %s" % dbname, "%d" % count])
+            tabLog.addSeparator()
+            tabLog.outputTable()
+
+        if active:
+            tabLog = TableLogger().setWarnWithArrows(True)
+            logger.info("Active redistributions = %d" % len(active))
+            tabLog.info(["  Action", "Database", "Table"])
+            for dbname, fq_name in active:
+                tabLog.info(["  Redistribute", "%s" % dbname, "%s" % fq_name])
+            tabLog.addSeparator()
+            tabLog.outputTable()
+
+        return 0
+
+    def __showExpandStatus(self, gpEnv):
+        expandStatus = self.__fetchExpandStatus(gpEnv)
+        code = expandStatus["code"]
+        status = expandStatus["status"]
+        dbname = expandStatus["dbname"]
+        exitCode = 0
+
+        tabLog = TableLogger().setWarnWithArrows(True)
+        tabLog.addSeparator()
+        tabLog.outputTable()
+        tabLog = None
+
+        if code == 0:
+            logger.info("Cluster Expansion State = No Expansion Detected")
+        elif code >= 100 and code < 200:
+            logger.info("Cluster Expansion State = Replicating Meta Data")
+            logger.info("  Some database tools and functionality")
+            logger.info("  are disabled during this process")
+        else:
+            assert code >= 200 and code < 300
+            if status == "SETUP DONE" or status == "EXPANSION STOPPED":
+                logger.info("Cluster Expansion State = Data Distribution - Paused")
+                exitCode = self.__showExpandPhase2Progress(gpEnv, dbname)
+            elif status == "EXPANSION STARTED":
+                logger.info("Cluster Expansion State = Data Distribution - Active")
+                exitCode = self.__showExpandPhase2Progress(gpEnv, dbname)
+            elif status == "EXPANSION COMPLETE":
+                logger.info("Cluster Expansion State = Expansion Complete")
+            else:
+                # unknown phase2 status
+                logger.info("Cluster Expansion State = Data Distribution - Unknown")
+
+        return exitCode
+
+    def __showExpandStatusSummary(self, gpEnv, tabLog, showPreSep=False, showPostSep=False):
+        expandStatus = self.__fetchExpandStatus(gpEnv)
+
+        if expandStatus["code"] == 0:
+            # gpexpand is not detected
+            return
+
+        if showPreSep:
+            tabLog.addSeparator()
+
+        tabLog.info(["Cluster Expansion", "= In Progress"])
+
+        if showPostSep:
+            tabLog.addSeparator()
+
+
     def __printSampleExternalTableSqlForSegmentStatus(self, gpEnv):
         scriptName = "%s/gpstate --segmentStatusPipeSeparatedForTableUse -q -d %s" % \
                         (sys.path[0], gpEnv.getMasterDataDir()) # todo: ideally, would escape here
@@ -845,6 +985,7 @@ class GpSystemStateProgram:
             tabLog.addSeparator()
             toSuppress = {} if gpArray.hasMirrors else categoriesToIgnoreWithoutMirroring
             data.addSegmentToTableLogger(tabLog, seg, toSuppress)
+        self.__showExpandStatusSummary(gpEnv, tabLog, showPreSep=True, showPostSep=True)
         tabLog.outputTable()
         hasWarnings = hasWarnings or tabLog.hasWarnings()
 
@@ -1375,6 +1516,8 @@ class GpSystemStateProgram:
             exitCode = self.__showPortInfo(gpEnv, gpArray)
         elif self.__options.segmentStatusPipeSeparatedForTableUse:
             exitCode = self.__segmentStatusPipeSeparatedForTableUse(gpEnv, gpArray)
+        elif self.__options.showExpandStatus:
+            exitCode = self.__showExpandStatus(gpEnv)
         else:
             # self.__options.showStatusStatistics OR default:
             exitCode = self.__showStatusStatistics(gpEnv, gpArray)
@@ -1441,6 +1584,10 @@ class GpSystemStateProgram:
                          dest="showSummaryOfSegmentsWhichRequireAttention",
                          metavar="<showSummaryOfSegmentsWhichRequireAttention>",
                          help="Show summary of segments needing attention")
+        addTo.add_option("-x", None, default=False, action="store_true",
+                         dest="showExpandStatus",
+                         metavar="<showExpandStatus>",
+                         help="Show gpexpand status")
 
         #
         # two experimental options for exposing segment status as a queryable web table
