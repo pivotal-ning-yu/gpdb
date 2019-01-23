@@ -228,8 +228,8 @@ CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=61);
 ERROR:  total memory_limit exceeded the limit of 100
 CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=0, memory_limit=10);
 ERROR:  cpu_rate_limit range is [1, 100]
-CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=0);
-ERROR:  memory_limit range is [1, 100]
+CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=-1);
+ERROR:  memory_limit range is [0, 100]
 CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=0.9);
 ERROR:  invalid input syntax for integer: "0.9"
 CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=1.9);
@@ -343,6 +343,56 @@ CREATE
 DROP RESOURCE GROUP rg_test_group;
 DROP
 CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=10, memory_shared_quota=99, memory_spill_ratio=1);
+CREATE
+DROP RESOURCE GROUP rg_test_group;
+DROP
+
+-- negative: absolute value format of memory_spill_ratio is
+-- '^[1-9][0-9]*[MmGg]$'
+CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=10, memory_spill_ratio='10 %');
+ERROR:  syntax error on capability memory_spill_ratio
+CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=10, memory_spill_ratio='10 M');
+ERROR:  syntax error on capability memory_spill_ratio
+CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=10, memory_spill_ratio='10.M');
+ERROR:  syntax error on capability memory_spill_ratio
+CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=10, memory_spill_ratio='10MB');
+ERROR:  syntax error on capability memory_spill_ratio
+CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=10, memory_spill_ratio='10M ');
+ERROR:  syntax error on capability memory_spill_ratio
+CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=10, memory_spill_ratio='10B');
+ERROR:  syntax error on capability memory_spill_ratio
+CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=10, memory_spill_ratio='10K');
+ERROR:  syntax error on capability memory_spill_ratio
+CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=10, memory_spill_ratio='10X');
+ERROR:  syntax error on capability memory_spill_ratio
+CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=10, memory_spill_ratio='-10M');
+ERROR:  capability memory_spill_ratio is out of range
+CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=10, memory_spill_ratio='0x10M');
+ERROR:  syntax error on capability memory_spill_ratio
+-- negative: memory_spill_ratio does not accept out of range percentage values
+CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=10, memory_spill_ratio='-10');
+ERROR:  memory_spill_ratio range is [0, 100]
+CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=10, memory_spill_ratio='101');
+ERROR:  memory_spill_ratio range is [0, 100]
+-- negative: when memory_limit is unlimited memory_spill_ratio must be set in
+-- absolute value format
+CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=0, memory_spill_ratio=10);
+ERROR:  when memory_limit is unlimited memory_spill_ratio must be set in absolute value format
+CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=0, memory_spill_ratio='10%');
+ERROR:  when memory_limit is unlimited memory_spill_ratio must be set in absolute value format
+CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=0);
+ERROR:  when memory_limit is unlimited memory_spill_ratio must be set in absolute value format
+
+-- positive
+CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=0, memory_spill_ratio='100M');
+CREATE
+DROP RESOURCE GROUP rg_test_group;
+DROP
+CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=0, memory_spill_ratio='100G');
+CREATE
+DROP RESOURCE GROUP rg_test_group;
+DROP
+CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=10, memory_spill_ratio='10%');
 CREATE
 DROP RESOURCE GROUP rg_test_group;
 DROP
@@ -491,4 +541,76 @@ ERROR:  resource group concurrency must be 0 when group memory_auditor is cgroup
 CREATE ROLE cgroup_audited_role RESOURCE GROUP cgroup_audited_group;
 ERROR:  You cannot assign a role to this resource group because the memory_auditor property for this group is not the default.
 DROP RESOURCE GROUP cgroup_audited_group;
+DROP
+
+-- negative: memory_spill_ratio only accepts string value
+CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=10, memory_spill_ratio='100M');
+CREATE
+ALTER RESOURCE GROUP rg_test_group SET memory_spill_ratio 10;
+ERROR:  syntax error at or near "10"
+LINE 1: ...LTER RESOURCE GROUP rg_test_group SET memory_spill_ratio 10;
+                                                                    ^
+ALTER RESOURCE GROUP rg_test_group SET memory_spill_ratio 10%;
+ERROR:  syntax error at or near "10"
+LINE 1: ...TER RESOURCE GROUP rg_test_group SET memory_spill_ratio 10%;
+                                                                   ^
+ALTER RESOURCE GROUP rg_test_group SET memory_spill_ratio 10M;
+ERROR:  syntax error at or near "10"
+LINE 1: ...TER RESOURCE GROUP rg_test_group SET memory_spill_ratio 10M;
+                                                                   ^
+DROP RESOURCE GROUP rg_test_group;
+DROP
+-- negative: memory_spill_ratio does not accept out of range percentage values
+CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=10, memory_spill_ratio='100M');
+CREATE
+ALTER RESOURCE GROUP rg_test_group SET memory_spill_ratio '-1';
+ERROR:  memory_spill_ratio range is [0, 100]
+ALTER RESOURCE GROUP rg_test_group SET memory_spill_ratio '101';
+ERROR:  memory_spill_ratio range is [0, 100]
+DROP RESOURCE GROUP rg_test_group;
+DROP
+-- positive: memory_limit can be altered to unlimited if memory_spill_ratio has
+-- an absolute value
+CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=10, memory_spill_ratio='100M');
+CREATE
+ALTER RESOURCE GROUP rg_test_group SET memory_limit 0;
+ALTER
+DROP RESOURCE GROUP rg_test_group;
+DROP
+-- negative: memory_spill_ratio only accepts an absolute value if memory_limit
+-- is unlimited
+CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=0, memory_spill_ratio='100M');
+CREATE
+ALTER RESOURCE GROUP rg_test_group SET memory_spill_ratio '10';
+ERROR:  when memory_limit is unlimited memory_spill_ratio must be set in absolute value format
+ALTER RESOURCE GROUP rg_test_group SET memory_spill_ratio '10%';
+ERROR:  when memory_limit is unlimited memory_spill_ratio must be set in absolute value format
+DROP RESOURCE GROUP rg_test_group;
+DROP
+-- positive: memory_spill_ratio accepts a percentage value only if
+-- memory_limit is limited
+CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=10, memory_spill_ratio='100M');
+CREATE
+ALTER RESOURCE GROUP rg_test_group SET memory_spill_ratio '10%';
+ALTER
+DROP RESOURCE GROUP rg_test_group;
+DROP
+-- negative: memory_limit must be limited if memory_spill_ratio has a
+-- percentage value
+CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=10, memory_spill_ratio='10%');
+CREATE
+ALTER RESOURCE GROUP rg_test_group SET memory_limit 0;
+ERROR:  when memory_limit is unlimited memory_spill_ratio must be set in absolute value format
+DROP RESOURCE GROUP rg_test_group;
+DROP
+-- positive: memory_spill_ratio accepts a absolute value anytime
+CREATE RESOURCE GROUP rg_test_group WITH (cpu_rate_limit=10, memory_limit=10, memory_spill_ratio='10M');
+CREATE
+ALTER RESOURCE GROUP rg_test_group SET memory_spill_ratio '50M';
+ALTER
+ALTER RESOURCE GROUP rg_test_group SET memory_limit 0;
+ALTER
+ALTER RESOURCE GROUP rg_test_group SET memory_spill_ratio '10M';
+ALTER
+DROP RESOURCE GROUP rg_test_group;
 DROP

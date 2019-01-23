@@ -1495,9 +1495,9 @@ OptResourceGroupElem:
 				{
 					$$ = makeDefElem("memory_limit", (Node *) makeInteger($2));
 				}
-			| MEMORY_SPILL_RATIO SignedIconst
+			| MEMORY_SPILL_RATIO Sconst
 				{
-					$$ = makeDefElem("memory_spill_ratio", (Node *) makeInteger($2));
+					$$ = makeDefElem("memory_spill_ratio", (Node *) makeString($2));
 				}
 		;
 

@@ -3142,7 +3142,7 @@ struct config_int ConfigureNamesInt_gp[] =
 			NULL
 		},
 		&memory_spill_ratio,
-		20, 0, 100,
+		20, INT_MIN, 100,
 		NULL, NULL, NULL
 	},
 
