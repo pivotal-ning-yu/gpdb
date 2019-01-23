@@ -505,7 +505,7 @@ def check_gpexpand():
                                                 checkOnPhase2=False)
     if not check_result:
         LOGGER.error(msg)
-        sys.exit(127)
+        sys.exit(1)
 
 def do_main():
     options = parseargs()

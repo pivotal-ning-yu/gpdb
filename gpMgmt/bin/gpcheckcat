@@ -4284,7 +4284,7 @@ def check_gpexpand():
                                                 checkOnPhase2=False)
     if not check_result:
         myprint(msg)
-        sys.exit(127)
+        sys.exit(1)
 
 def main():
     parseCommandLine()

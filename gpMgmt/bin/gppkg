@@ -17,6 +17,6 @@ if __name__ == '__main__':
                                                 checkOnPhase2=False)
     if not check_result:
         logger.error(msg)
-        sys.exit(127)
+        sys.exit(1)
 
     simple_main(GpPkgProgram.create_parser, GpPkgProgram.create_program)

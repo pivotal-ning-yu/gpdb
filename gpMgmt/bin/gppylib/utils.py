@@ -714,7 +714,7 @@ def checkGpexpandNotRunning(utility, checkOnPhase1=True, checkOnPhase2=False):
         current_phase = 0
     elif code >= 100 and code < 200:
         current_phase = 1
-    elif code >= 200:
+    elif 200 <= code < 300:
         current_phase = 2
     else:
         (False, "wrong status code({code}) of gp_expand_get_status()".format(code=str(code)))
