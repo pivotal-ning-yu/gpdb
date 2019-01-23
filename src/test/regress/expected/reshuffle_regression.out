@@ -90,7 +90,7 @@ select gp_debug_set_create_table_default_numsegments(1);
  1
 (1 row)
 
-create table root2 (a int, b int, c int) distributed by (a);
+create table root2 (a int, b int, c int) distributed randomly;
 create table child2 (d int) inherits (root2);
 NOTICE:  table has parent, setting distribution columns to match parent table
 select gp_debug_reset_create_table_default_numsegments();
@@ -104,45 +104,23 @@ insert into child2
 values (10, 100, 1000, 10000),
        (11, 111, 1111, 11111),
        (12, 123, 1234, 12345);
-select gp_segment_id, * from root2;
- gp_segment_id | a  |  b  |  c   
----------------+----+-----+------
-             0 |  1 |   2 |    3
-             0 |  4 |   5 |    6
-             0 |  7 |   8 |    9
-             0 | 10 | 100 | 1000
-             0 | 11 | 111 | 1111
-             0 | 12 | 123 | 1234
-(6 rows)
-
-select gp_segment_id, * from child2;
- gp_segment_id | a  |  b  |  c   |   d   
----------------+----+-----+------+-------
-             0 | 10 | 100 | 1000 | 10000
-             0 | 11 | 111 | 1111 | 11111
-             0 | 12 | 123 | 1234 | 12345
-(3 rows)
+select localoid::regclass, numsegments from gp_distribution_policy
+ where localoid in ('child2'::regclass, 'root2'::regclass);
+ localoid | numsegments 
+----------+-------------
+ root2    |           1
+ child2   |           1
+(2 rows)
 
 -- expand the child first
 alter table child2 expand table;
 -- then expand the parent, so the child is re-expanded
 alter table root2 expand table;
-select gp_segment_id, * from root2;
- gp_segment_id | a  |  b  |  c   
----------------+----+-----+------
-             2 |  1 |   2 |    3
-             0 |  4 |   5 |    6
-             0 |  7 |   8 |    9
-             0 | 11 | 111 | 1111
-             1 | 10 | 100 | 1000
-             1 | 12 | 123 | 1234
-(6 rows)
-
-select gp_segment_id, * from child2;
- gp_segment_id | a  |  b  |  c   |   d   
----------------+----+-----+------+-------
-             0 | 11 | 111 | 1111 | 11111
-             1 | 10 | 100 | 1000 | 10000
-             1 | 12 | 123 | 1234 | 12345
-(3 rows)
+select localoid::regclass, numsegments from gp_distribution_policy
+ where localoid in ('child2'::regclass, 'root2'::regclass);
+ localoid | numsegments 
+----------+-------------
+ child2   |           3
+ root2    |           3
+(2 rows)
 

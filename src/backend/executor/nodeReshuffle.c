@@ -229,17 +229,6 @@ ExecReshuffle(ReshuffleState *node)
 
 		Assert(dmlAction == DML_INSERT || dmlAction == DML_DELETE);
 
-		/*
-		 * Skip the already expanded tables.  We have similar checks on master
-		 * during planning stage, then why would we reach here on segments?
-		 * This happens with inherited tables.  The children will also be
-		 * expanded when expanding the parent, however for inherited table the
-		 * children are allowed to be expanded separately before the parent,
-		 * which makes it possible for children to be re-expanded.
-		 */
-		if (getgpsegmentCount() == reshuffle->oldSegs)
-			return NULL;
-
 		if (DML_INSERT == dmlAction)
 		{
 			/* For hash distributed tables*/

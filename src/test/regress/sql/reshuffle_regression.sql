@@ -51,7 +51,7 @@ select gp_segment_id, * from b;
 --
 
 select gp_debug_set_create_table_default_numsegments(1);
-create table root2 (a int, b int, c int) distributed by (a);
+create table root2 (a int, b int, c int) distributed randomly;
 create table child2 (d int) inherits (root2);
 select gp_debug_reset_create_table_default_numsegments();
 
@@ -61,13 +61,13 @@ values (10, 100, 1000, 10000),
        (11, 111, 1111, 11111),
        (12, 123, 1234, 12345);
 
-select gp_segment_id, * from root2;
-select gp_segment_id, * from child2;
+select localoid::regclass, numsegments from gp_distribution_policy
+ where localoid in ('child2'::regclass, 'root2'::regclass);
 
 -- expand the child first
 alter table child2 expand table;
 -- then expand the parent, so the child is re-expanded
 alter table root2 expand table;
 
-select gp_segment_id, * from root2;
-select gp_segment_id, * from child2;
+select localoid::regclass, numsegments from gp_distribution_policy
+ where localoid in ('child2'::regclass, 'root2'::regclass);
