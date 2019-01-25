@@ -89,6 +89,10 @@ select gp_debug_reset_create_table_default_numsegments();
 insert into root2 values (1, 2, 3), (4, 5, 6), (7, 8, 9);
 insert into child2 select i, i+1, i+2, i+3 from generate_series(100, 199) i;
 
+-- expand only root or child is not supported
+alter table only root2 expand table;
+alter table only child2 expand table;
+
 alter table root2 expand table;
 
 -- verify that data has been redistributed

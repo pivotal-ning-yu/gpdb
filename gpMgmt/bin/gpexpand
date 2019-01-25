@@ -1617,8 +1617,9 @@ Set PGDATABASE or use the -D option to specify the correct database to use.""" %
         self.finalize_prepare()
 
     def _populate_regular_tables(self, dbname):
-        """ we don't do 3.2+ style partitioned tables here, but we do
-            all other table types.
+        """ we don't do 3.2+ style partitioned tables here, and we don't do
+            interiors or leafs of inherited tables, but we do all other table
+            types.
         """
 
         src_bytes_str = "0" if self.options.simple_progress else "pg_relation_size(quote_ident(n.nspname) || '.' || quote_ident(c.relname))"
@@ -1642,6 +1643,7 @@ WHERE
     AND pr.parchildrelid is NULL
     AND n.nspname != 'gpexpand'
     AND n.nspname != 'pg_bitmapindex'
+    AND c.oid not in (select inhrelid from pg_inherits)
     AND c.relstorage != 'x';
 
                   """ % (src_bytes_str)
@@ -2095,18 +2097,9 @@ class ExpandTable():
         status_conn.commit()
 
     def expand(self, table_conn, cancel_flag):
-        # for root partition, we want to expand whose partition in one shot
+        # partitioned / inherited tables are expanded entirely in one shot
         # TODO: expand leaf partitions seperately in parallel
-        if self.is_root_partition:
-            only_str = ""
-        else:
-            only_str = "ONLY"
-
-        new_storage_options = ''
-        if self.storage_options:
-            new_storage_options = ',' + self.storage_options
-
-        sql = 'ALTER TABLE %s %s EXPAND TABLE' % (only_str, self.fq_name)
+        sql = 'ALTER TABLE %s EXPAND TABLE' % (self.fq_name)
 
         logger.info('Expanding %s.%s' % (self.dbname.decode('utf-8'), self.fq_name.decode('utf-8')))
         logger.debug("Expand SQL: %s" % sql.decode('utf-8'))
