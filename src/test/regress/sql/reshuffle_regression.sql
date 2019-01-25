@@ -51,23 +51,50 @@ select gp_segment_id, * from b;
 --
 
 select gp_debug_set_create_table_default_numsegments(1);
-create table root2 (a int, b int, c int) distributed by (a);
+create table root2 (a int, b int, c int) distributed randomly;
 create table child2 (d int) inherits (root2);
 select gp_debug_reset_create_table_default_numsegments();
 
 insert into root2 values (1, 2, 3), (4, 5, 6), (7, 8, 9);
-insert into child2
-values (10, 100, 1000, 10000),
-       (11, 111, 1111, 11111),
-       (12, 123, 1234, 12345);
+insert into child2 select i, i+1, i+2, i+3 from generate_series(100, 199) i;
 
-select gp_segment_id, * from root2;
-select gp_segment_id, * from child2;
+select localoid::regclass, numsegments from gp_distribution_policy
+ where localoid in ('child2'::regclass, 'root2'::regclass);
 
 -- expand the child first
 alter table child2 expand table;
 -- then expand the parent, so the child is re-expanded
 alter table root2 expand table;
 
-select gp_segment_id, * from root2;
-select gp_segment_id, * from child2;
+-- verify that data has been redistributed
+select count(*) > 0 from child2 where gp_segment_id <> 0;
+-- verify the data integration after redistribution
+select count(*) from child2;
+-- verify the numsegments property after redistribution
+select localoid::regclass, numsegments from gp_distribution_policy
+ where localoid in ('child2'::regclass, 'root2'::regclass);
+
+--
+-- variant of above case: only child is unexpanded
+--
+
+drop table root2 cascade;
+
+select gp_debug_set_create_table_default_numsegments('full');
+create table root2 (a int, b int, c int) distributed randomly;
+select gp_debug_set_create_table_default_numsegments(1);
+create table child2 (d int) inherits (root2);
+select gp_debug_reset_create_table_default_numsegments();
+
+insert into root2 values (1, 2, 3), (4, 5, 6), (7, 8, 9);
+insert into child2 select i, i+1, i+2, i+3 from generate_series(100, 199) i;
+
+alter table root2 expand table;
+
+-- verify that data has been redistributed
+select count(*) > 0 from child2 where gp_segment_id <> 0;
+-- verify the data integration after redistribution
+select count(*) from child2;
+-- verify the numsegments property after redistribution
+select localoid::regclass, numsegments from gp_distribution_policy
+ where localoid in ('child2'::regclass, 'root2'::regclass);

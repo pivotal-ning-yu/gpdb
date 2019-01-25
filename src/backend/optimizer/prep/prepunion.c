@@ -1867,6 +1867,29 @@ adjust_appendrel_attrs_mutator(Node *node,
 		}
 		return (Node *) var;
 	}
+	if (IsA(node, ReshuffleExpr))
+	{
+		/*
+		 * For a partitioned / inherited table the rexpr->oldSegs is
+		 * initialized with numsegments of root, we need to replace it with
+		 * each child's actual numsegments.
+		 */
+
+		ReshuffleExpr *rexpr = (ReshuffleExpr *) copyObject(node);
+		RangeTblEntry *rte;
+		GpPolicy   *policy;
+
+		rte = rt_fetch(appinfo->child_relid, context->root->parse->rtable);
+		policy = GpPolicyFetch(rte->relid);
+
+		rexpr->oldSegs = policy->numsegments;
+
+		/*
+		 * Do not return here, we need to further pass the updated node to
+		 * expression_tree_mutator().
+		 */
+		node = (Node *) rexpr;
+	}
 	if (IsA(node, CurrentOfExpr))
 	{
 		CurrentOfExpr *cexpr = (CurrentOfExpr *) copyObject(node);

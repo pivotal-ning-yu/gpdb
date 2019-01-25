@@ -1208,6 +1208,20 @@ inheritance_planner(PlannerInfo *root)
 		Assert(parentOid == appinfo->parent_reloid);
 
 		/*
+		 * Skip already expanded children or parent of a partitioned or
+		 * inherited table.
+		 */
+		if (parse->needReshuffle)
+		{
+			RangeTblEntry *childRte = rt_fetch(appinfo->child_relid,
+											   parse->rtable);
+			GpPolicy   *childPolicy = GpPolicyFetch(childRte->relid);
+
+			if (childPolicy->numsegments == GP_POLICY_ALL_NUMSEGMENTS)
+				continue;
+		}
+
+		/*
 		 * We need a working copy of the PlannerInfo so that we can control
 		 * propagation of information back to the main copy.
 		 */
