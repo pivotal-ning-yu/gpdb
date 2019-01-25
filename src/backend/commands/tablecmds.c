@@ -4676,18 +4676,71 @@ ATPrepCmd(List **wqueue, Relation rel, AlterTableCmd *cmd,
 				switch (ps)
 				{
 					case PART_STATUS_NONE:
-					case PART_STATUS_ROOT:
+						/*
+						 * ALTER TABLE ONLY <table> EXPAND TABLE on inherited
+						 * tables is not supported.
+						 */
+						if (!recurse &&
+							(has_subclass(relid) ||
+							 OidIsValid(rel_partition_get_root(relid))))
+						{
+							Oid			masteroid;
+							Oid			parentoid = relid;
+
+							do
+							{
+								masteroid = parentoid;
+								parentoid = rel_partition_get_root(parentoid);
+							} while (OidIsValid(parentoid));
+
+							ereport(ERROR,
+									(errcode(ERRCODE_WRONG_OBJECT_TYPE),
+									 errmsg("cannot expand ONLY \"%s\" of inherited table \"%s\"",
+											RelationGetRelationName(rel),
+											get_rel_name(masteroid)),
+									 errhint("use \"ALTER TABLE %s EXPAND TABLE\" instead",
+											 get_rel_name(masteroid))));
+						}
 						break;
 
+					case PART_STATUS_ROOT:
 					case PART_STATUS_INTERIOR:
 					case PART_STATUS_LEAF:
-						ereport(ERROR,
-								(errcode(ERRCODE_WRONG_OBJECT_TYPE),
-								 errmsg("cannot expand leaf or interior partition \"%s\"",
-										RelationGetRelationName(rel)),
-								 errdetail("root/leaf/interior partitions need to have same numsegments"),
-								 errhint("use \"ALTER TABLE %s EXPAND TABLE\" instead",
-										 get_rel_name(rel_partition_get_master(relid)))));
+						/*
+						 * ALTER TABLE ONLY <table> EXPAND TABLE on partitioned
+						 * tables is not supported.
+						 */
+						if (!recurse)
+						{
+							Oid			masteroid;
+
+							if (ps == PART_STATUS_ROOT)
+								masteroid = relid;
+							else
+								masteroid = rel_partition_get_master(relid);
+
+							ereport(ERROR,
+									(errcode(ERRCODE_WRONG_OBJECT_TYPE),
+									 errmsg("cannot expand ONLY \"%s\" of partitioned table \"%s\"",
+											RelationGetRelationName(rel),
+											get_rel_name(masteroid)),
+									 errhint("use \"ALTER TABLE %s EXPAND TABLE\" instead",
+											 get_rel_name(masteroid))));
+						}
+
+						/*
+						 * ALTER TABLE <table> EXPAND TABLE on partitioned
+						 * tables is only supported on the root table.
+						 */
+						else if (ps != PART_STATUS_ROOT)
+							ereport(ERROR,
+									(errcode(ERRCODE_WRONG_OBJECT_TYPE),
+									 errmsg("cannot expand leaf or interior partition \"%s\"",
+											RelationGetRelationName(rel)),
+									 errdetail("root/leaf/interior partitions need to have same numsegments"),
+									 errhint("use \"ALTER TABLE %s EXPAND TABLE\" instead",
+											 get_rel_name(rel_partition_get_master(relid)))));
+
 						break;
 				}
 			}
