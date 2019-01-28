@@ -82,14 +82,27 @@ EOF
 function bypass_known_expand_failures() {
   local pgoptions="$(get_pgoptions)"
 
-  PGOPTIONS="$pgoptions" runuser -pu gpadmin -- psql -a -d regression <<"EOF"
-\pset pager off
+  su gpadmin -c "PGOPTIONS='$pgoptions' psql -a -d regression -f $CWDIR/bypass_known_expand_failures.sql"
+}
 
--- created by gpcopy.source, gpexpand does not handle db names with special
--- characters correctly, so their tables can not be expanded.
-\connect "funny copy""db'with\\quotes"
-drop table if exists public.foo cascade;
+# detect for partial tables from all the non-template databases,
+# exit code is 0 if no partial table is found, or 1 otherwise
+function list_partial_tables() {
+  local pgoptions="$(get_pgoptions)"
+
+  su gpadmin -c bash <<EOF
+. /usr/local/greenplum-db-devel/greenplum_path.sh
+export PGOPTIONS='$pgoptions'
+python $CWDIR/scan_partial_table.py
 EOF
+}
+
+# usage: sort_dump < input_file > output_file
+#
+# filter and sort the 'INSERT INTO' lines of "pg_dumpall --inserts" output.
+# will also append the database name to end of each line as comment.
+function sort_dump() {
+  sed -nrf "$CWDIR/filter_dump.sed" | sort
 }
 
 # usage: expand_cluster <old_size> <new_size>
@@ -98,14 +111,22 @@ function expand_cluster() {
   local new="$2"
   local inputfile="/tmp/inputfile.${old}-${new}"
   local pidfile="/tmp/postmaster.pid.${old}-${new}"
+  local dump_before="/tmp/dump.${old}-${new}.before.sql"
+  local dump_after="/tmp/dump.${old}-${new}.after.sql"
+  local sorted_dump_before="/tmp/sorted-dump.${old}-${new}.before.sql"
+  local sorted_dump_after="/tmp/sorted-dump.${old}-${new}.after.sql"
+  local sorted_dump_diff="/tmp/sorted-dump.${old}-${new}.diff"
   local dbname="gpstatus"
   local pgoptions="$(get_pgoptions)"
+  local retval=0
   local uncompleted
-  local partial
 
   pushd gpdb_src/gpAux/gpdemo
 
   gen_gpexpand_input "$old" "$new"
+
+  # dump before expansion
+  su gpadmin -c "pg_dumpall --inserts -Oxaf '$dump_before'"
 
   # Backup master pid, by checking it later we can know whether the cluster is
   # restarted during the tests.
@@ -119,23 +140,40 @@ function expand_cluster() {
   uncompleted=$(su gpadmin -c "psql -Aqtd $dbname -c \"select count(*) from gpexpand.status_detail where status <> 'COMPLETED'\"")
   # cleanup
   su gpadmin -c "yes | PGOPTIONS='$pgoptions' gpexpand -D $dbname -s -c"
+  su gpadmin -c "dropdb $dbname" 2>/dev/null || : # ignore failure
+
+  # dump after expansion
+  su gpadmin -c "pg_dumpall --inserts -Oxaf '$dump_after'"
 
   popd
 
   if [ "$uncompleted" -ne 0 ]; then
-	  echo "error: some tables are not successfully expanded"
-	  return 1
+    echo "error: fail to expand some tables"
+    retval=1
   fi
 
-  # double check gp_distribution_policy.numsegments
-  partial=$(su gpadmin -c "psql -Aqtd $dbname -c \"select count(*) from gp_distribution_policy where numsegments <> $new\"")
-  if [ "$partial" -ne 0 ]; then
-	  echo "error: not all the tables are expanded by gpexpand"
-	  return 1
+  # double check gp_distribution_policy.numsegments in every database
+  if ! list_partial_tables; then
+    echo "error: some tables are not expanded"
+    retval=1
   fi
 
-  echo "all the tables are successfully expanded"
-  return 0
+  echo "checking for data integration after expansion..."
+  sort_dump < "$dump_before" > "$sorted_dump_before"
+  sort_dump < "$dump_after" > "$sorted_dump_after"
+  if diff -u0 "$sorted_dump_before" "$sorted_dump_after" >"$sorted_dump_diff"; then
+    echo "before and after dumps have no difference"
+  else
+    echo "error: before and after dumps differ, here are part of the sorted diff:"
+    head -n50 "$sorted_dump_diff"
+    retval=1
+  fi
+
+  if [ "$retval" -eq 0 ]; then
+    echo "all the tables are successfully expanded"
+  fi
+
+  return $retval
 }
 
 # usage: make_cluster [<demo_cluster_options>]
