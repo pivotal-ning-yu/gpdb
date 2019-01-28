@@ -425,3 +425,14 @@ DROP TABLE inherit_t1_p1 CASCADE;
 CREATE TABLE expand_noop(i int) distributed by (i);
 ALTER TABLE expand_noop EXPAND TABLE;
 ALTER TABLE expand_noop EXPAND TABLE;
+
+--
+-- Cannot expand a native view and transformed view
+--
+CREATE TABLE expand_table1(a int) distributed by (a);
+CREATE TABLE expand_table2(a int) distributed by (a);
+CREATE VIEW expand_view AS select * from expand_table1;
+CREATE rule "_RETURN" AS ON SELECT TO expand_table2
+    DO INSTEAD SELECT * FROM expand_table1;
+ALTER TABLE expand_table2 EXPAND TABLE;
+ALTER TABLE expand_view EXPAND TABLE;
