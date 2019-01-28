@@ -4598,6 +4598,7 @@ ATPrepCmd(List **wqueue, Relation rel, AlterTableCmd *cmd,
 			pass = AT_PASS_MISC;
 			break;
 		case AT_SetDistributedBy:	/* SET DISTRIBUTED BY */
+			ATSimplePermissions(rel, ATT_TABLE);
 			if ( !recursing ) /* MPP-5772, MPP-5784 */
 			{
 				Oid relid = RelationGetRelid(rel);
@@ -4642,11 +4643,11 @@ ATPrepCmd(List **wqueue, Relation rel, AlterTableCmd *cmd,
 				}
 			}
 
-			ATSimplePermissions(rel, ATT_TABLE);
 			ATSimpleRecursion(wqueue, rel, cmd, recurse, lockmode);
 			pass = AT_PASS_MISC;
 			break;
 		case AT_ExpandTable:
+			ATSimplePermissions(rel, ATT_TABLE);
 			if (!recursing)
 			{
 				Oid			relid = RelationGetRelid(rel);
@@ -4726,7 +4727,6 @@ ATPrepCmd(List **wqueue, Relation rel, AlterTableCmd *cmd,
 				}
 			}
 
-			ATSimplePermissions(rel, ATT_TABLE);
 			ATSimpleRecursion(wqueue, rel, cmd, recurse, lockmode);
 			pass = AT_PASS_MISC;
 			break;
