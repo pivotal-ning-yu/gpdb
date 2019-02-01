@@ -39,6 +39,7 @@
 #include "cdb/cdbutil.h"		/* CdbComponentDatabaseInfo */
 #include "cdb/cdbvars.h"		/* Gp_role, etc. */
 #include "cdb/cdbconn.h"		/* cdbconn_* */
+#include "cdb/ml_ipc.h"			/* GetListenerPort() */
 #include "libpq/libpq-be.h"
 #include "libpq/ip.h"
 
@@ -490,10 +491,7 @@ makeCdbProcess(SegmentDatabaseDescriptor *segdbDesc)
 
 	process->listenerAddr = pstrdup(qeinfo->hostip);
 
-	if (Gp_interconnect_type == INTERCONNECT_TYPE_UDPIFC)
-		process->listenerPort = (segdbDesc->motionListener >> 16) & 0x0ffff;
-	else if (Gp_interconnect_type == INTERCONNECT_TYPE_TCP)
-		process->listenerPort = (segdbDesc->motionListener & 0x0ffff);
+	process->listenerPort = GetListenerPort(segdbDesc->motionListener);
 
 	process->pid = segdbDesc->backendPid;
 	process->contentid = segdbDesc->segindex;
@@ -576,10 +574,7 @@ getCdbProcessesForQD(int isPrimary)
 	 */
 	proc->listenerAddr = NULL;
 
-	if (Gp_interconnect_type == INTERCONNECT_TYPE_UDPIFC)
-		proc->listenerPort = (Gp_listener_port >> 16) & 0x0ffff;
-	else if (Gp_interconnect_type == INTERCONNECT_TYPE_TCP)
-		proc->listenerPort = (Gp_listener_port & 0x0ffff);
+	proc->listenerPort = GetListenerPort(Gp_listener_port);
 
 	proc->pid = MyProcPid;
 	proc->contentid = -1;

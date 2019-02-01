@@ -106,6 +106,11 @@ checkForCancelFromQD(ChunkTransportState *pTransportStates);
  */
 extern void SetupInterconnect(struct EState *estate);
 
+extern int GetListenerPort(int port);
+extern void SetMaxTupleChunkSize(void);
+extern void PutRxBuffer(ChunkTransportState *transportStates,
+						int16 motNodeID, int16 srcRoute);
+
 /* The TeardownInterconnect() function should be called at the end of executing
  * a DML statement to close down all socket resources that were setup during
  * SetupInterconnect().

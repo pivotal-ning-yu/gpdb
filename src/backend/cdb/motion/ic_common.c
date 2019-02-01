@@ -536,11 +536,49 @@ SetupInterconnect(EState *estate)
 	else if (Gp_interconnect_type == INTERCONNECT_TYPE_TCP)
 		SetupTCPInterconnect(estate);
 	else
+	{
 		Assert("unsupported expected interconnect type");
+	}
 
 	MemoryContextSwitchTo(oldContext);
 
 	h->interconnect_context = estate->interconnect_context;
+}
+
+int
+GetListenerPort(int port)
+{
+	Assert(Gp_interconnect_type == INTERCONNECT_TYPE_UDPIFC ||
+		   Gp_interconnect_type == INTERCONNECT_TYPE_TCP ||
+		   Gp_interconnect_type == INTERCONNECT_TYPE_LIBUV);
+
+	if (Gp_interconnect_type == INTERCONNECT_TYPE_UDPIFC)
+		return (port >> 16) & 0x0ffff;
+	else if (Gp_interconnect_type == INTERCONNECT_TYPE_TCP)
+		return port & 0x0ffff;
+}
+
+void
+SetMaxTupleChunkSize(void)
+{
+	Assert(Gp_interconnect_type == INTERCONNECT_TYPE_UDPIFC ||
+		   Gp_interconnect_type == INTERCONNECT_TYPE_TCP);
+
+	if (Gp_interconnect_type == INTERCONNECT_TYPE_UDPIFC)
+		Gp_max_tuple_chunk_size = Gp_max_packet_size - sizeof(struct icpkthdr) - TUPLE_CHUNK_HEADER_SIZE;
+	else if (Gp_interconnect_type == INTERCONNECT_TYPE_TCP)
+		Gp_max_tuple_chunk_size = Gp_max_packet_size - PACKET_HEADER_SIZE - TUPLE_CHUNK_HEADER_SIZE;
+}
+
+void
+PutRxBuffer(ChunkTransportState *transportStates,
+			int16 motNodeID, int16 srcRoute)
+{
+	Assert(Gp_interconnect_type == INTERCONNECT_TYPE_UDPIFC ||
+		   Gp_interconnect_type == INTERCONNECT_TYPE_TCP);
+
+	if (Gp_interconnect_type == INTERCONNECT_TYPE_UDPIFC)
+		MlPutRxBufferIFC(transportStates, motNodeID, srcRoute);
 }
 
 /*
