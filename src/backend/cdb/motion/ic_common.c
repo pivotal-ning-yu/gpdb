@@ -549,13 +549,17 @@ int
 GetListenerPort(int port)
 {
 	Assert(Gp_interconnect_type == INTERCONNECT_TYPE_UDPIFC ||
-		   Gp_interconnect_type == INTERCONNECT_TYPE_TCP ||
-		   Gp_interconnect_type == INTERCONNECT_TYPE_LIBUV);
+		   Gp_interconnect_type == INTERCONNECT_TYPE_TCP);
 
 	if (Gp_interconnect_type == INTERCONNECT_TYPE_UDPIFC)
 		return (port >> 16) & 0x0ffff;
 	else if (Gp_interconnect_type == INTERCONNECT_TYPE_TCP)
 		return port & 0x0ffff;
+	else
+	{
+		pg_unreachable();
+		return 0;
+	}
 }
 
 void

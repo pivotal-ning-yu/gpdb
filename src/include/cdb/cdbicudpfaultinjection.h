@@ -539,6 +539,7 @@ testmode_palloc0(const char *caller_name, size_t size)
 	return palloc0(size);
 }
 
+#ifndef ENABLE_IC_LIBUV
 /*
  * testmode_pthread_create
  * 		pthread_create with faults injected.
@@ -556,6 +557,7 @@ testmode_pthread_create(const char *caller_name, pthread_t *thread,
 
 	return pthread_create(thread, attr, start_routine, arg);
 }
+#endif /* ! ENABLE_IC_LIBUV */
 
 
 #undef ML_CHECK_FOR_INTERRUPTS

@@ -298,6 +298,9 @@ LD = @LD@
 with_gnu_ld = @with_gnu_ld@
 ld_R_works = @ld_R_works@
 
+CFLAGS += $(shell pkg-config --cflags libuv)
+LIBS   += $(shell pkg-config --libs   libuv)
+
 # It's critical that within LDFLAGS, all -L switches pointing to build-tree
 # directories come before any -L switches pointing to external directories.
 # Otherwise it's possible for, e.g., a platform-provided copy of libpq.so

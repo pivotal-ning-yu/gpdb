@@ -24,6 +24,12 @@
 
 #include "postgres.h"
 
+#define ENABLE_IC_LIBUV 1
+
+#ifdef ENABLE_IC_LIBUV
+#include <uv.h>
+#endif
+
 #include <pthread.h>
 
 #include "access/transam.h"
@@ -57,6 +63,12 @@
 #include <arpa/inet.h>
 #include "pgtime.h"
 #include <netinet/in.h>
+
+#define log_in_thread(level, msg...) do { \
+	if (level >= log_min_messages) { \
+		write_log("[ic-libuv]" msg); \
+	} \
+} while (0)
 
 #ifdef WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -677,12 +689,14 @@ static inline void sendAckWithParam(AckSendParam *param);
 static void sendAck(MotionConn *conn, int32 flags, uint32 seq, uint32 extraSeq);
 static void sendDisorderAck(MotionConn *conn, uint32 seq, uint32 extraSeq, uint32 lostPktCnt);
 static void sendStatusQueryMessage(MotionConn *conn, int fd, uint32 seq);
-static inline void sendControlMessage(icpkthdr *pkt, int fd, struct sockaddr *addr, socklen_t peerLen);
+static inline void sendControlMessage(icpkthdr *pkt, int fd, const struct sockaddr *addr, socklen_t peerLen);
 
 static void putRxBufferAndSendAck(MotionConn *conn, AckSendParam *param);
 static inline void putRxBufferToFreeList(RxBufferPool *p, icpkthdr *buf);
 static inline icpkthdr *getRxBufferFromFreeList(RxBufferPool *p);
 static icpkthdr *getRxBuffer(RxBufferPool *p);
+static icpkthdr *getRxBufferSafe(void);
+static void freeRxBufferSafe(icpkthdr *pkt);
 
 /* ICBufferList functions. */
 static inline void icBufferListInitHeadLink(ICBufferLink *link);
@@ -729,14 +743,16 @@ static bool dispatcherAYT(void);
 static void checkQDConnectionAlive(void);
 
 
+#ifndef ENABLE_IC_LIBUV
 static void *rxThreadFunc(void *arg);
+#endif /* ! ENABLE_IC_LIBUV */
 
-static bool handleMismatch(icpkthdr *pkt, struct sockaddr_storage *peer, int peer_len);
+static bool handleMismatch(icpkthdr *pkt, const struct sockaddr_storage *peer, int peer_len);
 static void handleAckedPacket(MotionConn *ackConn, ICBuffer *buf, uint64 now);
 static bool handleAcks(ChunkTransportState *transportStates, ChunkTransportStateEntry *pEntry);
 static void handleStopMsgs(ChunkTransportState *transportStates, ChunkTransportStateEntry *pEntry, int16 motionId);
 static void handleDisorderPacket(MotionConn *conn, int pos, uint32 tailSeq, icpkthdr *pkt);
-static bool handleDataPacket(MotionConn *conn, icpkthdr *pkt, struct sockaddr_storage *peer, socklen_t *peerlen, AckSendParam *param, bool *wakeup_mainthread);
+static bool handleDataPacket(MotionConn *conn, icpkthdr *pkt, const struct sockaddr_storage *peer, socklen_t peerlen, AckSendParam *param, bool *wakeup_mainthread);
 static bool handleAckForDuplicatePkt(MotionConn *conn, icpkthdr *pkt);
 static bool handleAckForDisorderPkt(ChunkTransportState *transportStates, ChunkTransportStateEntry *pEntry, MotionConn *conn, icpkthdr *pkt);
 
@@ -756,7 +772,7 @@ static void initUnackQueueRing(UnackQueueRing *uqr);
 static void checkExpiration(ChunkTransportState *transportStates, ChunkTransportStateEntry *pEntry, MotionConn *triggerConn, uint64 now);
 static void checkDeadlock(ChunkTransportStateEntry *pEntry, MotionConn *conn);
 
-static bool cacheFuturePacket(icpkthdr *pkt, struct sockaddr_storage *peer, int peer_len);
+static bool cacheFuturePacket(icpkthdr *pkt, const struct sockaddr_storage *peer, int peer_len);
 static void cleanupStartupCache(void);
 static void handleCachedPackets(void);
 
@@ -907,6 +923,305 @@ dumpTransProtoStats()
 }
 
 #endif							/* TRANSFER_PROTOCOL_STATS */
+
+#ifdef ENABLE_IC_LIBUV
+static bool checkShutdown(void);
+#endif /* ENABLE_IC_LIBUV */
+
+#ifdef ENABLE_IC_LIBUV
+struct InterconnectContextLIBUV
+{
+	uv_barrier_t barrier;
+	uv_thread_t	thread;
+	uv_mutex_t	mutex;
+	uv_loop_t	loop;
+	uv_prepare_t prepare;
+	uv_udp_t	rxudp;
+
+#if 0
+	uv_os_fd_t	listenerSocketFd;
+	uint16		listenerPort;
+#endif
+
+	MemoryContext mctx;
+};
+
+static struct InterconnectContextLIBUV ctx;
+
+static void
+my_uv_alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf)
+{
+	icpkthdr   *pkt;
+
+	pkt = getRxBufferSafe();
+	if (pkt)
+	{
+		buf->len = Gp_max_packet_size;
+		buf->base = (char *) pkt;
+	}
+	else
+	{
+		/*
+		 * ERROR case: if simply break out the loop here, there will
+		 * be a hung here, since main thread will never be waken up,
+		 * and senders will not get responses anymore.
+		 *
+		 * Thus, we set an error flag, and let main thread to report
+		 * an error.
+		 */
+		setRxThreadError(ENOMEM);
+		uv_stop(&ctx.loop);
+	}
+}
+
+static void
+my_uv_udp_send_cb(uv_udp_send_t *req, int status)
+{
+	icpkthdr   *pkt = uv_req_get_data((uv_req_t *) req);
+
+	/*
+	 * No need to handle EAGAIN here: no-space just means that we dropped the
+	 * packet: our ordinary retransmit mechanism will handle that case
+	 */
+
+	if (status < 0)
+		log_in_thread(ERROR,
+					  "my_uv_udp_send_cb: got error %d errno %d seq %d: %s",
+					  -1, -status, pkt->seq, uv_strerror(status));
+
+	free((char *) pkt);
+	free(req);
+}
+
+static bool
+my_uv_udp_send_auto(uv_udp_t *udp, const icpkthdr *pkt, const struct sockaddr *addr)
+{
+	uv_buf_t	buf;
+	uv_thread_t	self = uv_thread_self();
+
+	if (!uv_thread_equal(&ctx.thread, &self))
+		return false;
+
+	buf = uv_buf_init((char *) pkt, pkt->len);
+
+	/* first try send immediately */
+	if (uv_udp_try_send(udp, &buf, 1, addr) < 0)
+	{
+		/* failed, we have to put it in the async queue */
+		uv_udp_send_t *req = malloc(sizeof(*req));
+
+		/* FIXME: should we pass a copy of pkt instead of original one? */
+		buf.base = malloc(buf.len);
+		memcpy(buf.base, (char *) pkt, buf.len);
+
+		uv_req_set_data((uv_req_t *) req, buf.base);
+
+		uv_udp_send(req, udp, &buf, 1, addr, my_uv_udp_send_cb);
+	}
+
+	return true;
+}
+
+static void
+my_uv_udp_recv_cb(uv_udp_t *udp, ssize_t nread, const uv_buf_t *buf,
+				  const struct sockaddr *addr, unsigned flags)
+{
+	icpkthdr   *pkt = (icpkthdr *) buf->base;
+
+	if (nread < 0)
+	{
+		log_in_thread(ERROR, "Interconnect error: recvfrom (%zd)", nread);
+
+		Assert(-nread != EINTR);
+		Assert(-nread != EWOULDBLOCK);
+
+		setRxThreadError(-nread);
+	}
+	else if (nread > 0)
+	{
+		log_in_thread(DEBUG5, "received inbound len %zd", nread);
+
+		if (nread < sizeof(icpkthdr))
+		{
+			log_in_thread(DEBUG1, "Interconnect error: short conn receive (%zd)", nread);
+		}
+		/* length must be >= 0 */
+		else if (pkt->len < 0)
+		{
+			log_in_thread(DEBUG3, "received inbound with negative length");
+		}
+		else if (pkt->len != nread)
+		{
+			log_in_thread(DEBUG3,
+						  "received inbound packet [%d], short: read %zd bytes, pkt->len %d",
+						  pkt->seq, nread, pkt->len);
+		}
+		/* check the CRC of the payload */
+		else if (gp_interconnect_full_crc && !checkCRC(pkt))
+		{
+			pg_atomic_add_fetch_u32((pg_atomic_uint32 *) &ic_statistics.crcErrors, 1);
+			log_in_thread(DEBUG2, "received network data error, dropping bad packet, user data unaffected.");
+		}
+		else
+		{
+			MotionConn *conn;
+			AckSendParam param;
+			bool		wakeup_mainthread = false;
+			const struct sockaddr_storage *peer = (const void *) addr;
+			socklen_t	peerlen;
+
+			if (peer->ss_family == AF_INET)
+				peerlen = sizeof(struct sockaddr_in);
+			else if (peer->ss_family == AF_INET6)
+				peerlen = sizeof(struct sockaddr_in6);
+			else
+				pg_unreachable();
+
+#ifdef AMS_VERBOSE_LOGGING
+			logPkt("GOT MESSAGE", pkt);
+#endif
+
+			memset(&param, 0, sizeof(AckSendParam));
+
+			/*
+			 * Get the connection for the pkt.
+			 *
+			 * The connection hash table should be locked until finishing the
+			 * processing of the packet to avoid the connection
+			 * addition/removal from the hash table during the mean time.
+			 */
+
+			pthread_mutex_lock(&ic_control_info.lock);
+			conn = findConnByHeader(&ic_control_info.connHtab, pkt);
+
+			if (conn != NULL)
+			{
+				/* Handling a regular packet */
+				if (handleDataPacket(conn, pkt, peer, peerlen, &param, &wakeup_mainthread))
+					pkt = NULL;
+				ic_statistics.recvPktNum++;
+			}
+			else
+			{
+				/*
+				 * There may have two kinds of Mismatched packets: a) Past
+				 * packets from previous command after I was torn down b)
+				 * Future packets from current command before my connections
+				 * are built.
+				 *
+				 * The handling logic is to "Ack the past and Nak the future".
+				 */
+				if ((pkt->flags & UDPIC_FLAGS_RECEIVER_TO_SENDER) == 0)
+				{
+					log_in_thread(DEBUG1,
+								  "mismatched packet received, seq %d, srcpid %d, dstpid %d, icid %d, sid %d",
+								  pkt->seq, pkt->srcPid, pkt->dstPid,
+								  pkt->icId, pkt->sessionId);
+
+#ifdef AMS_VERBOSE_LOGGING
+					logPkt("Got a Mismatched Packet", pkt);
+#endif
+
+					if (handleMismatch(pkt, peer, peerlen))
+						pkt = NULL;
+					ic_statistics.mismatchNum++;
+				}
+			}
+			pthread_mutex_unlock(&ic_control_info.lock);
+
+			/* FIXME: switch to use cond variable? */
+			if (wakeup_mainthread)
+				SetLatch(&ic_control_info.latch);
+
+			/*
+			 * real ack sending is after lock release to decrease the lock
+			 * holding time.
+			 */
+			if (param.msg.len != 0)
+				sendAckWithParam(&param);
+		}
+	}
+	else
+	{
+		if (addr)
+		{
+			/* an empty UDP packet */
+		}
+		else
+		{
+			/* nothing to read */
+		}
+	}
+
+	if (pkt)
+		freeRxBufferSafe(pkt);
+}
+
+static void
+my_uv_prepare_cb(uv_prepare_t *prepare)
+{
+	if (checkShutdown())
+		uv_stop(&ctx.loop);
+}
+
+static void
+my_uv_thread_cb(void *arg)
+{
+	gp_set_thread_sigmasks();
+
+	/* initialize */
+	uv_loop_init(&ctx.loop);
+
+	uv_prepare_init(&ctx.loop, &ctx.prepare);
+	uv_prepare_start(&ctx.prepare, my_uv_prepare_cb);
+
+#if 0
+	{
+		struct sockaddr_in addr;
+
+		uv_ip4_addr("0.0.0.0", 0, &addr);
+		uv_udp_init(&ctx.loop, &ctx.rxudp);
+		uv_udp_bind(&ctx.rxudp, (const struct sockaddr *) &addr, 0);
+
+		uv_fileno((uv_handle_t *) &ctx.rxudp, &ctx.listenerSocketFd);
+		ctx.listenerPort = ntohs(((struct sockaddr_in *) &addr)->sin_port);
+
+		uv_udp_recv_start(&ctx.rxudp, my_uv_alloc_cb, my_uv_udp_recv_cb);
+	}
+#endif
+#if 1
+	uv_udp_init(&ctx.loop, &ctx.rxudp);
+	uv_udp_open(&ctx.rxudp, UDP_listenerFd);
+	uv_udp_recv_start(&ctx.rxudp, my_uv_alloc_cb, my_uv_udp_recv_cb);
+#endif
+
+	/* initialization complete, tell the main thread */
+	uv_barrier_wait(&ctx.barrier);
+
+	/* start the main loop */
+	uv_run(&ctx.loop, UV_RUN_DEFAULT);
+
+	/* cleanup */
+	uv_close((uv_handle_t *) &ctx.rxudp, NULL); /* FIXME: need to free pkt? */
+	uv_close((uv_handle_t *) &ctx.prepare, NULL);
+	uv_loop_close(&ctx.loop);
+}
+
+static void
+my_uv_init(void)
+{
+	memset(&ctx, 0, sizeof(ctx));
+
+	uv_barrier_init(&ctx.barrier, 2);
+	uv_mutex_init(&ctx.mutex);
+
+	uv_thread_create(&ctx.thread, my_uv_thread_cb, NULL);
+
+	/* wait for libuv thread to complete initialization */
+	uv_barrier_wait(&ctx.barrier);
+	uv_barrier_destroy(&ctx.barrier);
+}
+#endif /* ENABLE_IC_LIBUV */
 
 /*
  * initCursorICHistoryTable
@@ -1346,11 +1661,15 @@ initMutex(pthread_mutex_t *mutex)
 void
 InitMotionUDPIFC(int *listenerSocketFd, uint16 *listenerPort)
 {
+#ifndef ENABLE_IC_LIBUV
 	int			pthread_err;
+#endif /* ! ENABLE_IC_LIBUV */
 	int			txFamily = -1;
 
 	/* attributes of the thread we're creating */
+#ifndef ENABLE_IC_LIBUV
 	pthread_attr_t t_atts;
+#endif /* ! ENABLE_IC_LIBUV */
 	MemoryContext old;
 
 #ifdef USE_ASSERT_CHECKING
@@ -1414,6 +1733,7 @@ InitMotionUDPIFC(int *listenerSocketFd, uint16 *listenerPort)
 
 	/* Start up our rx-thread */
 
+#ifndef ENABLE_IC_LIBUV
 	/*
 	 * save ourselves some memory: the defaults for thread stack size are
 	 * large (1M+)
@@ -1432,6 +1752,11 @@ InitMotionUDPIFC(int *listenerSocketFd, uint16 *listenerPort)
 				 errmsg("InitMotionLayerIPC: failed to create thread"),
 				 errdetail("pthread_create() failed with err %d", pthread_err)));
 	}
+#endif /* ! ENABLE_IC_LIBUV */
+
+#ifdef ENABLE_IC_LIBUV
+	my_uv_init();
+#endif /* ENABLE_IC_LIBUV */
 
 	ic_control_info.threadCreated = true;
 	return;
@@ -1728,7 +2053,7 @@ destroyConnHashTable(ConnHashTable *ht)
  * Here, we leave it to retransmit logic to handle these cases.
  */
 static inline void
-sendControlMessage(icpkthdr *pkt, int fd, struct sockaddr *addr, socklen_t peerLen)
+sendControlMessage(icpkthdr *pkt, int fd, const struct sockaddr *addr, socklen_t peerLen)
 {
 	int			n;
 
@@ -1745,6 +2070,12 @@ sendControlMessage(icpkthdr *pkt, int fd, struct sockaddr *addr, socklen_t peerL
 	/* Add CRC for the control message. */
 	if (gp_interconnect_full_crc)
 		addCRC(pkt);
+
+#ifdef ENABLE_IC_LIBUV
+	/* when called in libuv thread we need to do in the libuv way*/
+	if (my_uv_udp_send_auto(&ctx.rxudp, pkt, addr))
+		return;
+#endif /* ENABLE_IC_LIBUV */
 
 	n = sendto(fd, (const char *) pkt, pkt->len, 0, addr, peerLen);
 
@@ -2016,6 +2347,18 @@ getRxBuffer(RxBufferPool *p)
 	return ret;
 }
 
+static icpkthdr *
+getRxBufferSafe(void)
+{
+	icpkthdr   *pkt;
+
+	pthread_mutex_lock(&ic_control_info.lock);
+	pkt = getRxBuffer(&rx_buffer_pool);
+	pthread_mutex_unlock(&ic_control_info.lock);
+
+	return pkt;
+}
+
 /*
  * putRxBufferToFreeList
  * 		Return a receive buffer to free list
@@ -2071,6 +2414,14 @@ freeRxBuffer(RxBufferPool *p, icpkthdr *buf)
 {
 	free(buf);
 	p->count--;
+}
+
+static void
+freeRxBufferSafe(icpkthdr *pkt)
+{
+	pthread_mutex_lock(&ic_control_info.lock);
+	freeRxBuffer(&rx_buffer_pool, pkt);
+	pthread_mutex_unlock(&ic_control_info.lock);
 }
 
 /*
@@ -2925,7 +3276,7 @@ handleCachedPackets(void)
 				}
 
 				memset(&param, 0, sizeof(param));
-				if (!handleDataPacket(setupConn, pkt, &cachedConn->peer, &cachedConn->peer_len, &param, &dummy))
+				if (!handleDataPacket(setupConn, pkt, &cachedConn->peer, cachedConn->peer_len, &param, &dummy))
 				{
 					/* no need to cache this packet */
 					putRxBufferToFreeList(&rx_buffer_pool, pkt);
@@ -5865,7 +6216,7 @@ putIntoUnackQueueRing(UnackQueueRing *uqr, ICBuffer *buf, uint64 expTime, uint64
  * and the caller should wake up the main thread, after releasing the mutex.
  */
 static bool
-handleDataPacket(MotionConn *conn, icpkthdr *pkt, struct sockaddr_storage *peer, socklen_t *peerlen,
+handleDataPacket(MotionConn *conn, icpkthdr *pkt, const struct sockaddr_storage *peer, socklen_t peerlen,
 				 AckSendParam *param, bool *wakeup_mainthread)
 {
 
@@ -5900,8 +6251,8 @@ handleDataPacket(MotionConn *conn, icpkthdr *pkt, struct sockaddr_storage *peer,
 	{
 		/* fill in the peer.  Need to cast away "volatile".  ugly */
 		memset((void *) &conn->peer, 0, sizeof(conn->peer));
-		memcpy((void *) &conn->peer, peer, *peerlen);
-		conn->peer_len = *peerlen;
+		memcpy((void *) &conn->peer, peer, peerlen);
+		conn->peer_len = peerlen;
 
 		conn->conn_info.dstListenerPort = pkt->dstListenerPort;
 		if (DEBUG2 >= log_min_messages)
@@ -6090,6 +6441,25 @@ handleDataPacket(MotionConn *conn, icpkthdr *pkt, struct sockaddr_storage *peer,
 	return true;
 }
 
+static bool
+checkShutdown(void)
+{
+	uint32		expected = 1;
+
+	/* check shutdown condition */
+	if (pg_atomic_compare_exchange_u32((pg_atomic_uint32 *) &ic_control_info.shutdown,
+									   &expected, 0))
+	{
+		if (DEBUG1 >= log_min_messages)
+			write_log("udp-ic: rx-thread shutting down");
+
+		return true;
+	}
+
+	return false;
+}
+
+#ifndef ENABLE_IC_LIBUV
 /*
  * rxThreadFunc
  * 		Main function of the receive background thread.
@@ -6107,7 +6477,6 @@ rxThreadFunc(void *arg)
 {
 	icpkthdr   *pkt = NULL;
 	bool		skip_poll = false;
-	uint32		expected = 1;
 
 	gp_set_thread_sigmasks();
 
@@ -6117,23 +6486,13 @@ rxThreadFunc(void *arg)
 		int			n;
 
 		/* check shutdown condition */
-		expected = 1;
-		if (pg_atomic_compare_exchange_u32((pg_atomic_uint32 *) &ic_control_info.shutdown, &expected, 0))
-		{
-			if (DEBUG1 >= log_min_messages)
-			{
-				write_log("udp-ic: rx-thread shutting down");
-			}
+		if (checkShutdown())
 			break;
-		}
 
 		/* Try to get a buffer */
 		if (pkt == NULL)
 		{
-			pthread_mutex_lock(&ic_control_info.lock);
-			pkt = getRxBuffer(&rx_buffer_pool);
-			pthread_mutex_unlock(&ic_control_info.lock);
-
+			pkt = getRxBufferSafe();
 			if (pkt == NULL)
 			{
 				setRxThreadError(ENOMEM);
@@ -6149,15 +6508,8 @@ rxThreadFunc(void *arg)
 
 			n = poll(&nfd, 1, RX_THREAD_POLL_TIMEOUT);
 
-			expected = 1;
-			if (pg_atomic_compare_exchange_u32((pg_atomic_uint32 *) &ic_control_info.shutdown, &expected, 0))
-			{
-				if (DEBUG1 >= log_min_messages)
-				{
-					write_log("udp-ic: rx-thread shutting down");
-				}
+			if (checkShutdown())
 				break;
-			}
 
 			if (n < 0)
 			{
@@ -6195,15 +6547,8 @@ rxThreadFunc(void *arg)
 			read_count = recvfrom(UDP_listenerFd, (char *) pkt, Gp_max_packet_size, 0,
 								  (struct sockaddr *) &peer, &peerlen);
 
-			expected = 1;
-			if (pg_atomic_compare_exchange_u32((pg_atomic_uint32 *) &ic_control_info.shutdown, &expected, 0))
-			{
-				if (DEBUG1 >= log_min_messages)
-				{
-					write_log("udp-ic: rx-thread shutting down");
-				}
+			if (checkShutdown())
 				break;
-			}
 
 			if (DEBUG5 >= log_min_messages)
 				write_log("received inbound len %d", read_count);
@@ -6294,7 +6639,7 @@ rxThreadFunc(void *arg)
 			if (conn != NULL)
 			{
 				/* Handling a regular packet */
-				if (handleDataPacket(conn, pkt, &peer, &peerlen, &param, &wakeup_mainthread))
+				if (handleDataPacket(conn, pkt, &peer, peerlen, &param, &wakeup_mainthread))
 					pkt = NULL;
 				ic_statistics.recvPktNum++;
 			}
@@ -6350,6 +6695,7 @@ rxThreadFunc(void *arg)
 	/* nothing to return */
 	return NULL;
 }
+#endif /* ! ENABLE_IC_LIBUV */
 
 /*
  * handleMismatch
@@ -6385,7 +6731,7 @@ rxThreadFunc(void *arg)
  *
  */
 static bool
-handleMismatch(icpkthdr *pkt, struct sockaddr_storage *peer, int peer_len)
+handleMismatch(icpkthdr *pkt, const struct sockaddr_storage *peer, int peer_len)
 {
 	bool		cached = false;
 
@@ -6542,7 +6888,7 @@ handleMismatch(icpkthdr *pkt, struct sockaddr_storage *peer, int peer_len)
  * Return true if packet is cached, otherwise false
  */
 static bool
-cacheFuturePacket(icpkthdr *pkt, struct sockaddr_storage *peer, int peer_len)
+cacheFuturePacket(icpkthdr *pkt, const struct sockaddr_storage *peer, int peer_len)
 {
 	MotionConn *conn;
 

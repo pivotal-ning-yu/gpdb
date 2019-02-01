@@ -24,6 +24,8 @@
 #include <sys/poll.h>
 #endif
 
+#include <sys/epoll.h>
+
 #include "storage/ipc.h"		/* For proc_exit_inprogress  */
 #include "tcop/tcopprot.h"
 #include "cdb/cdbdisp.h"
