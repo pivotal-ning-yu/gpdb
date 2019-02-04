@@ -64,6 +64,13 @@
 #include "pgtime.h"
 #include <netinet/in.h>
 
+#define PNT(msg...) write_log(msg)
+#define MSG(fmt, ...)     PNT("[udpuv] %s(): %d: "            fmt "\n", __func__, __LINE__ __VA_OPT__(,) __VA_ARGS__)
+#define SEE(fmt, args...) PNT("[udpuv] %s(): %d: " #args ": " fmt "\n", __func__, __LINE__, args)
+#define SEE_IF(cond, fmt, args...) do { \
+	if (cond) SEE(fmt, args); \
+} while (0)
+
 #define log_in_thread(level, msg...) do { \
 	if (level >= log_min_messages) { \
 		write_log("[ic-libuv]" msg); \
@@ -932,11 +939,12 @@ static bool checkShutdown(void);
 struct InterconnectContextLIBUV
 {
 	uv_barrier_t barrier;
-	uv_thread_t	thread;
-	uv_mutex_t	mutex;
-	uv_loop_t	loop;
 	uv_prepare_t prepare;
+	uv_thread_t	thread;
+	uv_async_t	async;
+	uv_loop_t	loop;
 	uv_udp_t	rxudp;
+	uv_udp_t	txudp;
 
 #if 0
 	uv_os_fd_t	listenerSocketFd;
@@ -993,33 +1001,38 @@ my_uv_udp_send_cb(uv_udp_send_t *req, int status)
 	free(req);
 }
 
-static bool
-my_uv_udp_send_auto(uv_udp_t *udp, const icpkthdr *pkt, const struct sockaddr *addr)
+static void
+my_uv_udp_send_auto(uv_udp_t *udp, const icpkthdr *pkt,
+					const struct sockaddr_storage *peer, socklen_t peer_len)
 {
-	uv_buf_t	buf;
-	uv_thread_t	self = uv_thread_self();
-
-	if (!uv_thread_equal(&ctx.thread, &self))
-		return false;
-
-	buf = uv_buf_init((char *) pkt, pkt->len);
+	uv_thread_t	self;
+	uv_udp_send_t *req;
+	const struct sockaddr *addr = (const struct sockaddr *) peer;
+	uv_buf_t	buf = uv_buf_init((char *) pkt, pkt->len);
 
 	/* first try send immediately */
-	if (uv_udp_try_send(udp, &buf, 1, addr) < 0)
-	{
-		/* failed, we have to put it in the async queue */
-		uv_udp_send_t *req = malloc(sizeof(*req));
+	if (uv_udp_try_send(udp, &buf, 1, addr) >= 0)
+		/* succeed, nothing else to do */
+		return;
 
-		/* FIXME: should we pass a copy of pkt instead of original one? */
-		buf.base = malloc(buf.len);
-		memcpy(buf.base, (char *) pkt, buf.len);
+	/* failed, we have to put it in the async queue */
+	req = malloc(sizeof(*req));
 
-		uv_req_set_data((uv_req_t *) req, buf.base);
+	/* FIXME: should we pass a copy of pkt instead of original one? */
+	buf.base = malloc(buf.len);
+	memcpy(buf.base, (char *) pkt, buf.len);
 
-		uv_udp_send(req, udp, &buf, 1, addr, my_uv_udp_send_cb);
-	}
+	uv_req_set_data((uv_req_t *) req, buf.base);
 
-	return true;
+	uv_udp_send(req, udp, &buf, 1, addr, my_uv_udp_send_cb);
+
+	/*
+	 * if not running in libuv thread then we must notify about the newly
+	 * queued data
+	 */
+	self = uv_thread_self();
+	if (!uv_thread_equal(&ctx.thread, &self))
+		uv_async_send(&ctx.async);
 }
 
 static void
@@ -1175,6 +1188,8 @@ my_uv_thread_cb(void *arg)
 	uv_prepare_init(&ctx.loop, &ctx.prepare);
 	uv_prepare_start(&ctx.prepare, my_uv_prepare_cb);
 
+	uv_async_init(&ctx.loop, &ctx.async, NULL);
+
 #if 0
 	{
 		struct sockaddr_in addr;
@@ -1194,6 +1209,10 @@ my_uv_thread_cb(void *arg)
 	uv_udp_open(&ctx.rxudp, UDP_listenerFd);
 	uv_udp_recv_start(&ctx.rxudp, my_uv_alloc_cb, my_uv_udp_recv_cb);
 #endif
+#if 1
+	uv_udp_init(&ctx.loop, &ctx.txudp);
+	uv_udp_open(&ctx.txudp, ICSenderSocket);
+#endif
 
 	/* initialization complete, tell the main thread */
 	uv_barrier_wait(&ctx.barrier);
@@ -1202,6 +1221,7 @@ my_uv_thread_cb(void *arg)
 	uv_run(&ctx.loop, UV_RUN_DEFAULT);
 
 	/* cleanup */
+	uv_close((uv_handle_t *) &ctx.txudp, NULL); /* FIXME: need to free pkt? */
 	uv_close((uv_handle_t *) &ctx.rxudp, NULL); /* FIXME: need to free pkt? */
 	uv_close((uv_handle_t *) &ctx.prepare, NULL);
 	uv_loop_close(&ctx.loop);
@@ -1213,7 +1233,6 @@ my_uv_init(void)
 	memset(&ctx, 0, sizeof(ctx));
 
 	uv_barrier_init(&ctx.barrier, 2);
-	uv_mutex_init(&ctx.mutex);
 
 	uv_thread_create(&ctx.thread, my_uv_thread_cb, NULL);
 
@@ -2072,9 +2091,10 @@ sendControlMessage(icpkthdr *pkt, int fd, const struct sockaddr *addr, socklen_t
 		addCRC(pkt);
 
 #ifdef ENABLE_IC_LIBUV
-	/* when called in libuv thread we need to do in the libuv way*/
-	if (my_uv_udp_send_auto(&ctx.rxudp, pkt, addr))
-		return;
+	SEE_IF(fd != UDP_listenerFd, "%d, %d", fd, UDP_listenerFd);
+	my_uv_udp_send_auto(&ctx.rxudp, pkt,
+						(const struct sockaddr_storage *) addr, peerLen);
+	return;
 #endif /* ENABLE_IC_LIBUV */
 
 	n = sendto(fd, (const char *) pkt, pkt->len, 0, addr, peerLen);
@@ -4818,6 +4838,12 @@ sendOnce(ChunkTransportState *transportStates, ChunkTransportStateEntry *pEntry,
 		return;
 	}
 #endif
+
+#ifdef ENABLE_IC_LIBUV
+	SEE_IF(pEntry->txfd != ICSenderSocket, "%d, %d", pEntry->txfd, ICSenderSocket);
+	my_uv_udp_send_auto(&ctx.txudp, buf->pkt, &conn->peer, conn->peer_len);
+	return;
+#endif /* ENABLE_IC_LIBUV */
 
 xmit_retry:
 	n = sendto(pEntry->txfd, buf->pkt, buf->pkt->len, 0,
