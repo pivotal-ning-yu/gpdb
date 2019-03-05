@@ -353,8 +353,8 @@ file_groups:
   product_files:
     # Documentation for how to update this artifact:
     # gp-release/README.md
-    - file: s3://gpdb5-release-builds/data_direct/jdbc/5.1.4.000183/greenplum.jar
-      file_version: 5.1.4.000183
+    - file: s3://gpdb5-release-builds/data_direct/jdbc/5.1.4.000212/greenplum.jar
+      file_version: 5.1.4.000212
       upload_as: Greenplum Database JDBC Driver
       description:
       file_type: Software
