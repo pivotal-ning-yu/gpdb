@@ -4196,8 +4196,6 @@ CopyFrom(CopyState cstate)
 	int			attnum;
 	int			i;
 	Oid			in_func_oid;
-	Datum		*values = NULL;
-	bool		*nulls = NULL;
 	Datum		*partValues = NULL;
 	bool		*partNulls = NULL;
 	Datum		*baseValues = NULL;
@@ -4319,12 +4317,7 @@ CopyFrom(CopyState cstate)
 
 	file_has_oids = cstate->oids;	/* must rely on user to tell us this... */
 
-	baseValues = (Datum *) palloc(num_phys_attrs * sizeof(Datum));
-	baseNulls = (bool *) palloc(num_phys_attrs * sizeof(bool));
 	attr_offsets = (int *) palloc(num_phys_attrs * sizeof(int));
-
-	partValues = (Datum *) palloc(attr_count * sizeof(Datum));
-	partNulls = (bool *) palloc(attr_count * sizeof(bool));
 
 	/* Set up callback to identify error line number */
 	errcontext.callback = copy_in_error_callback;
@@ -4430,6 +4423,9 @@ PROCESS_SEGMENT_DATA:
 				MemoryContextSwitchTo(GetPerTupleMemoryContext(estate));
 
 				/* Initialize all values for row to NULL */
+				ExecClearTuple(baseSlot);
+				baseValues = slot_get_values(baseSlot);
+				baseNulls = slot_get_isnull(baseSlot);
 				MemSet(baseValues, 0, num_phys_attrs * sizeof(Datum));
 				MemSet(baseNulls, true, num_phys_attrs * sizeof(bool));
 				/* reset attribute pointers */
@@ -4663,6 +4659,8 @@ PROCESS_SEGMENT_DATA:
 
 				MemoryContextSwitchTo(GetPerTupleMemoryContext(estate));
 
+				ExecStoreVirtualTuple(baseSlot);
+				
 				/*
 				 * And now we can form the input tuple.
 				 */
@@ -4670,26 +4668,24 @@ PROCESS_SEGMENT_DATA:
 				{
 					AttrMap *map = resultRelInfo->ri_partInsertMap;
 					Assert(map != NULL);
-
-
+					slot = resultRelInfo->ri_partSlot;
+					partValues = slot_get_values(slot);
+					partNulls = slot_get_isnull(slot);
 					MemSet(partValues, 0, attr_count * sizeof(Datum));
 					MemSet(partNulls, true, attr_count * sizeof(bool));
 
 					reconstructTupleValues(map, baseValues, baseNulls, (int) num_phys_attrs,
 										   partValues, partNulls, (int) attr_count);
-
-					values = partValues;
-					nulls = partNulls;
+					ExecStoreVirtualTuple(slot);
 				}
 				else
 				{
-					values = baseValues;
-					nulls = baseNulls;
+					slot = baseSlot;
 				}
 
 				if (is_check_distkey && distData.p_nattrs > 0)
 				{
-					target_seg = get_target_seg(distData, values, nulls);
+					target_seg = get_target_seg(distData, slot_get_values(slot), slot_get_isnull(slot));
 
 					PG_TRY();
 					{
@@ -4706,31 +4702,6 @@ PROCESS_SEGMENT_DATA:
 					}
 					PG_END_TRY();
 				}
-
-				if (relstorage == RELSTORAGE_AOROWS)
-				{
-					/* form a mem tuple */
-					tuple = (MemTuple)
-						memtuple_form_to(resultRelInfo->ri_aoInsertDesc->mt_bind,
-														values, nulls,
-														NULL, NULL, false);
-
-					if (cstate->oids && file_has_oids)
-						MemTupleSetOid(tuple, resultRelInfo->ri_aoInsertDesc->mt_bind, loaded_oid);
-				}
-				else if (relstorage == RELSTORAGE_AOCOLS)
-				{
-                    tuple = NULL;
-				}
-				else
-				{
-					/* form a regular heap tuple */
-					tuple = (HeapTuple) heap_form_tuple(resultRelInfo->ri_RelationDesc->rd_att, values, nulls);
-
-					if (cstate->oids && file_has_oids)
-						HeapTupleSetOid((HeapTuple)tuple, loaded_oid);
-				}
-
 
 				/*
 				 * Triggers and stuff need to be invoked in query context.
@@ -4770,31 +4741,7 @@ PROCESS_SEGMENT_DATA:
 				if (!skip_tuple)
 				{
 					char relstorage = RelinfoGetStorage(resultRelInfo);
-					
-					if (resultRelInfo->ri_partSlot != NULL)
-					{
-						Assert(resultRelInfo->ri_partInsertMap != NULL);
-						slot = resultRelInfo->ri_partSlot;
-					}
-					else
-					{
-						slot = baseSlot;
-					}
-
-					if (relstorage != RELSTORAGE_AOCOLS)
-					{
-						/* Place tuple in tuple slot */
-						ExecStoreGenericTuple(tuple, slot, false);
-					}
-
-					else
-					{
-						ExecClearTuple(slot);
-						slot->PRIVATE_tts_values = values;
-						slot->PRIVATE_tts_isnull = nulls;
-						ExecStoreVirtualTuple(slot);
-					}
-
+					ItemPointerData insertedTid;
 					/*
 					 * Check the constraints of the tuple
 					 */
@@ -4808,35 +4755,46 @@ PROCESS_SEGMENT_DATA:
 					{
 						Oid			tupleOid;
 						AOTupleId	aoTupleId;
-						
+						MemTuple	mtuple;
+
+						mtuple = ExecFetchSlotMemTuple(slot, false);
 						/* inserting into an append only relation */
-						appendonly_insert(resultRelInfo->ri_aoInsertDesc, tuple, &tupleOid, &aoTupleId);
-						
-						if (resultRelInfo->ri_NumIndices > 0)
-							ExecInsertIndexTuples(slot, (ItemPointer)&aoTupleId, estate, false);
+						appendonly_insert(resultRelInfo->ri_aoInsertDesc, mtuple, &tupleOid, (AOTupleId *) &insertedTid);
 					}
 					else if (relstorage == RELSTORAGE_AOCOLS)
 					{
-						AOTupleId aoTupleId;
-						
-                        aocs_insert_values(resultRelInfo->ri_aocsInsertDesc, values, nulls, &aoTupleId);
-						if (resultRelInfo->ri_NumIndices > 0)
-							ExecInsertIndexTuples(slot, (ItemPointer)&aoTupleId, estate, false);
+						aocs_insert(resultRelInfo->ri_aocsInsertDesc, slot);
+						insertedTid = *slot_get_ctid(slot);
 					}
 					else if (relstorage == RELSTORAGE_EXTERNAL)
 					{
+						HeapTuple tuple;
+
+						tuple = ExecFetchSlotHeapTuple(slot);
 						external_insert(resultRelInfo->ri_extInsertDesc, tuple);
+						ItemPointerSetInvalid(&insertedTid);
 					}
 					else
 					{
+						HeapTuple tuple;
+
+						tuple = ExecFetchSlotHeapTuple(slot);
+
+						if (cstate->oids && file_has_oids)
+							HeapTupleSetOid(tuple, loaded_oid);
+
 						simple_heap_insert(resultRelInfo->ri_RelationDesc, tuple);
 
-						if (resultRelInfo->ri_NumIndices > 0)
-							ExecInsertIndexTuples(slot, &(((HeapTuple)tuple)->t_self), estate, false);
+						insertedTid = tuple->t_self;
 					}
 
+					if (resultRelInfo->ri_NumIndices > 0)
+						ExecInsertIndexTuples(slot, &insertedTid, estate, false);
 
 					/* AFTER ROW INSERT Triggers */
+					HeapTuple tuple;
+
+					tuple = ExecFetchSlotHeapTuple(slot);
 					ExecARInsertTriggers(estate, resultRelInfo, tuple);
 
 					/*

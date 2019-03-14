@@ -5431,6 +5431,49 @@ select * from r;
   3 |    3 | 2004 | F      | 100000
 (1 row)
 
+-- Exchage a partition with dropped columns and run copy from
+CREATE TABLE part_drop_column(a int, b int, c int) with (appendonly=true, orientation=column) partition by range(c) (start (0) end (3) every (1));
+NOTICE:  CREATE TABLE will create partition "part_drop_column_1_prt_1" for table "part_drop_column"
+NOTICE:  CREATE TABLE will create partition "part_drop_column_1_prt_2" for table "part_drop_column"
+NOTICE:  CREATE TABLE will create partition "part_drop_column_1_prt_3" for table "part_drop_column"
+ALTER TABLE part_drop_column DROP COLUMN b;
+CREATE TABLE exchange1 (a int , c int) with (appendonly=true, orientation=column);
+CREATE TABLE exchange2 (a int , c int) with (appendonly=true, orientation=column);
+ALTER TABLE part_drop_column exchange partition for (1) with table exchange1;
+ALTER TABLE part_drop_column exchange partition for (2) with table exchange2;
+COPY part_drop_column FROM stdin DELIMITER as ',';
+SELECT * FROM part_drop_column;
+ a | c 
+---+---
+ 1 | 0
+ 2 | 0
+ 1 | 1
+ 2 | 1
+ 1 | 2
+ 2 | 2
+ 8 | 0
+ 9 | 0
+ 8 | 1
+ 9 | 1
+ 8 | 2
+ 9 | 2
+ 3 | 0
+ 4 | 0
+ 5 | 0
+ 6 | 0
+ 7 | 0
+ 3 | 1
+ 4 | 1
+ 5 | 1
+ 6 | 1
+ 7 | 1
+ 3 | 2
+ 4 | 2
+ 5 | 2
+ 6 | 2
+ 7 | 2
+(27 rows)
+
 -- Split test
 alter table rank alter partition girls split default partition start('2008')
   end('2020') into (partition years, partition gfuture);

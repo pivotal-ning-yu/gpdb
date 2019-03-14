@@ -2916,6 +2916,47 @@ alter table rank alter partition girls exchange partition year4 with table r;
 select * from rank_1_prt_girls_2_prt_year4;
 select * from r;
 
+-- Exchage a partition with dropped columns and run copy from
+CREATE TABLE part_drop_column(a int, b int, c int) with (appendonly=true, orientation=column) partition by range(c) (start (0) end (3) every (1));
+ALTER TABLE part_drop_column DROP COLUMN b;
+CREATE TABLE exchange1 (a int , c int) with (appendonly=true, orientation=column);
+CREATE TABLE exchange2 (a int , c int) with (appendonly=true, orientation=column);
+
+ALTER TABLE part_drop_column exchange partition for (1) with table exchange1;
+ALTER TABLE part_drop_column exchange partition for (2) with table exchange2;
+
+COPY part_drop_column FROM stdin DELIMITER as ',';
+1, 0
+2, 0
+3, 0
+4, 0
+5, 0
+6, 0
+7, 0
+8, 0
+9, 0
+1, 1
+2, 1
+3, 1
+4, 1
+5, 1
+6, 1
+7, 1
+8, 1
+9, 1
+1, 2
+2, 2
+3, 2
+4, 2
+5, 2
+6, 2
+7, 2
+8, 2
+9, 2
+\.
+
+SELECT * FROM part_drop_column;
+
 -- Split test
 alter table rank alter partition girls split default partition start('2008')
   end('2020') into (partition years, partition gfuture);
