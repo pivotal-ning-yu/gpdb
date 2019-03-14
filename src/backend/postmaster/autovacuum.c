@@ -467,6 +467,9 @@ AutoVacMain(int argc, char *argv[])
 	 * number of new and dead tuples per database in pgstats.  However it
 	 * isn't clear how to construct a metric that measures that and not cause
 	 * starvation for less busy databases.
+	 *
+	 * GPDB: This loop will always choose template0 since it's the only
+	 * database in dblist.
 	 */
 	db = NULL;
 	for_xid_wrap = false;
@@ -474,8 +477,11 @@ AutoVacMain(int argc, char *argv[])
 	{
 		autovac_dbase *tmp = lfirst(cell);
 
-		/* Find pgstat entry if any */
-		tmp->entry = pgstat_fetch_stat_dbentry(tmp->oid);
+		/*
+		 * GPDB: Do not attempt to retrieve pgstat entry using
+		 * pgstat_fetch_stat_dbentry(tmp->oid)
+		 */
+		tmp->entry = NULL;
 
 		/* Check to see if this one is at risk of wraparound */
 		if (TransactionIdPrecedes(tmp->frozenxid, xidForceLimit))
