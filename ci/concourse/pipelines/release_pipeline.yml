@@ -1253,7 +1253,7 @@ jobs:
           type: docker-image
           source:
             repository: ruby
-            tag: '2.3'
+            tag: '2.5'
         inputs:
         - name: gpdb_src
         - name: pivnet_client
