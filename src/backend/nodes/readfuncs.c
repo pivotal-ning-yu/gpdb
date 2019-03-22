@@ -750,6 +750,7 @@ _readIntoClause(void)
 	READ_NODE_FIELD(options);
 	READ_ENUM_FIELD(onCommit, OnCommitAction);
 	READ_STRING_FIELD(tableSpaceName);
+	READ_BOOL_FIELD(validate_reloptions);
 	READ_OID_FIELD(oidInfo.relOid);
     READ_OID_FIELD(oidInfo.comptypeOid); 
     READ_OID_FIELD(oidInfo.toastOid);

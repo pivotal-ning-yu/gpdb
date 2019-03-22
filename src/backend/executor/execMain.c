@@ -3669,7 +3669,10 @@ OpenIntoRel(QueryDesc *queryDesc)
 	 * use the original table's reloptions. If DestRemote is set, use default
 	 * reloptions + gp_default_storage_options.
 	 */
-	validate_reloptions = queryDesc->dest->mydest == DestIntoRel ? false : true;
+	if (Gp_role != GP_ROLE_EXECUTE)
+		intoClause->validate_reloptions =
+						queryDesc->dest->mydest == DestIntoRel ? false : true;
+	validate_reloptions = intoClause->validate_reloptions;
 
 	/* get the relstorage (heap or AO tables) */
 	stdRdOptions = (StdRdOptions*) heap_reloptions(relkind, reloptions, validate_reloptions);
