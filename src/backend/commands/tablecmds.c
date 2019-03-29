@@ -13443,14 +13443,10 @@ static void checkUniqueIndexCompatible(Relation rel, GpPolicy *pol)
 {
 	List *indexoidlist = RelationGetIndexList(rel);
 	ListCell *indexoidscan = NULL;
-	Bitmapset *polbm = NULL;
-	int i = 0;
+	bool compatible;
 
 	if(pol == NULL || pol->nattrs == 0)
 		return;
-
-	for (i = 0; i < pol->nattrs; i++)
-		polbm = bms_add_member(polbm, pol->attrs[i]);
 
 	/* Loop over all indexes on the relation */
 	foreach(indexoidscan, indexoidlist)
@@ -13460,7 +13456,6 @@ static void checkUniqueIndexCompatible(Relation rel, GpPolicy *pol)
 		Form_pg_index indexStruct;
 		int			i;
 		cqContext  *pidxCtx;
-		Bitmapset  *indbm = NULL;
 
 		pidxCtx = caql_beginscan(
 				NULL,
@@ -13477,28 +13472,51 @@ static void checkUniqueIndexCompatible(Relation rel, GpPolicy *pol)
 		/* If the index is not a unique key, skip the check */
 		if (indexStruct->indisunique)
 		{
-			for (i = 0; i < indexStruct->indnatts; i++)
-			{
-				indbm = bms_add_member(indbm, indexStruct->indkey.values[i]);
-			}
+			compatible = true;
+			if (indexStruct->indnatts < pol->nattrs)
+				compatible = false;
 
-			if (!bms_is_subset(polbm, indbm))
+			for (i = 0; i < pol->nattrs; i++)
 			{
+				if (indexStruct->indkey.values[i] != pol->attrs[i])
+				{
+					compatible = false;
+					break;
+				}
+			}
+			if (!compatible)
+			{
+				cqContext		*pclassCtx;
+				HeapTuple		classTuple;
+				Form_pg_class	classStruct;
+
+				pclassCtx = caql_beginscan(
+						NULL,
+						cql("SELECT relname FROM pg_class "
+							" WHERE oid = :1 ",
+							ObjectIdGetDatum(indexoid)));
+
+				classTuple = caql_getnext(pclassCtx);
+
+				if (!HeapTupleIsValid(classTuple))
+					elog(ERROR, "cache lookup failed for incompatible index %u", indexoid);
+				classStruct = (Form_pg_class) GETSTRUCT(classTuple);
+
 				ereport(ERROR,
-						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-						 errmsg("UNIQUE INDEX and DISTRIBUTED BY definitions incompatible"),
-						 errhint("the DISTRIBUTED BY columns must be equal to "
-								 "or a left-subset of the UNIQUE INDEX columns.")));
-			}
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("UNIQUE INDEX and DISTRIBUTED BY definitions incompatible"),
+					 errhint("The DISTRIBUTED BY columns must be equal to "
+							 "or a left-subset of the UNIQUE INDEX \"%s\" columns.",
+							 NameStr(classStruct->relname))));
 
-			bms_free(indbm);
+				caql_endscan(pclassCtx);
+			}
 		}
 
 		caql_endscan(pidxCtx);
 	}
 
 	list_free(indexoidlist);
-	bms_free(polbm);
 }
 
 /*
