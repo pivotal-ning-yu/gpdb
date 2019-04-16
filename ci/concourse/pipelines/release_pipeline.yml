@@ -479,19 +479,19 @@ resources:
 - name: pljava_rhel5_gppkg
   type: s3
   source:
-    bucket: {{procedural-languages-concourse-bucket}}
     region_name: {{aws-region}}
-    access_key_id: {{gpdb5-pipeline-bucket-access-key-id}}
-    secret_access_key: {{gpdb5-pipeline-bucket-secret-access-key}}
+    access_key_id: {{bucket-access-key-id}}
+    secret_access_key: {{bucket-secret-access-key}}
+    bucket: {{procedural-languages-concourse-bucket}}
     regexp: release/gpdb4/pljava/pljava-(.*)-gp4-rhel5-x86_64.gppkg
 
 - name: plr_rhel5_gppkg
   type: s3
   source:
-    bucket: {{procedural-languages-concourse-bucket}}
     region_name: {{aws-region}}
-    access_key_id: {{gpdb5-pipeline-bucket-access-key-id}}
-    secret_access_key: {{gpdb5-pipeline-bucket-secret-access-key}}
+    access_key_id: {{bucket-access-key-id}}
+    secret_access_key: {{bucket-secret-access-key}}
+    bucket: {{procedural-languages-concourse-bucket}}
     regexp: release/gpdb4/plr/plr-(.*)-GPDB4.3-rhel5-x86_64.gppkg
 
 - name: libgppc_rhel5_gppkg
@@ -544,19 +544,19 @@ resources:
 - name: ds_python_rhel6
   type: s3
   source:
-    bucket: {{procedural-languages-concourse-bucket}}
     region_name: {{aws-region}}
-    access_key_id: {{gpdb5-pipeline-bucket-access-key-id}}
-    secret_access_key: {{gpdb5-pipeline-bucket-secret-access-key}}
+    access_key_id: {{bucket-access-key-id}}
+    secret_access_key: {{bucket-secret-access-key}}
+    bucket: {{procedural-languages-concourse-bucket}}
     regexp: release/gpdb4/data-science/DataSciencePython-(.*)-gp4-rhel6-x86_64.gppkg
 
 - name: ds_r_rhel6
   type: s3
   source:
-    bucket: {{procedural-languages-concourse-bucket}}
     region_name: {{aws-region}}
-    access_key_id: {{gpdb5-pipeline-bucket-access-key-id}}
-    secret_access_key: {{gpdb5-pipeline-bucket-secret-access-key}}
+    access_key_id: {{bucket-access-key-id}}
+    secret_access_key: {{bucket-secret-access-key}}
+    bucket: {{procedural-languages-concourse-bucket}}
     regexp: release/gpdb4/data-science/DataScienceR-(.*)-gp4-rhel6-x86_64.gppkg
 
 - name: madlib_rhel5_gppkg
