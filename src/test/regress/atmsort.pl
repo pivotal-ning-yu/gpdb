@@ -893,13 +893,10 @@ sub format_explain
 
     {
         use IO::File;
+		use File::Temp;
 
-        my ($tmpnam, $tmpfh);
-
-        for (;;) {
-            $tmpnam = tmpnam();
-            sysopen($tmpfh, $tmpnam, O_RDWR | O_CREAT | O_EXCL) && last;
-        }
+		my $tmpfh = File::Temp->new();
+		my $tmpnam = $tmpfh->filename;
 
         if (scalar(@{$outarr}))
         {
