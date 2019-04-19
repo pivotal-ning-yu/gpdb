@@ -4878,6 +4878,20 @@ ExecWindow(WindowState * wstate)
 
 	econtext = wstate->ps.ps_ExprContext;
 
+	/*
+	 * Check to see if we're still projecting out tuples from a previous
+	 * output tuple (because there is a function-returning-set in the
+	 * projection expressions).  If so, try to project another one.
+	 */
+	if (wstate->ps_TupFromTlist)
+	{
+		resultSlot = ExecProject(wstate->ps.ps_ProjInfo, &isDone);
+		if (isDone == ExprMultipleResult)
+			return resultSlot;
+		/* Done with that source tuple... */
+		wstate->ps_TupFromTlist = false;
+	}
+
 	/* Fetch the current_row */
 	econtext->ecxt_scantuple = fetchCurrentRow(wstate);
 
@@ -4950,6 +4964,9 @@ ExecWindow(WindowState * wstate)
 	 * Form the result tuple using ExecProject(), and return it.
 	 */
 	resultSlot = ExecProject(wstate->ps.ps_ProjInfo, &isDone);
+
+	wstate->ps_TupFromTlist =
+		(isDone == ExprMultipleResult);
 
 	if (!TupIsNull(resultSlot))
 	{
@@ -6162,6 +6179,7 @@ ExecInitWindow(Window * node, EState *estate, int eflags)
 
 	/* Create expression context. */
 	ExecAssignExprContext(estate, &wstate->ps);
+	wstate->ps_TupFromTlist = false;
 
 	/* XXX: temporarily high for debugging purposes */
 #define WINDOW_NSLOTS 4
@@ -6305,6 +6323,8 @@ void
 ExecReScanWindow(WindowState * node, ExprContext *exprCtxt)
 {
 	Assert(node);
+
+	node->ps_TupFromTlist = false;
 
 	resetFrameBuffers(node);
 
