@@ -331,6 +331,7 @@ def main():
         dest='test_sections',
         choices=[
             'ICW',
+            'Benchmark',
             'Replication',
             'ResourceGroups',
             'Interconnect',

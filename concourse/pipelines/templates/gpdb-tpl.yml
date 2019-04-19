@@ -59,6 +59,15 @@ groups:
   - compile_gpdb_clients_windows
   - test_gpdb_clients_windows
 {% endif %}
+{% if "Benchmark" in test_sections %}
+{% if "centos7" in os_types %}
+  - benchmark_data_init
+  - benchmark_planner_centos7
+{% endif %}
+{% if "ubuntu16" in os_types %}
+  - benchmark_planner_ubuntu16
+{% endif %}
+{% endif %}
 {% if "ICW" in test_sections %}
   ## --------------------------------------------------------------------
 {% if "centos6" in os_types %}
@@ -160,6 +169,21 @@ groups:
 {% if "win" in os_types %}
   - compile_gpdb_clients_windows
   - test_gpdb_clients_windows
+{% endif %}
+
+{% if "Benchmark" in test_sections %}
+## ======================================================================
+
+- name: Benchmark
+  jobs:
+{% if "centos7" in os_types %}
+  - compile_gpdb_centos7
+  - benchmark_planner_centos7
+{% endif %}
+{% if "ubuntu16" in os_types %}
+  - compile_gpdb_ubuntu16
+  - benchmark_planner_ubuntu16
+{% endif %}
 {% endif %}
 
 {% if "ICW" in test_sections %}
@@ -304,7 +328,8 @@ resource_types:
 ## ======================================================================
 
 resources:
-{% if "ResourceGroups" in test_sections or "CLI" in test_sections %}
+{% if "ResourceGroups" in test_sections or "CLI" in test_sections or
+      "Benchmark"     in test_sections %}
 - name: ccp_src
   type: git
   source:
@@ -313,6 +338,7 @@ resources:
     uri: {{ccp-git-remote}}
 
 {% if "centos6" in os_types or
+      "Benchmark"     in test_sections or
       "ICW"     in test_sections %}
 - name: terraform
   type: terraform
@@ -479,6 +505,7 @@ resources:
     tag: latest
 
 {% endif %}
+{% if "ICW" in test_sections %}
 {% if "centos7" in os_types or "CLI" in test_sections %}
 - name: gpdb6-centos7-test
   type: docker-image
@@ -486,6 +513,7 @@ resources:
     repository: pivotaldata/gpdb6-centos7-test
     tag: latest
 
+{% endif %}
 {% endif %}
 
 - name: gpdb6-ubuntu18.04-build
@@ -695,6 +723,17 @@ resources:
     bucket: ((pivotal-gp-internal-artifacts-gcs-bucket))
     json_key: ((gcs-key))
     versioned_file: madlib-snowflakes/boost_1_61_0.tar.gz
+{% endif %}
+
+{% if "Benchmark" in test_sections %}
+{% if "centos7" in os_types %}
+- name: benchmark_data_centos7
+  type: gcs
+  source:
+    bucket: ((gcs-bucket-intermediates))
+    json_key: ((concourse-gcs-resources-service-account-key))
+    versioned_file: ((pipeline-name))/benchmark_data_centos7/benchmark_data.tar.gz
+{% endif %}
 {% endif %}
 
 - name: reduced-frequency-trigger
@@ -2175,5 +2214,126 @@ jobs:
         gpcloud_access_key_id: {{gpcloud-access-key-id}}
         gpcloud_secret_access_key: {{gpcloud-secret-access-key}}
         TARGET_OS: centos
+{% endif %}
+{% endif %}
+
+{% if "Benchmark" in test_sections %}
+- name: benchmark_data_init
+  plan:
+  - get: gpdb6-centos7-build
+  - task: init_benchmark_data
+    image: gpdb6-centos7-build
+    config:
+      platform: linux
+      outputs:
+      - name: gpdb_artifacts
+      run:
+        path: bash
+        args:
+        - -exc
+        - |
+          mkdir -p benchmark_data gpdb_artifacts
+          tar zcf gpdb_artifacts/benchmark_data.tar.gz benchmark_data
+  - put: benchmark_data_centos7
+    params:
+      file: gpdb_artifacts/benchmark_data.tar.gz
+
+{% if "centos7" in os_types %}
+- name: benchmark_planner_centos7
+  plan:
+  - aggregate:
+    - get: gpdb_src
+      passed: [compile_gpdb_centos7]
+    - get: gpdb_binary
+      passed: [compile_gpdb_centos7]
+      resource: bin_gpdb_centos7
+      trigger: [[ test_trigger ]]
+    - get: ccp_src
+    - get: ccp-image
+    - get: benchmark_data
+      resource: benchmark_data_centos7
+  - put: terraform
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+        PLATFORM: centos7
+        instance_type: n1-highcpu-16
+        # instance_type: n1-standard-16
+        number_of_nodes: 5
+        extra_nodes: 1
+        # segments_per_host: 1
+        disk_type: pd-ssd
+        disk_size: 512
+  - task: gen_cluster
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    params:
+      <<: *ccp_gen_cluster_default_params
+      PLATFORM: centos7
+  - task: set_gpinitsystem_config
+    file: gpdb_src/concourse/tasks/set_gpinitsystem_config.yml
+    params:
+      GPINITSYSTEM_CONFIG: gpdb_src/concourse/scripts/gpinitsystem_benchmark
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
+  - task: run_tests
+    file: gpdb_src/concourse/tasks/benchmark.yml
+    image: ccp-image
+    params:
+      TEST_OS: centos7
+    on_success:
+      <<: *ccp_destroy
+  - put: benchmark_data_centos7
+    params:
+      file: gpdb_artifacts/benchmark_data.tar.gz
+  ensure:
+    <<: *set_failed
+{% endif %}
+
+{% if "ubuntu16" in os_types %}
+- name: benchmark_planner_ubuntu16
+  plan:
+  - aggregate:
+    - get: gpdb_src
+      passed: [compile_gpdb_ubuntu16]
+    - get: gpdb_binary
+      passed: [compile_gpdb_ubuntu16]
+      resource: compiled_bits_ubuntu16
+      trigger: [[ test_trigger ]]
+    - get: ccp_src
+    - get: ubuntu-gpdb-dev-16
+  - put: terraform
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+        PLATFORM: ubuntu-1804
+        instance_type: n1-highcpu-16
+        # instance_type: n1-standard-16
+        number_of_nodes: 5
+        extra_nodes: 1
+        # segments_per_host: 1
+        disk_type: pd-ssd
+        disk_size: 512
+  - task: gen_cluster
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    params:
+      <<: *ccp_gen_cluster_default_params
+      PLATFORM: ubuntu-1804
+  - task: set_gpinitsystem_config
+    file: gpdb_src/concourse/tasks/set_gpinitsystem_config.yml
+    params:
+      GPINITSYSTEM_CONFIG: gpdb_src/concourse/scripts/gpinitsystem_benchmark
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
+  - task: run_tests
+    file: gpdb_src/concourse/tasks/benchmark.yml
+    image: ubuntu-gpdb-dev-16
+    params:
+      TEST_OS: ubuntu-1804
+    on_success:
+      <<: *ccp_destroy
+  ensure:
+    <<: *set_failed
 {% endif %}
 {% endif %}
