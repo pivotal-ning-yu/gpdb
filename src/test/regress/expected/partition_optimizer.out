@@ -5431,7 +5431,7 @@ select * from r;
   3 |    3 | 2004 | F      | 100000
 (1 row)
 
--- Exchage a partition with dropped columns and run copy from
+-- Exchange a partition with dropped columns and run copy from
 CREATE TABLE part_drop_column(a int, b int, c int) with (appendonly=true, orientation=column) partition by range(c) (start (0) end (3) every (1));
 NOTICE:  CREATE TABLE will create partition "part_drop_column_1_prt_1" for table "part_drop_column"
 NOTICE:  CREATE TABLE will create partition "part_drop_column_1_prt_2" for table "part_drop_column"
@@ -5474,6 +5474,7 @@ SELECT * FROM part_drop_column;
  7 | 2
 (27 rows)
 
+DROP TABLE part_drop_column CASCADE;
 -- Split test
 alter table rank alter partition girls split default partition start('2008')
   end('2020') into (partition years, partition gfuture);
@@ -10508,6 +10509,7 @@ select * from s1 full outer join s2 on s1.d1 = s2.d2 and s1.p1 = s2.p2 where s1.
 drop table if exists s1;
 drop table if exists s2;
 -- end_ignore
+-- Test COPY FROM when base and a part relation contain different physical attributes
 -- Avoid TupleDesc leak when COPY partition table from files
 drop table if exists pt_td_leak;
 NOTICE:  table "pt_td_leak" does not exist, skipping

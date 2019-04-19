@@ -4669,6 +4669,7 @@ PROCESS_SEGMENT_DATA:
 					AttrMap *map = resultRelInfo->ri_partInsertMap;
 					Assert(map != NULL);
 					slot = resultRelInfo->ri_partSlot;
+					ExecClearTuple(slot);
 					partValues = slot_get_values(slot);
 					partNulls = slot_get_isnull(slot);
 					MemSet(partValues, 0, attr_count * sizeof(Datum));

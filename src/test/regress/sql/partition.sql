@@ -2916,7 +2916,7 @@ alter table rank alter partition girls exchange partition year4 with table r;
 select * from rank_1_prt_girls_2_prt_year4;
 select * from r;
 
--- Exchage a partition with dropped columns and run copy from
+-- Exchange a partition with dropped columns and run copy from
 CREATE TABLE part_drop_column(a int, b int, c int) with (appendonly=true, orientation=column) partition by range(c) (start (0) end (3) every (1));
 ALTER TABLE part_drop_column DROP COLUMN b;
 CREATE TABLE exchange1 (a int , c int) with (appendonly=true, orientation=column);
@@ -2956,6 +2956,7 @@ COPY part_drop_column FROM stdin DELIMITER as ',';
 \.
 
 SELECT * FROM part_drop_column;
+DROP TABLE part_drop_column CASCADE;
 
 -- Split test
 alter table rank alter partition girls split default partition start('2008')
@@ -5296,6 +5297,7 @@ drop table if exists s1;
 drop table if exists s2;
 -- end_ignore
 
+-- Test COPY FROM when base and a part relation contain different physical attributes
 -- Avoid TupleDesc leak when COPY partition table from files
 drop table if exists pt_td_leak;
 CREATE TABLE pt_td_leak
