@@ -181,11 +181,12 @@ class languageTestCase(MPPTestCase):
         init_file_list.append(init_file)
         if self.checkAPPHOMEandLIB("pljava","JAVA_HOME"):
             # If JDK is not 1.6 and up, then raise error
+            # condition test is too bad, it only matches the major version number
             res = {'rc': 0, 'stdout' : '', 'stderr': ''}
             run_shell_command("source %s && java -version 2>&1" % os.path.join(GPHOME, 'greenplum_path.sh'),
                               'check java version', res)
             out = res['stdout'].split('\n')
-            if out[0].find("1.6.")>0:
+            if out[0].find("1.8.")>0:
                 gp_procedural_languages().installPL('pljava')
                 self.doTest(num, filename, default=default, match_sub=init_file_list)
             else:
@@ -203,10 +204,11 @@ class languageTestCase(MPPTestCase):
 
         if self.checkAPPHOMEandLIB("pljava", "JAVA_HOME"):
             # If JDK is not 1.6 and up, then raise error
+            # condition test is too bad, it only matches the major version number
             res = {'rc': 0, 'stdout' : '', 'stderr': ''}
             run_shell_command("source %s && java -version 2>&1" % os.path.join(GPHOME, 'greenplum_path.sh'),
                               'check java version', res)
-            if res['stdout'][0].find("1.6.")>0:
+            if res['stdout'][0].find("1.8.")>0:
                 gp_procedural_languages().installPL('pljavau')
                 self.doTest(num, filename, default=default)
             else:
