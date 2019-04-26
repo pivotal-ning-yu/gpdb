@@ -485,6 +485,15 @@ resources:
     bucket: {{procedural-languages-concourse-bucket}}
     regexp: release/gpdb4/pljava/pljava-(.*)-gp4-rhel5-x86_64.gppkg
 
+- name: pljava_sles11_gppkg
+  type: s3
+  source:
+    region_name: {{aws-region}}
+    access_key_id: {{bucket-access-key-id}}
+    secret_access_key: {{bucket-secret-access-key}}
+    bucket: {{procedural-languages-concourse-bucket}}
+    regexp: release/gpdb4/pljava/pljava-(.*)-gp4-sles11-x86_64.gppkg
+
 - name: plr_rhel5_gppkg
   type: s3
   source:
@@ -493,6 +502,42 @@ resources:
     secret_access_key: {{bucket-secret-access-key}}
     bucket: {{procedural-languages-concourse-bucket}}
     regexp: release/gpdb4/plr/plr-(.*)-GPDB4.3-rhel5-x86_64.gppkg
+
+- name: plr_rhel6_gppkg
+  type: s3
+  source:
+    region_name: {{aws-region}}
+    access_key_id: {{bucket-access-key-id}}
+    secret_access_key: {{bucket-secret-access-key}}
+    bucket: {{procedural-languages-concourse-bucket}}
+    regexp: release/gpdb4/plr/plr-(.*)-GPDB4.3-rhel6-x86_64.gppkg
+
+- name: plr_sles11_gppkg
+  type: s3
+  source:
+    region_name: {{aws-region}}
+    access_key_id: {{bucket-access-key-id}}
+    secret_access_key: {{bucket-secret-access-key}}
+    bucket: {{procedural-languages-concourse-bucket}}
+    regexp: release/gpdb4/plr/plr-(.*)-GPDB4.3-sles11-x86_64.gppkg
+
+- name: ds_python_rhel7
+  type: s3
+  source:
+    region_name: {{aws-region}}
+    access_key_id: {{bucket-access-key-id}}
+    secret_access_key: {{bucket-secret-access-key}}
+    bucket: {{procedural-languages-concourse-bucket}}
+    regexp: release/gpdb4/data-science/DataSciencePython-(.*)-gp4-rhel7-x86_64.gppkg
+
+- name: ds_r_rhel7
+  type: s3
+  source:
+    region_name: {{aws-region}}
+    access_key_id: {{bucket-access-key-id}}
+    secret_access_key: {{bucket-secret-access-key}}
+    bucket: {{procedural-languages-concourse-bucket}}
+    regexp: release/gpdb4/data-science/DataScienceR-(.*)-gp4-rhel7-x86_64.gppkg
 
 - name: libgppc_rhel5_gppkg
   type: s3
@@ -1246,6 +1291,16 @@ jobs:
       - get: osl_gpdb4
       - get: pivnet_client
       - get: libgppc_rhel5_gppkg
+      - get: pljava_rhel5_gppkg
+      - get: pljava_sles11_gppkg
+      - get: plr_rhel5_gppkg
+      - get: plr_rhel6_gppkg
+      - get: plr_sles11_gppkg
+      - get: ds_python_rhel6
+      - get: ds_python_rhel7
+      - get: ds_r_rhel6
+      - get: ds_r_rhel7
+
     - task: push-to-pivnet
       config:
         platform: linux
@@ -1279,6 +1334,15 @@ jobs:
         - name: postgis_rhel5_gppkg
         - name: postgis_sles11_gppkg
         - name: libgppc_rhel5_gppkg
+        - name: pljava_rhel5_gppkg
+        - name: pljava_sles11_gppkg
+        - name: plr_rhel5_gppkg
+        - name: plr_rhel6_gppkg
+        - name: plr_sles11_gppkg
+        - name: ds_python_rhel6
+        - name: ds_python_rhel7
+        - name: ds_r_rhel6
+        - name: ds_r_rhel7
 
         params:
           PIVNET_ENDPOINT: {{4_3-release_pivnet_endpoint}}

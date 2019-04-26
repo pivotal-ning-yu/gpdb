@@ -225,7 +225,7 @@ file_groups:
       platforms:
       included_files:
       file_version: ${VERSION_REGEX}
-    - file: s3://procedural-languages-concourse/release/gpdb4/plr/plr-(.*)-GPDB4.3-rhel5-x86_64.gppkg
+    - file: file://plr_rhel5_gppkg/plr-(.*)-GPDB4.3-rhel5-x86_64.gppkg
       upload_as: PL/R for RHEL 5
       description:
       file_type: Software
@@ -234,7 +234,7 @@ file_groups:
       platforms:
       included_files:
       file_version: ${VERSION_REGEX}
-    - file: s3://procedural-languages-concourse/release/gpdb4/plr/plr-(.*)-GPDB4.3-rhel6-x86_64.gppkg
+    - file: file://plr_rhel6_gppkg/plr-(.*)-GPDB4.3-rhel6-x86_64.gppkg
       upload_as: PL/R for RHEL 6
       description:
       file_type: Software
@@ -243,16 +243,7 @@ file_groups:
       platforms:
       included_files:
       file_version: ${VERSION_REGEX}
-    # - file: s3://procedural-languages-concourse/release/gpdb4/plr/plr-(.*)-GPDB4.3-rhel7-x86_64.gppkg
-    #   upload_as: PL/R for RHEL 7
-    #   description:
-    #   file_type: Software
-    #   docs_url:
-    #   system_requirements:
-    #   platforms:
-    #   included_files:
-    #   file_version: ${VERSION_REGEX}
-    - file: s3://procedural-languages-concourse/release/gpdb4/plr/plr-(.*)-GPDB4.3-sles11-x86_64.gppkg
+    - file: file://plr_sles11_gppkg/plr-(.*)-GPDB4.3-sles11-x86_64.gppkg
       upload_as: PL/R for SLES 11 SP4
       description:
       file_type: Software
@@ -261,7 +252,7 @@ file_groups:
       platforms:
       included_files:
       file_version: ${VERSION_REGEX}
-    - file: s3://procedural-languages-concourse/release/gpdb4/pljava/pljava-(.*)-gp4-rhel5-x86_64.gppkg
+    - file: file://pljava_rhel5_gppkg/pljava-(.*)-gp4-rhel5-x86_64.gppkg
       upload_as: PL/Java for RHEL 5, 6 & 7
       description:
       file_type: Software
@@ -270,7 +261,7 @@ file_groups:
       platforms:
       included_files:
       file_version: ${VERSION_REGEX}
-    - file: s3://procedural-languages-concourse/release/gpdb4/pljava/pljava-(.*)-gp4-sles11-x86_64.gppkg
+    - file: file://pljava_sles11_gppkg/pljava-(.*)-gp4-sles11-x86_64.gppkg
       upload_as: PL/Java for SLES 11 SP4
       description:
       file_type: Software
@@ -279,7 +270,7 @@ file_groups:
       platforms:
       included_files:
       file_version: ${VERSION_REGEX}
-    - file: s3://procedural-languages-concourse/release/gpdb4/data-science/DataSciencePython-(.*)-gp4-rhel6-x86_64.gppkg
+    - file: file://ds_python_rhel6/DataSciencePython-(.*)-gp4-rhel6-x86_64.gppkg
       upload_as: Python Data Science Package for RHEL 6
       description:
       file_type: Software
@@ -288,7 +279,7 @@ file_groups:
       platforms:
       included_files:
       file_version: ${VERSION_REGEX}
-    - file: s3://procedural-languages-concourse/release/gpdb4/data-science/DataSciencePython-(.*)-gp4-rhel7-x86_64.gppkg
+    - file: file://ds_python_rhel7/DataSciencePython-(.*)-gp4-rhel7-x86_64.gppkg
       upload_as: Python Data Science Package for RHEL 7
       description:
       file_type: Software
@@ -297,7 +288,7 @@ file_groups:
       platforms:
       included_files:
       file_version: ${VERSION_REGEX}
-    - file: s3://procedural-languages-concourse/release/gpdb4/data-science/DataScienceR-(.*)-gp4-rhel6-x86_64.gppkg
+    - file: file://ds_r_rhel6/DataScienceR-(.*)-gp4-rhel6-x86_64.gppkg
       upload_as: R Data Science Package for RHEL 6
       description:
       file_type: Software
@@ -306,7 +297,7 @@ file_groups:
       platforms:
       included_files:
       file_version: ${VERSION_REGEX}
-    - file: s3://procedural-languages-concourse/release/gpdb4/data-science/DataScienceR-(.*)-gp4-rhel7-x86_64.gppkg
+    - file: file://ds_r_rhel7/DataScienceR-(.*)-gp4-rhel7-x86_64.gppkg
       upload_as: R Data Science Package for RHEL 7
       description:
       file_type: Software
