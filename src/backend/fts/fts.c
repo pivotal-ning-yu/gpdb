@@ -24,6 +24,7 @@
 #include "miscadmin.h"
 #include "cdb/cdbvars.h"
 #include "cdb/cdbfts.h"
+#include "cdb/cdbtm.h"
 #include "postmaster/fork_process.h"
 #include "postmaster/postmaster.h"
 #include "postmaster/fts.h"
@@ -623,11 +624,17 @@ FtsFindSuperuser(bool try_bootstrap)
 		Datum	attrName;
 		Oid		userOid;
 		Datum	validuntil __attribute__((unused));
+		bool hasExpirationDate;
+		TimestampTz attrRolvaliduntil;
 
 		validuntil = heap_getattr(auth_tup, Anum_pg_authid_rolvaliduntil,
 								  RelationGetDescr(auth_rel), &isNull);
+
+		hasExpirationDate = !isNull;
+		attrRolvaliduntil = DatumGetTimestampTz(validuntil);
+
 		/* we actually want it to be NULL, that means always valid */
-		if (!isNull)
+		if (!canSuperuserPerformRecovery(hasExpirationDate, attrRolvaliduntil))
 			continue;
 
 		attrName = heap_getattr(auth_tup, Anum_pg_authid_rolname, 

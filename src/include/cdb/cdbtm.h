@@ -9,6 +9,7 @@
 
 #include "storage/lwlock.h"
 #include "utils/hsearch.h"
+#include "utils/timestamp.h"
 #include "lib/stringinfo.h"
 #include "access/xlogdefs.h"
 #include "cdb/cdbdistributedsnapshot.h"
@@ -372,5 +373,6 @@ extern void PleaseDebugMe(char *caller);
 extern void cdbtm_performDeferredRecovery(void);
 
 extern bool doDispatchSubtransactionInternalCmd(DtxProtocolCommand cmdType);
+extern bool canSuperuserPerformRecovery(bool hasExpirationDate, TimestampTz expirationDate);
 
 #endif   /* CDBTM_H */

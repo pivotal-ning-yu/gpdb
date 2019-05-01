@@ -182,4 +182,5 @@ test: pg_stat_last_operation
 test: plan_size
 test: partindex_test
 test: orca_udfs
+test: distributed_transaction_recovery_after_restart
 # end of tests
