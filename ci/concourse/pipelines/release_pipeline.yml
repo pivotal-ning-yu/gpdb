@@ -1179,7 +1179,7 @@ jobs:
         type: docker-image
         source:
           repository: chef/inspec
-          tag: 'latest'
+          tag: '3.9.6'
       run:
         path: "sh"
         args:
@@ -1217,7 +1217,7 @@ jobs:
         type: docker-image
         source:
           repository: chef/inspec
-          tag: 'latest'
+          tag: '3.9.6'
       run:
         path: "sh"
         args:
