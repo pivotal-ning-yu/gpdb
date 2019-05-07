@@ -281,6 +281,7 @@ bool		Debug_print_parse = false;
 bool		Debug_print_rewritten = false;
 bool		Debug_pretty_print = false;
 bool		Explain_pretty_print = true;
+bool		debug_validate_shared_snapshot = false;
 bool		Debug_print_full_dtm = false;
 bool		Debug_print_snapshot_dtm = false;
 bool		Debug_print_qd_mirroring = false;
@@ -2567,6 +2568,18 @@ static struct config_bool ConfigureNamesBool[] =
 			GUC_NOT_IN_SAMPLE | GUC_NO_SHOW_ALL
 		},
 		&IgnoreSystemIndexes,
+		false, NULL, NULL
+	},
+
+	{
+		{"debug_validate_shared_snapshot", PGC_SUSET, LOGGING_WHAT,
+			gettext_noop("Validates shared snapshot's XIP array and causes "
+						 "the backend process to exit with FATAL error "
+						 "if validation fails."),
+			NULL,
+			GUC_SUPERUSER_ONLY |  GUC_NO_SHOW_ALL | GUC_NOT_IN_SAMPLE
+		},
+		&debug_validate_shared_snapshot,
 		false, NULL, NULL
 	},
 

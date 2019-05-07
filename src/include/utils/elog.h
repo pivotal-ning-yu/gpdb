@@ -545,5 +545,6 @@ extern bool gp_log_stack_trace_lines;   /* session GUC, controls line info in st
 
 extern const char *SegvBusIllName(int signal);
 extern void StandardHandlerForSigillSigsegvSigbus_OnMainThread(char * processName, SIGNAL_ARGS);
+extern void debug_linger(int seconds_to_linger, char *ps_msg);
 
 #endif   /* ELOG_H */

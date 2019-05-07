@@ -569,6 +569,106 @@ GetOldestXmin(bool allDbs)
 	return result;
 }
 
+/*
+ * Validate that the snapshot's in-progress array contains first xcnt items as
+ * valid XIDs and that (xmin <= xip < xmax).
+ */
+static void
+validateSnapshot(Snapshot snapshot)
+{
+	int i;
+	bool localValid;
+	bool sharedValid;
+	TransactionId xip;
+	StringInfoData msgData;
+	StringInfo msg = &msgData;
+
+	initStringInfo(msg);
+	localValid = true;
+	for (i=0; i<snapshot->xcnt && localValid; i++)
+	{
+		xip = snapshot->xip[i];
+		localValid &= (TransactionIdIsNormal(xip) &&
+					   TransactionIdFollowsOrEquals(xip, snapshot->xmin) &&
+					   TransactionIdPrecedes(xip, snapshot->xmax));
+	}
+	if (!localValid)
+		appendStringInfo(msg, "%s's local snapshot in-progress array "
+						 "contains invalid entry %u at index %d.\n",
+						 Gp_is_writer ? "writer" : "reader", xip, i-1);
+
+
+	sharedValid = true;
+	for (i=0; i<SharedLocalSnapshotSlot->snapshot.xcnt && sharedValid; i++)
+	{
+		xip = SharedLocalSnapshotSlot->snapshot.xip[i];
+		sharedValid &= (TransactionIdIsNormal(xip) &&
+						TransactionIdFollowsOrEquals(
+							xip, SharedLocalSnapshotSlot->snapshot.xmin) &&
+						TransactionIdPrecedes(
+							xip, SharedLocalSnapshotSlot->snapshot.xmax));
+	}
+
+	if (!sharedValid)
+		appendStringInfo(msg, "%s's shared snapshot in-progress array "
+						 "contains invalid entry %u at index %d.\n",
+						 Gp_is_writer ? "writer" : "reader", xip, i-1);
+
+	if (SharedLocalSnapshotSlot->snapshot.xcnt != snapshot->xcnt)
+	{
+		appendStringInfo(msg, "%s's shared xcnt %u does not match local xcnt %u",
+						 Gp_is_writer ? "writer" : "reader",
+						 SharedLocalSnapshotSlot->snapshot.xcnt,
+						 snapshot->xcnt);
+		localValid = sharedValid = false;
+	}
+
+	if (sharedValid && localValid)
+		pfree(msg->data);
+	else
+	{
+		appendStringInfo(msg, "Local snapshot (xmin %u, xmax %u, xcnt %u) "
+						 "in-progress array [",
+						 snapshot->xmin, snapshot->xmax, snapshot->xcnt);
+
+		for (i=0; i<snapshot->xcnt; i++)
+		{
+			xip = snapshot->xip[i];
+			appendStringInfo(msg, "%u ", xip);
+		}
+		appendStringInfo(msg, "]\n");
+
+		appendStringInfo(msg, "Shared snapshot (xmin %u, xmax %u, xcnt %u) "
+						 "in-progress array [",
+						 SharedLocalSnapshotSlot->snapshot.xmin,
+						 SharedLocalSnapshotSlot->snapshot.xmax,
+						 SharedLocalSnapshotSlot->snapshot.xcnt);
+		for (i=0; i<SharedLocalSnapshotSlot->snapshot.xcnt && sharedValid; i++)
+		{
+			xip = SharedLocalSnapshotSlot->snapshot.xip[i];
+			appendStringInfo(msg, "%u ", xip);
+		}
+		appendStringInfo(msg, "]\nslotindex %d, slotid %d, "
+						 "writer pid %u, xid %u, segmateSync %d",
+						 SharedLocalSnapshotSlot->slotindex,
+						 SharedLocalSnapshotSlot->slotid,
+						 SharedLocalSnapshotSlot->pid,
+						 SharedLocalSnapshotSlot->xid,
+						 SharedLocalSnapshotSlot->segmateSync);
+
+		/* Emit the details as warning message before going to sleep */
+		elog(WARNING, "%s", msg->data);
+		pfree(msg->data);
+
+		/* Sleep to facilitate core generation or debugger attach */
+		debug_linger(gp_debug_linger, "waking up in");
+
+		elog(ERROR, "shared snapshot validation failed");
+	}
+}
+
+static bool QEwriterSnapshotUpToDate(void);
+
 void
 updateSharedLocalSnapshot(DtxContextInfo *dtxContextInfo, Snapshot snapshot, char *debugCaller)
 {
@@ -611,7 +711,10 @@ updateSharedLocalSnapshot(DtxContextInfo *dtxContextInfo, Snapshot snapshot, cha
 
 		memcpy(SharedLocalSnapshotSlot->snapshot.xip, snapshot->xip, snapshot->xcnt * sizeof(TransactionId));
 	}
-	
+
+	if (debug_validate_shared_snapshot)
+		validateSnapshot(snapshot);
+
 	/* combocid stuff */
 	combocidSize = ((usedComboCids < MaxComboCids) ? usedComboCids : MaxComboCids );
 
@@ -804,7 +907,7 @@ FillInDistributedSnapshot(Snapshot snapshot)
 static bool
 QEwriterSnapshotUpToDate(void)
 {
-	Assert(!Gp_is_writer);
+	Assert(debug_validate_shared_snapshot || !Gp_is_writer);
 
 	if (SharedLocalSnapshotSlot == NULL)
 		elog(ERROR, "SharedLocalSnapshotSlot is NULL");
@@ -1010,6 +1113,9 @@ GetSnapshotData(Snapshot snapshot, bool serializable)
 				/* We now capture our current view of the xip/combocid arrays */
 				memcpy(snapshot->xip, SharedLocalSnapshotSlot->snapshot.xip, snapshot->xcnt * sizeof(TransactionId));
 				memset(snapshot->xip + snapshot->xcnt, 0, (arrayP->maxProcs - snapshot->xcnt) * sizeof(TransactionId));
+
+				if (debug_validate_shared_snapshot)
+					validateSnapshot(snapshot);
 
 				snapshot->curcid = SharedLocalSnapshotSlot->snapshot.curcid;
 
@@ -1331,6 +1437,34 @@ GetSnapshotData(Snapshot snapshot, bool serializable)
 		 DistributedTransactionContext == DTX_CONTEXT_QE_AUTO_COMMIT_IMPLICIT) &&
 		SharedLocalSnapshotSlot != NULL)
 	{
+		if (debug_validate_shared_snapshot)
+		{
+			/*
+			 * Check if the writer has already gone through snapshot
+			 * acquisition once before in this command.  If so, the reader may
+			 * not wait before copying the contents of shared snapshot slot
+			 * into its local memory, while the writer is writing the same
+			 * region of shared memory in updateSharedLocalSnapshot.
+			 */
+			if (QEwriterSnapshotUpToDate())
+				ereport(LOG,
+						(errmsg("writer's snapshot is already up to date:"
+								"slotindex %d, slotid %d, writer pid %u, "
+								"xid %u, QDxid %u, QDcid %u, segmateSync %u, "
+								"ready=%s (xmin %u, xmax %u, xcnt %d)",
+								SharedLocalSnapshotSlot->slotindex,
+								SharedLocalSnapshotSlot->slotid,
+								SharedLocalSnapshotSlot->pid,
+								SharedLocalSnapshotSlot->xid,
+								SharedLocalSnapshotSlot->QDxid,
+								SharedLocalSnapshotSlot->QDcid,
+								SharedLocalSnapshotSlot->segmateSync,
+								SharedLocalSnapshotSlot->ready ? "true" : "false",
+								SharedLocalSnapshotSlot->snapshot.xmin,
+								SharedLocalSnapshotSlot->snapshot.xmax,
+								SharedLocalSnapshotSlot->snapshot.xcnt),
+						 errprintstack(true)));
+		}
 		updateSharedLocalSnapshot(&QEDtxContextInfo, snapshot, "GetSnapshotData");
 	}
 
