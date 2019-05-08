@@ -864,6 +864,14 @@ writer_wait_for_acks(ShareInput_Lk_Context *pctxt, int share_id, int xslice)
 	{
 		CHECK_FOR_INTERRUPTS();
 
+		/*
+		 * MPP-29838: Readers may have already been cancelled without sending
+		 * ack notification. This may happen if readers receive SIGINT while in
+		 * shareinput_reader_waitready().
+		 */
+		if (IsAbortInProgress())
+			break;
+
 		MPP_FD_ZERO(&rset);
 		MPP_FD_SET(pctxt->donefd, &rset);
 
@@ -951,6 +959,14 @@ shareinput_writer_waitdone(void *ctxt, int share_id, int nsharer_xslice)
 	while(ack_needed > 0)
 	{
 		CHECK_FOR_INTERRUPTS();
+
+		/*
+		 * MPP-29838: Readers may have already been cancelled without sending
+		 * ack notification. This may happen if readers receive SIGINT while in
+		 * shareinput_reader_waitready().
+		 */
+		if (IsAbortInProgress())
+			break;
 	
 		MPP_FD_ZERO(&rset);
 		MPP_FD_SET(pctxt->donefd, &rset);
