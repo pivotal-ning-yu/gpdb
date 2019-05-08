@@ -2192,14 +2192,14 @@ PrintPgaosegAndGprelationNodeEntries(FileSegInfo **allseginfo, int totalsegs, bo
 
 	if (snapshot != InvalidSnapshot && IsMVCCSnapshot(snapshot))
 	{
-		appendStringInfo(msg, "\nrole %s snapshot (xmin %d, xmax %d, xcnt %d,"
-						 " curcid %d, haveDistributed %d\n in progress array [",
+		appendStringInfo(msg, "\nrole %s snapshot (xmin %u, xmax %u, xcnt %u,"
+						 " curcid %u, haveDistributed %d\n in progress array [",
 						 Gp_is_writer ? "writer":"reader", snapshot->xmin,
 						 snapshot->xmax, snapshot->xcnt, snapshot->curcid,
 						 snapshot->haveDistribSnapshot);
 
 		for (i = 0; i < snapshot->xcnt; i++)
-			appendStringInfo(msg, "%d ", snapshot->xip[i]);
+			appendStringInfo(msg, "%u ", snapshot->xip[i]);
 
 		appendStringInfoString(msg, "])");
 
@@ -2212,8 +2212,8 @@ PrintPgaosegAndGprelationNodeEntries(FileSegInfo **allseginfo, int totalsegs, bo
 			 * while we're at it, inspect the shared snapshot to see if the private
 			 * snapshot is corrupt
 			 */
-			appendStringInfo(msg, "\nshared snapshot (xmin %d, xmax %d, xcnt %d,"
-							 " curcid %d, haveDistributed %d\n in progress array [",
+			appendStringInfo(msg, "\nshared snapshot (xmin %u, xmax %u, xcnt %u,"
+							 " curcid %u, haveDistributed %d\n in progress array [",
 							 SharedLocalSnapshotSlot->snapshot.xmin,
 							 SharedLocalSnapshotSlot->snapshot.xmax,
 							 SharedLocalSnapshotSlot->snapshot.xcnt,
@@ -2221,7 +2221,7 @@ PrintPgaosegAndGprelationNodeEntries(FileSegInfo **allseginfo, int totalsegs, bo
 							 SharedLocalSnapshotSlot->snapshot.haveDistribSnapshot);
 
 			for (i = 0; i < SharedLocalSnapshotSlot->snapshot.xcnt; i++)
-				appendStringInfo(msg, "%d ", SharedLocalSnapshotSlot->snapshot.xip[i]);
+				appendStringInfo(msg, "%u ", SharedLocalSnapshotSlot->snapshot.xip[i]);
 
 			appendStringInfoString(msg, "])");
 		}
@@ -2230,8 +2230,8 @@ PrintPgaosegAndGprelationNodeEntries(FileSegInfo **allseginfo, int totalsegs, bo
 		{
 			DistributedSnapshotWithLocalMapping *dslm =
 				&snapshot->distribSnapshotWithLocalMapping;
-			appendStringInfo(msg, "\ndistributed snapshot (xmin %d, xmax %d, "
-							 "count %d, xminAllDistributedSnapshots %d, "
+			appendStringInfo(msg, "\ndistributed snapshot (xmin %u, xmax %u, "
+							 "count %d, xminAllDistributedSnapshots %u, "
 							 "distribSnapshotId %d, in progress array "
 							 "distribXid:localXid [",
 							 dslm->header.xmin, dslm->header.xmax, dslm->header.count,
@@ -2239,7 +2239,7 @@ PrintPgaosegAndGprelationNodeEntries(FileSegInfo **allseginfo, int totalsegs, bo
 							 dslm->header.distribSnapshotId);
 
 			for (i = 0; i < dslm->header.count; i++)
-				appendStringInfo(msg, "%d:%d ", dslm->inProgressEntryArray[i].distribXid,
+				appendStringInfo(msg, "%u:%u ", dslm->inProgressEntryArray[i].distribXid,
 								 dslm->inProgressEntryArray[i].localXid);
 
 			appendStringInfoString(msg, "])");
