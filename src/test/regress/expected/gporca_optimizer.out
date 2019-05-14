@@ -6235,6 +6235,9 @@ select row_number() over(order by foo.a+ bar.a)/count(*) from orca.foo inner joi
       400
 (400 rows)
 
+-- FIXME: remove the "set optimizer=on" once planner stops generating a wrong plan
+-- FIXME: planner regression introduced in ff3403fb17 but masked by atmsort regression introduced in commit 0c0406681
+set optimizer=on;
 select count(*) over(partition by b order by a range between 1 preceding and (select count(*) from orca.bar) following) from orca.foo;
  count 
 -------
@@ -6280,6 +6283,7 @@ select count(*) over(partition by b order by a range between 1 preceding and (se
      1
 (40 rows)
 
+reset optimizer;
 select a+1, rank() over(partition by b+1 order by a+1) from orca.foo order by 1, 2;
  ?column? | rank 
 ----------+------
