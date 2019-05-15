@@ -1,0 +1,26 @@
+platform: linux
+
+image_resource:
+  type: docker-image
+
+inputs:
+  - name: gpdb_main_src
+  - name: gpdb_tarball
+
+outputs:
+  - name: gpAux_ext
+  - name: gphdfs_dist
+  - name: gpdb_src
+
+run:
+  path: gpdb_main_src/ci/concourse/scripts/untar_gpdb_and_get_ivy_dependencies.py
+
+params:
+  TARGET_OS:
+  TARGET_OS_VERSION:
+  TASK_OS:
+  TASK_OS_VERSION:
+  IVYREPO_HOST:
+  IVYREPO_REALM:
+  IVYREPO_USER:
+  IVYREPO_PASSWD:
