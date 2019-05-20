@@ -9963,20 +9963,18 @@ analyze idxscan_inner;
 set optimizer_enable_hashjoin = off;
 explain select id, comment from idxscan_outer as o join idxscan_inner as i on o.id = i.productid
 where ordernum between 10 and 20;
-                                                       QUERY PLAN                                                       
-------------------------------------------------------------------------------------------------------------------------
- Gather Motion 3:1  (slice2; segments: 3)  (cost=0.00..888833.14 rows=2 width=9)
-   ->  Nested Loop  (cost=0.00..888833.14 rows=1 width=9)
+                                                    QUERY PLAN                                                    
+------------------------------------------------------------------------------------------------------------------
+ Gather Motion 3:1  (slice2; segments: 3)  (cost=0.00..888833.46 rows=2 width=9)
+   ->  Nested Loop  (cost=0.00..888833.46 rows=1 width=9)
          Join Filter: idxscan_outer.id = idxscan_inner.productid
+         ->  Broadcast Motion 3:3  (slice1; segments: 3)  (cost=0.00..6.00 rows=2 width=9)
+               ->  Index Scan using idxscan_inner_ordernum_key on idxscan_inner  (cost=0.00..6.00 rows=1 width=9)
+                     Index Cond: ordernum >= 10 AND ordernum <= 20
          ->  Table Scan on idxscan_outer  (cost=0.00..431.00 rows=3 width=4)
-         ->  Materialize  (cost=0.00..6.00 rows=1 width=9)
-               ->  Redistribute Motion 3:3  (slice1; segments: 3)  (cost=0.00..6.00 rows=1 width=9)
-                     Hash Key: idxscan_inner.productid
-                     ->  Index Scan using idxscan_inner_ordernum_key on idxscan_inner  (cost=0.00..6.00 rows=1 width=9)
-                           Index Cond: ordernum >= 10 AND ordernum <= 20
  Settings:  optimizer=on; optimizer_cte_inlining_bound=1000
- Optimizer status: PQO version 3.35.0
-(11 rows)
+ Optimizer status: PQO version 2.74.0
+(9 rows)
 
 select id, comment from idxscan_outer as o join idxscan_inner as i on o.id = i.productid
 where ordernum between 10 and 20;
@@ -10125,27 +10123,25 @@ b1.flex_value_id = c1.flex_value_id
 and c1.language = 'ZHS') t,		
 orca.join_table		
 WHERE orca.join_table.fid = t.flex_value_set_id;		
-                                                  QUERY PLAN                                                   
----------------------------------------------------------------------------------------------------------------
- Gather Motion 3:1  (slice3; segments: 3)  (cost=0.00..1765377.43 rows=1 width=9)
-   ->  Nested Loop  (cost=0.00..1765377.43 rows=1 width=9)
+                                               QUERY PLAN                                                
+---------------------------------------------------------------------------------------------------------
+ Gather Motion 3:1  (slice3; segments: 3)  (cost=0.00..1324135.47 rows=1 width=9)
+   ->  Nested Loop  (cost=0.00..1324135.47 rows=1 width=9)
          Join Filter: join_table.fid = inner_table.flex_value_set_id
+         ->  Broadcast Motion 3:3  (slice2; segments: 3)  (cost=0.00..431.10 rows=1 width=9)
+               ->  Nested Loop  (cost=0.00..431.10 rows=1 width=9)
+                     Join Filter: true
+                     ->  Broadcast Motion 3:3  (slice1; segments: 3)  (cost=0.00..431.00 rows=1 width=9)
+                           ->  Table Scan on outer_table  (cost=0.00..431.00 rows=1 width=9)
+                                 Filter: language::text = 'ZHS'::text
+                     ->  Bitmap Table Scan on inner_table  (cost=0.00..0.10 rows=1 width=9)
+                           Recheck Cond: inner_table.flex_value_id = outer_table.flex_value_id
+                           ->  Bitmap Index Scan on inner_table_idx  (cost=0.00..0.00 rows=0 width=0)
+                                 Index Cond: inner_table.flex_value_id = outer_table.flex_value_id
          ->  Table Scan on join_table  (cost=0.00..431.00 rows=1 width=9)
-         ->  Materialize  (cost=0.00..862.00 rows=1 width=9)
-               ->  Redistribute Motion 3:3  (slice2; segments: 3)  (cost=0.00..862.00 rows=1 width=9)
-                     Hash Key: inner_table.flex_value_set_id
-                     ->  Nested Loop  (cost=0.00..862.00 rows=1 width=9)
-                           Join Filter: true
-                           ->  Broadcast Motion 3:3  (slice1; segments: 3)  (cost=0.00..431.00 rows=1 width=9)
-                                 ->  Table Scan on outer_table  (cost=0.00..431.00 rows=1 width=9)
-                                       Filter: language::text = 'ZHS'::text
-                           ->  Bitmap Table Scan on inner_table  (cost=0.00..431.00 rows=1 width=9)
-                                 Recheck Cond: inner_table.flex_value_id = outer_table.flex_value_id
-                                 ->  Bitmap Index Scan on inner_table_idx  (cost=0.00..0.00 rows=0 width=0)
-                                       Index Cond: inner_table.flex_value_id = outer_table.flex_value_id
  Settings:  optimizer=on; optimizer_cte_inlining_bound=1000
- Optimizer status: PQO version 3.35.0
-(18 rows)
+ Optimizer status: PQO version 2.32.0
+(16 rows)
 
 		
 SELECT fid FROM		
@@ -10381,7 +10377,7 @@ set log_statement='none';
 set log_min_duration_statement=-1;
 set client_min_messages='log';
 select count(*) from foo group by cube(a,b);
-LOG:  2019-05-14 11:47:13:406765 PDT,THD000,NOTICE,"Feature not supported: Cube",
+LOG:  2017-06-05 11:14:08:162677 PDT,THD000,NOTICE,"Feature not supported by the Pivotal Query Optimizer: Cube",
 LOG:  Planner produced plan :0
  count 
 -------
@@ -10414,7 +10410,7 @@ set optimizer_enable_ctas = off;
 set client_min_messages='log';
 create table foo_ctas(a) as (select generate_series(1,10)) distributed by (a);
 LOG:  statement: create table foo_ctas(a) as (select generate_series(1,10)) distributed by (a);
-LOG:  2019-05-14 11:47:13:660773 PDT,THD000,NOTICE,"Feature not supported: CTAS. Set optimizer_enable_ctas to on to enable CTAS with PQO",
+LOG:  2017-05-31 14:43:22:338568 PDT,THD000,NOTICE,"Feature not supported by the Pivotal Query Optimizer: CTAS. Set optimizer_enable_ctas to on to enable CTAS with PQO",
 LOG:  Planner produced plan :0
 reset client_min_messages;
 LOG:  statement: reset client_min_messages;
