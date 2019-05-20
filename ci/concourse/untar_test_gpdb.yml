@@ -1,0 +1,21 @@
+platform: linux
+
+image_resource:
+  type: docker-image
+
+inputs:
+  - name: gpdb_main_src
+  - name: gpdb_tarball
+  - name: bin_gpdb
+  - name: sync_tools_gpdb
+
+outputs:
+  - name: icg_output
+
+run:
+  path: gpdb_main_src/ci/concourse/scripts/untar_test_gpdb.py
+
+params:
+  MAKE_TEST_COMMAND: ""
+  BLDWRAP_POSTGRES_CONF_ADDONS: ""
+  TEST_OS: ""
