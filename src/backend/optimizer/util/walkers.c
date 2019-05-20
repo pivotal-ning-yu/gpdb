@@ -468,6 +468,16 @@ expression_tree_walker(Node *node,
 				return false;
 			}
 			break;
+		case T_WindowKey:
+			{
+				WindowKey *wKey = (WindowKey *)node;
+
+				if (expression_tree_walker((Node *) wKey->frame,
+										   walker, context))
+					return true;
+				return false;
+			}
+			break;
 		case T_WindowFrame:
 			{
 				WindowFrame *frame = (WindowFrame *)node;
@@ -998,6 +1008,8 @@ plan_tree_walker(Node *node,
 
 		case T_Window:
 			if (walk_plan_node_fields((Plan *) node, walker, context))
+				return true;
+			if (walker(((Window *) node)->windowKeys, context))
 				return true;
 			/* Other fields are simple items and lists of simple items. */
 			break;
