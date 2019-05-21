@@ -8444,7 +8444,7 @@ select sum(f1.b) from orca.fooh1 f1 group by f1.a;
    6
 (4 rows)
 
-select f1.a + 1 from fooh1 f1 group by f1.a+1 having sum(f1.a+1) + 1 > 20;
+select f1.a + 1 from orca.fooh1 f1 group by f1.a+1 having sum(f1.a+1) + 1 > 20;
  ?column? 
 ----------
         4
