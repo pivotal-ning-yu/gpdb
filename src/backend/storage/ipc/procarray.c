@@ -1985,6 +1985,7 @@ CreateDistributedSnapshot(DistributedSnapshot *ds, DtxContext distributedTransac
 	if (xmin < globalXminDistributedSnapshots)
 		globalXminDistributedSnapshots = xmin;
 
+#if 0
 	/*
 	 * Sort the entry {distribXid} to support the QEs doing culls on their
 	 * DisribToLocalXact sorted lists.
@@ -1994,6 +1995,7 @@ CreateDistributedSnapshot(DistributedSnapshot *ds, DtxContext distributedTransac
 		  count,
 		  sizeof(DistributedTransactionId),
 		  DistributedSnapshotMappedEntry_Compare);
+#endif
 
 	/*
 	 * Copy the information we just captured under lock and then sorted into
@@ -2615,6 +2617,21 @@ GetSnapshotData(Snapshot snapshot, DtxContext distributedTransactionContext)
 	}
 
 	LWLockRelease(ProcArrayLock);
+
+#if 1
+	{
+		DistributedSnapshot *ds = &snapshot->distribSnapshotWithLocalMapping.ds;
+		/*
+		 * Sort the entry {distribXid} to support the QEs doing culls on their
+		 * DisribToLocalXact sorted lists.
+		 */
+		qsort(
+			  ds->inProgressXidArray,
+			  ds->count,
+			  sizeof(DistributedTransactionId),
+			  DistributedSnapshotMappedEntry_Compare);
+	}
+#endif
 
 	/*
 	 * Update globalxmin to include actual process xids.  This is a slightly
