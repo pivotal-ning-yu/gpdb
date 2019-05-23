@@ -552,11 +552,21 @@ gp_curl_easy_perform_backoff_and_check_response(URL_CURL_FILE *file)
 		CURLcode e = curl_easy_perform(file->curl->handle);
 		if (CURLE_OK != e)
 		{
-			elog(WARNING, "%s error (%d - %s)", file->curl_url, e, curl_easy_strerror(e));
-			if (CURLE_OPERATION_TIMEDOUT == e)
-			{
-				timeout_count++;
-			}
+                        if (CURLE_OPERATION_TIMEDOUT == e)
+                        {
+                                timeout_count++;
+                                elog(LOG, "curl operation timeout, timeout_count = %d", timeout_count);
+                                if (timeout_count >= 2)
+                                {
+					elog(ERROR, "error when writing data to gpfdist %s, quit after %d tries",
+                                                        file->curl_url, timeout_count);
+                                }
+                                continue;
+                        }
+                        else
+                        {
+                                elog(WARNING, "%s error (%d - %s)", file->curl_url, e, curl_easy_strerror(e));
+                        }
 		}
 		else
 		{
@@ -569,6 +579,7 @@ gp_curl_easy_perform_backoff_and_check_response(URL_CURL_FILE *file)
 					return;
 
 				case FDIST_TIMEOUT:
+					elog(LOG, "%s timeout from gpfdist", file->curl_url);
 					break;
 
 				default:
@@ -580,7 +591,7 @@ gp_curl_easy_perform_backoff_and_check_response(URL_CURL_FILE *file)
 			response_string = NULL;
 		}
 
-		if (wait_time > MAX_TRY_WAIT_TIME || timeout_count >= 2)
+		if (wait_time > MAX_TRY_WAIT_TIME)
 		{
 			elog(ERROR, "error when writing data to gpfdist %s, quit after %d tries",
 				 file->curl_url, retry_count+1);
