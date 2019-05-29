@@ -689,6 +689,22 @@ buildWithClause(const char *resname, const char *ressetting, PQExpBuffer buf)
 }
 
 /*
+ * Return true if str is an integer without extra prefix or suffix,
+ * return false otherwise.
+ */
+static bool
+strIsInt(const char *str)
+{
+	char *end = NULL;
+
+	strtod(str, &end);
+	if (end == NULL || end == str || *end != 0)
+		return false;
+
+	return true;
+}
+
+/*
  * Dump resource group
  */
 static void
@@ -741,6 +757,11 @@ dumpResGroups(PGconn *conn)
 	/*
 	 * total cpu_rate_limit and memory_limit should less than 100, so clean
 	 * them before we seting new memory_limit and cpu_rate_limit.
+	 *
+	 * Minimal memory_limit is adjusted from 1 to 0 since 5.20, however for
+	 * backward compatibility we still use 1 as the minimal value.  The only
+	 * failing case is that default_group has memory_limit=100 and admin_group
+	 * has memory_limit=0, but this should not happen in real world.
 	 */
 	fprintf(OPF, "ALTER RESOURCE GROUP admin_group SET cpu_rate_limit 1;\n");
 	fprintf(OPF, "ALTER RESOURCE GROUP default_group SET cpu_rate_limit 1;\n");
@@ -757,6 +778,7 @@ dumpResGroups(PGconn *conn)
 		const char *memory_spill_ratio;
 		const char *memory_auditor;
 		const char *cpuset;
+		const char *quote_for_memory_spill_ratio;
 
 		groupname = fmtId(PQgetvalue(res, i, i_groupname));
 		cpu_rate_limit = PQgetvalue(res, i, i_cpu_rate_limit);
@@ -767,6 +789,22 @@ dumpResGroups(PGconn *conn)
 		memory_auditor = PQgetvalue(res, i, i_memory_auditor);
 		cpuset = PQgetvalue(res, i, i_cpuset);
 
+		if (strIsInt(memory_spill_ratio))
+		{
+			/*
+			 * memory_spill_ratio is in percentage format, set it as an integer
+			 */
+			quote_for_memory_spill_ratio = "";
+		}
+		else
+		{
+			/*
+			 * memory_spill_ratio is in absolute value format, set it as a
+			 * string
+			 */
+			quote_for_memory_spill_ratio = "'";
+		}
+
 		resetPQExpBuffer(buf);
 
 		/* DROP or CREATE default group, so ALTER it  */
@@ -776,6 +814,12 @@ dumpResGroups(PGconn *conn)
 			 * Default resource groups must have memory_auditor == "vmtracker",
 			 * no need to ALTER it, and we do not support ALTER memory_auditor
 			 * at all.
+			 *
+			 * The memory_spill_ratio accepts two formats:
+			 * - percentage format: a numeric, 10 or '10', both mean 10%;
+			 * - absolute value format: a numeric with unit value, '10 MB';
+			 * So set it as a string for the absolute value format; for the
+			 * percentage format it is still set as an integer.
 			 */
 			appendPQExpBuffer(buf, "ALTER RESOURCE GROUP %s SET concurrency %s;\n",
 							  groupname, concurrency);
@@ -783,8 +827,11 @@ dumpResGroups(PGconn *conn)
 							  groupname, memory_limit);
 			appendPQExpBuffer(buf, "ALTER RESOURCE GROUP %s SET memory_shared_quota %s;\n",
 							  groupname, memory_shared_quota);
-			appendPQExpBuffer(buf, "ALTER RESOURCE GROUP %s SET memory_spill_ratio %s;\n",
-							  groupname, memory_spill_ratio);
+			appendPQExpBuffer(buf, "ALTER RESOURCE GROUP %s SET memory_spill_ratio %s%s%s;\n",
+							  groupname,
+							  quote_for_memory_spill_ratio,
+							  memory_spill_ratio,
+							  quote_for_memory_spill_ratio);
 			if (atoi(cpu_rate_limit) >= 0)
 				appendPQExpBuffer(buf, "ALTER RESOURCE GROUP %s SET cpu_rate_limit %s;\n",
 								  groupname, cpu_rate_limit);
@@ -821,13 +868,23 @@ dumpResGroups(PGconn *conn)
 				snprintf(cpu_setting, sizeof(cpu_setting), "'%s'", cpuset);
 			}
 
+			/*
+			 * The memory_spill_ratio accepts two formats:
+			 * - percentage format: a numeric, 10 or '10', both mean 10%;
+			 * - absolute value format: a numeric with unit value, '10 MB';
+			 * So set it as a string for the absolute value format; for the
+			 * percentage format it is still set as an integer.
+			 */
 			printfPQExpBuffer(buf, "CREATE RESOURCE GROUP %s WITH ("
 							  "concurrency=%s, %s=%s, "
 							  "memory_limit=%s, memory_shared_quota=%s, "
-							  "memory_spill_ratio=%s, memory_auditor=%s);\n",
+							  "memory_spill_ratio=%s%s%s, memory_auditor=%s);\n",
 							  groupname, concurrency, cpu_prop, cpu_setting,
 							  memory_limit, memory_shared_quota,
-							  memory_spill_ratio, memory_auditor_name);
+							  quote_for_memory_spill_ratio,
+							  memory_spill_ratio,
+							  quote_for_memory_spill_ratio,
+							  memory_auditor_name);
 		}
 
 		fprintf(OPF, "%s", buf->data);
