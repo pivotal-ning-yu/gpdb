@@ -693,11 +693,11 @@ buildWithClause(const char *resname, const char *ressetting, PQExpBuffer buf)
  * return false otherwise.
  */
 static bool
-strIsInt(const char *str)
+strInPercentageFormat(const char *str)
 {
 	char *end = NULL;
 
-	strtod(str, &end);
+	strtol(str, &end, 10);
 	if (end == NULL || end == str || *end != 0)
 		return false;
 
@@ -789,7 +789,7 @@ dumpResGroups(PGconn *conn)
 		memory_auditor = PQgetvalue(res, i, i_memory_auditor);
 		cpuset = PQgetvalue(res, i, i_cpuset);
 
-		if (strIsInt(memory_spill_ratio))
+		if (strInPercentageFormat(memory_spill_ratio))
 		{
 			/*
 			 * memory_spill_ratio is in percentage format, set it as an integer
