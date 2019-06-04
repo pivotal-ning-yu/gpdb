@@ -858,8 +858,11 @@ FileRepResyncManager_InResyncTransition(void)
 		   dataState == DataStateInResync))
 	{
 		goto exit;
-	}						
-	
+	}
+
+	/* Dump the state of all persistent objects to the log before the transition */
+	PersistentFileSysObj_DebugPrintPersistentState(true);
+
 	if (isFullResync())
 	{
 		FileRep_InsertConfigLogEntry("run resync transition, mark full copy");
@@ -1018,6 +1021,9 @@ FileRepResyncManager_InResyncTransition(void)
 
 	ChangeTracking_MarkTransitionToResyncCompleted();
 	
+	/* Dump the state of all persistent objects to the log after the transition */
+	PersistentFileSysObj_DebugPrintPersistentState(false);
+
 	FileRepSubProcess_ProcessSignals();
 	if (! (segmentState == SegmentStateReady &&
 		   dataState == DataStateInResync))
