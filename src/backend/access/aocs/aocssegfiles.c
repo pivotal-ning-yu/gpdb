@@ -75,7 +75,9 @@ void InsertInitialAOCSFileSegInfo(Oid segrelid, int4 segno, int4 nvp)
     HeapTuple segtup;
 	Relation segrel;
 
-    segrel = heap_open(segrelid, RowExclusiveLock);
+	ValidateAppendonlySegmentDataBeforeStorage(segno);
+
+	segrel = heap_open(segrelid, RowExclusiveLock);
 
 	InsertFastSequenceEntry(segrelid,
 							(int64)segno,

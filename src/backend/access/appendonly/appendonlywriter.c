@@ -1506,10 +1506,7 @@ GetFileSegStateInfoFromSegments(Relation parentrel, AppendOnlyEntry *aoEntry)
 					value = PQgetvalue(results[i], j, 1);
 					segno = pg_atoi(value, sizeof(int32), 0);
 
-					if (segno < 0)
-						elog(ERROR, "segno %d is negative", segno);
-					if (segno >= MAX_AOREL_CONCURRENCY)
-						elog(ERROR, "segno %d exceeds max AO concurrency", segno);
+					ValidateAppendonlySegmentDataBeforeStorage(segno);
 
 					if (qe_state == AOSEG_STATE_AWAITING_DROP)
 					{

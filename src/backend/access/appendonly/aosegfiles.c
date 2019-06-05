@@ -19,6 +19,7 @@
 #include "access/aocssegfiles.h"
 #include "access/aosegfiles.h"
 #include "access/appendonlytid.h"
+#include "access/appendonlywriter.h"
 #include "catalog/pg_type.h"
 #include "catalog/pg_proc.h"
 #include "catalog/dependency.h"
@@ -74,6 +75,13 @@ NewFileSegInfo(int segno)
 	return fsinfo;
 }
 
+void
+ValidateAppendonlySegmentDataBeforeStorage(int segno)
+{
+	if (segno >= MAX_AOREL_CONCURRENCY || segno < 0)
+		ereport(ERROR, (errmsg("expected segment number to be between zero and the maximum number of concurrent writers, actually %d", segno)));
+}
+
 /*
  * InsertFileSegInfo
  *
@@ -95,6 +103,7 @@ InsertInitialSegnoEntry(AppendOnlyEntry *aoEntry,
 	Datum	   *values;
 
 	Assert(aoEntry != NULL);
+	ValidateAppendonlySegmentDataBeforeStorage(segno);
 
 	InsertFastSequenceEntry(aoEntry->segrelid,
 							(int64)segno,

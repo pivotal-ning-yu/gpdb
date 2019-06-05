@@ -149,7 +149,11 @@ extern FileSegInfo *NewFileSegInfo(int segno);
 
 extern void 
 InsertInitialSegnoEntry(AppendOnlyEntry *aoEntry, int segno);
- 
+
+
+extern void 
+ValidateAppendonlySegmentDataBeforeStorage(int segno);
+
  /*
   * GetFileSegInfo
   *
