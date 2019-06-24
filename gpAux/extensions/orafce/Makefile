@@ -6,7 +6,7 @@ DATA = uninstall_orafunc.sql
 DOCS = README.orafunc COPYRIGHT.orafunc INSTALL.orafunc
 #REGRESS = orafunc dbms_output files
 REGRESS = gp-orafunk
-REGRESS_OPTS = --load-language=plpgsql
+REGRESS_OPTS = --load-language=plpgsql --dbname="orafce_regression"
 
 EXTRA_CLEAN = sqlparse.c sqlparse.h sqlscan.c y.tab.c y.tab.h orafunc.sql orafunc.sql.in
 
