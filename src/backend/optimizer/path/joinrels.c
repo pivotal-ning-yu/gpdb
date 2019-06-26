@@ -970,11 +970,19 @@ mark_dummy_join(PlannerInfo *root, RelOptInfo *rel)
 	/* Evict any previously chosen paths */
 	rel->pathlist = NIL;
 
+	/*
+	 * The dummy path doesn't need deduplication.
+	 *
+	 * We must clear it before adding the new append path, because a new path
+	 * can be added to either rel->pathlist or
+	 * rel->dedup_info->later_dedup_pathlist according to some properties.  By
+	 * clearing the lists before adding the new path we can ensure that the
+	 * path is the only path of the relation.
+	 */
+	rel->dedup_info = NULL;
+
 	/* Set up the dummy path */
 	add_path(root, rel, (Path *) create_append_path(root, rel, NIL));
-
-	/* The dummy path doesn't need deduplication */
-	rel->dedup_info = NULL;
 
 	/*
 	 * Although set_cheapest will be done again later, we do it immediately
