@@ -2977,18 +2977,23 @@ SetupUDPIFCInterconnect_Internal(SliceTable *sliceTable)
 
 	Assert(gp_interconnect_id > 0);
 
-	interconnect_context = palloc0(sizeof(ChunkTransportState));
+	interconnect_context = palloc(sizeof(ChunkTransportState));
 
 	/* initialize state variables */
-	Assert(interconnect_context->size == 0);
 	interconnect_context->size = CTS_INITIAL_SIZE;
-	interconnect_context->states = palloc0(CTS_INITIAL_SIZE * sizeof(ChunkTransportStateEntry));
+	interconnect_context->states = palloc(CTS_INITIAL_SIZE * sizeof(ChunkTransportStateEntry));
 
-	interconnect_context->teardownActive = false;
+	for (i = 0; i < interconnect_context->size; i++)
+		interconnect_context->states[i].valid = false;
+
 	interconnect_context->activated = false;
+	interconnect_context->aggressiveRetry = false;
+	interconnect_context->teardownActive = false;
 	interconnect_context->incompleteConns = NIL;
 	interconnect_context->sliceTable = copyObject(sliceTable);
 	interconnect_context->sliceId = sliceTable->localSlice;
+
+	interconnect_context->estate = NULL;
 
 	interconnect_context->RecvTupleChunkFrom = RecvTupleChunkFromUDPIFC;
 	interconnect_context->RecvTupleChunkFromAny = RecvTupleChunkFromAnyUDPIFC;

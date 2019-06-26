@@ -634,7 +634,12 @@ createChunkTransportState(ChunkTransportState *transportStates,
 		newTable = repalloc(transportStates->states, motNodeID * sizeof(ChunkTransportStateEntry));
 		transportStates->states = newTable;
 		/* zero-out the new piece at the end */
+#if 0
 		MemSet(&transportStates->states[transportStates->size], 0, (motNodeID - transportStates->size) * sizeof(ChunkTransportStateEntry));
+#endif
+		for (i = transportStates->size; i < motNodeID; i++)
+			transportStates->states[i].valid = false;
+
 		transportStates->size = motNodeID;
 	}
 
@@ -666,8 +671,11 @@ createChunkTransportState(ChunkTransportState *transportStates,
 		MotionConn *conn = &pEntry->conns[i];
 
 		/* Initialize MotionConn entry. */
+#if 0
 		conn->state = mcsNull;
+#endif
 		conn->sockfd = -1;
+#if 0
 		conn->msgSize = 0;
 		conn->tupleCount = 0;
 		conn->stillActive = false;
@@ -676,6 +684,7 @@ createChunkTransportState(ChunkTransportState *transportStates,
 		conn->cdbProc = NULL;
 		conn->sent_record_typmod = 0;
 		conn->remapper = NULL;
+#endif
 	}
 
 	return pEntry;
