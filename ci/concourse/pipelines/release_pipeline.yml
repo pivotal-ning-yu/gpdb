@@ -1348,10 +1348,6 @@ jobs:
           PIVNET_ENDPOINT: {{4_3-release_pivnet_endpoint}}
           PIVNET_REFRESH_TOKEN: {{4_3-release_pivnet_refresh_token}}
           PIVNET_PRODUCT_SLUG: {{4_3-release_pivnet_product_slug}}
-          PIVNET_BUCKET_ACCESS_KEY_ID: {{4_3-release_pivnet_bucket_access_key_id}}
-          PIVNET_BUCKET_SECRET_ACCESS_KEY: {{4_3-release_pivnet_bucket_secret_access_key}}
-          PIVNET_BUCKET_AWS_REGION: {{4_3-release_pivnet_bucket_region}}
-          PIVNET_BUCKET_NAME: {{4_3-release_pivnet_bucket-name}}
           PIVNET_S3_FILEPATH_PREFIX: {{4_3-release_pivnet_s3-filepath-prefix}}
           BUCKET_ACCESS_KEY_ID: {{gpdb5-pipeline-bucket-access-key-id}}
           BUCKET_SECRET_ACCESS_KEY: {{gpdb5-pipeline-bucket-secret-access-key}}
