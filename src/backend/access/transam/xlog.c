@@ -6536,6 +6536,11 @@ StartupXLOG(void)
 					ereport(FATAL,
 							(errmsg("could not find redo location referenced by checkpoint record"),
 							 errhint("If you are not restoring from a backup, try removing the file \"%s/backup_label\".", DataDir)));
+				/*
+				 * Reload the checkpoint xlog again since we need to process
+				 * it later.
+				 * */
+				record = ReadCheckpointRecord(checkPointLoc, 0);
 			}
 		}
 		else
