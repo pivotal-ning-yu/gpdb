@@ -476,7 +476,7 @@ product_files:
   platforms:
   included_files:
   file_version: 4.3.0
-- file: s3://gpdb5-release-builds/osl/open_source_license_GPText_-_3.2_-_GA.txt
+- file: s3://gpdb5-release-builds/osl/open_source_license_GPText_-_3.3_-_GA.txt
   upload_as: Open Source Licenses for GPText 3.x
   description:
   file_type: Open Source License
