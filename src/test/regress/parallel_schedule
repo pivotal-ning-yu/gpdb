@@ -80,3 +80,4 @@ test: gpic_bigtup
 test: filter
 test: gpctas
 test: autovacuum-template0
+test: fts_deadlock

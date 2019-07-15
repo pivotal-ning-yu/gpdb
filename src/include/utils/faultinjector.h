@@ -223,6 +223,8 @@ typedef enum FaultInjectorIdentifier_e {
 
 	CopyFromHighProcessed,
 
+	CreateGangInProgress,
+
 	/* INSERT has to be done before that line */
 	FaultInjectorIdMax,
 	

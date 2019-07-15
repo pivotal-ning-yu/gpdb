@@ -44,6 +44,7 @@ extern char *default_tablespace;
 #include "libpq/libpq-be.h"
 #include "libpq/ip.h"
 
+#include "utils/faultinjector.h"
 #include "utils/guc_tables.h"
 
 
@@ -476,6 +477,14 @@ create_gang_retry:
 			 * We should have retrieved the IP from our cache
 			 */
 			Assert(q->hostip != NULL);
+
+#ifdef FAULT_INJECTOR
+			if (i == 0 && SIMPLE_FAULT_INJECTOR(CreateGangInProgress) == FaultInjectorTypeSkip)
+			{
+				segdbDesc->conn = NULL;
+				continue;
+			}
+#endif
 
 			/*
 			 * We have a live connection!

@@ -14,6 +14,8 @@
 #include "catalog/pg_language.h"
 #include "catalog/pg_type.h"
 #include "cdb/memquota.h"
+#include "cdb/cdbgang.h"
+#include "cdb/cdbvars.h"
 #include "commands/sequence.h"
 #include "commands/trigger.h"
 #include "executor/executor.h"
@@ -44,6 +46,7 @@ extern Datum int44in(PG_FUNCTION_ARGS);
 extern Datum int44out(PG_FUNCTION_ARGS);
 extern Datum gp_str2bytea(PG_FUNCTION_ARGS);
 extern Datum check_auth_time_constraints(PG_FUNCTION_ARGS);
+extern Datum cleanupAllGangs(PG_FUNCTION_ARGS);
 
 /* table_functions test */
 extern Datum multiset_example(PG_FUNCTION_ARGS);
@@ -2479,4 +2482,14 @@ Datum
 gp_get_next_oid(PG_FUNCTION_ARGS)
 {
 	PG_RETURN_OID(ShmemVariableCache->nextOid);
+}
+
+PG_FUNCTION_INFO_V1(cleanupAllGangs);
+Datum
+cleanupAllGangs(PG_FUNCTION_ARGS)
+{
+	if (Gp_role != GP_ROLE_DISPATCH)
+		elog(ERROR, "cleanupAllGangs can only be executed on master");
+	disconnectAndDestroyAllGangs();
+	PG_RETURN_BOOL(true);
 }

@@ -331,6 +331,8 @@ FaultInjectorIdentifierEnumToString[] = {
 		/* inject fault to count buffers fsync'ed by checkpoint process */
 	_("copy_from_high_processed"),
 		/* inject fault to pretend copying from very high number of processed rows */
+	_("create_gang_in_progress"),
+		/* inject fault during gang creation, before check for interrupts */
 	_("not recognized"),
 };
 
@@ -1020,6 +1022,7 @@ FaultInjector_NewHashEntry(
 			case FinishPreparedTransactionAbortPass2AbortingCreateNeeded:
 			case InterconnectStopAckIsLost:
 			case CopyFromHighProcessed:
+			case CreateGangInProgress:
 
 				break;
 			default:
