@@ -7,4 +7,18 @@ TARGETS=tqual
 include $(top_builddir)/src/backend/mock.mk
 
 tqual.t: \
-	$(MOCK_DIR)/backend/storage/ipc/shmem_mock.o
+	$(MOCK_DIR)/backend/postmaster/primary_mirror_mode_mock.o \
+	$(MOCK_DIR)/backend/storage/ipc/ipc_mock.o \
+	$(MOCK_DIR)/backend/storage/ipc/shmem_mock.o \
+	$(MOCK_DIR)/backend/storage/lmgr/lwlock_mock.o
+
+.PHONY:
+%-check: %.t
+	$(MKDIR_P) 'base/pgsql_tmp'
+	./$*.t
+
+.PHONY:
+%-clean:
+	rm -rf base
+	rm -f $*.t $*_test.o
+
