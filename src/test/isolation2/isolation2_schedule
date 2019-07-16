@@ -1,6 +1,7 @@
 test: deadlock_under_entry_db_singleton
 test: starve_case
 test: concurrent_schema_drop
+test: dml_on_root_locks_all_parts
 
 test: setup
 

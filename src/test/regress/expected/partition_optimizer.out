@@ -5941,12 +5941,21 @@ select * from locktest;
           coalesce          |      mode       | locktype 
 ----------------------------+-----------------+----------
  g                          | ExclusiveLock   | relation
+ g_1_prt_1                  | ExclusiveLock   | relation
+ g_1_prt_2                  | ExclusiveLock   | relation
+ g_1_prt_3                  | ExclusiveLock   | relation
+ g_1_prt_4                  | ExclusiveLock   | relation
+ g_1_prt_5                  | ExclusiveLock   | relation
+ g_1_prt_6                  | ExclusiveLock   | relation
+ g_1_prt_7                  | ExclusiveLock   | relation
+ g_1_prt_8                  | ExclusiveLock   | relation
+ g_1_prt_9                  | ExclusiveLock   | relation
  locktest                   | AccessShareLock | relation
  pg_class                   | AccessShareLock | relation
  pg_class_oid_index         | AccessShareLock | relation
  pg_class_relname_nsp_index | AccessShareLock | relation
  pg_locks                   | AccessShareLock | relation
-(6 rows)
+(15 rows)
 
 commit;
 -- drop index
