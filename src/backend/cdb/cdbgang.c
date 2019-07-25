@@ -2845,6 +2845,13 @@ disconnectAndDestroyAllGangs(void)
 	if (gp_log_gang >= GPVARS_VERBOSITY_DEBUG)
 		elog(LOG, "disconnectAndDestroyAllGangs");
 
+	/* Destroy CurrentGangCreating before GangContext is reset */
+	if (CurrentGangCreating != NULL)
+	{
+		disconnectAndDestroyGang(CurrentGangCreating);
+		CurrentGangCreating = NULL;
+	}
+
 	/* for now, destroy all readers, regardless of the portal that owns them */
 	disconnectAndDestroyAllReaderGangs(true);
 
