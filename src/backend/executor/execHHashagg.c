@@ -991,8 +991,41 @@ agg_hash_initial_pass(AggState *aggstate)
 
 			spill_hash_table(aggstate);
 
+			/*
+			 * In resource group mode the spilling will always succeed, but
+			 * depends on the memory released by spilling the in-memory tuples
+			 * and the memory consumed by the metadata, it is possible that
+			 * there is still no enough memory for the new tuple after the
+			 * spilling.
+			 *
+			 * So we must enlarge max_mem to ensure the retried insertion will
+			 * not fail again.
+			 *
+			 * Note that enlarging max_mem does not means the palloc() will not
+			 * fail, when that happens it means that the resource group already
+			 * runs out of its memory, so an "out of memory" error will be
+			 * thrown, which is expected.
+			 */
+			if (IsResGroupEnabled())
+			{
+				double		memquota = 0;
+
+				memquota += GET_TOTAL_USED_SIZE(hashtable);
+				memquota += Max(BLCKSZ,
+								hashtable->hats.hashentry_width *
+								gp_hashagg_default_nbatches);
+
+				if (memquota > hashtable->max_mem)
+					hashtable->max_mem = memquota;
+			}
+
 			entry = lookup_agg_hash_entry(aggstate, (void *)outerslot,
 										  INPUT_RECORD_TUPLE, 0, hashkey, &isNew);
+
+			if (entry == NULL)
+				ereport(ERROR,
+						(errcode(ERRCODE_INTERNAL_ERROR),
+						 ERRMSG_GP_INSUFFICIENT_STATEMENT_MEMORY));
 		}
 
 		setGroupAggs(hashtable, entry);
