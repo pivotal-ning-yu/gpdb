@@ -12,6 +12,7 @@
 #include "postgres.h"
 #include "cdb/cdbutil.h"
 #include "executor/execdesc.h"
+#include "nodes/execnodes.h"
 #include <pthread.h>
 
 struct Port;                    /* #include "libpq/libpq-be.h" */
@@ -58,11 +59,14 @@ typedef struct Gang
 	/* should be destroyed in cleanupGang() if set*/
 	bool		noReuse;
 
+	/* the estate that assign this gang */
+	EState   *estate;
+
 	/* MPP-24003: pointer to array of segment database info for each reader and writer gang. */
 	struct		CdbComponentDatabaseInfo *segment_database_info;
 } Gang;
 
-extern Gang *allocateGang(GangType type, int size, int content, char *portal_name);
+extern Gang *allocateGang(GangType type, int size, int content, char *portal_name, EState *estate);
 extern Gang *allocateWriterGang(void);
 
 struct DirectDispatchInfo;
@@ -72,7 +76,7 @@ extern bool gangOK(Gang *gp);
 
 extern List *getCdbProcessesForQD(int isPrimary);
 
-extern void freeGangsForPortal(char *portal_name);
+extern void freeGangsForPortal(char *portal_name, EState *estate);
 
 extern void disconnectAndDestroyAllGangs(void);
 

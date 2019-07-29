@@ -313,7 +313,7 @@ PortalCleanup(Portal portal)
 		if (cleanupstate < 1 && Gp_role == GP_ROLE_DISPATCH)
 		{
 			cleanupstate = 1;
-			freeGangsForPortal((char *)portal->name);
+			freeGangsForPortal((char *)portal->name, NULL);
 			cleanupPortalGangs(portal);
 		}
 

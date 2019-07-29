@@ -225,6 +225,8 @@ typedef enum FaultInjectorIdentifier_e {
 
 	CreateGangInProgress,
 
+	FreeGangInitPlan,
+
 	/* INSERT has to be done before that line */
 	FaultInjectorIdMax,
 	

@@ -3763,7 +3763,7 @@ CommitTransaction(void)
 
 	Assert(LocalDistribXactRef_IsNil(&localDistribXactRef));
 
-	freeGangsForPortal(NULL);
+	freeGangsForPortal(NULL, NULL);
 }
 
 
@@ -4302,7 +4302,7 @@ AbortTransaction(void)
 
 	Assert(LocalDistribXactRef_IsNil(&localDistribXactRef));
 
-	freeGangsForPortal(NULL);
+	freeGangsForPortal(NULL, NULL);
 
 	/* If a query was cancelled, then cleanup reader gangs. */
 	if (QueryCancelCleanup)

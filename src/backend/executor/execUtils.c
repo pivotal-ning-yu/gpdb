@@ -1910,7 +1910,7 @@ AssignGangs(QueryDesc *queryDesc, int utility_segment_index)
 			}
 			else
 			{
-				inv.vecNgangs[i] = allocateGang(GANGTYPE_PRIMARY_READER, getgpsegmentCount(), 0, queryDesc->portal_name);
+				inv.vecNgangs[i] = allocateGang(GANGTYPE_PRIMARY_READER, getgpsegmentCount(), 0, queryDesc->portal_name, estate);
 			}
 		}
 	}
@@ -1919,7 +1919,7 @@ AssignGangs(QueryDesc *queryDesc, int utility_segment_index)
 		inv.vec1gangs_primary_reader = (Gang **) palloc(sizeof(Gang *) * inv.num1gangs_primary_reader);
 		for (i = 0; i < inv.num1gangs_primary_reader; i++)
 		{
-			inv.vec1gangs_primary_reader[i] = allocateGang(GANGTYPE_PRIMARY_READER, 1, utility_segment_index, queryDesc->portal_name);
+			inv.vec1gangs_primary_reader[i] = allocateGang(GANGTYPE_PRIMARY_READER, 1, utility_segment_index, queryDesc->portal_name, estate);
 		}
 	}
 	if (inv.num1gangs_entrydb_reader > 0)
@@ -1927,7 +1927,7 @@ AssignGangs(QueryDesc *queryDesc, int utility_segment_index)
 		inv.vec1gangs_entrydb_reader = (Gang **) palloc(sizeof(Gang *) * inv.num1gangs_entrydb_reader);
 		for (i = 0; i < inv.num1gangs_entrydb_reader; i++)
 		{
-			inv.vec1gangs_entrydb_reader[i] = allocateGang(GANGTYPE_ENTRYDB_READER, 1, -1, queryDesc->portal_name);
+			inv.vec1gangs_entrydb_reader[i] = allocateGang(GANGTYPE_ENTRYDB_READER, 1, -1, queryDesc->portal_name, estate);
 		}
 	}
 
@@ -1962,7 +1962,7 @@ ReleaseGangs(QueryDesc *queryDesc)
 {
 	Assert(queryDesc != NULL);
 
-	freeGangsForPortal(queryDesc->portal_name);
+	freeGangsForPortal(queryDesc->portal_name, queryDesc->estate);
 }
 
 

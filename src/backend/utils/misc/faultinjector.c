@@ -333,6 +333,8 @@ FaultInjectorIdentifierEnumToString[] = {
 		/* inject fault to pretend copying from very high number of processed rows */
 	_("create_gang_in_progress"),
 		/* inject fault during gang creation, before check for interrupts */
+	_("free_gang_initplan"),
+		/* inject fault to skip when test cleanupGang */
 	_("not recognized"),
 };
 
@@ -1023,7 +1025,8 @@ FaultInjector_NewHashEntry(
 			case InterconnectStopAckIsLost:
 			case CopyFromHighProcessed:
 			case CreateGangInProgress:
-
+			case FreeGangInitPlan:
+			
 				break;
 			default:
 				

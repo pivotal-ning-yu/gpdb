@@ -81,3 +81,4 @@ test: filter
 test: gpctas
 test: autovacuum-template0
 test: fts_deadlock
+test: freegang_initplan
