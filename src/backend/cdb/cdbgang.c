@@ -46,6 +46,7 @@ extern char *default_tablespace;
 
 #include "utils/faultinjector.h"
 #include "utils/guc_tables.h"
+#include "utils/faultinjector.h"
 
 
 #define MAX_CACHED_1_GANGS 1
@@ -297,6 +298,13 @@ create_gang_retry:
 
 	newGangDefinition->active = true;
 
+#ifdef FAULT_INJECTOR
+	FaultInjector_InjectFaultIfSet(
+			CreateGangInProgress,
+			DDLNotSpecified,
+			"", //databaseName,
+			""); //tableName;
+#endif
 	/*
 	 * In this loop, we check each segdb.  If it's marked as valid, and is not
 	 * ourself, we prepare a thread Parm struct for connecting to it.
@@ -2479,6 +2487,10 @@ freeGangsForPortal(char *portal_name, EState *estate)
 
 	if (CurrentGangCreating != NULL)
 	{
+		GangType type = CurrentGangCreating->type;
+		Assert(type >= GANGTYPE_UNALLOCATED &&
+				type <= GANGTYPE_PRIMARY_WRITER);
+
 		disconnectAndDestroyGang(CurrentGangCreating);
 		CurrentGangCreating = NULL;
 
