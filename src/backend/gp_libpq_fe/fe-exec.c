@@ -36,6 +36,8 @@
 #define libpq_gettext(x) gettext(x)
 #endif
 
+#define QUERY_STRING_TRUNCATE_SIZE (1024)
+
 /* keep this in same order as ExecStatusType in libpq-fe.h */
 char	   *const pgresStatus[] = {
 	"PGRES_EMPTY_QUERY",
@@ -1118,6 +1120,16 @@ PQbuildGpQueryString(const char  *command,
 	char one = 1;
 	char zero = 0;
 
+	/*
+	 * If either querytree or plantree is set then the query string is not so
+	 * important, dispatch a truncated version to increase the performance.
+	 *
+	 * Here we only need to determine the truncated size, the actual work is
+	 * done later when copying it to the result buffer.
+	 */
+	if (querytree || plantree)
+		command_len = Min(command_len, QUERY_STRING_TRUNCATE_SIZE);
+
 	total_query_len =
 		1 /* 'M' */ +
 		sizeof(len) /* message length */ +
@@ -1259,6 +1271,8 @@ PQbuildGpQueryString(const char  *command,
 	if (command_len > 0)
 	{
 		memcpy(pos, command, command_len);
+		/* If command is truncated we need to set the terminating '\0' manually */
+		pos[command_len - 1] = '\0';
 		pos += command_len;
 	}
 	
