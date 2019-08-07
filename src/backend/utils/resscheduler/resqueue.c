@@ -1601,6 +1601,8 @@ ResIncrementRemove(ResPortalTag *portaltag)
 
 	if (incrementSet == NULL)
 	{
+		elog(LOG, "no increment to remove for portal id %u and pid %d",
+				portaltag->portalId, portaltag->pid);
 		return false;
 	}
 

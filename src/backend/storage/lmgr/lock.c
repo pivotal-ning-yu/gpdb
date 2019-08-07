@@ -789,10 +789,31 @@ LockAcquire(const LOCKTAG *locktag,
 	{
 		if (proclock->holdMask & LOCKBIT_ON(lockmode))
 		{
-			elog(LOG, "lock %s on object %u/%u/%u is already held",
+			elog(LOG, "lock %s on object %u/%u/%u%hu type %hhu is already held",
 				 lock_mode_names[lockmode],
 				 lock->tag.locktag_field1, lock->tag.locktag_field2,
-				 lock->tag.locktag_field3);
+				 lock->tag.locktag_field3,lock->tag.locktag_field4,
+				 lock->tag.locktag_type);
+
+			/* since locallock and proclock is not consistent, dump them here */
+			elog(WARNING, "locallock on object %u/%u/%u%hu with type %hhu, held times:"
+					" %ld, resource owner number: %d",
+					locallock->tag.lock.locktag_field1,
+					locallock->tag.lock.locktag_field2,
+					locallock->tag.lock.locktag_field3,
+					locallock->tag.lock.locktag_field4,
+					locallock->tag.lock.locktag_type,
+					locallock->nLocks,
+					locallock->numLockOwners);
+			elog(WARNING, "proclock on object %u/%u/%u%hu with type %hhu, held mask %d,"
+					" with pid %d",
+					proclock->tag.myLock->tag.locktag_field1,
+					proclock->tag.myLock->tag.locktag_field2,
+					proclock->tag.myLock->tag.locktag_field3,
+					proclock->tag.myLock->tag.locktag_field4,
+					proclock->tag.myLock->tag.locktag_type,
+					proclock->holdMask,
+					proclock->tag.myProc->pid);
 			if (MyProc == lockHolderProcPtr)
 			{
 				elog(LOG, "writer found lock %s on object %u/%u/%u that it didn't know it held",
