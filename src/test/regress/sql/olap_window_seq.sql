@@ -1608,7 +1608,7 @@ insert into window_preds select k from ( select k from (select row_number() over
 
 -- test cte for pushing quals with gp_inline_simple_cte to on
 set gp_inline_simple_cte=on;
--- qual should be pushed down
+-- qual should not be pushed down
 explain with CTE as (select i, row_number() over (partition by j) j from window_preds union all select i, row_number() over (partition by j) from window_preds) select * from cte where i = 1;
 insert into window_preds with CTE as (select i, row_number() over (partition by j) j from window_preds union all select i, row_number() over (partition by j) from window_preds) select * from cte where i = 1;
 -- qual should not be pushed down
@@ -1618,7 +1618,7 @@ reset gp_inline_simple_cte;
 
 -- test cte for pushing quals with gp_inline_simple_cte to off
 set gp_inline_simple_cte=off;
--- qual should be pushed down
+-- qual should not be pushed down
 explain with CTE as (select i, row_number() over (partition by j) j from window_preds union all select i, row_number() over (partition by j) from window_preds) select * from cte where i = 1;
 insert into window_preds with CTE as (select i, row_number() over (partition by j) j from window_preds union all select i, row_number() over (partition by j) from window_preds) select * from cte where i = 1;
 -- qual should not be pushed down
