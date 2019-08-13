@@ -41,7 +41,7 @@ function gen_env(){
 	source gpdemo/gpdemo-env.sh
 
 	if [ "$HADOOP_TARGET_VERSION" != "mpr" ] && [ "$HADOOP_TARGET_VERSION" != "gpmr-1.2" ]; then
-		wget -P /tmp http://www-us.apache.org/dist/hadoop/common/hadoop-2.6.5/hadoop-2.6.5.tar.gz
+		wget -P /tmp http://archive.apache.org/dist/hadoop/common/hadoop-2.6.5/hadoop-2.6.5.tar.gz
 		tar zxf /tmp/hadoop-2.6.5.tar.gz -C /tmp
 		export HADOOP_HOME=/tmp/hadoop-2.6.5
 
