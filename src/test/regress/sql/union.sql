@@ -667,6 +667,48 @@ UNION SELECT 200, 200
 UNION SELECT 300, 300)
 (select d1 from T_constant) UNION (select c1 from T_random) order by 1;', 'APPEND');
 
+-- Test that we push quals into UNION sub-selects only when it's safe
+-- @optimizer_mode on
+explain
+SELECT * FROM
+  (SELECT 1 AS t, 2 AS x
+   UNION
+   SELECT 2 AS t, 4 AS x) ss
+WHERE x < 4;
+
+SELECT * FROM
+  (SELECT 1 AS t, 2 AS x
+   UNION
+   SELECT 2 AS t, 4 AS x) ss
+WHERE x < 4;
+
+explain
+SELECT * FROM
+  (SELECT 1 AS t, generate_series(1,10) AS x
+   UNION
+   SELECT 2 AS t, 4 AS x) ss
+WHERE x < 4
+ORDER BY x;
+
+SELECT * FROM
+  (SELECT 1 AS t, generate_series(1,10) AS x
+   UNION
+   SELECT 2 AS t, 4 AS x) ss
+WHERE x < 4
+ORDER BY x;
+
+explain
+SELECT * FROM
+  (SELECT 1 AS t, (random()*3)::int AS x
+   UNION
+   SELECT 2 AS t, 4 AS x) ss
+WHERE x > 3;
+
+SELECT * FROM
+  (SELECT 1 AS t, (random()*3)::int AS x
+   UNION
+   SELECT 2 AS t, 4 AS x) ss
+WHERE x > 3;
 
 set optimizer = off;
 
@@ -866,6 +908,78 @@ UNION SELECT 200, 200
 UNION SELECT 300, 300)
 (select d1 from T_constant) UNION (select c1 from T_random) order by 1;
 
+-- Test that we push quals into UNION sub-selects only when it's safe
+-- @optimizer_mode off
+explain
+SELECT * FROM
+  (SELECT 1 AS t, 2 AS x
+   UNION
+   SELECT 2 AS t, 4 AS x) ss
+WHERE x < 4;
+
+SELECT * FROM
+  (SELECT 1 AS t, 2 AS x
+   UNION
+   SELECT 2 AS t, 4 AS x) ss
+WHERE x < 4;
+
+explain
+SELECT * FROM
+  (SELECT 1 AS t, generate_series(1,10) AS x
+   UNION
+   SELECT 2 AS t, 4 AS x) ss
+WHERE x < 4
+ORDER BY x;
+
+SELECT * FROM
+  (SELECT 1 AS t, generate_series(1,10) AS x
+   UNION
+   SELECT 2 AS t, 4 AS x) ss
+WHERE x < 4
+ORDER BY x;
+
+explain
+SELECT * FROM
+  (SELECT 1 AS t, (random()*3)::int AS x
+   UNION
+   SELECT 2 AS t, 4 AS x) ss
+WHERE x > 3;
+
+SELECT * FROM
+  (SELECT 1 AS t, (random()*3)::int AS x
+   UNION
+   SELECT 2 AS t, 4 AS x) ss
+WHERE x > 3;
+
+CREATE TABLE foo_union (a int, b int);
+CREATE TABLE bar_union (c int, d int);
+INSERT INTO foo_union VALUES (1,1), (5,5);
+INSERT INTO bar_union VALUES (5,5), (2,2);
+EXPLAIN SELECT *
+from
+    (
+    SELECT 1 AS ss
+    UNION
+    SELECT DISTINCT
+        (
+           SELECT bar_union.c FROM bar_union WHERE bar_union.c = foo_union.b 
+        ) AS ss
+        FROM foo_union
+) ABC
+where ABC.ss = 5;
+SELECT *
+from
+    (
+    SELECT 1 AS ss
+    UNION
+    SELECT DISTINCT
+        (
+           SELECT bar_union.c FROM bar_union WHERE bar_union.c = foo_union.b 
+        ) AS ss
+        FROM foo_union
+) ABC
+where ABC.ss = 5;
+
 --
 -- Clean up
 --
@@ -873,6 +987,9 @@ UNION SELECT 300, 300)
 DROP TABLE IF EXISTS T_a1 CASCADE;
 DROP TABLE IF EXISTS T_b2 CASCADE;
 DROP TABLE IF EXISTS T_random CASCADE;
+DROP TABLE IF EXISTS foo_union;
+DROP TABLE IF EXISTS bar_union;
+
 
 reset optimizer;
 -- EOF

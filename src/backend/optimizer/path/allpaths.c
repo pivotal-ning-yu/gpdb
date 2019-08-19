@@ -13,7 +13,6 @@
  *
  *-------------------------------------------------------------------------
  */
-
 #include "postgres.h"
 
 #include "catalog/gp_policy.h"              /* GpPolicy */
@@ -73,13 +72,14 @@ static RelOptInfo *make_one_rel_by_joins(PlannerInfo *root, int levels_needed,
 static Query *push_down_restrict(PlannerInfo *root, RelOptInfo *rel,
 				   RangeTblEntry *rte, Index rti,  Query *subquery);
 static bool subquery_is_pushdown_safe(Query *subquery, Query *topquery,
-						  bool *differentTypes);
+						  bool *unsafeColumns);
 static bool recurse_pushdown_safe(Node *setOp, Query *topquery,
-					  bool *differentTypes);
+					  bool *unsafeColumns);
+static void check_output_expressions(Query *subquery, bool *unsafeColumns);
 static void compare_tlist_datatypes(List *tlist, List *colTypes,
-						bool *differentTypes);
+						bool *unsafeColumns);
 static bool qual_is_pushdown_safe(Query *subquery, Index rti, Node *qual,
-					  bool *differentTypes);
+					  bool *unsafeColumns);
 static bool qual_is_pushdown_safe_window_func(Query *subquery, Query *topquery,
 											  AttrNumber resno);
 static bool recurse_qual_pushdown_safe_window_func(Node *setOp, Query *topquery,
@@ -1219,17 +1219,21 @@ static Query *
 push_down_restrict(PlannerInfo *root, RelOptInfo *rel,
 				   RangeTblEntry *rte, Index rti,  Query *subquery)
 {
-	bool	   *differentTypes;
+	bool	   *unsafeColumns;
 
 	/* Nothing to do here if it doesn't have qual at all */
 	if (rel->baserestrictinfo == NIL)
 		return subquery;
 
-	/* We need a workspace for keeping track of set-op type coercions */
-	differentTypes = (bool *)
+	/*
+	 * We need a workspace for keeping track of unsafe-to-reference columns.
+	 * unsafeColumns[i] is set TRUE if we've found that output column i of the
+	 * subquery is unsafe to use in a pushed-down qual.
+	 */
+	unsafeColumns = (bool *)
 		palloc0((list_length(subquery->targetList) + 1) * sizeof(bool));
 
-	if (subquery_is_pushdown_safe(subquery, subquery, differentTypes))
+	if (subquery_is_pushdown_safe(subquery, subquery, unsafeColumns))
 	{
 		/* Ok to consider pushing down individual quals */
 		List	   *upperrestrictlist = NIL;
@@ -1241,7 +1245,7 @@ push_down_restrict(PlannerInfo *root, RelOptInfo *rel,
 			Node	   *clause = (Node *) rinfo->clause;
 
 			if (!rinfo->pseudoconstant &&
-				qual_is_pushdown_safe(subquery, rti, clause, differentTypes))
+				qual_is_pushdown_safe(subquery, rti, clause, unsafeColumns))
 			{
 				/* Push it down */
 				subquery_push_qual(subquery, rte, rti, clause);
@@ -1255,7 +1259,7 @@ push_down_restrict(PlannerInfo *root, RelOptInfo *rel,
 		rel->baserestrictinfo = upperrestrictlist;
 	}
 
-	pfree(differentTypes);
+	pfree(unsafeColumns);
 
 	return subquery;
 }
@@ -1275,13 +1279,15 @@ push_down_restrict(PlannerInfo *root, RelOptInfo *rel,
  * 2. If the subquery contains EXCEPT or EXCEPT ALL set ops we cannot push
  * quals into it, because that would change the results.
  *
- * 3. For subqueries using UNION/UNION ALL/INTERSECT/INTERSECT ALL, we can
- * push quals into each component query, but the quals can only reference
- * subquery columns that suffer no type coercions in the set operation.
- * Otherwise there are possible semantic gotchas.  So, we check the
- * component queries to see if any of them have different output types;
- * differentTypes[k] is set true if column k has different type in any
- * component.
+ * In addition, we make several checks on the subquery's output columns
+ * to see if it is safe to reference them in pushed-down quals.  If output
+ * column k is found to be unsafe to reference, we set unsafeColumns[k] to
+ * TRUE, but we don't reject the subquery overall since column k might
+ * not be referenced by some/all quals.  The unsafeColumns[] array will be
+ * consulted later by qual_is_pushdown_safe().	It's better to do it this
+ * way than to make the checks directly in qual_is_pushdown_safe(), because
+ * when the subquery involves set operations we have to check the output
+ * expressions in each arm of the set op.
  *
  * 4. If the subquery target list has expressions containing calls to
  * window functions, we must not push down any quals since this could
@@ -1295,7 +1301,7 @@ push_down_restrict(PlannerInfo *root, RelOptInfo *rel,
  */
 static bool
 subquery_is_pushdown_safe(Query *subquery, Query *topquery,
-						  bool *differentTypes)
+						  bool *unsafeColumns)
 {
 	SetOperationStmt *topop;
 
@@ -1303,8 +1309,17 @@ subquery_is_pushdown_safe(Query *subquery, Query *topquery,
 	if (subquery->limitOffset != NULL || subquery->limitCount != NULL)
 		return false;
 
+	/*
+	 * If we're at a leaf query, check for unsafe expressions in its target
+	 * list, and mark any unsafe ones in unsafeColumns[].  (Non-leaf nodes in
+	 * setop trees have only simple Vars in their tlists, so no need to check
+	 * them.)
+	 */
+	if (subquery->setOperations == NULL)
+		check_output_expressions(subquery, unsafeColumns);
+
 	/* Targetlist must not contain SRF */
-	if ( expression_returns_set((Node *) subquery->targetList))
+	if (expression_returns_set((Node *) subquery->targetList))
 		return false;
 
 	/* See point 5. */
@@ -1318,7 +1333,7 @@ subquery_is_pushdown_safe(Query *subquery, Query *topquery,
 		/* Top level, so check any component queries */
 		if (subquery->setOperations != NULL)
 			if (!recurse_pushdown_safe(subquery->setOperations, topquery,
-									   differentTypes))
+									   unsafeColumns))
 				return false;
 	}
 	else
@@ -1331,7 +1346,7 @@ subquery_is_pushdown_safe(Query *subquery, Query *topquery,
 		Assert(topop && IsA(topop, SetOperationStmt));
 		compare_tlist_datatypes(subquery->targetList,
 								topop->colTypes,
-								differentTypes);
+								unsafeColumns);
 	}
 	return true;
 }
@@ -1341,7 +1356,7 @@ subquery_is_pushdown_safe(Query *subquery, Query *topquery,
  */
 static bool
 recurse_pushdown_safe(Node *setOp, Query *topquery,
-					  bool *differentTypes)
+					  bool *unsafeColumns)
 {
 	if (IsA(setOp, RangeTblRef))
 	{
@@ -1350,7 +1365,7 @@ recurse_pushdown_safe(Node *setOp, Query *topquery,
 		Query	   *subquery = rte->subquery;
 
 		Assert(subquery != NULL);
-		return subquery_is_pushdown_safe(subquery, topquery, differentTypes);
+		return subquery_is_pushdown_safe(subquery, topquery, unsafeColumns);
 	}
 	else if (IsA(setOp, SetOperationStmt))
 	{
@@ -1360,9 +1375,9 @@ recurse_pushdown_safe(Node *setOp, Query *topquery,
 		if (op->op == SETOP_EXCEPT)
 			return false;
 		/* Else recurse */
-		if (!recurse_pushdown_safe(op->larg, topquery, differentTypes))
+		if (!recurse_pushdown_safe(op->larg, topquery, unsafeColumns))
 			return false;
-		if (!recurse_pushdown_safe(op->rarg, topquery, differentTypes))
+		if (!recurse_pushdown_safe(op->rarg, topquery, unsafeColumns))
 			return false;
 	}
 	else
@@ -1372,19 +1387,99 @@ recurse_pushdown_safe(Node *setOp, Query *topquery,
 	}
 	return true;
 }
-
 /*
- * Compare tlist's datatypes against the list of set-operation result types.
- * For any items that are different, mark the appropriate element of
- * differentTypes[] to show that this column will have type conversions.
+ * check_output_expressions - check subquery's output expressions for safety
+ *
+ * There are several cases in which it's unsafe to push down an upper-level
+ * qual if it references a particular output column of a subquery.	We check
+ * each output column of the subquery and set unsafeColumns[k] to TRUE if
+ * that column is unsafe for a pushed-down qual to reference.  The conditions
+ * checked here are:
+ *
+ * 1. We must not push down any quals that refer to subselect outputs that
+ * return sets, else we'd introduce functions-returning-sets into the
+ * subquery's WHERE/HAVING quals.
+ *
+ * 2. We must not push down any quals that refer to subselect outputs that
+ * contain volatile functions, for fear of introducing strange results due
+ * to multiple evaluation of a volatile function.
+ *
+ * 3. If the subquery uses DISTINCT ON, we must not push down any quals that
+ * refer to non-DISTINCT output columns, because that could change the set
+ * of rows returned.  (This condition is vacuous for DISTINCT, because then
+ * there are no non-DISTINCT output columns, so we needn't check.  But note
+ * we are assuming that the qual can't distinguish values that the DISTINCT
+ * operator sees as equal.	This is a bit shaky but we have no way to test
+ * for the case, and it's unlikely enough that we shouldn't refuse the
+ * optimization just because it could theoretically happen.)
+ */
+static void
+check_output_expressions(Query *subquery, bool *unsafeColumns)
+{
+	ListCell   *lc;
+
+	foreach(lc, subquery->targetList)
+	{
+		TargetEntry *tle = (TargetEntry *) lfirst(lc);
+
+		if (tle->resjunk)
+			continue;			/* ignore resjunk columns */
+
+		/* We need not check further if output col is already known unsafe */
+		if (unsafeColumns[tle->resno])
+			continue;
+
+		/* Functions returning sets are unsafe (point 1) */
+		if (expression_returns_set((Node *) tle->expr))
+		{
+			unsafeColumns[tle->resno] = true;
+			continue;
+		}
+
+		/* Volatile functions are unsafe (point 2) */
+		if (contain_volatile_functions((Node *) tle->expr))
+		{
+			unsafeColumns[tle->resno] = true;
+			continue;
+		}
+
+		/* If subquery uses DISTINCT ON, check point 3 */
+		if (subquery->distinctClause != NIL &&
+			!targetIsInSortGroupList(tle, subquery->distinctClause))
+		{
+			/* non-DISTINCT column, so mark it unsafe */
+			unsafeColumns[tle->resno] = true;
+			continue;
+		}
+
+		/* Refuse subplans */
+		if (contain_subplans((Node *) tle->expr))
+		{
+			unsafeColumns[tle->resno] = true;
+			continue;
+		}
+	}
+}
+/*
+ * For subqueries using UNION/UNION ALL/INTERSECT/INTERSECT ALL, we can
+ * push quals into each component query, but the quals can only reference
+ * subquery columns that suffer no type coercions in the set operation.
+ * Otherwise there are possible semantic gotchas.  So, we check the
+ * component queries to see if any of them have output types different from
+ * the top-level setop outputs.  unsafeColumns[k] is set true if column k
+ * has different type in any component.
  *
  * We don't have to care about typmods here: the only allowed difference
  * between set-op input and output typmods is input is a specific typmod
  * and output is -1, and that does not require a coercion.
+ *
+ * tlist is a subquery tlist.
+ * colTypes is an OID list of the top-level setop's output column types.
+ * unsafeColumns[] is the result array.
  */
 static void
 compare_tlist_datatypes(List *tlist, List *colTypes,
-						bool *differentTypes)
+						bool *unsafeColumns)
 {
 	ListCell   *l;
 	ListCell   *colType = list_head(colTypes);
@@ -1398,7 +1493,7 @@ compare_tlist_datatypes(List *tlist, List *colTypes,
 		if (colType == NULL)
 			elog(ERROR, "wrong number of tlist entries");
 		if (exprType((Node *) tle->expr) != lfirst_oid(colType))
-			differentTypes[tle->resno] = true;
+			unsafeColumns[tle->resno] = true;
 		colType = lnext(colType);
 	}
 	if (colType != NULL)
@@ -1417,40 +1512,21 @@ compare_tlist_datatypes(List *tlist, List *colTypes,
  * it will work correctly: sublinks will already have been transformed into
  * subplans in the qual, but not in the subquery).
  *
- * 2. If we try to push qual below set operation, then qual must be pushable
- * below set operation children
- *
- * 3. The qual must not refer to the whole-row output of the subquery
+ * 2. The qual must not refer to the whole-row output of the subquery
  * (since there is no easy way to name that within the subquery itself).
  *
- * 4. The qual must not refer to any subquery output columns that were
- * found to have inconsistent types across a set operation tree by
- * subquery_is_pushdown_safe().
+ * 3. The qual must not refer to any subquery output columns that were
+ * found to be unsafe to reference by subquery_is_pushdown_safe().
  *
- * 5. If the subquery uses DISTINCT ON, we must not push down any quals that
- * refer to non-DISTINCT output columns, because that could change the set
- * of rows returned.  This condition is vacuous for DISTINCT, because then
- * there are no non-DISTINCT output columns, but unfortunately it's fairly
- * expensive to tell the difference between DISTINCT and DISTINCT ON in the
- * parsetree representation.  It's cheaper to just make sure all the Vars
- * in the qual refer to DISTINCT columns.
- *
- * 6. We must not push down any quals that refer to subselect outputs that
- * return sets, else we'd introduce functions-returning-sets into the
- * subquery's WHERE/HAVING quals.
- *
- * 7. We must not push down any quals that refer to subselect outputs that
- * contain volatile functions, for fear of introducing strange results due
- * to multiple evaluation of a volatile function.
+ * 4. Check if the qual can be pushed down through window functions
  */
 static bool
 qual_is_pushdown_safe(Query *subquery, Index rti, Node *qual,
-					  bool *differentTypes)
+					  bool *unsafeColumns)
 {
 	bool		safe = true;
 	List	   *vars;
 	ListCell   *vl;
-	Bitmapset  *tested = NULL;
 
 	/* Refuse subselects (point 1) */
 	if (contain_subplans(qual))
@@ -1466,63 +1542,18 @@ qual_is_pushdown_safe(Query *subquery, Index rti, Node *qual,
 	foreach(vl, vars)
 	{
 		Var		   *var = (Var *) lfirst(vl);
-		TargetEntry *tle;
 
 		Assert(var->varno == rti);
 
-		/* Check point 3 */
+		/* Check point 2 */
 		if (var->varattno == 0)
 		{
 			safe = false;
 			break;
 		}
 
-		/*
-		 * We use a bitmapset to avoid testing the same attno more than once.
-		 * (NB: this only works because subquery outputs can't have negative
-		 * attnos.)
-		 */
-		if (bms_is_member(var->varattno, tested))
-			continue;
-		tested = bms_add_member(tested, var->varattno);
-
-		/* Check point 4 */
-		if (differentTypes[var->varattno])
-		{
-			safe = false;
-			break;
-		}
-
-		/* Must find the tlist element referenced by the Var */
-		tle = get_tle_by_resno(subquery->targetList, var->varattno);
-		Assert(tle != NULL);
-		Assert(!tle->resjunk);
-
-		/* If subquery uses DISTINCT or DISTINCT ON, check point 5 */
-		if (subquery->distinctClause != NIL &&
-			!targetIsInSortGroupList(tle, subquery->distinctClause))
-		{
-			/* non-DISTINCT column, so fail */
-			safe = false;
-			break;
-		}
-
-		/* Refuse functions returning sets (point 6) */
-		if (expression_returns_set((Node *) tle->expr))
-		{
-			safe = false;
-			break;
-		}
-
-		/* Refuse volatile functions (point 7) */
-		if (contain_volatile_functions((Node *) tle->expr))
-		{
-			safe = false;
-			break;
-		}
-
-		/* Refuse subplans */
-		if (contain_subplans((Node *) tle->expr))
+		/* Check point 3 */
+		if (unsafeColumns[var->varattno])
 		{
 			safe = false;
 			break;
@@ -1538,7 +1569,6 @@ qual_is_pushdown_safe(Query *subquery, Index rti, Node *qual,
 	}
 
 	list_free(vars);
-	bms_free(tested);
 
 	return safe;
 }
