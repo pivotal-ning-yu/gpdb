@@ -785,69 +785,30 @@ LockAcquire(const LOCKTAG *locktag,
 	 * We shouldn't already hold the desired lock; else locallock table is
 	 * broken.
 	 */
-	if (Gp_role != GP_ROLE_UTILITY)
-	{
-		if (proclock->holdMask & LOCKBIT_ON(lockmode))
-		{
-			elog(LOG, "lock %s on object %u/%u/%u%hu type %hhu is already held",
-				 lock_mode_names[lockmode],
-				 lock->tag.locktag_field1, lock->tag.locktag_field2,
-				 lock->tag.locktag_field3,lock->tag.locktag_field4,
-				 lock->tag.locktag_type);
-
-			/* since locallock and proclock is not consistent, dump them here */
-			elog(WARNING, "locallock on object %u/%u/%u%hu with type %hhu, held times:"
-					" %ld, resource owner number: %d",
-					locallock->tag.lock.locktag_field1,
-					locallock->tag.lock.locktag_field2,
-					locallock->tag.lock.locktag_field3,
-					locallock->tag.lock.locktag_field4,
-					locallock->tag.lock.locktag_type,
-					locallock->nLocks,
-					locallock->numLockOwners);
-			elog(WARNING, "proclock on object %u/%u/%u%hu with type %hhu, held mask %d,"
-					" with pid %d",
-					proclock->tag.myLock->tag.locktag_field1,
-					proclock->tag.myLock->tag.locktag_field2,
-					proclock->tag.myLock->tag.locktag_field3,
-					proclock->tag.myLock->tag.locktag_field4,
-					proclock->tag.myLock->tag.locktag_type,
-					proclock->holdMask,
-					proclock->tag.myProc->pid);
-			if (MyProc == lockHolderProcPtr)
-			{
-				elog(LOG, "writer found lock %s on object %u/%u/%u that it didn't know it held",
-						 lock_mode_names[lockmode],
-						 lock->tag.locktag_field1, lock->tag.locktag_field2,
-						 lock->tag.locktag_field3);
-				GrantLock(lock, proclock, lockmode);
-				GrantLockLocal(locallock, owner);
-			}
-			else
-			{
-				if (MyProc != lockHolderProcPtr)
-				{
-					elog(LOG, "reader found lock %s on object %u/%u/%u which is already held by writer",
-						 lock_mode_names[lockmode],
-						 lock->tag.locktag_field1, lock->tag.locktag_field2,
-						 lock->tag.locktag_field3);
-				}
-				lock->nRequested--;
-				lock->requested[lockmode]--;
-			}
-			LWLockRelease(partitionLock);
-			return LOCKACQUIRE_ALREADY_HELD;
-		}
-		
-	}
-	else
 	if (proclock->holdMask & LOCKBIT_ON(lockmode))
 	{
-		elog(LOG, "lock %s on object %u/%u/%u is already held",
-			 lockMethodTable->lockModeNames[lockmode],
-			 lock->tag.locktag_field1, lock->tag.locktag_field2,
-			 lock->tag.locktag_field3);
-		Insist(false);
+		elog(WARNING, "locallock on object %u/%u/%u/%hu with type %hhu, held times:"
+				" %ld, resource owner number: %d",
+				locallock->tag.lock.locktag_field1,
+				locallock->tag.lock.locktag_field2,
+				locallock->tag.lock.locktag_field3,
+				locallock->tag.lock.locktag_field4,
+				locallock->tag.lock.locktag_type,
+				locallock->nLocks,
+				locallock->numLockOwners);
+		elog(WARNING, "proclock on object %u/%u/%u/%hu with type %hhu, held mask %d,"
+				" with pid %d",
+				proclock->tag.myLock->tag.locktag_field1,
+				proclock->tag.myLock->tag.locktag_field2,
+				proclock->tag.myLock->tag.locktag_field3,
+				proclock->tag.myLock->tag.locktag_field4,
+				proclock->tag.myLock->tag.locktag_type,
+				proclock->holdMask,
+				proclock->tag.myProc->pid);
+		elog(ERROR, "lock %s on object %u/%u/%u is already held",
+				lockMethodTable->lockModeNames[lockmode],
+				lock->tag.locktag_field1, lock->tag.locktag_field2,
+				lock->tag.locktag_field3);
 	}
 
 	if (MyProc == lockHolderProcPtr)
