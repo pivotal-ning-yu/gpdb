@@ -1289,6 +1289,8 @@ ExecSetParamPlan(SubPlanState *node, ExprContext *econtext, QueryDesc *gbl_query
             /* If EXPLAIN ANALYZE, collect execution stats from qExecs. */
             if (planstate->instrument)
             {
+				if(Gp_role == GP_ROLE_DISPATCH)
+					cdbexplain_localExecStats(planstate, econtext->ecxt_estate->showstatctx);
                 MemoryContext   savecxt;
 
                 /* Wait for all gangs to finish. */
@@ -1380,7 +1382,7 @@ ExecSetParamPlan(SubPlanState *node, ExprContext *econtext, QueryDesc *gbl_query
 	PG_END_TRY();
 
 	/* If EXPLAIN ANALYZE, collect local execution stats. */
-	if (planstate->instrument)
+	if (Gp_role == GP_ROLE_DISPATCH && planstate->instrument)
 		cdbexplain_localExecStats(planstate, econtext->ecxt_estate->showstatctx);
 
 	/* Restore memory high-water mark for root slice of main query. */

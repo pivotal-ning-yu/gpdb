@@ -555,8 +555,7 @@ ExplainOnePlan_internal(PlannedStmt *plannedstmt,
 	    totaltime += elapsed_time(&starttime);
 
         /* Get local stats if root slice was executed here in the qDisp. */
-        if (!es->currentSlice ||
-            sliceRunsOnQD(es->currentSlice))
+		if (Gp_role == GP_ROLE_DISPATCH && (!es->currentSlice || sliceRunsOnQD(es->currentSlice)))
             cdbexplain_localExecStats(queryDesc->planstate, es->showstatctx);
 
         /* Fill in the plan's Instrumentation with stats from qExecs. */
