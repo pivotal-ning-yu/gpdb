@@ -1097,6 +1097,24 @@ make_hashed_motion(Plan *lefttree,
 }
 
 Motion *
+make_sorted_hashed_motion(PlannerInfo *root, Plan *lefttree,
+						  List *hashExprs, List *hashOpfamilies,
+						  int numSortCols,
+						  AttrNumber *sortColIdx, Oid *sortOperators,
+						  Oid *collations, bool *nullsFirst,
+						  bool useExecutorVarFormat, int numsegments)
+{
+	Motion	   *motion;
+
+	motion = make_motion(root, lefttree,
+						 numSortCols, sortColIdx, sortOperators, collations, nullsFirst,
+						 useExecutorVarFormat);
+	add_slice_to_motion(motion, MOTIONTYPE_HASH, hashExprs, hashOpfamilies,
+						numsegments, false);
+	return motion;
+}
+
+Motion *
 make_broadcast_motion(Plan *lefttree, bool useExecutorVarFormat,
 					  int numsegments)
 {
@@ -1109,6 +1127,21 @@ make_broadcast_motion(Plan *lefttree, bool useExecutorVarFormat,
 	add_slice_to_motion(motion, MOTIONTYPE_FIXED,
 						NIL, NIL, numsegments,
 						true);
+	return motion;
+}
+
+Motion *
+make_sorted_broadcast_motion(PlannerInfo *root, Plan *lefttree, int numSortCols,
+							 AttrNumber *sortColIdx, Oid *sortOperators,
+							 Oid *collations, bool *nullsFirst,
+							 bool useExecutorVarFormat, int numsegments)
+{
+	Motion	   *motion;
+
+	motion = make_motion(root, lefttree,
+						 numSortCols, sortColIdx, sortOperators, collations, nullsFirst,
+						 useExecutorVarFormat);
+	add_slice_to_motion(motion, MOTIONTYPE_FIXED, NIL, NIL, numsegments, true);
 	return motion;
 }
 

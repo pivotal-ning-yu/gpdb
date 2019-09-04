@@ -419,6 +419,28 @@ make_canonical_pathkey(PlannerInfo *root,
 	return pk;
 }
 
+List *
+canonicalize_pathkeys(PlannerInfo *root, const List *old_pathkeys)
+{
+	List	   *new_pathkeys = NIL;
+	ListCell   *lc;
+
+	foreach(lc, old_pathkeys)
+	{
+		PathKey    *pathkey = (PathKey *) lfirst(lc);
+
+		pathkey = make_canonical_pathkey(root,
+										 pathkey->pk_eclass,
+										 pathkey->pk_opfamily,
+										 pathkey->pk_strategy,
+										 pathkey->pk_nulls_first);
+
+		new_pathkeys = lappend(new_pathkeys, pathkey);
+	}
+
+	return new_pathkeys;
+}
+
 /*
  * pathkey_is_redundant
  *	   Is a pathkey redundant with one already in the given list?

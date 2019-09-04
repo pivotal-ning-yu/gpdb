@@ -7073,10 +7073,63 @@ cdbpathtoplan_create_motion_plan(PlannerInfo *root,
 
 	/* Send all of the tuples to all of the QEs in gang above... */
 	else if (CdbPathLocus_IsReplicated(path->path.locus))
-		motion = make_broadcast_motion(subplan,
-									   false	/* useExecutorVarFormat */,
-									   numsegments
-			);
+	{
+		if (path->path.pathkeys)
+		{
+			Plan	   *prep;
+			int			numSortCols;
+			AttrNumber *sortColIdx;
+			Oid		   *sortOperators;
+			Oid		   *collations;
+			bool		*nullsFirst;
+
+			/*
+			 * Build sort key info to define our Merge Receive keys.
+			 */
+			prep = prepare_sort_from_pathkeys(root,
+											  subplan,
+											  path->path.pathkeys,
+											  subpath->parent->relids,
+											  NULL,
+											  false,
+											  &numSortCols,
+											  &sortColIdx,
+											  &sortOperators,
+											  &collations,
+											  &nullsFirst,
+											  true /* add_keys_to_targetlist */);
+
+			if (prep)
+			{
+				/*
+				 * Create a Merge Receive to preserve ordering.
+				 *
+				 * prepare_sort_from_pathkeys() might return a Result node, if
+				 * one would needs to be inserted above the Sort. We don't
+				 * create an actual Sort node here, the input is already
+				 * ordered, but use the Result node, if any, as the input to
+				 * the Motion node. (I'm not sure if that is possible with
+				 * Gather Motion nodes. Since the input is already ordered,
+				 * presumably the target list already contains the expressions
+				 * for the key columns. But better safe than sorry.)
+				 */
+				subplan = prep;
+				motion = make_sorted_broadcast_motion(root, subplan, numSortCols, sortColIdx, sortOperators, collations,
+													  nullsFirst, false, numsegments);
+			}
+			else
+			{
+				/* Degenerate ordering... build unordered Broadcast Receive */
+				motion = make_broadcast_motion(subplan, false, numsegments);
+			}
+		}
+
+		/* Unordered Broadcast Receive */
+		else
+			motion = make_broadcast_motion(subplan,
+										   false	/* useExecutorVarFormat */,
+										   numsegments);
+	}
 
 	/* Hashed redistribution to all QEs in gang above... */
 	else if (CdbPathLocus_IsHashed(path->path.locus) ||
@@ -7108,11 +7161,68 @@ cdbpathtoplan_create_motion_plan(PlannerInfo *root,
 														 hashExprs,
 														 true /* resjunk */);
         }
-        motion = make_hashed_motion(subplan,
-									hashExprs,
-									hashOpfamilies,
-                                    false /* useExecutorVarFormat */,
-									numsegments);
+
+		if (path->path.pathkeys)
+		{
+			Plan	   *prep;
+			int			numSortCols;
+			AttrNumber *sortColIdx;
+			Oid		   *sortOperators;
+			Oid		   *collations;
+			bool		*nullsFirst;
+
+			/*
+			 * Build sort key info to define our Merge Receive keys.
+			 */
+			prep = prepare_sort_from_pathkeys(root,
+											  subplan,
+											  path->path.pathkeys,
+											  subpath->parent->relids,
+											  NULL,
+											  false,
+											  &numSortCols,
+											  &sortColIdx,
+											  &sortOperators,
+											  &collations,
+											  &nullsFirst,
+											  true /* add_keys_to_targetlist */);
+
+			if (prep)
+			{
+				/*
+				 * Create a Merge Receive to preserve ordering.
+				 *
+				 * prepare_sort_from_pathkeys() might return a Result node, if
+				 * one would needs to be inserted above the Sort. We don't
+				 * create an actual Sort node here, the input is already
+				 * ordered, but use the Result node, if any, as the input to
+				 * the Motion node. (I'm not sure if that is possible with
+				 * Gather Motion nodes. Since the input is already ordered,
+				 * presumably the target list already contains the expressions
+				 * for the key columns. But better safe than sorry.)
+				 */
+				subplan = prep;
+				motion = make_sorted_hashed_motion(root, subplan,
+												   hashExprs, hashOpfamilies,
+												   numSortCols, sortColIdx,
+												   sortOperators, collations,
+												   nullsFirst,
+												   false, numsegments);
+			}
+			else
+			{
+				/* Degenerate ordering... build unordered Hashed Receive */
+				motion = make_hashed_motion(subplan, hashExprs, hashOpfamilies, false, numsegments);
+			}
+		}
+
+		/* Unordered Hashed Receive */
+		else
+			motion = make_hashed_motion(subplan,
+										hashExprs,
+										hashOpfamilies,
+										false /* useExecutorVarFormat */,
+										numsegments);
     }
     else
         Insist(0);

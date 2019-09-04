@@ -247,5 +247,6 @@ extern List *truncate_useless_pathkeys(PlannerInfo *root,
 						  RelOptInfo *rel,
 						  List *pathkeys);
 extern bool has_useful_pathkeys(PlannerInfo *root, RelOptInfo *rel);
+extern List * canonicalize_pathkeys(PlannerInfo *root, const List *old_pathkeys);
 
 #endif   /* PATHS_H */

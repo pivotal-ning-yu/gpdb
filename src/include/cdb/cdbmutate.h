@@ -31,10 +31,20 @@ extern Motion *make_hashed_motion(Plan *lefttree,
 								  List *hashOpfamilies,
 								  bool useExecutorVarFormat,
 								  int numsegments);
+extern Motion *make_sorted_hashed_motion(PlannerInfo *root, Plan *lefttree,
+										 List *hashExprs, List *hashOpfamilies,
+										 int numSortCols,
+										 AttrNumber *sortColIdx, Oid *sortOperators,
+										 Oid *collations, bool *nullsFirst,
+										 bool useExecutorVarFormat, int numsegments);
 
 extern Motion *make_broadcast_motion(Plan *lefttree,
 									 bool useExecutorVarFormat,
 									 int numsegments);
+extern Motion *make_sorted_broadcast_motion(PlannerInfo *root, Plan *lefttree, int numSortCols,
+											AttrNumber *sortColIdx, Oid *sortOperators,
+											Oid *collations, bool *nullsFirst,
+											bool useExecutorVarFormat, int numsegments);
 
 extern Motion *make_explicit_motion(Plan *lefttree, AttrNumber segidColIdx, bool useExecutorVarFormat);
 

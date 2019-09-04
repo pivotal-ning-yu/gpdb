@@ -608,7 +608,7 @@ execMotionSortedReceiver_mk(MotionState *node)
 	Motion	   *motion = (Motion *) node->ps.plan;
 	MotionMKHeapContext *ctxt = node->tupleheap_mk;
 
-	Assert(motion->motionType == MOTIONTYPE_FIXED &&
+	Assert(/*motion->motionType == MOTIONTYPE_FIXED &&*/
 		   motion->sendSorted &&
 		   ctxt
 		);
@@ -650,7 +650,7 @@ execMotionSortedReceiver(MotionState *node)
 	Motion	   *motion = (Motion *) node->ps.plan;
 	CdbTupleHeapInfo *tupHeapInfo;
 
-	AssertState(motion->motionType == MOTIONTYPE_FIXED &&
+	AssertState(/*motion->motionType == MOTIONTYPE_FIXED &&*/
 				motion->sendSorted &&
 				hp != NULL);
 

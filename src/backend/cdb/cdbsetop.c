@@ -454,7 +454,8 @@ make_motion_hash(PlannerInfo *root, Plan *subplan, List *hashExprs, List *hashOp
  * This variant uses the default hash opfamilies for each expression
  */
 Motion *
-make_motion_hash_exprs(PlannerInfo *root, Plan *subplan, List *hashExprs)
+make_motion_hash_exprs(PlannerInfo *root, Plan *subplan, List *hashExprs,
+					   List *sortPathKeys)
 {
 	ListCell   *lc;
 	List	   *hashOpfamilies;
@@ -469,6 +470,26 @@ make_motion_hash_exprs(PlannerInfo *root, Plan *subplan, List *hashExprs)
 
 		opfamily = cdb_default_distribution_opfamily_for_type(exprType(expr));
 		hashOpfamilies = lappend_oid(hashOpfamilies, opfamily);
+	}
+
+	if (sortPathKeys != NIL)
+	{
+		Sort	   *sort;
+		Motion	   *motion;
+
+		sort = make_sort_from_pathkeys(root, subplan, sortPathKeys, -1.0, false);
+		motion = make_sorted_hashed_motion(root,
+										   subplan,
+										   hashExprs,
+										   hashOpfamilies,
+										   sort->numCols,
+										   sort->sortColIdx,
+										   sort->sortOperators,
+										   sort->collations,sort->nullsFirst,
+										   false /* useExecutorVarFormat */,
+										   subplan->flow->numsegments);
+		pfree(sort);
+		return motion;
 	}
 
 	return make_hashed_motion(subplan,

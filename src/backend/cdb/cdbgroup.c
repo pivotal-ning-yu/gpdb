@@ -1047,11 +1047,13 @@ make_one_stage_agg_plan(PlannerInfo *root,
 				groupExprs = lappend(groupExprs, copyObject(tle->expr));
 			}
 
-			result_plan = (Plan *) make_motion_hash_exprs(root, result_plan, groupExprs);
+			result_plan = (Plan *) make_motion_hash_exprs(root, result_plan, groupExprs, current_pathkeys);
 			result_plan->total_cost +=
 				incremental_motion_cost(result_plan->plan_rows,
 										result_plan->plan_rows);
+#if 0
 			current_pathkeys = NIL; /* No longer sorted. */
+#endif
 			break;
 
 		case MPP_GRP_PREP_FOCUS_QE:
@@ -1268,11 +1270,13 @@ make_two_stage_agg_plan(PlannerInfo *root,
 				List	   *distinctExpr;
 
 				distinctExpr = list_make1(copyObject(linitial(ctx->agg_costs->dqaArgs)));
-				result_plan = (Plan *) make_motion_hash_exprs(root, result_plan, distinctExpr);
+				result_plan = (Plan *) make_motion_hash_exprs(root, result_plan, distinctExpr, current_pathkeys);
 				result_plan->total_cost +=
 					incremental_motion_cost(result_plan->plan_rows,
 											result_plan->plan_rows);
+#if 0
 				current_pathkeys = NIL; /* No longer sorted. */
+#endif
 			}
 
 			break;
@@ -1378,9 +1382,16 @@ make_two_stage_agg_plan(PlannerInfo *root,
 									numGroups,
 									result_plan);
 
+	/* FIXME: what's proper flow? */
+	if (current_pathkeys)
+		mark_sort_locus(result_plan);
+	else
+		mark_plan_strewn(result_plan, ctx->input_locus.numsegments);
+#if 0
 	/* May lose useful locus and sort. Unlikely, but could do better. */
 	mark_plan_strewn(result_plan, ctx->input_locus.numsegments);
 	current_pathkeys = NIL;
+#endif
 
 	/*
 	 * Add Intermediate Motion to Gather or Hash on Groups
@@ -1397,7 +1408,7 @@ make_two_stage_agg_plan(PlannerInfo *root,
 				tle = get_tle_by_resno(prelim_tlist, prelimGroupColIdx[i]);
 				groupExprs = lappend(groupExprs, copyObject(tle->expr));
 			}
-			result_plan = (Plan *) make_motion_hash_exprs(root, result_plan, groupExprs);
+			result_plan = (Plan *) make_motion_hash_exprs(root, result_plan, groupExprs, current_pathkeys);
 			result_plan->total_cost +=
 				incremental_motion_cost(result_plan->plan_rows,
 										result_plan->plan_rows);
@@ -1423,7 +1434,8 @@ make_two_stage_agg_plan(PlannerInfo *root,
 	/*
 	 * Add Sort on Groups if needed for AGG_SORTED strategy
 	 */
-	if (aggstrategy == AGG_SORTED)
+	/* FIXME: how to decide if a sort node is needed? */
+	if (aggstrategy == AGG_SORTED && !current_pathkeys)
 	{
 		result_plan = (Plan *)
 			make_sort_from_groupcols(root,
@@ -1987,7 +1999,7 @@ make_plan_for_one_dqa(PlannerInfo *root, MppGroupContext *ctx, int dqa_index,
 					tle = get_tle_by_resno(prelim_tlist, prelimGroupColIdx[i]);
 					groupExprs = lappend(groupExprs, copyObject(tle->expr));
 				}
-				result_plan = (Plan *) make_motion_hash_exprs(root, result_plan, groupExprs);
+				result_plan = (Plan *) make_motion_hash_exprs(root, result_plan, groupExprs, current_pathkeys);
 				result_plan->total_cost +=
 					incremental_motion_cost(result_plan->plan_rows,
 											result_plan->plan_rows);
@@ -2013,7 +2025,7 @@ make_plan_for_one_dqa(PlannerInfo *root, MppGroupContext *ctx, int dqa_index,
 				Assert(tle);
 				groupExprs = lappend(NIL, copyObject(tle->expr));
 
-				result_plan = (Plan *) make_motion_hash_exprs(root, result_plan, groupExprs);
+				result_plan = (Plan *) make_motion_hash_exprs(root, result_plan, groupExprs, current_pathkeys);
 				result_plan->total_cost +=
 					incremental_motion_cost(result_plan->plan_rows,
 											result_plan->plan_rows);
@@ -5414,7 +5426,7 @@ add_motion_to_dqa_child(Plan *plan, PlannerInfo *root, bool *motion_added)
 
 		groupExprs = get_sortgrouplist_exprs(root->parse->groupClause, plan->targetlist);
 
-		result = (Plan *) make_motion_hash_exprs(root, plan, groupExprs);
+		result = (Plan *) make_motion_hash_exprs(root, plan, groupExprs, pathkeys);
 		result->total_cost += incremental_motion_cost(plan->plan_rows, plan->plan_rows);
 		*motion_added = true;
 	}
