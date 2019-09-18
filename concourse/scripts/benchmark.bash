@@ -11,18 +11,6 @@ GPHOME=/usr/local/greenplum-db-devel
 PGPORT=5432
 SCALE=1000
 
-for d in contrib/pgbench src/bin/pgbench; do
-	if [ -d gpdb_src/$d ]; then
-		PGBENCH_DIR=gpdb_src/$d
-		break
-	fi
-done
-
-if [ -z "$PGBENCH_DIR" ]; then
-	echo "error: could not detect pgbench dir"
-	exit 1
-fi
-
 # output the admin hostname of a unprivileged hostname
 get_admin_hostname()
 {
@@ -30,23 +18,6 @@ get_admin_hostname()
 
 	grep "$host" ./cluster_env_files/etc_hostfile \
 		| cut -d' ' -f3
-}
-
-# install devel packages to compile pgbench
-install_build_depends() {
-	local host="$1"
-
-	ssh "$host" bash -ex <<-EOF
-		sudo yum install -y \
-			git \
-			libxml2-devel \
-			pam-devel \
-			openssl-devel \
-			libyaml-devel \
-			zlib-devel \
-			libedit-devel \
-			libcurl-devel
-	EOF
 }
 
 # install gnuplot to generate plots
@@ -62,7 +33,6 @@ install_gnuplot() {
 setup_benchmark() {
 	ssh $HOSTNAME_MASTER \
 	GPHOME="$GPHOME" \
-	PGBENCH_DIR="$PGBENCH_DIR" \
 	PGPORT="$PGPORT" \
 	MASTER_DATA_DIRECTORY="$MASTER_DATA_DIRECTORY" \
 	SCALE="$SCALE" \
@@ -91,31 +61,32 @@ setup_benchmark() {
 		fi
 		gpstop -rai
 
-		# deploy helper scripts
-		cp -a gpdb_src/concourse/scripts/benchmark \
-			$PGBENCH_DIR/scripts
-		# substitude scale in *.sql
-		sed -i "s/@scale@/$SCALE/g" $PGBENCH_DIR/scripts/*.sql
-
 		createdb
 
-		# build pgbench
-		make -C $PGBENCH_DIR USE_PGXS=1
+		# prepare benchmark dir
+		mkdir /tmp/benchmark
 
-		# copy libpq to pgbench dir
-		cp -a $GPHOME/lib/libpq.so* $PGBENCH_DIR/
+		# install pgbench and libpq binaries
+		cp $(which pgbench) /tmp/benchmark/
+		cp -a $GPHOME/lib/libpq.so* /tmp/benchmark/
+
+		# install helper scripts
+		cp -a gpdb_src/concourse/scripts/benchmark /tmp/benchmark/scripts
+
+		# substitude scale in *.sql
+		sed -i "s/@scale@/$SCALE/g" /tmp/benchmark/scripts/*.sql
 	EOF
 
 	# deploy to client host
-	ssh $HOSTNAME_CLIENT mkdir -p $PGBENCH_DIR
-	ssh $HOSTNAME_MASTER tar -C $PGBENCH_DIR -cf - . \
-		| ssh $HOSTNAME_CLIENT tar -C $PGBENCH_DIR -xf -
+	ssh $HOSTNAME_CLIENT mkdir -p /tmp/benchmark
+	ssh $HOSTNAME_MASTER tar -C /tmp/benchmark -cf - . \
+		| ssh $HOSTNAME_CLIENT tar -C /tmp/benchmark -xf -
 	jq -r .pipeline_url cluster_env_files/terraform*/metadata \
 		| cut -d/ -f11 \
-		| ssh $HOSTNAME_CLIENT tee $PGBENCH_DIR/version
+		| ssh $HOSTNAME_CLIENT tee /tmp/benchmark/version
 
 	# install historical data
-	ssh $HOSTNAME_CLIENT tar -C $PGBENCH_DIR -zxf - \
+	ssh $HOSTNAME_CLIENT tar -C /tmp/benchmark -zxf - \
 		< benchmark_data/benchmark_data.tar.gz
 }
 
@@ -123,7 +94,6 @@ run_benchmark() {
 	ssh $HOSTNAME_CLIENT \
 	PGPORT="$PGPORT" \
 	PGHOST="$HOSTNAME_MASTER" \
-	PGBENCH_DIR="$PGBENCH_DIR" \
 	MASTER_DATA_DIRECTORY="$MASTER_DATA_DIRECTORY" \
 	SCALE="$SCALE" \
 	bash -ex <<-"EOF"
@@ -142,7 +112,7 @@ run_benchmark() {
 			begin-update-end
 		)
 
-		cd $PGBENCH_DIR
+		cd /tmp/benchmark
 
 		./pgbench --quiet -i -s $SCALE
 
@@ -161,19 +131,17 @@ run_benchmark() {
 }
 
 analyze_data() {
-	PGBENCH_DIR="$PGBENCH_DIR" \
 	ssh $HOSTNAME_CLIENT bash -ex <<-"EOF"
-		cd $PGBENCH_DIR
+		cd /tmp/benchmark
 		./scripts/convert.bash
 		./scripts/plot.bash
 	EOF
 
 	# copy back historical data
-	ssh $HOSTNAME_CLIENT tar -C $PGBENCH_DIR -zcf - benchmark_data \
+	ssh $HOSTNAME_CLIENT tar -C /tmp/benchmark -zcf - benchmark_data \
 		> gpdb_artifacts/benchmark_data.tar.gz
 }
 
-install_build_depends "$(get_admin_hostname $HOSTNAME_MASTER)"
 install_gnuplot "$(get_admin_hostname $HOSTNAME_CLIENT)"
 
 setup_benchmark
