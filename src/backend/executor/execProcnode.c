@@ -607,8 +607,14 @@ ExecInitNode(Plan *node, EState *estate, int eflags)
 			break;
 
 		case T_CustomScan:
+			curMemoryAccountId = CREATE_EXECUTOR_MEMORY_ACCOUNT(isAlienPlanNode, node, ForeignScan);
+
+			START_MEMORY_ACCOUNT(curMemoryAccountId);
+			{
 			result = (PlanState *) ExecInitCustomScan((CustomScan *) node,
 													  estate, eflags);
+			}
+			END_MEMORY_ACCOUNT();
 			break;
 
 			/*

@@ -1280,6 +1280,7 @@ _outCustomScan(StringInfo str, const CustomScan *node)
 	WRITE_NODE_FIELD(custom_scan_tlist);
 	WRITE_BITMAPSET_FIELD(custom_relids);
 	
+	WRITE_STRING_FIELD(methods->CustomName);
 	/* 
 	 * node->methods contain CreateCustomScanState function which is used
 	 * by ExecInitCustomScan() to allocate the CustomScanState object.

@@ -551,6 +551,9 @@ AssignContentIdsToPlanData_Walker(Node *node, void *context)
 			case T_ValuesScan:
 				/* no change to dispatchInfo */
 				break;
+			case T_CustomScan:
+				/* FIXME: should disable targeted dispatch? */
+				break;
 			case T_NestLoop:
 			case T_MergeJoin:
 			case T_HashJoin:

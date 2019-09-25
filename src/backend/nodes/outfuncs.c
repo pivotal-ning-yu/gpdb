@@ -831,10 +831,14 @@ _outCustomScan(StringInfo str, const CustomScan *node)
 	WRITE_NODE_FIELD(custom_private);
 	WRITE_NODE_FIELD(custom_scan_tlist);
 	WRITE_BITMAPSET_FIELD(custom_relids);
+
+	WRITE_STRING_FIELD(methods->CustomName);
+#if 0
 	appendStringInfoString(str, " :methods ");
 	_outToken(str, node->methods->CustomName);
 	if (node->methods->TextOutCustomScan)
 		node->methods->TextOutCustomScan(str, node);
+#endif
 }
 #endif /* COMPILING_BINARY_FUNCS */
 
@@ -2173,10 +2177,12 @@ _outCustomPath(StringInfo str, const CustomPath *node)
 
 	WRITE_UINT_FIELD(flags);
 	WRITE_NODE_FIELD(custom_private);
+#if 0
 	appendStringInfoString(str, " :methods ");
 	_outToken(str, node->methods->CustomName);
 	if (node->methods->TextOutCustomPath)
 		node->methods->TextOutCustomPath(str, node);
+#endif
 }
 #endif /* COMPILING_BINARY_FUNCS */
 

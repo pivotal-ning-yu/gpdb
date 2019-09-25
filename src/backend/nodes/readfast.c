@@ -1885,10 +1885,22 @@ _readWorkTableScan(void)
 	READ_DONE();
 }
 
+#define GET_STRING_FIELD() \
+	({ int slen; char * nn = NULL; \
+		memcpy(&slen, read_str_ptr, sizeof(int)); \
+		read_str_ptr+=sizeof(int); \
+		if (slen>0) { \
+		    nn = palloc(slen+1); \
+		    memcpy(nn,read_str_ptr,slen); \
+		    read_str_ptr+=(slen); nn[slen]='\0'; \
+		} \
+		nn;  })
+
 static CustomScan *
 _readCustomScan(void)
 {
 	READ_LOCALS(CustomScan);
+	char	   *custom_name;
 
 	readScanInfo((Scan *)local_node);
 
@@ -1898,6 +1910,12 @@ _readCustomScan(void)
 	READ_NODE_FIELD(custom_private);
 	READ_NODE_FIELD(custom_scan_tlist);
 	READ_BITMAPSET_FIELD(custom_relids);
+
+	custom_name = GET_STRING_FIELD();
+
+	extern void *my_lookup(const char *name);
+	local_node->methods = my_lookup(custom_name);
+	pfree(custom_name);
 
 	READ_DONE();
 }

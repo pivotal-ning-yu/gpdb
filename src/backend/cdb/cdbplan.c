@@ -533,6 +533,24 @@ plan_tree_mutator(Node *node,
 				return (Node *) newwts;
 			}
 
+		case T_CustomScan:
+			{
+				CustomScan *customscan = (CustomScan *) node;
+				CustomScan *newcustomscan;
+
+				FLATCOPY(newcustomscan, customscan, CustomScan);
+				SCANMUTATE(newcustomscan, customscan);
+				MUTATE(newcustomscan->custom_plans, customscan->custom_plans, List *);
+				MUTATE(newcustomscan->custom_exprs, customscan->custom_exprs, List *);
+				MUTATE(newcustomscan->custom_private, customscan->custom_private, List *);
+				MUTATE(newcustomscan->custom_scan_tlist, customscan->custom_scan_tlist, List *);
+
+				/* TODO: anything to do on flags and custom_relids? */
+
+				/* isTarget is scalar. */
+				return (Node *) newcustomscan;
+			}
+
 		case T_Join:
 			/* Abstract: Should see only subclasses. */
 			elog(ERROR, "abstract node type not allowed: T_Join");

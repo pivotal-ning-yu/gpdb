@@ -3144,3 +3144,60 @@ read_whole_file(const char *filename, int *length)
 	buf[*length] = '\0';
 	return buf;
 }
+
+typedef struct MyRecord		MyRecord;
+typedef struct MyLookup		MyLookup;
+
+extern void *my_lookup(const char *name);
+extern const char *my_get_name(void *obj);
+extern void my_register(const char *name, void *obj);
+
+struct MyRecord
+{
+	char	   *name;
+	void	   *obj;
+};
+
+struct MyLookup
+{
+	int			count;
+	MyRecord   *records;
+};
+
+static MyLookup my_tab = { 0, NULL };
+
+void *
+my_lookup(const char *name)
+{
+	for (int i = 0; i < my_tab.count; i++)
+		if (strcmp(my_tab.records[i].name, name) == 0)
+			return my_tab.records[i].obj;
+
+	return NULL;
+}
+
+const char *
+my_get_name(void *obj)
+{
+	for (int i = 0; i < my_tab.count; i++)
+		if (my_tab.records[i].obj == obj)
+			return my_tab.records[i].name;
+
+	return NULL;
+}
+
+void
+my_register(const char *name, void *obj)
+{
+	if (my_lookup(name))
+		return;
+
+	my_tab.records = reallocarray(my_tab.records,
+								  my_tab.count + 1,
+								  sizeof(my_tab.records[0]));
+
+	my_tab.records[my_tab.count].name = strdup(name);
+	my_tab.records[my_tab.count].obj = obj;
+
+	my_tab.count++;
+}
