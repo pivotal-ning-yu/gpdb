@@ -81,6 +81,9 @@ PG_MODULE_MAGIC;
 typedef struct {
 	CustomScanState	css;
 	List		   *ctid_quals;		/* list of ExprState for inequality ops */
+	struct HeapScanDescData *ss_currentScanDesc_heap;
+	struct AppendOnlyScanDescData *ss_currentScanDesc_ao;
+	struct AOCSScanDescData *ss_currentScanDesc_aocs;
 } CtidScanState;
 
 /* static variables */
@@ -99,7 +102,8 @@ static Plan *PlanCtidScanPath(PlannerInfo *root,
 							  RelOptInfo *rel,
 							  CustomPath *best_path,
 							  List *tlist,
-							  List *clauses);
+							  List *clauses,
+							  List *custom_plans);
 
 /* CustomScanMethods */
 static Node *CreateCtidScanState(CustomScan *custom_plan);
@@ -468,7 +472,8 @@ PlanCtidScanPath(PlannerInfo *root,
 				 RelOptInfo *rel,
 				 CustomPath *best_path,
 				 List *tlist,
-				 List *clauses)
+				 List *clauses,
+				 List *custom_plans)
 {
 	List		   *ctid_quals = best_path->custom_private;
 	CustomScan	   *cscan = makeNode(CustomScan);
@@ -534,7 +539,7 @@ static void
 ReScanCtidScan(CustomScanState *node)
 {
 	CtidScanState  *ctss = (CtidScanState *)node;
-	HeapScanDesc	scan = ctss->css.ss.ss_currentScanDesc;
+	HeapScanDesc	scan = ctss->ss_currentScanDesc_heap;
 	EState		   *estate = node->ss.ps.state;
 	ScanDirection	direction = estate->es_direction;
 	Relation		relation = ctss->css.ss.ss_currentRelation;
@@ -550,7 +555,7 @@ ReScanCtidScan(CustomScanState *node)
 	if (scan)
 	{
 		heap_endscan(scan);
-		scan = ctss->css.ss.ss_currentScanDesc = NULL;
+		scan = ctss->ss_currentScanDesc_heap = NULL;
 	}
 
 	/* walks on the inequality operators */
@@ -684,7 +689,7 @@ ReScanCtidScan(CustomScanState *node)
 								 scan->rs_nblocks - 1);
 		scan->rs_startblock = blknum;
 	}
-	ctss->css.ss.ss_currentScanDesc = scan;
+	ctss->ss_currentScanDesc_heap = scan;
 }
 
 /*
@@ -703,9 +708,9 @@ CTidAccessCustomScan(CustomScanState *node)
 	ScanDirection	direction = estate->es_direction;
 	HeapTuple		tuple;
 
-	if (!ctss->css.ss.ss_currentScanDesc)
+	if (!ctss->ss_currentScanDesc_heap)
 		ReScanCtidScan(node);
-	scan = ctss->css.ss.ss_currentScanDesc;
+	scan = ctss->ss_currentScanDesc_heap;
 	Assert(scan != NULL);
 
 	/*
@@ -716,7 +721,7 @@ CTidAccessCustomScan(CustomScanState *node)
 		return NULL;
 
 	slot = ctss->css.ss.ss_ScanTupleSlot;
-	ExecStoreTuple(tuple, slot, scan->rs_cbuf, false);
+	ExecStoreHeapTuple(tuple, slot, scan->rs_cbuf, false);
 
 	return slot;
 }
@@ -748,8 +753,8 @@ EndCtidScan(CustomScanState *node)
 {
 	CtidScanState  *ctss = (CtidScanState *)node;
 
-	if (ctss->css.ss.ss_currentScanDesc)
-		heap_endscan(ctss->css.ss.ss_currentScanDesc);
+	if (ctss->ss_currentScanDesc_heap)
+		heap_endscan(ctss->ss_currentScanDesc_heap);
 }
 
 /*
@@ -774,10 +779,9 @@ ExplainCtidScan(CustomScanState *node, List *ancestors, ExplainState *es)
 		qual = (Node *) make_ands_explicit(cscan->custom_exprs);
 
 		/* Set up deparsing context */
-		context = deparse_context_for_planstate((Node *)&node->ss.ps,
-												ancestors,
-												es->rtable,
-												es->rtable_names);
+		context = set_deparse_context_planstate(es->extra->deparsecxt,
+												(Node *) &node->ss.ps,
+												ancestors);
 
 		/* Deparse the expression */
 		exprstr = deparse_expression(qual, context, useprefix, false);
