@@ -447,14 +447,21 @@ SetCtidScanPath(PlannerInfo *root, RelOptInfo *baserel,
 		required_outer = baserel->lateral_relids;
 
 		cpath = palloc0(sizeof(CustomPath));
-		cpath->path.type = T_CustomPath;
-		cpath->path.pathtype = T_CustomScan;
-		cpath->path.parent = baserel;
-		cpath->path.param_info
-			= get_baserel_parampathinfo(root, baserel, required_outer);
+
 		cpath->flags = CUSTOMPATH_SUPPORT_BACKWARD_SCAN;
 		cpath->custom_private = ctid_quals;
 		cpath->methods = &ctidscan_path_methods;
+
+		cpath->path.type = T_CustomPath;
+		cpath->path.pathtype = T_CustomScan;
+		cpath->path.parent = baserel;
+		cpath->path.param_info = get_baserel_parampathinfo(root, baserel,
+														   required_outer);
+		cpath->path.locus = cdbpathlocus_from_baserel(root, baserel);
+		cpath->path.motionHazard = false;
+		cpath->path.rescannable = true;
+		cpath->path.pathkeys = NIL;		/* always unordered */
+		cpath->path.sameslice_relids = baserel->relids;
 
 		CTidEstimateCosts(root, baserel, cpath);
 
@@ -480,6 +487,8 @@ PlanCtidScanPath(PlannerInfo *root,
 
 	cscan->flags = best_path->flags;
 	cscan->methods = &ctidscan_scan_methods;
+	/* set ctid related quals */
+	cscan->custom_exprs = ctid_quals;
 
 	/* set scanrelid */
 	cscan->scan.scanrelid = rel->relid;
@@ -487,8 +496,8 @@ PlanCtidScanPath(PlannerInfo *root,
 	cscan->scan.plan.targetlist = tlist;
 	/* reduce RestrictInfo list to bare expressions */
 	cscan->scan.plan.qual = extract_actual_clauses(clauses, false);
-	/* set ctid related quals */
-	cscan->custom_exprs = ctid_quals;
+	cscan->scan.plan.lefttree = NULL;
+	cscan->scan.plan.righttree = NULL;
 
 	return &cscan->scan.plan;
 }
@@ -505,6 +514,7 @@ CreateCtidScanState(CustomScan *custom_plan)
 
 	NodeSetTag(ctss, T_CustomScanState);
 	ctss->css.flags = custom_plan->flags;
+	ctss->css.custom_ps = NIL;
 	ctss->css.methods = &ctidscan_exec_methods;
 
 	return (Node *)&ctss->css;
@@ -797,6 +807,10 @@ ExplainCtidScan(CustomScanState *node, List *ancestors, ExplainState *es)
 void
 _PG_init(void)
 {
+	extern void my_register(const char *name, void *obj);
+
+	my_register("ctidscan", &ctidscan_scan_methods);
+
 	DefineCustomBoolVariable("enable_ctidscan",
 							 "Enables the planner's use of ctid-scan plans.",
 							 NULL,
