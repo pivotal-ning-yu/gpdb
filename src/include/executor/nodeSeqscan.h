@@ -23,4 +23,6 @@ extern TupleTableSlot *ExecSeqScan(SeqScanState *node);
 extern void ExecEndSeqScan(SeqScanState *node);
 extern void ExecReScanSeqScan(SeqScanState *node);
 
+extern void InitAOCSScanOpaque(SeqScanState *scanState, Relation currentRelation);
+
 #endif   /* NODESEQSCAN_H */

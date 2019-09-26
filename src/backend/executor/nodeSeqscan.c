@@ -36,8 +36,6 @@
 static void InitScanRelation(SeqScanState *node, EState *estate, int eflags, Relation currentRelation);
 static TupleTableSlot *SeqNext(SeqScanState *node);
 
-static void InitAOCSScanOpaque(SeqScanState *scanState, Relation currentRelation);
-
 /* ----------------------------------------------------------------
  *						Scan Support
  * ----------------------------------------------------------------
@@ -365,7 +363,7 @@ ExecReScanSeqScan(SeqScanState *node)
 	ExecScanReScan((ScanState *) node);
 }
 
-static void
+void
 InitAOCSScanOpaque(SeqScanState *scanstate, Relation currentRelation)
 {
 	/* Initialize AOCS projection info */
