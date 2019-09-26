@@ -50,6 +50,8 @@
 #include "utils/ruleutils.h"
 #include "utils/spccache.h"
 
+#include "gpvector.h"
+
 /* missing declaration in pg_proc.h */
 #ifndef TIDGreaterOperator
 #define TIDGreaterOperator		2800
@@ -60,8 +62,6 @@
 #ifndef TIDGreaterEqualOperator
 #define TIDGreaterEqualOperator	2802
 #endif
-
-PG_MODULE_MAGIC;
 
 /*
  * NOTE: We don't use any special data type to save the private data.
@@ -549,6 +549,7 @@ static void
 ReScanCtidScan(CustomScanState *node)
 {
 	CtidScanState  *ctss = (CtidScanState *)node;
+	/* FIXME: we should use different ScanDesc according to storage type */
 	HeapScanDesc	scan = ctss->ss_currentScanDesc_heap;
 	EState		   *estate = node->ss.ps.state;
 	ScanDirection	direction = estate->es_direction;
@@ -805,7 +806,7 @@ ExplainCtidScan(CustomScanState *node, List *ancestors, ExplainState *es)
  * Entrypoint of this extension
  */
 void
-_PG_init(void)
+init_ctidscan(void)
 {
 	extern void my_register(const char *name, void *obj);
 

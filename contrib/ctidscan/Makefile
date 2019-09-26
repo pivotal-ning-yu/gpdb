@@ -1,8 +1,14 @@
 # contrib/ctidscan/Makefile
 
-MODULES = ctidscan
+MODULE_big = ctidscan
+
+EXTENSION = ctidscan
 
 REGRESS = ctidscan
+
+OBJS += gpvector.o
+OBJS += ctidscan.o
+OBJS += v_scan.o
 
 ifdef USE_PGXS
 PG_CONFIG = pg_config
