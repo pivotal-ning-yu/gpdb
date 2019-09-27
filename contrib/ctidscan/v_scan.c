@@ -287,10 +287,13 @@ BeginVectorScan(CustomScanState *node, EState *estate, int eflags)
 		Snapshot appendOnlyMetaDataSnapshot;
 		SeqScanState sss;
 
+		/*
+		 * FIXME: InitAOCSScanOpaque() was static so we have to change it to
+		 * external; it takes a SeqScanState argument so we have to do the
+		 * convertion and reverse, could we let it takes an ScanState?
+		 */
 		vectorscan_to_seqscan(vss, &sss);
-
 		InitAOCSScanOpaque(&sss, currentRelation);
-
 		vectorscan_from_seqscan(vss, &sss);
 
 		appendOnlyMetaDataSnapshot = node->ss.ps.state->es_snapshot;
@@ -323,38 +326,118 @@ BeginVectorScan(CustomScanState *node, EState *estate, int eflags)
 /*
  * ReScanVectorScan - A method of CustomScanState; that rewind the current
  * seek position.
+ *
+ * Derived from ExecReScanSeqScan().
  */
 static void
 ReScanVectorScan(CustomScanState *node)
 {
 	VectorScanState  *vss = (VectorScanState *)node;
-	SeqScanState sss;
 
-	vectorscan_to_seqscan(vss, &sss);
+	if (vss->ss_currentScanDesc_ao)
+	{
+		appendonly_rescan(vss->ss_currentScanDesc_ao,
+						  NULL);			/* new scan keys */
+	}
+	else if (vss->ss_currentScanDesc_aocs)
+	{
+		aocs_rescan(vss->ss_currentScanDesc_aocs);
+	}
+	else if (vss->ss_currentScanDesc_heap)
+	{
+		HeapScanDesc scan;
 
-	ExecReScanSeqScan(&sss);
+		scan = vss->ss_currentScanDesc_heap;
 
-	vectorscan_from_seqscan(vss, &sss);
+		heap_rescan(scan,			/* scan desc */
+					NULL);			/* new scan keys */
+	}
+	else
+		elog(ERROR, "rescan called without scandesc");
+
+	ExecScanReScan((ScanState *) node);
+}
+
+/*
+ * Derived from SeqNext().
+ */
+static TupleTableSlot *
+VectorScanAccess(CustomScanState *node)
+{
+	VectorScanState  *vss = (VectorScanState *)node;
+	HeapTuple	tuple;
+	EState	   *estate;
+	ScanDirection direction;
+	TupleTableSlot *slot;
+
+	/*
+	 * get information from the estate and scan state
+	 */
+	estate = node->ss.ps.state;
+	direction = estate->es_direction;
+	slot = node->ss.ss_ScanTupleSlot;
+
+	/*
+	 * get the next tuple from the table
+	 */
+	if (vss->ss_currentScanDesc_ao)
+	{
+		appendonly_getnext(vss->ss_currentScanDesc_ao, direction, slot);
+	}
+	else if (vss->ss_currentScanDesc_aocs)
+	{
+		aocs_getnext(vss->ss_currentScanDesc_aocs, direction, slot);
+	}
+	else if (vss->ss_currentScanDesc_heap)
+	{
+		HeapScanDesc scandesc = vss->ss_currentScanDesc_heap;
+
+		tuple = heap_getnext(scandesc, direction);
+
+		/*
+		 * save the tuple and the buffer returned to us by the access methods in
+		 * our scan tuple slot and return the slot.  Note: we pass 'false' because
+		 * tuples returned by heap_getnext() are pointers onto disk pages and were
+		 * not created with palloc() and so should not be pfree()'d.  Note also
+		 * that ExecStoreTuple will increment the refcount of the buffer; the
+		 * refcount will not be dropped until the tuple table slot is cleared.
+		 */
+		if (tuple)
+			ExecStoreHeapTuple(tuple,	/* tuple to store */
+						   slot,	/* slot to store in */
+						   scandesc->rs_cbuf,		/* buffer associated with this
+													 * tuple */
+						   false);	/* don't pfree this pointer */
+		else
+			ExecClearTuple(slot);
+	}
+	else
+		elog(ERROR, "rescan called without scandesc");
+
+	return slot;
+}
+
+/*
+ * Derived from SeqRecheck().
+ */
+static bool
+VectorScanRecheck(CustomScanState *node, TupleTableSlot *slot)
+{
+	return true;
 }
 
 /*
  * ExecVectorScan - A method of CustomScanState; that fetches a tuple
  * from the relation, if exist anymore.
+ *
+ * Derived from ExecSeqScan().
  */
 static TupleTableSlot *
 ExecVectorScan(CustomScanState *node)
 {
-	VectorScanState  *vss = (VectorScanState *)node;
-	SeqScanState sss;
-	TupleTableSlot *tuple;
-
-	vectorscan_to_seqscan(vss, &sss);
-
-	tuple = ExecSeqScan(&sss);
-
-	vectorscan_from_seqscan(vss, &sss);
-
-	return tuple;
+	return ExecScan(&node->ss,
+					(ExecScanAccessMtd) VectorScanAccess,
+					(ExecScanRecheckMtd) VectorScanRecheck);
 }
 
 /*
