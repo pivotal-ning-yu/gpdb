@@ -988,27 +988,15 @@ addOneOption(PQExpBufferData *buffer, struct config_generic * guc)
 			{
 				struct config_string *sguc = (struct config_string *) guc;
 				const char *str = *sguc->variable;
-				int			j,
-							start,
-							end;
-				char		temp[1024];
+				appendPQExpBuffer(buffer, " -c %s=", guc->name);
 
-				end = strlen(str);
-
-				j = 0;
-				for (start = 0; start < end; ++start)
+				for (int i = 0; str[i] != '\0'; i++)
 				{
-					if (str[start] == ' ')
+					if (str[i] == ' ')
 						continue;
 
-					temp[j++] = str[start];
-
-					if (j >= 1023)
-						return false;
+					appendPQExpBufferChar(buffer, str[i]);
 				}
-				temp[j] = '\0';
-
-				appendPQExpBuffer(buffer, " -c %s=%s", guc->name, temp);
 				return true;
 			}
 	}
