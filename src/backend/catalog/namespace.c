@@ -3776,7 +3776,16 @@ InitTempTableNamespace(void)
 				(errcode(ERRCODE_READ_ONLY_SQL_TRANSACTION),
 				 errmsg("cannot create temporary tables in parallel mode")));
 
-	snprintf(namespaceName, sizeof(namespaceName), "pg_temp_%d", session_suffix);
+	/*
+	 * A utility-mode session's backend id can be equal to a normal-mode
+	 * session's session id at runtime, if we use the same name pattern for
+	 * them they would conflict with each other and corrupt the catalog on the
+	 * segment.  So a different name pattern must be used in utility mode.
+	 */
+	if (Gp_role == GP_ROLE_UTILITY)
+		snprintf(namespaceName, sizeof(namespaceName), "pg_temp_util_%d", session_suffix);
+	else
+		snprintf(namespaceName, sizeof(namespaceName), "pg_temp_%d", session_suffix);
 
 	namespaceId = get_namespace_oid(namespaceName, true);
 
@@ -3823,8 +3832,12 @@ InitTempTableNamespace(void)
 	 * (in GPDB, though, we drop and recreate it anyway, to make sure it has
 	 * the same OID on master and segments.)
 	 */
-	snprintf(namespaceName, sizeof(namespaceName), "pg_toast_temp_%d",
-			 session_suffix);
+	if (Gp_role == GP_ROLE_UTILITY)
+		snprintf(namespaceName, sizeof(namespaceName), "pg_toast_temp_util_%d",
+				 session_suffix);
+	else
+		snprintf(namespaceName, sizeof(namespaceName), "pg_toast_temp_%d",
+				 session_suffix);
 
 	toastspaceId = get_namespace_oid(namespaceName, true);
 	if (OidIsValid(toastspaceId))
