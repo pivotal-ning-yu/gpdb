@@ -96,6 +96,7 @@
 #include "executor/nodeFunctionscan.h"
 #include "cdb/cdbfilerep.h"
 #include "postmaster/primary_mirror_mode.h"
+#include "utils/session_state.h"
 #include "utils/vmem_tracker.h"
 
 extern int	optind;
@@ -4422,6 +4423,14 @@ PostgresMain(int argc, char *argv[],
 	 */
 	if (Gp_role == GP_ROLE_DISPATCH && ResourceScheduler && !am_walsender)
 		InitResQueues();
+
+	/*
+	 * Track startup memory.
+	 */
+	if (MySessionState &&
+		!am_walsender &&
+		(Gp_role == GP_ROLE_DISPATCH || Gp_role == GP_ROLE_EXECUTE))
+		GPMemoryProtect_TrackStartupMemory();
 
 	/*
 	 * Now all GUC states are fully set up.  Report them to client if
