@@ -64,7 +64,6 @@ groups:
   - DPM_ddboost_filename_compatibility_part2
   - DPM_ddboost_filename_compatibility_part3
   - DPM_gptransfer-43x-to-43x
-  - QP_memory-accounting
   - QP_optimizer-functional
   - mpp-interconnect
   - mpp_interconnect_sles
@@ -138,7 +137,6 @@ groups:
   - gpdb_rc_packaging_centos
 - name: QP
   jobs:
-  - QP_memory-accounting
   - QP_optimizer-functional
 - name: terraform
   jobs:
@@ -3638,28 +3636,6 @@ jobs:
   ensure:
     <<: *set_failed_dpm
 
-- name: QP_memory-accounting
-  plan:
-  - aggregate:
-    - get: gpdb_src
-      passed: [compile_gpdb_centos]
-    - get: sync_tools_gpdb
-      passed: [compile_gpdb_centos]
-      resource: sync_tools_gpdb_centos
-    - get: bin_gpdb
-      passed: [compile_gpdb_centos]
-      resource: bin_gpdb_centos
-      trigger: true
-    - get: centos-gpdb-dev-5
-  - task: memory-accounting
-    timeout: 3h
-    file: gpdb_src/ci/concourse/tinc_gpdb.yml
-    image: centos-gpdb-dev-5
-    params:
-      MAKE_TEST_COMMAND: memory_accounting
-      BLDWRAP_POSTGRES_CONF_ADDONS: ""
-      TEST_OS: "centos"
-
 - name: QP_optimizer-functional
   plan:
   - aggregate:
@@ -3902,7 +3878,6 @@ jobs:
       - DPM_ddboost_filename_compatibility_part2
       - DPM_ddboost_filename_compatibility_part3
       - DPM_gptransfer-43x-to-43x
-      - QP_memory-accounting
       - QP_optimizer-functional
       - mpp-interconnect
       - mpp_interconnect_sles
