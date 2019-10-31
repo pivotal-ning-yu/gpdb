@@ -317,6 +317,10 @@ WalReceiverMain(void)
 	first_stream = true;
 	for (;;)
 	{
+		extern void __gcov_reset(void);
+		extern void __gcov_dump(void);
+		__gcov_dump(); __gcov_reset(); /* keep them in one line */
+
 		/*
 		 * Check that we're connected to a valid server using the
 		 * IDENTIFY_SYSTEM replication command,

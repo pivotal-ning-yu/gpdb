@@ -109,6 +109,9 @@ distclean maintainer-clean:
 
 installcheck-resgroup:
 	$(MAKE) -C src/test/isolation2 $@
+#ifeq ($(enable_coverage), yes)
+#	$(MAKE) coverage-html
+#endif # enable_coverage
 
 # Create or destroy a demo cluster.
 create-demo-cluster:
@@ -121,6 +124,9 @@ check check-tests: all
 
 check check-tests installcheck installcheck-parallel installcheck-tests:
 	$(MAKE) -C src/test/regress $@
+#ifeq ($(enable_coverage), yes)
+#	$(MAKE) coverage-html
+#endif # enable_coverage
 
 $(call recurse,check-world,src/test src/pl src/interfaces/ecpg contrib src/bin gpcontrib,check)
 
@@ -155,6 +161,9 @@ $(call recurse,installcheck-world, \
 
 .PHONY: installcheck-gpcheckcat
 installcheck-world: installcheck-gpcheckcat
+#ifeq ($(enable_coverage), yes)
+#	$(MAKE) coverage-html
+#endif # enable_coverage
 installcheck-gpcheckcat:
 	gpcheckcat -A
 $(call recurse,installcheck-world,gpcontrib/gp_replica_check,installcheck)
@@ -168,6 +177,9 @@ $(call recurse,installcheck-world,src/bin/pg_upgrade,check)
 unittest-check:
 	$(MAKE) -C src/backend unittest-check
 	$(MAKE) -C src/bin unittest-check
+#ifeq ($(enable_coverage), yes)
+#	$(MAKE) coverage-html
+#endif # enable_coverage
 
 GNUmakefile: GNUmakefile.in $(top_builddir)/config.status
 	./config.status $@

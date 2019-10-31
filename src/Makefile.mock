@@ -5,6 +5,11 @@ override CFLAGS+=$(PTHREAD_CFLAGS)
 
 override CPPFLAGS+= -I$(CMOCKERY_DIR)
 
+ifeq ($(enable_coverage),yes)
+override CPPFLAGS += -fprofile-arcs -ftest-coverage
+override LDFLAGS += -fprofile-arcs -ftest-coverage
+endif
+
 $(MOCK_DIR)/%_mock.c: $(abs_top_srcdir)/src/%.c
 	@echo mocking $<
 	PYTHONPATH=$(python_libdir) $(MOCK_DIR)/mocker.py $<

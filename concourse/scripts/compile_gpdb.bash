@@ -224,6 +224,218 @@ function build_and_test_orca()
     orca_src/concourse/build_and_test.py --build_type=RelWithDebInfo --output_dir=${OUTPUT_DIR}
 }
 
+function dump_coverage_html()
+{
+  sed -r \
+      -e '\,<img src="(amber|emerald|snow|ruby).png"[^>]*>,d' \
+      -e '\,^ {6}(<td class="coverBar"|</td>),d' \
+      -e 's,alt="[^"]*",,g' \
+      -e 's,(class="tableHead" colspan)=3,\1=2,' \
+  | w3m -T text/html -cols 160 -dump
+}
+
+#function report_coverage()
+#{
+#  local name="$1"
+#  local detail="$2"
+#  local filename="${name//\//.}"
+#
+#  #if [ -z "$COVERAGE_FLAGS" ]; then
+#  #  return 0
+#  #fi
+#
+#  mkdir -p /tmp/coverage/
+#
+#  # TODO: make coverage-html, then generate report
+#  pushd ${GPDB_SRC_PATH}
+#    echo "[coverage] generating coverage report after $name..."
+#    #make coverage-clean
+#    make coverage-html >/tmp/coverage/"$filename".log 2>&1
+#
+#    echo "[coverage] brief coverage after test $name:"
+#    tail -n3 /tmp/coverage/"$filename".log
+#
+#    if [ "$detail" = "detail" ]; then
+#      echo "[coverage] detailed coverage report after $name:"
+#      dump_coverage_html \
+#        < coverage/index-sort-l.html \
+#        | tee /tmp/coverage/"$filename".html
+#    fi
+#  popd
+#}
+
+function report_coverage()
+{
+  local name="$1"
+  local detail="$2"
+  local testname="${name//\//.}"
+
+  mkdir -p /tmp/coverage/
+
+  set +x
+  pushd ${GPDB_SRC_PATH}
+    echo "[coverage] generating coverage report after $name ..."
+    make coverage-html >/tmp/coverage/"$testname".log 2>&1
+    tail -n3 /tmp/coverage/"$testname".log
+
+    echo "[coverage] sorting coverage report after $name ..."
+    find */ -name '*.gcov.out' \
+    | while read -r fullname; do
+        dirname="$(dirname "$fullname")"
+        # TODO: filter out the dirs that are not interesting
+        # srcname can be name.c or name_srv.c, both refer to name.c
+        srcname="$(basename "$fullname" .gcov.out)"
+        # find out the real srcname by removing the _srv part
+        srcname="${srcname/_srv\./.}"
+        # covline: Lines executed:100.00% of 242
+        covline="$(grep -F -x -m1 -A1 "File '$srcname'" "$fullname" \
+                   | tail -n+2)" || continue
+        coverage="${covline#*:}"
+        coverage="${coverage%\%*}"
+        [ -n "$coverage" ] || continue
+        nlines="${covline##* }"
+        printf "%6.2f %% of %6d lines of %s/%s\n" \
+               "$coverage" "$nlines" "$dirname" "$srcname"
+      done \
+    | sort -u -k1n,1 -k4nr,4
+  popd
+  set -x
+}
+
+function report_regression_diffs()
+{
+  find "$1" -name regression.diffs \
+  | while read -r diff_file; do
+      cat <<EOF
+
+======================================================================
+DIFF FILE: ${diff_file}
+----------------------------------------------------------------------
+
+EOF
+      cat "${diff_file}"
+    done
+}
+
+function install_coverage_depends()
+{
+  if [ -z "$COVERAGE_FLAGS" ]; then
+    return 0
+  fi
+
+  case "${TARGET_OS}" in
+    centos)
+      yum install -y epel-release
+      yum install -y lcov \
+        openssh-server net-tools iproute w3m \
+        perl-Env
+      ;;
+    ubuntu)
+      apt-get update
+      apt-get install -y lcov \
+        openssh-server iputils-ping net-tools iproute2 locales locales-all w3m
+      ;;
+    *)
+      echo "only centos and ubuntu are supported TARGET_OS'es"
+      return 1
+      ;;
+  esac
+
+  return 0
+}
+
+function gen_env()
+{
+  cat > /opt/run_test.sh <<EOF
+    export PGOPTIONS="$PGOPTIONS"
+    MAKE_TEST_COMMAND="$MAKE_TEST_COMMAND"
+
+EOF
+
+  cat >> /opt/run_test.sh <<"EOF"
+#    trap look4diffs ERR
+#
+#    function look4diffs()
+#    {
+#      find .. -name regression.diffs \
+#      | while read -r diff_file; do
+#          cat <<FEOF
+#
+#======================================================================
+#DIFF FILE: ${diff_file}
+#----------------------------------------------------------------------
+#
+#FEOF
+#          cat "${diff_file}"
+#        done
+#
+#      exit 1
+#    }
+
+    source /usr/local/greenplum-db-devel/greenplum_path.sh
+
+    if [ -f /opt/gcc_env.sh ]; then
+      source /opt/gcc_env.sh
+    fi
+
+    cd "${1}/gpdb_src"
+    source gpAux/gpdemo/gpdemo-env.sh
+    make ${MAKE_TEST_COMMAND}
+EOF
+
+  chmod a+x /opt/run_test.sh
+}
+
+function run_coverage_tests()
+{
+  if [ -z "$COVERAGE_FLAGS" ]; then
+    return 0
+  fi
+  if [[ "${TARGET_OS}" != @(ubuntu|centos) ]] ; then
+    return 0
+  fi
+
+  source "${CWDIR}/common.bash"
+
+  ./gpdb_src/concourse/scripts/setup_gpadmin_user.bash "$TEST_OS"
+
+  chown -R gpadmin:gpadmin gpdb_src
+
+  time make_cluster
+
+  # report directly after compilation and unit tests
+  report_coverage unittest
+
+  # to generate coverage report we run ICW tests directly after the compilation
+  # FIXME: for testing purpose we only run a small subset of tests
+  #export PGOPTIONS='-c optimizer=off'
+  #for dir in src/test/regress src/test/isolation2 src/test/walrep; do
+  #  export MAKE_TEST_COMMAND="-C $dir installcheck"
+  #  time gen_env
+  #  time run_test || : #|| ( report_coverage $dir detail; exit 0 )
+  #done
+
+  export PGOPTIONS='-c optimizer=off'
+  export MAKE_TEST_COMMAND="installcheck-world"
+  time gen_env
+  time run_test || : #|| ( report_coverage $dir detail; exit 0 )
+
+  # dump regression.diffs
+  report_regression_diffs gpdb_src
+
+  # generate coverage report
+  report_coverage ICW detail
+
+  # TODO: how to run tests with other PGOPTIONS?
+  #export PGOPTIONS='-c gp_interconnect_type=tcp -c optimizer=off'
+
+  # XXX: below is the command to run replication_slots behave tests
+  #make -C gpMgmt -f Makefile.behave behave flags="--tags=replication_slots --tags=~concourse_cluster,demo_cluster"
+
+  # FIXME: only fail on low-coverage files
+  exit 1
+}
+
 function _main() {
   mkdir gpdb_src/gpAux/ext
 
@@ -238,7 +450,7 @@ function _main() {
       ;;
     win32)
         export BLD_ARCH=win32
-        CONFIGURE_FLAGS="${CONFIGURE_FLAGS} --disable-pxf"
+        CONFIGURE_FLAGS="${CONFIGURE_FLAGS} ${COVERAGE_FLAGS} --disable-pxf"
         ;;
     *)
         echo "only centos, ubuntu, and win32 are supported TARGET_OS'es"
@@ -257,7 +469,10 @@ function _main() {
     BLD_TARGET_OPTION=("")
   fi
 
-  export CONFIGURE_FLAGS=${CONFIGURE_FLAGS}
+  export CONFIGURE_FLAGS
+  export COVERAGE_FLAGS
+
+  install_coverage_depends
 
   build_gpdb "${BLD_TARGET_OPTION[@]}"
   git_info
@@ -278,6 +493,8 @@ function _main() {
   then
       export_gpdb_clients
   fi
+
+  run_coverage_tests
 }
 
 _main "$@"

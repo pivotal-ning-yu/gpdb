@@ -35,13 +35,49 @@ function configure() {
       # The full set of configure options which were used for building the
       # tree must be used here as well since the toplevel Makefile depends
       # on these options for deciding what to test. Since we don't ship
-      ./configure --prefix=/usr/local/greenplum-db-devel --with-perl --with-python --with-libxml --enable-mapreduce --enable-orafce --enable-tap-tests --disable-orca --with-openssl ${CONFIGURE_FLAGS}
+      ./configure --prefix=/usr/local/greenplum-db-devel --with-perl --with-python --with-libxml --enable-mapreduce --enable-orafce --enable-tap-tests --disable-orca --with-openssl ${CONFIGURE_FLAGS} ${COVERAGE_FLAGS}
 
   popd
 }
 
+function install_coverage_depends()
+{
+  olddir="$(strings /usr/local/greenplum-db-devel/bin/psql \
+            | fgrep src/bin/psql \
+            | head -n1 \
+            | cut -d/ -f4)"
+  newdir="$(pwd | cut -d/ -f 4)"
+  ln -nfs "$newdir" /tmp/build/"$olddir"
+
+  #if [ -z "$COVERAGE_FLAGS" ]; then
+  #  return 0
+  #fi
+  #if ! strings /usr/local/greenplum-db-devel/bin/psql | grep -lq gcov_write_words; then
+  #  # gpdb is not compiled with gcov
+  #  return 0
+  #fi
+
+  case "${TEST_OS}" in
+    centos*)
+      yum install -y epel-release
+      yum install -y lcov
+      ;;
+    ubuntu)
+      apt-get update
+      apt-get install -y lcov
+      ;;
+    *)
+      echo "only centos and ubuntu are supported TEST_OS'es"
+      return 1
+      ;;
+  esac
+
+  return 0
+}
+
 function install_and_configure_gpdb() {
   install_gpdb
+  #install_coverage_depends
   setup_configure_vars
   configure
 }
@@ -57,7 +93,7 @@ function make_cluster() {
 
 function run_test() {
   # is this particular python version giving us trouble?
-  ln -s "$(pwd)/gpdb_src/gpAux/ext/rhel6_x86_64/python-2.7.12" /opt
+  ln -nfs "$(pwd)/gpdb_src/gpAux/ext/rhel6_x86_64/python-2.7.12" /opt
   su gpadmin -c "bash /opt/run_test.sh $(pwd)"
 }
 

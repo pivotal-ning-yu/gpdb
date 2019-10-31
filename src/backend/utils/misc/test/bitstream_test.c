@@ -10,7 +10,7 @@ test__Bitstream__Simple(void **state)
 {
 	Bitstream bitstream;
 	unsigned char data[32];
-	uint32 tmp;
+	uint32 tmp = 0;
 
 	memset(data, 0, 32);
 	Bitstream_Init(&bitstream, data, 32);

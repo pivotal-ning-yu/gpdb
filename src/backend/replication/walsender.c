@@ -1921,6 +1921,10 @@ WalSndLoop(WalSndSendDataCallback send_data)
 		if (!PostmasterIsAlive())
 			exit(1);
 
+		extern void __gcov_reset(void);
+		extern void __gcov_dump(void);
+		__gcov_dump(); __gcov_reset(); /* keep them in one line */
+
 		/* Clear any already-pending wakeups */
 		ResetLatch(MyLatch);
 

@@ -155,6 +155,10 @@ GlobalDeadLockDetectorLoop(void)
 			continue;
 #endif
 
+		extern void __gcov_reset(void);
+		extern void __gcov_dump(void);
+		__gcov_dump(); __gcov_reset(); /* keep them in one line */
+
 		StartTransactionCommand();
 		status = doDeadLockCheck();
 		if (status == STATUS_OK)

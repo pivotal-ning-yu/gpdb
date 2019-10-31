@@ -6,7 +6,30 @@ CWDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "${CWDIR}/common.bash"
 
 function gen_env(){
-  cat > /opt/run_test.sh <<-EOF
+##	if strings /usr/local/greenplum-db-devel/bin/psql | grep -lq gcov_write_words; then
+#		# gpdb is compiled with gcov
+#		cat > /opt/run_test.sh <<-EOF
+#			function report_coverage()
+#			{
+#				#make coverage-clean
+#				make coverage-html >/tmp/coverage.log
+#				tail -n3 /tmp/coverage.log
+#			}
+#
+#		EOF
+##	else
+##		# gpdb is compiled without gcov
+##		cat > /opt/run_test.sh <<-EOF
+##			function report_coverage()
+##			{
+##				:
+##			}
+##
+##		EOF
+##	fi
+
+	cat > /opt/run_test.sh
+	cat >> /opt/run_test.sh <<-EOF
 		trap look4diffs ERR
 
 		function look4diffs() {
@@ -26,6 +49,7 @@ function gen_env(){
 					FEOF
 			fi
 		    done
+#			report_coverage
 		    exit 1
 		}
 		source /usr/local/greenplum-db-devel/greenplum_path.sh
@@ -35,6 +59,7 @@ function gen_env(){
 		cd "\${1}/gpdb_src"
 		source gpAux/gpdemo/gpdemo-env.sh
 		make -s ${MAKE_TEST_COMMAND}
+#		report_coverage
 	EOF
 
 	chmod a+x /opt/run_test.sh

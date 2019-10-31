@@ -15,5 +15,6 @@ params:
   TEST_BINARY_SWAP: ""
   CONFIGURE_FLAGS: ""
   WITH_MIRRORS:
+  COVERAGE_FLAGS: ""
 run:
   path: gpdb_src/concourse/scripts/ic_gpdb.bash

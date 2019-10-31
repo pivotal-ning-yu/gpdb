@@ -7,4 +7,13 @@ TARGETS = ps_status bitstream bitmap_compression faultinjector_warnings pg_mkdir
 faultinjector_warnings.t: ../faultinjector_warnings.o faultinjector_warnings_test.o
 
 
+all: link-guc-file
+check: link-guc-file
+%-check: link-guc-file
+
+.PHONY: link-guc-file
+link-guc-file:
+	ln -nfs ../guc-file.l
+	ln -nfs ../guc-file.c
+
 include $(top_builddir)/src/backend/mock.mk

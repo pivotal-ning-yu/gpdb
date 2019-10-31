@@ -271,6 +271,10 @@ WalWriterMain(void)
 			proc_exit(0);		/* done */
 		}
 
+		extern void __gcov_reset(void);
+		extern void __gcov_dump(void);
+		__gcov_dump(); __gcov_reset(); /* keep them in one line */
+
 		/*
 		 * Do what we're here for; then, if XLogBackgroundFlush() found useful
 		 * work to do, reset hibernation counter.

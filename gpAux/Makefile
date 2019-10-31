@@ -139,6 +139,10 @@ ifdef CONFIGURE_FLAGS
 CONFIGFLAGS+= $(CONFIGURE_FLAGS)
 endif
 
+ifdef COVERAGE_FLAGS
+CONFIGFLAGS+= $(COVERAGE_FLAGS)
+endif
+
 # PL/Python does not compile on Tiger, skipping it on AIX
 ifneq "$(findstring $(BLD_ARCH),aix7_ppc_64)" ""
 PG_LANG=false
