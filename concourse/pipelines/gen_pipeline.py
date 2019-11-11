@@ -50,7 +50,7 @@ TEMPLATE_ENVIRONMENT = Environment(
 
 BASE_BRANCH = "master"  # when branching gpdb update to 7X_STABLE, 6X_STABLE, etc.
 
-SECRETS_PATH = os.path.expanduser('~/workspace/gp-continuous-integration/secrets')
+SECRETS_PATH = os.path.expanduser('~/src/gp-continuous-integration.git/secrets')
 
 # Variables that govern pipeline validation
 RELEASE_VALIDATOR_JOB = ['Release_Candidate']
@@ -87,7 +87,7 @@ def suggested_git_remote():
     """Try to guess the current git remote"""
     default_remote = "<https://github.com/<github-user>/gpdb>"
 
-    remote = subprocess.check_output(["git", "ls-remote", "--get-url"]).decode('utf-8').rstrip()
+    remote = subprocess.check_output(["git", "ls-remote", "--get-url", "nyu"]).decode('utf-8').rstrip()
 
     if "greenplum-db/gpdb" in remote:
         return default_remote
@@ -336,6 +336,7 @@ def main():
             'CLI',
             'UD',
             'AA',
+            'Coverage',
             'Extensions'
         ],
         default=['ICW'],

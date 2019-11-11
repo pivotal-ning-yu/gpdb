@@ -573,11 +573,11 @@ resources:
     repository: pivotaldata/gpdb6-centos6-build
     tag: latest
 
-- name: gpdb6-centos6-test
-  type: docker-image
-  source:
-    repository: pivotaldata/gpdb6-centos6-test
-    tag: latest
+#- name: gpdb6-centos6-test
+#  type: docker-image
+#  source:
+#    repository: pivotaldata/gpdb6-centos6-test
+#    tag: latest
 {% endif %}
 {% if "centos7" in os_types %}
 - name: gpdb6-centos7-build
@@ -588,11 +588,11 @@ resources:
 
 {% endif %}
 {% if "centos7" in os_types or "CLI" in test_sections %}
-- name: gpdb6-centos7-test
-  type: docker-image
-  source:
-    repository: pivotaldata/gpdb6-centos7-test
-    tag: latest
+#- name: gpdb6-centos7-test
+#  type: docker-image
+#  source:
+#    repository: pivotaldata/gpdb6-centos7-test
+#    tag: latest
 
 {% endif %}
 
@@ -603,11 +603,11 @@ resources:
     tag: latest
 
 {% if "ubuntu18.04" in os_types %}
-- name: gpdb6-ubuntu18.04-test
-  type: docker-image
-  source:
-    repository: pivotaldata/gpdb6-ubuntu18.04-test
-    tag: latest
+#- name: gpdb6-ubuntu18.04-test
+#  type: docker-image
+#  source:
+#    repository: pivotaldata/gpdb6-ubuntu18.04-test
+#    tag: latest
 
 {% endif %}
 {% if "centos6" in os_types %}
@@ -920,6 +920,9 @@ jobs:
     image: gpdb6-centos6-build
     params:
       CONFIGURE_FLAGS: {{configure_flags_with_extensions}}
+{% if "Coverage" in test_sections %}
+      COVERAGE_FLAGS: {{configure_flags_with_coverage}}
+{% endif %}
       TARGET_OS: centos
       TARGET_OS_VERSION: 6
       BLD_TARGETS: "clients"
@@ -955,6 +958,9 @@ jobs:
     file: gpdb_src/concourse/tasks/compile_gpdb.yml
     params:
       CONFIGURE_FLAGS: {{configure_flags_with_extensions}}
+{% if "Coverage" in test_sections %}
+      COVERAGE_FLAGS: {{configure_flags_with_coverage}}
+{% endif %}
       TARGET_OS: centos
       TARGET_OS_VERSION: 7
       BLD_TARGETS: "clients"
@@ -993,6 +999,9 @@ jobs:
     image: gpdb6-centos6-build
     params:
       CONFIGURE_FLAGS: {{configure_flags_with_extensions}}
+{% if "Coverage" in test_sections %}
+      COVERAGE_FLAGS: {{configure_flags_with_coverage}}
+{% endif %}
       TARGET_OS: centos
       TARGET_OS_VERSION: 6
       BLD_TARGETS: "clients loaders"
@@ -1023,6 +1032,9 @@ jobs:
       file: gpdb_src/concourse/tasks/compile_gpdb.yml
       params:
         CONFIGURE_FLAGS: {{configure_flags_with_extensions}}
+{% if "Coverage" in test_sections %}
+        COVERAGE_FLAGS: {{configure_flags_with_coverage}}
+{% endif %}
         TARGET_OS: ubuntu
         TARGET_OS_VERSION: "18.04"
         BLD_TARGETS: "clients"
@@ -1131,6 +1143,9 @@ jobs:
       TEST_BINARY_SWAP: {{test-binary-swap}}
       CONFIGURE_FLAGS: {{configure_flags}}
       DUMP_DB: "true"
+#{% if "Coverage" in test_sections %}
+#      COVERAGE_FLAGS: {{configure_flags_with_coverage}}
+#{% endif %}
   - put: icw_planner_centos6_dump
     params:
       file: sqldump/dump.sql.xz
@@ -1153,6 +1168,9 @@ jobs:
       MAKE_TEST_COMMAND: -k PGOPTIONS='-c optimizer=on' installcheck-world
       TEST_OS: centos
       CONFIGURE_FLAGS: {{configure_flags}}
+#{% if "Coverage" in test_sections %}
+#      COVERAGE_FLAGS: {{configure_flags_with_coverage}}
+#{% endif %}
 
 - name: icw_gporca_ictcp_centos6
   plan:
@@ -1171,6 +1189,9 @@ jobs:
     params:
       MAKE_TEST_COMMAND: -k PGOPTIONS='-c gp_interconnect_type=tcp -c optimizer=on' installcheck-world
       TEST_OS: centos
+#{% if "Coverage" in test_sections %}
+#      COVERAGE_FLAGS: {{configure_flags_with_coverage}}
+#{% endif %}
 
 {% endif %}
 {% if "centos7" in os_types %}
@@ -1192,6 +1213,9 @@ jobs:
       MAKE_TEST_COMMAND: -k PGOPTIONS='-c optimizer=on' installcheck-world
       TEST_OS: centos
       CONFIGURE_FLAGS: {{configure_flags}}
+#{% if "Coverage" in test_sections %}
+#      COVERAGE_FLAGS: {{configure_flags_with_coverage}}
+#{% endif %}
 
 - name: icw_planner_centos7
   plan:
@@ -1211,6 +1235,9 @@ jobs:
       MAKE_TEST_COMMAND: -k PGOPTIONS='-c optimizer=off' installcheck-world
       TEST_OS: centos
       CONFIGURE_FLAGS: {{configure_flags}}
+#{% if "Coverage" in test_sections %}
+#      COVERAGE_FLAGS: {{configure_flags_with_coverage}}
+#{% endif %}
 
 {% endif %}
 {% if "ubuntu18.04" in os_types %}
@@ -1232,6 +1259,9 @@ jobs:
         MAKE_TEST_COMMAND: -k PGOPTIONS='-c optimizer=on' installcheck-world
         TEST_OS: ubuntu
         CONFIGURE_FLAGS: {{configure_flags}}
+#{% if "Coverage" in test_sections %}
+#        COVERAGE_FLAGS: {{configure_flags_with_coverage}}
+#{% endif %}
 
 - name: icw_planner_ubuntu18.04
   plan:
@@ -1251,6 +1281,9 @@ jobs:
         MAKE_TEST_COMMAND: -k PGOPTIONS='-c optimizer=off' installcheck-world
         TEST_OS: ubuntu
         CONFIGURE_FLAGS: {{configure_flags}}
+#{% if "Coverage" in test_sections %}
+#        COVERAGE_FLAGS: {{configure_flags_with_coverage}}
+#{% endif %}
 
 {% endif %}
 - name: gate_icw_end
