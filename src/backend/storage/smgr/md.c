@@ -2040,8 +2040,8 @@ RememberFsyncRequest(RelFileNode rnode, BlockNumber segno)
 													  &key,
 													  HASH_ENTER,
 													  &found);
-		/* if new or previously canceled entry, initialize it */
-		if (!found || entry->canceled)
+		/* if new entry, initialize it */
+		if (!found)
 		{
 			entry->canceled = false;
 			entry->cycle_ctr = mdsync_cycle_ctr;
@@ -2086,11 +2086,17 @@ ForgetRelationFsyncRequests(RelFileNode rnode)
 		 */
 		Insist(LWLockHeldByMe(CheckpointStartLock));
 		/*
-		 * No need to check return code.  If bgwriter's requests queue
-		 * is full, this remove entries belonging to rnode from the
-		 * quque.
+		 * Notify the bgwriter about it.  If we fail to queue the revoke
+		 * message, we have to sleep and try again ... ugly, but hopefully
+		 * won't happen often.
+		 *
+		 * XXX should we CHECK_FOR_INTERRUPTS in this loop?  Escaping with
+		 * an error would leave the no-longer-used file still present on
+		 * disk, which would be bad, so I'm inclined to assume that the
+		 * bgwriter will always empty the queue soon.
 		 */
-		ForwardFsyncRequest(rnode, FORGET_RELATION_FSYNC);
+		while(!ForwardFsyncRequest(rnode, FORGET_RELATION_FSYNC))
+			pg_usleep(10000L);  /* 10 msec */
 	}
 }
 
@@ -2115,7 +2121,8 @@ ForgetDatabaseFsyncRequests(Oid tblspc, Oid dbid)
 	{
 		/* see notes in ForgetRelationFsyncRequests */
 		Insist(LWLockHeldByMe(CheckpointStartLock));
-		ForwardFsyncRequest(rnode, FORGET_DATABASE_FSYNC);
+		while(!ForwardFsyncRequest(rnode, FORGET_DATABASE_FSYNC))
+			pg_usleep(10000L); /* 10 msec */
 	}
 }
 

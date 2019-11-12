@@ -46,6 +46,7 @@
 #include "libpq/hba.h"
 #include "miscadmin.h"
 #include "pgstat.h"
+#include "postmaster/bgwriter.h"
 #include "postmaster/postmaster.h"
 #include "postmaster/checkpoint.h"
 #include "storage/latch.h"
@@ -8749,7 +8750,20 @@ CreateCheckPoint(bool shutdown, bool force)
 	 * either not yet logged, or logged and recorded in pg_clog. See notes in
 	 * RecordTransactionCommit().
 	 */
-	LWLockAcquire(CheckpointStartLock, LW_EXCLUSIVE);
+	/*
+	 * If we use LWLockAcquire(CheckpointStartLock, LW_EXCLUSIVE) here, deadlock
+	 * may happen. See below:
+	 * Backend: holding CheckpointStartLock, calling ForwardFsyncRequest() in
+	 * a while loop, but the queue of BgWriterShmem is full
+	 * Checkpoint: only checkpoint process can consume the queue of BgWriterShmem,
+	 * but it's waiting for the CheckpointStartLock.
+	 * To break this deadlock, we must make sure that either checkpoint acquires
+	 * CheckpointStartLock or the queue of BgWriterShmem is not full
+	 */
+	while(!LWLockConditionalAcquire(CheckpointStartLock, LW_EXCLUSIVE)) {
+		AbsorbFsyncRequests();
+		pg_usleep(10000L);  /* 10 msec seems good */
+	}
 
 	/* And we need WALInsertLock too */
 	LWLockAcquire(WALInsertLock, LW_EXCLUSIVE);

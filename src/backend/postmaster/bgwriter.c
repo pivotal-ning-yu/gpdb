@@ -108,8 +108,7 @@ static time_t last_xlog_switch_time;
 static void BgSigHupHandler(SIGNAL_ARGS);
 static void ReqCheckpointSmgrCloseHandler(SIGNAL_ARGS);
 static void ReqShutdownHandler(SIGNAL_ARGS);
-static bool CompactBgWriterRequestQueue(
-	RelFileNode *remove, BlockNumber segno);
+static bool CompactBgWriterRequestQueue(void);
 
 /*
  * Main entry point for bgwriter process
@@ -536,19 +535,11 @@ ForwardFsyncRequest(RelFileNode rnode, BlockNumber segno)
 
 	LWLockAcquire(BgWriterCommLock, LW_EXCLUSIVE);
 	if (BgWriterShmem->bgwriter_pid == 0 ||
-		(BgWriterShmem->num_requests >= BgWriterShmem->max_requests))
+		(BgWriterShmem->num_requests >= BgWriterShmem->max_requests
+		&& !CompactBgWriterRequestQueue()))
 	{
-		if (segno == FORGET_RELATION_FSYNC || segno == FORGET_DATABASE_FSYNC)
-		{
-			CompactBgWriterRequestQueue(&rnode, segno);
-			LWLockRelease(BgWriterCommLock);
-			return true;
-		}
-		else if (!CompactBgWriterRequestQueue(NULL, InvalidBlockNumber))
-		{
-			LWLockRelease(BgWriterCommLock);
-			return false;
-		}
+		LWLockRelease(BgWriterCommLock);
+		return false;
 	}
 	request = &BgWriterShmem->requests[BgWriterShmem->num_requests++];
 	request->rnode = rnode;
@@ -562,13 +553,6 @@ ForwardFsyncRequest(RelFileNode rnode, BlockNumber segno)
  *      Remove duplicates from the request queue to avoid backend fsyncs.
  *      Returns "true" if any entries were removed.
  *
- *      If remove is a valid RelFileNode, remove any queued requests
- *      from BgWriter's requests queue for this RelFileNode because
- *      the underlying files are about to be unlinked.  Checkpointer
- *      will then avoid fsync'ing them.  Note that shared buffers for
- *      these relfilenodes should already have been removed by
- *      DropRelFileNodeBuffers().
- *
  * Although a full fsync request queue is not common, it can lead to severe
  * performance problems when it does happen.  So far, this situation has
  * only been observed to occur when the system is under heavy write load,
@@ -581,7 +565,7 @@ ForwardFsyncRequest(RelFileNode rnode, BlockNumber segno)
  * practice: there's one queue entry per shared buffer.
  */
 static bool
-CompactBgWriterRequestQueue(RelFileNode *remove, BlockNumber segno)
+CompactBgWriterRequestQueue(void)
 {
 	struct BgWriterSlotMapping
 	{
@@ -595,9 +579,6 @@ CompactBgWriterRequestQueue(RelFileNode *remove, BlockNumber segno)
 	HASHCTL		ctl;
 	HTAB	   *htab;
 	bool	   *skip_slot;
-
-	Assert(remove == NULL || segno == FORGET_RELATION_FSYNC ||
-		   segno == FORGET_DATABASE_FSYNC);
 
 	/* must hold BgWriterCommLock in exclusive mode */
 	Assert(LWLockHeldByMe(BgWriterCommLock));
@@ -644,30 +625,15 @@ CompactBgWriterRequestQueue(RelFileNode *remove, BlockNumber segno)
 		 * contain no pad bytes.
 		 */
 		request = &BgWriterShmem->requests[n];
-		/*
-		 * Filter out requests to be removed.
-		 */
-		if (remove && request->rnode.spcNode == remove->spcNode &&
-			request->rnode.dbNode == remove->dbNode &&
-			(segno == FORGET_DATABASE_FSYNC ||
-			 (segno == FORGET_RELATION_FSYNC &&
-			  request->rnode.relNode == remove->relNode)))
+		slotmap = hash_search(htab, request, HASH_ENTER, &found);
+		if (found)
 		{
-			skip_slot[n] = true;
+			/* Duplicate, so mark the previous occurrence as skippable */
+			skip_slot[slotmap->slot] = true;
 			num_skipped++;
 		}
-		else
-		{
-			slotmap = hash_search(htab, request, HASH_ENTER, &found);
-			if (found)
-			{
-				/* Duplicate, so mark the previous occurrence as skippable */
-				skip_slot[slotmap->slot] = true;
-				num_skipped++;
-			}
-			/* Remember slot containing latest occurrence of this request value */
-			slotmap->slot = n;
-		}
+		/* Remember slot containing latest occurrence of this request value */
+		slotmap->slot = n;
 	}
 
 	/* Done with the hash table. */
