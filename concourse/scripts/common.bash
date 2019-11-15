@@ -51,7 +51,15 @@ function make_cluster() {
   export BLDWRAP_POSTGRES_CONF_ADDONS=${BLDWRAP_POSTGRES_CONF_ADDONS}
   export STATEMENT_MEM=250MB
   pushd gpdb_src/gpAux/gpdemo
-  su gpadmin -c "source /usr/local/greenplum-db-devel/greenplum_path.sh; make create-demo-cluster"
+  su gpadmin -c "
+    source /usr/local/greenplum-db-devel/greenplum_path.sh;
+    make create-demo-cluster;
+	. gpdemo-env.sh;
+    gpconfig -c debug_walrepl_snd -v on --skipvalidation;
+    gpconfig -c debug_walrepl_syncrep -v on --skipvalidation;
+    gpconfig -c debug_walrepl_rcv -v on --skipvalidation;
+    gpconfig -c log_replication_commands -v on --skipvalidation;
+  "
   popd
 }
 

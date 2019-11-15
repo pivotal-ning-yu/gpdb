@@ -137,16 +137,16 @@ $(call recurse,check-world,src/test src/pl src/interfaces/ecpg contrib src/bin g
 # which probably indicates that we're relying on undefined behavior... we should
 # probably pull anything order-dependent out of recurse() and back into the
 # recipe body).
-ICW_TARGETS  = src/test src/pl src/interfaces/gppc
-ICW_TARGETS += contrib/auto_explain contrib/citext
-ICW_TARGETS += contrib/file_fdw contrib/formatter_fixedwidth
-ICW_TARGETS += contrib/extprotocol contrib/dblink
-ICW_TARGETS += contrib/indexscan contrib/hstore contrib/pgcrypto
+ICW_TARGETS  = src/test #src/pl src/interfaces/gppc
+#ICW_TARGETS += contrib/auto_explain contrib/citext
+#ICW_TARGETS += contrib/file_fdw contrib/formatter_fixedwidth
+#ICW_TARGETS += contrib/extprotocol contrib/dblink
+#ICW_TARGETS += contrib/indexscan contrib/hstore contrib/pgcrypto
 # sslinfo depends on openssl
 ifeq ($(with_openssl), yes)
-ICW_TARGETS += contrib/sslinfo
+#ICW_TARGETS += contrib/sslinfo
 endif
-ICW_TARGETS += gpcontrib src/bin gpMgmt/bin
+#ICW_TARGETS += gpcontrib src/bin gpMgmt/bin
 
 $(call recurse,installcheck-world, $(ICW_TARGETS),installcheck)
 

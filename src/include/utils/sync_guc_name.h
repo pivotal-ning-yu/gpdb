@@ -116,3 +116,6 @@
 		"vmem_process_interrupt",
 		"work_mem",
 		"temp_tablespaces",
+#ifdef WAL_DEBUG
+		"wal_debug",
+#endif
