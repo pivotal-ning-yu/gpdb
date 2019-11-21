@@ -611,7 +611,7 @@ resources:
     region_name: {{aws-region}}
     access_key_id: {{gpdb5-pipeline-bucket-access-key-id}}
     secret_access_key: {{gpdb5-pipeline-bucket-secret-access-key}}
-    versioned_file: release/gpdb4/madlib-1.13-gp4.3orca-rhel5-x86_64.gppkg
+    versioned_file: release/gpdb4/madlib-1.16-gp4.3orca-rhel5-x86_64.gppkg
 
 - name: mit_krb5_rhel62_tarball
   type: s3
