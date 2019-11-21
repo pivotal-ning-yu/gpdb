@@ -629,7 +629,7 @@ resources:
     bucket: {{snowflakes-bucket}}
     region_name: {{aws-region}}
     secret_access_key: {{bucket-secret-access-key}}
-    versioned_file: datadirect_jdbc/greenplum_jdbc_5.1.1.zip
+    versioned_file: datadirect_jdbc/greenplum_jdbc_5.1.4.000275.zip
 
 - name: gpsupport_package
   type: s3
