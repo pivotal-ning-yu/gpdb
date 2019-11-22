@@ -1129,6 +1129,9 @@ pq_getbyte_if_available(unsigned char *c)
 	socket_set_nonblocking(true);
 
 	r = secure_read(MyProcPort, c, 1);
+#if 0
+	elog(LOG, "r = %d (%c), errno = %d", r, r, errno);
+#endif
 	if (r < 0)
 	{
 		/*

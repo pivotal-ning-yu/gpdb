@@ -1,8 +1,8 @@
 -- negative cases
 SELECT test_receive();
-ERROR:  could not receive data from WAL stream: connection pointer is NULL (libpqwalreceiver.c:628)
+ERROR:  could not receive data from WAL stream: connection pointer is NULL (libpqwalreceiver.c:626)
 SELECT test_send();
-ERROR:  could not send data to WAL stream: connection pointer is NULL (libpqwalreceiver.c:647)
+ERROR:  could not send data to WAL stream: connection pointer is NULL (libpqwalreceiver.c:645)
 SELECT test_disconnect();
  test_disconnect 
 -----------------
@@ -37,7 +37,7 @@ $$ language plpgsql;
 -- is quite sensitive.
 vacuum freeze;
 -- Test connection
-SELECT test_connect('application_name=walreceiver_test');
+SELECT test_connect('application_name=walreceiver_test port=7000');
  test_connect 
 --------------
  t
@@ -63,7 +63,7 @@ SELECT check_and_wait_for_replication(10);
 (1 row)
 
 -- Test connection passing hostname
-SELECT test_connect('host=localhost application_name=walreceiver_test');
+SELECT test_connect('host=localhost application_name=walreceiver_test port=7000');
  test_connect 
 --------------
  t
@@ -104,7 +104,7 @@ HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sur
 insert into testwalreceiver select * from generate_series(0, 9);
 -- Connect and receive the xlogs, validate everything was received from start to
 -- end
-SELECT test_connect('');
+SELECT test_connect(' port=7000');
  test_connect 
 --------------
  t

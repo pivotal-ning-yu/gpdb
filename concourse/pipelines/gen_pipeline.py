@@ -50,7 +50,7 @@ TEMPLATE_ENVIRONMENT = Environment(
 
 BASE_BRANCH = "master"  # when branching gpdb update to 7X_STABLE, 6X_STABLE, etc.
 
-SECRETS_PATH = os.path.expanduser('~/workspace/gp-continuous-integration/secrets')
+SECRETS_PATH = os.path.expanduser('~/src/gp-continuous-integration.git/secrets')
 
 # Variables that govern pipeline validation
 RELEASE_VALIDATOR_JOB = ['Release_Candidate']

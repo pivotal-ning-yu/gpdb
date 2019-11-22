@@ -2238,6 +2238,28 @@ XLogRead(char *buf, XLogRecPtr startptr, Size count)
 			sendFile = BasicOpenFile(path, O_RDONLY | PG_BINARY, 0);
 			if (sendFile < 0)
 			{
+#if 0
+				{
+					int error = errno;
+					char cwd[MAXPGPATH] = "";
+					char **names;
+
+#if 1
+					getcwd(cwd, sizeof(cwd));
+#endif
+
+					elog(LOG, "path = \"%s\", cwd = \"%s\", errno = %d",
+						 path, cwd, error);
+
+#if 1
+					names = pgfnames(XLOGDIR);
+					for (int i = 0; names[i]; i++)
+						elog(LOG, "- %s/%s", XLOGDIR, names[i]);
+					pgfnames_cleanup(names);
+#endif
+				}
+#endif
+
 				WalSndCtl->error = WALSNDERROR_WALREAD;
 				/*
 				 * If the file is not found, assume it's because the standby
