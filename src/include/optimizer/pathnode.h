@@ -36,8 +36,6 @@ extern void set_cheapest(RelOptInfo *parent_rel);
 extern void add_path(RelOptInfo *parent_rel, Path *new_path);
 extern void cdb_add_join_path(PlannerInfo *root, RelOptInfo *parent_rel, JoinType orig_jointype,
 				  Relids required_outer, JoinPath *new_path);
-extern Path *create_seqscan_path(PlannerInfo *root, RelOptInfo *rel,
-					Relids required_outer);
 extern ExternalPath *create_external_path(PlannerInfo *root, RelOptInfo *rel,
 					Relids required_outer);
 extern AppendOnlyPath *create_appendonly_path(PlannerInfo *root, RelOptInfo *rel,

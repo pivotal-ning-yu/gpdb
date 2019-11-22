@@ -605,6 +605,21 @@ mark_index_clustered(Relation rel, Oid indexOid, bool is_internal)
 	heap_close(pg_index, RowExclusiveLock);
 }
 
+bool
+index_is_clustered(Oid indexOid)
+{
+	HeapTuple	tuple;
+	Form_pg_index indexForm;
+	bool		clustered;
+
+	tuple = SearchSysCache1(INDEXRELID, ObjectIdGetDatum(indexOid));
+	indexForm = (Form_pg_index) GETSTRUCT(tuple);
+	clustered = indexForm->indisclustered;
+	ReleaseSysCache(tuple);
+
+	return clustered;
+}
+
 /*
  * rebuild_relation: rebuild an existing relation in index or physical order
  *

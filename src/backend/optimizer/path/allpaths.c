@@ -20,6 +20,7 @@
 #include <math.h>
 
 #include "access/sysattr.h"
+#include "commands/cluster.h"
 #include "catalog/pg_class.h"
 #include "catalog/pg_operator.h"
 #include "foreign/fdwapi.h"
@@ -478,6 +479,26 @@ set_plain_rel_size(PlannerInfo *root, RelOptInfo *rel, RangeTblEntry *rte)
 }
 
 /*
+ * This must be called after create_index_paths()
+ */
+static List *
+get_clustered_pathkeys(PlannerInfo *root, RelOptInfo *rel)
+{
+	ListCell   *lc;
+	ScanDirection scandir = ForwardScanDirection;
+
+	foreach(lc, rel->indexlist)
+	{
+		IndexOptInfo *index = (IndexOptInfo *) lfirst(lc);
+
+		if (index_is_clustered(index->indexoid))
+			return build_index_pathkeys(root, index, scandir);
+	}
+
+	return NIL;
+}
+
+/*
  * set_plain_rel_pathlist
  *	  Build access paths for a plain relation (no subquery, no inheritance)
  */
@@ -544,6 +565,8 @@ set_plain_rel_pathlist(PlannerInfo *root, RelOptInfo *rel, RangeTblEntry *rte)
 
 		if (rel->relstorage == RELSTORAGE_HEAP)
 			create_tidscan_paths(root, rel);
+
+		seqpath->pathkeys = get_clustered_pathkeys(root, rel);
 	}
 	/* we can add the seqscan path now */
 	add_path(rel, seqpath);

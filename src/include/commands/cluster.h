@@ -24,6 +24,7 @@ extern bool cluster_rel(Oid tableOid, Oid indexOid, bool recheck,
 extern void check_index_is_clusterable(Relation OldHeap, Oid indexOid,
 						   bool recheck, LOCKMODE lockmode);
 extern void mark_index_clustered(Relation rel, Oid indexOid, bool is_internal);
+extern bool index_is_clustered(Oid indexOid);
 
 extern Oid make_new_heap(Oid OIDOldHeap, Oid NewTableSpace, char relpersistence,
 			  LOCKMODE lockmode,
