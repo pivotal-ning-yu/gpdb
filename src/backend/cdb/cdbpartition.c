@@ -1512,10 +1512,10 @@ add_partition_rule(PartitionRule *rule)
 	values[Anum_pg_partition_rule_parlistvalues - 1] =
 			DirectFunctionCall1(textin,
 						CStringGetDatum(nodeToString(rule->parlistvalues)));
-	if (rule->parreloptions)
-		values[Anum_pg_partition_rule_parreloptions - 1] =
-				transformRelOptions((Datum) 0, rule->parreloptions, true, false);
-	else
+
+	values[Anum_pg_partition_rule_parreloptions - 1] =
+			transformRelOptions((Datum) 0, rule->parreloptions, true, false);
+	if (!values[Anum_pg_partition_rule_parreloptions - 1])
 		isnull[Anum_pg_partition_rule_parreloptions - 1] = true;
 
 	values[Anum_pg_partition_rule_partemplatespace -1] =
