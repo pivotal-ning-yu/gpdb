@@ -50,7 +50,7 @@ TEMPLATE_ENVIRONMENT = Environment(
 
 BASE_BRANCH = "master"  # when branching gpdb update to 7X_STABLE, 6X_STABLE, etc.
 
-SECRETS_PATH = os.path.expanduser('~/workspace/gp-continuous-integration/secrets')
+SECRETS_PATH = os.path.expanduser('~/src/gp-continuous-integration.git/secrets')
 
 # Variables that govern pipeline validation
 RELEASE_VALIDATOR_JOB = ['Release_Candidate']
@@ -86,7 +86,7 @@ JOBS_THAT_SHOULD_NOT_BLOCK_RELEASE = (
 
 def suggested_git_remote():
     """Try to guess the current git remote"""
-    default_remote = "<https://github.com/<github-user>/gpdb>"
+    default_remote = "https://github.com/pivotal-ning-yu/gpdb"
 
     remote = subprocess.check_output(["git", "ls-remote", "--get-url"]).decode('utf-8').rstrip()
 
