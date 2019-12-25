@@ -16,6 +16,9 @@
 #include "storage/gp_compress.h"
 #include "utils/builtins.h"
 
+/* FIXME: change makefile to link zstd statically */
+//#define ZSTD_STATIC_LINKING_ONLY
+
 #include <zstd.h>
 #include <zstd_errors.h>
 
@@ -35,6 +38,11 @@ PG_FUNCTION_INFO_V1(zstd_validator);
 PG_MODULE_MAGIC;
 #endif
 
+#ifdef ZSTD_STATIC_LINKING_ONLY
+static void *alloc_wrapper(void *opaque, size_t size);
+static void free_wrapper(void *opaque, void *address);
+#endif  /* ZSTD_STATIC_LINKING_ONLY */
+
 /* Internal state for zstd */
 typedef struct zstd_state
 {
@@ -43,6 +51,15 @@ typedef struct zstd_state
 
 	zstd_context *ctx;			/* ZSTD compression/decompresion contexts */
 } zstd_state;
+
+#ifdef ZSTD_STATIC_LINKING_ONLY
+static ZSTD_customMem customCMem =
+{
+	.customAlloc = alloc_wrapper,
+	.customFree  = free_wrapper,
+	.opaque      = NULL
+};
+#endif  /* ZSTD_STATIC_LINKING_ONLY */
 
 Datum
 zstd_constructor(PG_FUNCTION_ARGS)
@@ -67,8 +84,18 @@ zstd_constructor(PG_FUNCTION_ARGS)
 	state->compress = compress;
 
 	state->ctx = zstd_alloc_context();
+#ifdef ZSTD_STATIC_LINKING_ONLY
+	state->ctx->cctx = ZSTD_createCCtx_advanced(customCMem);
+	state->ctx->dctx = ZSTD_createDCtx_advanced(customCMem);
+#else  /* ZSTD_STATIC_LINKING_ONLY */
 	state->ctx->cctx = ZSTD_createCCtx();
 	state->ctx->dctx = ZSTD_createDCtx();
+
+	if (!state->ctx->cctx)
+		elog(ERROR, "zstd_constructor failed to create cctx");
+	if (!state->ctx->dctx)
+		elog(ERROR, "zstd_constructor failed to create dctx");
+#endif  /* ZSTD_STATIC_LINKING_ONLY */
 
 	PG_RETURN_POINTER(cs);
 }
@@ -172,3 +199,17 @@ zstd_validator(PG_FUNCTION_ARGS)
 {
 	PG_RETURN_VOID();
 }
+
+#ifdef ZSTD_STATIC_LINKING_ONLY
+static void *
+alloc_wrapper(void *opaque, size_t size)
+{
+	return MemoryContextAlloc(TopMemoryContext, (Size) size);
+}
+
+static void
+free_wrapper(void *opaque, void *address)
+{
+	pfree(address);
+}
+#endif  /* ZSTD_STATIC_LINKING_ONLY */
