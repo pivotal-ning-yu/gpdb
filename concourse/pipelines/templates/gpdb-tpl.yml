@@ -518,6 +518,7 @@ resources:
     json_key: ((concourse-gcs-resources-service-account-key))
     versioned_file: ((pipeline-name))/bin_gpdb_clients_centos6/bin_gpdb_clients.tar.gz
 
+{% if pipeline_configuration == "prod" %}
 - name: server-build-centos6
   type: gcs
   source:
@@ -525,6 +526,7 @@ resources:
     json_key: ((concourse-gcs-resources-service-account-key))
     regexp: server/published/master/server-build-(.*)-rhel6_x86_64((rc-build-type-gcs)).tar.gz
 
+{% endif %}
 {% endif %}
 {% if pipeline_configuration == "prod" %}
 - name: bin_gpdb_centos6_icw_green
@@ -603,6 +605,7 @@ resources:
     json_key: ((concourse-gcs-resources-service-account-key))
     versioned_file: ((pipeline-name))/bin_gpdb_clients_centos7/bin_gpdb_clients.tar.gz
 
+{% if pipeline_configuration == "prod" %}
 - name: server-build-centos7
   type: gcs
   source:
@@ -610,6 +613,7 @@ resources:
     json_key: ((concourse-gcs-resources-service-account-key))
     regexp: server/published/master/server-build-(.*)-rhel7_x86_64((rc-build-type-gcs)).tar.gz
 
+{% endif %}
 {% endif %}
 {% if "ubuntu18.04" in os_types %}
 - name: bin_gpdb_ubuntu18.04
@@ -626,6 +630,7 @@ resources:
     json_key: ((concourse-gcs-resources-service-account-key))
     versioned_file: ((pipeline-name))/bin_gpdb_clients_ubuntu18.04/bin_gpdb_clients.tar.gz
 
+{% if pipeline_configuration == "prod" %}
 - name: server-build-ubuntu18.04
   type: gcs
   source:
@@ -633,6 +638,7 @@ resources:
     json_key: ((concourse-gcs-resources-service-account-key))
     regexp: server/published/master/server-build-(.*)-ubuntu18.04_x86_64((rc-build-type-gcs)).tar.gz
 
+{% endif %}
 {% endif %}
 {% if "win" in os_types %}
 - name: terraform_windows
