@@ -256,6 +256,7 @@ SELECT * FROM list_db_tablespace('alter_db', 'adst_source_tablespace');
 
 -- Ensure that the standby master has removed the dboid dir under the target tablespace.
 SELECT gp_wait_until_triggered_fault('after_drop_database_directories', 1, dbid) FROM gp_segment_configuration WHERE content=-1 AND role='m';
+SELECT gp_wait_until_triggered_fault('inside_move_db_transaction', 1, dbid) FROM gp_segment_configuration WHERE role = 'p' AND content = -1;
 
 -- Then all the files of the database should remain in the dboid directory in the source tablespace directory for all database instances.
 CREATE TEMPORARY TABLE after_alter AS SELECT * FROM stat_db_objects('alter_db', 'adst_source_tablespace');
@@ -319,6 +320,7 @@ SELECT * FROM list_db_tablespace('alter_db', 'adst_source_tablespace');
 
 -- Ensure that the mirrors including the standby master have removed the dboid dir under the target tablespace.
 SELECT gp_wait_until_triggered_fault('after_drop_database_directories', 1, dbid) FROM gp_segment_configuration WHERE role='m';
+SELECT gp_wait_until_triggered_fault('inside_move_db_transaction', 1, dbid) FROM gp_segment_configuration WHERE role = 'p' AND content = 0;
 
 -- Then all the files of the database should remain in the dboid directory in the source tablespace directory for all database instances.
 CREATE TEMPORARY TABLE after_alter AS SELECT * FROM stat_db_objects('alter_db', 'adst_source_tablespace');
@@ -385,6 +387,8 @@ SELECT * FROM list_db_tablespace('alter_db', 'adst_source_tablespace');
 
 -- Ensure that the mirrors including the standby master have removed the dboid dir under the target tablespace.
 SELECT gp_wait_until_triggered_fault('after_drop_database_directories', 1, dbid) FROM gp_segment_configuration WHERE role='m';
+SELECT gp_wait_until_triggered_fault('inside_move_db_transaction', 1, dbid) FROM gp_segment_configuration WHERE role = 'p' AND content = 0;
+SELECT gp_wait_until_triggered_fault('transaction_abort_failure', 1, dbid) FROM gp_segment_configuration WHERE role = 'p' AND content = -1;
 
 -- Then all the files of the database should remain in the dboid directory in the source tablespace directory for all database instances.
 CREATE TEMPORARY TABLE after_alter AS SELECT * FROM stat_db_objects('alter_db', 'adst_source_tablespace');
@@ -447,6 +451,7 @@ SELECT * FROM list_db_tablespace('alter_db', 'adst_source_tablespace');
 
 -- Ensure that the mirrors including the standby master have removed the dboid dir under the target tablespace.
 SELECT gp_wait_until_triggered_fault('after_drop_database_directories', 1, dbid) FROM gp_segment_configuration WHERE role='m';
+SELECT gp_wait_until_triggered_fault('start_prepare', 1, dbid) FROM gp_segment_configuration WHERE role = 'p' AND content = 0;
 
 -- Then all the files of the database should remain in the dboid directory in the source tablespace directory for all database instances.
 CREATE TEMPORARY TABLE after_alter AS SELECT * FROM stat_db_objects('alter_db', 'adst_source_tablespace');
@@ -513,6 +518,8 @@ SELECT * FROM list_db_tablespace('alter_db', 'adst_source_tablespace');
 
 -- Ensure that the mirrors including the standby master have removed the dboid dir under the target tablespace.
 SELECT gp_wait_until_triggered_fault('after_drop_database_directories', 1, dbid) FROM gp_segment_configuration WHERE role='m';
+SELECT gp_wait_until_triggered_fault('start_prepare', 1, dbid) FROM gp_segment_configuration WHERE role = 'p' AND content = 0;
+SELECT gp_wait_until_triggered_fault('transaction_abort_failure', 1, dbid) FROM gp_segment_configuration WHERE role = 'p' AND content = -1;
 
 -- Then all the files of the database should remain in the dboid directory in the source tablespace directory for all database instances.
 CREATE TEMPORARY TABLE after_alter AS SELECT * FROM stat_db_objects('alter_db', 'adst_source_tablespace');
@@ -575,6 +582,7 @@ SELECT * FROM list_db_tablespace('alter_db', 'adst_source_tablespace');
 
 -- Ensure that the mirrors including the standby master have removed the dboid dir under the target tablespace.
 SELECT gp_wait_until_triggered_fault('after_drop_database_directories', 1, dbid) FROM gp_segment_configuration WHERE role='m';
+SELECT gp_wait_until_triggered_fault('transaction_abort_after_distributed_prepared', 1, dbid) FROM gp_segment_configuration WHERE role = 'p' AND content = -1;
 
 -- Then all the files of the database should remain in the dboid directory in the source tablespace directory for all database instances.
 CREATE TEMPORARY TABLE after_alter AS SELECT * FROM stat_db_objects('alter_db', 'adst_source_tablespace');
