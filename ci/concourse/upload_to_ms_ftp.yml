@@ -4,10 +4,26 @@ inputs:
   - name: gpdb_src
   - name: bin_gpdb_db_ms
   - name: bin_gpdb_clients_ms
-run:
-  path: gpdb_src/customer-patches/morgan-stanley/scripts/upload_to_ms_ftp.sh
 params:
   FTP_HOST:
   FTP_USERNAME:
   FTP_PASSWORD:
   FTP_PATH:
+run:
+  path: "bash"
+  args:
+    - -ec
+    - |
+      file=$(basename bin_gpdb_db_ms/*.zip)
+      # ftp_path got string of where to put the ftp file
+      ftpPath="${FTP_PATH}"/$(echo ${file} | sed 's/greenplum-db-\(.*\)-rhel.*/\1/')
+      pushd bin_gpdb_db_ms
+      ../gpdb_src/customer-patches/morgan-stanley/scripts/upload_to_ms_ftp.sh "${file}" "ftp://${FTP_USERNAME}:${FTP_PASSWORD}@${FTP_HOST}" "${ftpPath}"
+      printf "Successfully verified upload of ${file} and its sha256 to ${FTP_HOST}/${ftpPath}\n"
+      popd
+
+      file=$(basename bin_gpdb_clients_ms/*.zip)
+      pushd bin_gpdb_clients_ms
+      ../gpdb_src/customer-patches/morgan-stanley/scripts/upload_to_ms_ftp.sh "${file}" "ftp://${FTP_USERNAME}:${FTP_PASSWORD}@${FTP_HOST}" "${ftpPath}"
+      printf "Successfully verified upload of ${file} and its sha256 to ${FTP_HOST}/${ftpPath}\n"
+      popd

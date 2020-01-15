@@ -1,43 +1,71 @@
-#!/bin/bash -l
-set -exo pipefail
+#!/usr/bin/env bash
 
-CWDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ensureNoSlash() {
+	local input="${1}"
 
-move_artifacts() {
-  mkdir -p artifacts
-  cp -v bin_gpdb_db_ms/*.zip artifacts/
-  cp -v bin_gpdb_clients_ms/*.zip artifacts/
+	local len=${#input}
+	local lastChar=${input:len-1:1}
+
+	if [ "${lastChar}" != "/" ]; then
+		echo "${input}"
+	else
+		echo "${input:0:len-1}"
+	fi
 }
 
-generate_md5_checksums() {
-  pushd artifacts
-  md5sum * > checksums.md5
-  cat checksums.md5
-  popd
+uploadToFtp() {
+	local file="${1}"
+	local ftpHostWithUsernamePassword="${2}"
+	local ftpPath
+	ftpPath="$(ensureNoSlash "${3}")"
+
+	curl --retry 10 --retry-delay 5 --no-epsv --ftp-create-dirs --upload-file "${file}" "${ftpHostWithUsernamePassword}/${ftpPath}/"
+	return
 }
 
-determine_version() {
-  pushd artifacts
-  FTP_DIRECTORY=$(ls -c1 greenplum-db-*.zip |  sed 's/greenplum-db-\(.*\)-rhel.*/\1/')
-  export FTP_DIRECTORY
-  popd
+computeSha256() {
+	local file="${1}"
+	sha256sum "${file}" >"${file}.sha256"
+	return
 }
 
-upload_to_ftp() {
-  pushd artifacts
-  $CWDIR/ftp_directory.exp
-  $CWDIR/ftp.exp
-  sed 's/$/.fetched/g' checksums.md5 > checksums.md5.fetched
-  md5sum -c checksums.md5.fetched
-  popd
+downloadFromFtp() {
+	local file="${1}"
+	local ftpHostWithUsernamePassword="${2}"
+	local ftpPath
+	ftpPath="$(ensureNoSlash "${3}")"
+
+	curl --retry 10 --retry-delay 5 --no-epsv -o "${file}" "${ftpHostWithUsernamePassword}/${ftpPath}/${file}"
+	return
 }
 
-function _main() {
-  yum -y install expect ftp
-  move_artifacts
-  generate_md5_checksums
-  determine_version
-  upload_to_ftp
+verifySha256() {
+	local file="${1}"
+	sha256sum --check "${file}.sha256"
+	return
 }
 
-_main "$@"
+push-to-ms-ftp() {
+	local file="${1}"
+	local hostWithUsernamePassword="${2}"
+	local ftpPath="${3}"
+
+	computeSha256 "${file}"
+	uploadToFtp "${file}" "${hostWithUsernamePassword}" "${ftpPath}"
+	uploadToFtp "${file}.sha256" "${hostWithUsernamePassword}" "${ftpPath}"
+
+	mkdir downloads
+	pushd downloads || exit
+	{
+		downloadFromFtp "${file}" "${hostWithUsernamePassword}" "${ftpPath}"
+		downloadFromFtp "${file}.sha256" "${hostWithUsernamePassword}" "${ftpPath}"
+		verifySha256 "${file}"
+	}
+	popd || exit
+	return
+}
+
+if [ "${BASH_SOURCE[0]}" == "${0}" ]; then
+	set -e
+	push-to-ms-ftp "$@"
+fi
