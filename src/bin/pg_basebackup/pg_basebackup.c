@@ -50,7 +50,7 @@ bool		streamwal = false;
 bool		fastcheckpoint = false;
 bool		writerecoveryconf = false;
 int			standby_message_timeout = 10 * 1000;		/* 10 sec = default */
-#define MAX_EXCLUDE 255
+#define MAX_EXCLUDE 65535
 int			num_exclude = 0;
 char	   *excludes[MAX_EXCLUDE];
 
