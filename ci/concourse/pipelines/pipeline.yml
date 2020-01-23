@@ -43,7 +43,6 @@ groups:
   - regression_tests_gpfdist_sles
   - regression_tests_gpcloud_centos
   - regression_tests_gphdfs_hadoop_centos
-  - regression_tests_gphdfs_mapr_centos
   - MU_check_centos
   - pt-rebuild
   - gpdb_rc_packaging_centos
@@ -94,7 +93,6 @@ groups:
   - ic_externaltable_centos
   - regression_tests_gpcloud_centos
   - regression_tests_gphdfs_hadoop_centos
-  - regression_tests_gphdfs_mapr_centos
   - MU_check_centos
   - pt-rebuild
   - TINC_pgcrypto
@@ -1839,43 +1837,6 @@ jobs:
     image: centos-gpdb-dev-5
     params:
       TEST_OS: centos
-
-- name: regression_tests_gphdfs_mapr_centos
-  ensure:
-    <<: *set_failed
-  on_success:
-    <<: *ccp_destroy
-  plan:
-  - aggregate:
-    - get: gpdb_src
-      passed: [compile_gpdb_centos7]
-    - get: bin_gpdb
-      passed: [compile_gpdb_centos7]
-      trigger: true
-      resource: bin_gpdb_centos7
-    - get: ccp_src
-    - get: centos-gpdb-dev-7
-    - get: sync_tools_gpdb
-      passed: [compile_gpdb_centos7]
-      resource: sync_tools_gpdb_centos7
-  - put: terraform
-    params:
-      <<: *ccp_default_params
-      vars:
-        <<: *ccp_default_vars
-        number_of_nodes: 1
-        PLATFORM: centos7
-        instance_type: n1-standard-8
-  - task: gen_and_initialize_mapr
-    file: gpdb_src/ci/concourse/gen_mapr.yml
-    params:
-      <<: *ccp_gen_cluster_default_params
-  - task: regression_tests_gphdfs_mapr
-    file: gpdb_src/ci/concourse/regression_tests_gphdfs_mapr.yml
-    image: centos-gpdb-dev-7
-    params:
-      TEST_OS: centos
-      TARGET_OS_VERSION: 7
 
 ## ======================================================================
 ## terraform jobs
@@ -3857,7 +3818,6 @@ jobs:
       - regression_tests_gpfdist_sles
       - regression_tests_gpcloud_centos
       - regression_tests_gphdfs_hadoop_centos
-      - regression_tests_gphdfs_mapr_centos
       - MU_check_centos
       - pt-rebuild
       - gpdb_rc_packaging_centos
