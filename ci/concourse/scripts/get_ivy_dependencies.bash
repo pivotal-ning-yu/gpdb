@@ -12,7 +12,10 @@ function make_sync_tools() {
 
 function make_gphdfs_dist() {
   pushd gpdb_src/gpAux/extensions/gphdfs
+    ant download-ivy
     make IVYREPO_HOST="$IVYREPO_HOST" IVYREPO_REALM="$IVYREPO_REALM" IVYREPO_USER="$IVYREPO_USER" IVYREPO_PASSWD="$IVYREPO_PASSWD" dist
+    mv gnet-1.1-javadoc.tar dist
+    mv gnet-1.0-javadoc.tar dist
   popd
 }
 

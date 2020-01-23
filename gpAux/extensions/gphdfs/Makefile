@@ -7,6 +7,7 @@ PG_CPPFLAGS = -I$(libpq_srcdir)
 PG_LIBS = $(libpq_pgport)
 
 ANT = ant
+TAR = tar
 ANT_OPTS="-Djavax.net.ssl.trustStore=../../releng/make/dependencies/cacerts"
 
 PG_CONFIG := pg_config
@@ -29,10 +30,10 @@ IVY_HTTPAUTH = -Divyrepo.host="$(IVYREPO_HOST)" \
 	-Divyrepo.user="$(IVYREPO_USER)" \
 	-Divyrepo.passwd="$(IVYREPO_PASSWD)"
 
-all: $(JAR_FILES) unittest $(JAVADOC_TARS)
+all: $(JAR_FILES)
 
 .PHONY: dist
-dist: $(JAR_FILES)
+dist: $(JAR_FILES) $(JAVADOC_TARS)
 
 dist/gphd-1.0-gnet-1.0.0.1.jar:
 	$(ANT) clean
@@ -147,7 +148,7 @@ install-jars: $(JAR_FILES)
 	$(INSTALL_PROGRAM) hadoop_env.sh$(X) '$(DESTDIR)$(libdir)/hadoop/hadoop_env.sh$(X)'
 
 .PHONY: install-javadocs
-install-javadocs: $(JAVADOC_TARS)
+install-javadocs:
 	$(INSTALL_DATA) *-javadoc.tar '$(DESTDIR)$(docdir)/javadoc'
 
 .PHONY: install-gphdfs.so

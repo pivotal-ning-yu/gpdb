@@ -45,7 +45,7 @@ function gen_env(){
 		tar zxf /tmp/hadoop-2.6.5.tar.gz -C /tmp
 		export HADOOP_HOME=/tmp/hadoop-2.6.5
 
-		wget -O \${HADOOP_HOME}/share/hadoop/common/lib/parquet-hadoop-bundle-1.7.0.jar http://central.maven.org/maven2/org/apache/parquet/parquet-hadoop-bundle/1.7.0/parquet-hadoop-bundle-1.7.0.jar
+		wget -O \${HADOOP_HOME}/share/hadoop/common/lib/parquet-hadoop-bundle-1.7.0.jar https://repo1.maven.org/maven2/org/apache/parquet/parquet-hadoop-bundle/1.7.0/parquet-hadoop-bundle-1.7.0.jar --no-check-certificate
 		cat > "\${HADOOP_HOME}/etc/hadoop/core-site.xml" <<-EOFF
 			<configuration>
 			<property>
@@ -61,7 +61,7 @@ EOFF
 		\${HADOOP_HOME}/sbin/start-dfs.sh
 	else
 		export HADOOP_HOME=/opt/mapr/hadoop/hadoop-2.7.0
-		wget -O \${HADOOP_HOME}/share/hadoop/common/lib/parquet-hadoop-bundle-1.8.1.jar http://central.maven.org/maven2/org/apache/parquet/parquet-hadoop-bundle/1.8.1/parquet-hadoop-bundle-1.8.1.jar
+		wget -O \${HADOOP_HOME}/share/hadoop/common/lib/parquet-hadoop-bundle-1.8.1.jar https://repo1.maven.org/maven2/org/apache/parquet/parquet-hadoop-bundle/1.8.1/parquet-hadoop-bundle-1.8.1.jar --no-check-certificate
 	fi
 
 	cd "\${1}/gpdb_src/gpAux/extensions/gphdfs/regression/integrate"

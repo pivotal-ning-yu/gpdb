@@ -22,7 +22,7 @@
   <loadproperties srcfile="${basedir}/ivy/libraries.properties" />
   <property name="build.ivy.lib.dir" value="${build.dir}/lib" />
   <property name="ivy.artifact.retrieve.pattern" value="[artifact]-[revision](-[classifier]).[ext]" />
-  <property name="ivy.install.version" value="2.2.0" />
+  <property name="ivy.install.version" value="2.5.0" />
   <property name="ivyrepo.host" value="dummy_host"/>
   <property name="ivyrepo.realm" value="dummy_realm"/>
   <property name="ivyrepo.user" value="dummy_user"/>
@@ -70,7 +70,9 @@
            nowarn="${compiler.generate.no.warnings}"
            fork="yes"
            verbose="${compiler.verbose}"
-           memoryMaximumSize="${compiler.max.memory}">
+           memoryMaximumSize="${compiler.max.memory}"
+           source="1.6"
+           target="1.6">
       <src path="${src.dir}" />
     </javac>
 
@@ -102,10 +104,10 @@
 
   <target name="download-ivy" unless="offline">
     <mkdir dir="${ivy.jar.dir}" />
-    <get src="http://repo2.maven.org/maven2/org/apache/ivy/ivy/${ivy.install.version}/ivy-${ivy.install.version}.jar" dest="${ivy.jar.file}" usetimestamp="true" />
+    <get src="https://repo1.maven.org/maven2/org/apache/ivy/ivy/${ivy.install.version}/ivy-${ivy.install.version}.jar" dest="${ivy.jar.file}" usetimestamp="true" />
   </target>
 
-  <target name="ivy-init" depends="download-ivy">
+  <target name="ivy-init">
     <path id="ivy.lib.path">
       <fileset dir="${ivy.jar.dir}" includes="*.jar" />
     </path>
@@ -148,7 +150,9 @@
            nowarn="${compiler.generate.no.warnings}"
            fork="yes"
            verbose="${compiler.verbose}"
-           memoryMaximumSize="${compiler.max.memory}">
+           memoryMaximumSize="${compiler.max.memory}"
+           source="1.6"
+           target="1.6">
       <src path="${test.dir}" />
     </javac>
 
