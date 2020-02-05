@@ -573,14 +573,13 @@ BEGIN {
         if ($colorscheme =~ m/list|dump/i)
         {
             use IO::File;
-            use POSIX qw(tmpnam);
+            use File::Temp;
 
-            my ($tmpnam, $tmpfh);
+            my $tmpnam;
+            my $tmpfh;
 
-            for (;;) {
-                $tmpnam = tmpnam();
-                sysopen($tmpfh, $tmpnam, O_RDWR | O_CREAT | O_EXCL) && last;
-            }
+            $tmpfh = File::Temp->new();
+            $tmpnam = $tmpfh->filename;
 
             # write to a temporary file
             dodumpcolor(\%glob_coltab, $tmpfh);
@@ -1281,16 +1280,12 @@ if (1)
             $glob_optn = "jpg";
             
             use IO::File;
-            use POSIX qw(tmpnam);
-
+            use File::Temp;
             my $tmpnam;
+            my $tmpfh;
 
-            for (;;) {
-                my $tmpfh;
-
-                $tmpnam = tmpnam();
-                sysopen($tmpfh, $tmpnam, O_RDWR | O_CREAT | O_EXCL) && last;
-            }
+            $tmpfh = File::Temp->new();
+            $tmpnam = $tmpfh->filename;
 
             # create a temporary directory name -- just append ".dir"
             # to the new tempfile name and mkdir
@@ -1406,16 +1401,12 @@ if (1)
             # instead.
 
             use IO::File;
-            use POSIX qw(tmpnam);
-
+            use File::Temp;
             my $tmpnam;
+            my $tmpfh;
+            $tmpfh = File::Temp->new();
+            $tmpnam = $tmpfh->filename;
 
-            for (;;) {
-                my $tmpfh;
-
-                $tmpnam = tmpnam();
-                sysopen($tmpfh, $tmpnam, O_RDWR | O_CREAT | O_EXCL) && last;
-            }
             open my $oldout, ">&STDOUT"     or die "Can't dup STDOUT: $!";
 
             close STDOUT;
