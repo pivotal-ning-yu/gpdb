@@ -414,52 +414,6 @@ file_groups:
       included_files:
       file_version: 4.0.0
 
-#- name: Greenplum Text
-#  product_files:
-#    - file: file://gptext/greenplum-text-(.*)-rhel6_x86_64.tar
-#      upload_as: Greenplum Text ${VERSION_REGEX}
-#      description:
-#      file_type: Software
-#      docs_url:
-#      system_requirements:
-#      platforms:
-#      included_files:
-#      file_version: ${VERSION_REGEX}
-#
-#
-#- name: Greenplum Sandboxes
-#  product_files:
-#    - file: file://sandbox-ami-asset-pdf/GPDB-(.*)-Sandbox-aws-reference.pdf
-#      upload_as: Greenplum Database ${VERSION_REGEX} Sandbox for AWS
-#      description:
-#      file_type: Software
-#      docs_url:
-#      system_requirements:
-#      platforms:
-#      included_files:
-#      file_version: ${VERSION_REGEX}
-#    - file: file://sandbox-ami-asset-pdf/GPDB-(.*)-Sandbox-aws-reference.pdf
-#      upload_as: Greenplum Database ${VERSION_REGEX} Sandbox for AWS
-#      description:
-#      file_type: Software
-#      docs_url:
-#      system_requirements:
-#      platforms:
-#      included_files:
-#      file_version: ${VERSION_REGEX}
-#
-#- name: Open Source Code (GPL)
-#  product_files:
-#    - file: s3://gpdb5-release-builds/gpl_source_code/gcc-(.*).tar.bz2
-#      upload_as: Source Code for GCC ${VERSION_REGEX} and Associated Libraries
-#      description:
-#      file_type: Software
-#      docs_url:
-#      system_requirements:
-#      platforms:
-#      included_files:
-#      file_version: ${VERSION_REGEX}
-
 product_files:
 - file: file://osl_gpdb4/open_source_license_GPDB_-_4.3_-_GA.pdf
   upload_as: Open Source Licenses for GPDB 4.3.x
