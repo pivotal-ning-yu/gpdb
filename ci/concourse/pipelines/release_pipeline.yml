@@ -21,9 +21,9 @@ resources:
 - name: gpdb_src
   type: git
   source:
-    branch: {{gpdb-git-branch}}
-    private_key: {{gpdb-git-key}}
-    uri: {{gpdb-git-remote}}
+    branch: ((gpdb-git-branch))
+    private_key: ((gpdb-git-key))
+    uri: ((gpdb-git-remote))
     tag_filter: 4.3.*
 
 - name: centos-gpdb-dev-5
@@ -52,535 +52,535 @@ resources:
 - name: bin_gpdb_centos5
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: bin_gpdb_centos5/bin_gpdb.tar.gz
 
 - name: bin_gpdb_centos5_with_components
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: bin_gpdb_centos5_with_components/bin_gpdb.tar.gz
 
 - name: bin_gpdb_sles11
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: bin_gpdb_sles11/bin_gpdb.tar.gz
 
 - name: bin_gpdb_sles11_with_components
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: bin_gpdb_sles11_with_components/bin_gpdb.tar.gz
 
 - name: sync_tools_gpdb_centos
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: sync_tools_gpdb_centos/sync_tools_gpdb.tar.gz
 
 - name: ccache_empty
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: ccache_empty/ccache_gpdb.tar.gz
 
 - name: ccache_gpdb_centos5
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: ccache_gpdb_centos5/ccache_gpdb.tar.gz
 
 - name: ccache_gpdb_centos6
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: ccache_gpdb_centos6/ccache_gpdb.tar.gz
 
 - name: ccache_gpdb_centos7
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: ccache_gpdb_centos7/ccache_gpdb.tar.gz
 
 - name: ccache_gpdb_sles11
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: ccache_gpdb_sles11/ccache_gpdb.tar.gz
 
 - name: bin_gpdb_windows_clients
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     regexp: deliverables/greenplum-clients-4.(.*)-WinXP-x86_32.msi
 
 - name: bin_gpdb_windows_connectivity
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     regexp: deliverables/greenplum-connectivity-4.(.*)-WinXP-x86_32.msi
 
 - name: bin_gpdb_windows_loaders
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     regexp: deliverables/greenplum-loaders-4.(.*)-WinXP-x86_32.msi
 
 - name: component_gpbackup
   type: s3
   source:
-    access_key_id: {{gpdb5-pipeline-bucket-access-key-id}}
-    bucket: {{component-bucket-name}}
-    region_name: {{gpdb5-pipeline-aws-region}}
-    secret_access_key: {{gpdb5-pipeline-bucket-secret-access-key}}
+    access_key_id: ((gpdb5-pipeline-bucket-access-key-id))
+    bucket: ((component-bucket-name))
+    region_name: ((gpdb5-pipeline-aws-region))
+    secret_access_key: ((gpdb5-pipeline-bucket-secret-access-key))
     regexp: components/gpbackup/gpbackup-(1\.12\.1).tar.gz
 
 - name: component_gpcopy
   type: s3
   source:
-    access_key_id: {{gpdb5-pipeline-bucket-access-key-id}}
-    bucket: {{component-bucket-name}}
-    region_name: {{gpdb5-pipeline-aws-region}}
-    secret_access_key: {{gpdb5-pipeline-bucket-secret-access-key}}
+    access_key_id: ((gpdb5-pipeline-bucket-access-key-id))
+    bucket: ((component-bucket-name))
+    region_name: ((gpdb5-pipeline-aws-region))
+    secret_access_key: ((gpdb5-pipeline-bucket-secret-access-key))
     regexp: components/gpcopy/gpcopy-(1\.4\.0).tar.gz
 
 - name: component_gpcopy_helper
   type: s3
   source:
-    access_key_id: {{gpdb5-pipeline-bucket-access-key-id}}
-    bucket: {{component-bucket-name}}
-    region_name: {{gpdb5-pipeline-aws-region}}
-    secret_access_key: {{gpdb5-pipeline-bucket-secret-access-key}}
+    access_key_id: ((gpdb5-pipeline-bucket-access-key-id))
+    bucket: ((component-bucket-name))
+    region_name: ((gpdb5-pipeline-aws-region))
+    secret_access_key: ((gpdb5-pipeline-bucket-secret-access-key))
     regexp: components/gpcopy/gpcopy_helper-(1\.4\.0).tar.gz
 
 - name: sync_tools_gpdb_sles
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: sync_tools_gpdb_sles/sync_tools_gpdb.tar.gz
 
 - name: installer_rhel5_gpdb_rc
   type: s3-week-long-urls
   source:
     private: true
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     regexp: deliverables/greenplum-db-4.(.*)-rhel5-x86_64.zip
 
 - name: installer_rhel5_gpdb_rc_sha256
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     regexp: deliverables/greenplum-db-4.(.*)-rhel5-x86_64.zip.sha256
 
 - name: installer_rhel5_gpdb_clients
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     regexp: deliverables/greenplum-clients-4.(.*)-build-1-rhel5-x86_64.zip
 
 - name: installer_rhel5_gpdb_clients_sha256
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     regexp: deliverables/greenplum-clients-4.(.*)-build-1-rhel5-x86_64.zip.sha256
 
 - name: installer_sles11_gpdb_rc
   type: s3-week-long-urls
   source:
     private: true
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     regexp: deliverables/greenplum-db-4.(.*)-sles11-x86_64.zip
 
 - name: installer_sles11_gpdb_rc_sha256
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     regexp: deliverables/greenplum-db-4.(.*)-sles11-x86_64.zip.sha256
 
 - name: installer_appliance_rhel5_gpdb_rc
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     regexp: deliverables/greenplum-db-appliance-4.(.*)-rhel5-x86_64.zip
 
 - name: installer_appliance_rhel5_gpdb_rc_sha256
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     regexp: deliverables/greenplum-db-appliance-4.(.*)-rhel5-x86_64.zip.sha256
 
 - name: qautils_rhel5_tarball
   type: s3-week-long-urls
   source:
     private: true
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: deliverables/QAUtils-rhel5-x86_64.tar.gz
 
 - name: qautils_sles11_tarball
   type: s3-week-long-urls
   source:
     private: true
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: deliverables/QAUtils-sles11-x86_64.tar.gz
 
 - name: installer_sles11_gpdb_clients
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     regexp: deliverables/greenplum-clients-4.(.*)-build-1-sles11-x86_64.zip
 
 - name: installer_sles11_gpdb_clients_sha256
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     regexp: deliverables/greenplum-clients-4.(.*)-build-1-sles11-x86_64.zip.sha256
 
 - name: installer_rhel5_gpdb_connectivity
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     regexp: deliverables/greenplum-connectivity-4.(.*)-build-1-rhel5-x86_64.zip
 
 - name: installer_rhel5_gpdb_connectivity_sha256
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     regexp: deliverables/greenplum-connectivity-4.(.*)-build-1-rhel5-x86_64.zip.sha256
 
 - name: installer_sles11_gpdb_connectivity
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     regexp: deliverables/greenplum-connectivity-4.(.*)-build-1-sles11-x86_64.zip
 
 - name: installer_sles11_gpdb_connectivity_sha256
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     regexp: deliverables/greenplum-connectivity-4.(.*)-build-1-sles11-x86_64.zip.sha256
 
 - name: installer_rhel5_gpdb_loaders
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     regexp: deliverables/greenplum-loaders-4.(.*)-build-1-rhel5-x86_64.zip
 
 - name: installer_rhel5_gpdb_loaders_sha256
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     regexp: deliverables/greenplum-loaders-4.(.*)-build-1-rhel5-x86_64.zip.sha256
 
 - name: installer_sles11_gpdb_loaders
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     regexp: deliverables/greenplum-loaders-4.(.*)-build-1-sles11-x86_64.zip
 
 - name: installer_sles11_gpdb_loaders_sha256
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     regexp: deliverables/greenplum-loaders-4.(.*)-build-1-sles11-x86_64.zip.sha256
 
 - name: postgis_rhel5_gppkg
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: deliverables/postgis-ossv2.0.3_pv2.0.2_gpdb4.3orca-rhel5-x86_64.gppkg
 
 - name: postgis_sles11_gppkg
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: deliverables/postgis-ossv2.0.3_pv2.0.2_gpdb4.3orca-sles11-x86_64.gppkg
 
 - name: ddboost_rhel5_gppkg
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: deliverables/ddboostlib-2.6.2_pv1.2.1_gpdb4.3orca-rhel5-x86_64.gppkg
 
 - name: ddboost_sles11_gppkg
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: deliverables/ddboostlib-2.6.2_pv1.2.1_gpdb4.3orca-sles11-x86_64.gppkg
 
 - name: pgcrypto_rhel5_gppkg
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: deliverables/pgcrypto-ossv1.1_pv1.3_gpdb4.3orca-rhel5-x86_64.gppkg
 
 - name: pgcrypto_sles11_gppkg
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: deliverables/pgcrypto-ossv1.1_pv1.3_gpdb4.3orca-sles11-x86_64.gppkg
 
 - name: plperl_rhel5_gppkg
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: deliverables/plperl-ossv5.12.4_pv1.3_gpdb4.3orca-rhel5-x86_64.gppkg
 
 - name: plperl_rhel6_gppkg
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: deliverables/plperl-ossv5.12.4_pv1.3_gpdb4.3orca-rhel6-x86_64.gppkg
 
 - name: plperl_rhel7_gppkg
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: deliverables/plperl-ossv5.12.4_pv1.3_gpdb4.3orca-rhel7-x86_64.gppkg
 
 - name: plperl_sles11_gppkg
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: deliverables/plperl-ossv5.12.4_pv1.3_gpdb4.3orca-sles11-x86_64.gppkg
 
 - name: pljava_rhel5_gppkg
   type: s3
   source:
-    region_name: {{aws-region}}
-    access_key_id: {{bucket-access-key-id}}
-    secret_access_key: {{bucket-secret-access-key}}
-    bucket: {{procedural-languages-concourse-bucket}}
+    region_name: ((aws-region))
+    access_key_id: ((bucket-access-key-id))
+    secret_access_key: ((bucket-secret-access-key))
+    bucket: ((procedural-languages-concourse-bucket))
     regexp: release/gpdb4/pljava/pljava-(.*)-gp4-rhel5-x86_64.gppkg
 
 - name: pljava_sles11_gppkg
   type: s3
   source:
-    region_name: {{aws-region}}
-    access_key_id: {{bucket-access-key-id}}
-    secret_access_key: {{bucket-secret-access-key}}
-    bucket: {{procedural-languages-concourse-bucket}}
+    region_name: ((aws-region))
+    access_key_id: ((bucket-access-key-id))
+    secret_access_key: ((bucket-secret-access-key))
+    bucket: ((procedural-languages-concourse-bucket))
     regexp: release/gpdb4/pljava/pljava-(.*)-gp4-sles11-x86_64.gppkg
 
 - name: plr_rhel5_gppkg
   type: s3
   source:
-    region_name: {{aws-region}}
-    access_key_id: {{bucket-access-key-id}}
-    secret_access_key: {{bucket-secret-access-key}}
-    bucket: {{procedural-languages-concourse-bucket}}
+    region_name: ((aws-region))
+    access_key_id: ((bucket-access-key-id))
+    secret_access_key: ((bucket-secret-access-key))
+    bucket: ((procedural-languages-concourse-bucket))
     regexp: release/gpdb4/plr/plr-(.*)-GPDB4.3-rhel5-x86_64.gppkg
 
 - name: plr_rhel6_gppkg
   type: s3
   source:
-    region_name: {{aws-region}}
-    access_key_id: {{bucket-access-key-id}}
-    secret_access_key: {{bucket-secret-access-key}}
-    bucket: {{procedural-languages-concourse-bucket}}
+    region_name: ((aws-region))
+    access_key_id: ((bucket-access-key-id))
+    secret_access_key: ((bucket-secret-access-key))
+    bucket: ((procedural-languages-concourse-bucket))
     regexp: release/gpdb4/plr/plr-(.*)-GPDB4.3-rhel6-x86_64.gppkg
 
 - name: plr_sles11_gppkg
   type: s3
   source:
-    region_name: {{aws-region}}
-    access_key_id: {{bucket-access-key-id}}
-    secret_access_key: {{bucket-secret-access-key}}
-    bucket: {{procedural-languages-concourse-bucket}}
+    region_name: ((aws-region))
+    access_key_id: ((bucket-access-key-id))
+    secret_access_key: ((bucket-secret-access-key))
+    bucket: ((procedural-languages-concourse-bucket))
     regexp: release/gpdb4/plr/plr-(.*)-GPDB4.3-sles11-x86_64.gppkg
 
 - name: ds_python_rhel7
   type: s3
   source:
-    region_name: {{aws-region}}
-    access_key_id: {{bucket-access-key-id}}
-    secret_access_key: {{bucket-secret-access-key}}
-    bucket: {{procedural-languages-concourse-bucket}}
+    region_name: ((aws-region))
+    access_key_id: ((bucket-access-key-id))
+    secret_access_key: ((bucket-secret-access-key))
+    bucket: ((procedural-languages-concourse-bucket))
     regexp: release/gpdb4/data-science/DataSciencePython-(.*)-gp4-rhel7-x86_64.gppkg
 
 - name: ds_r_rhel7
   type: s3
   source:
-    region_name: {{aws-region}}
-    access_key_id: {{bucket-access-key-id}}
-    secret_access_key: {{bucket-secret-access-key}}
-    bucket: {{procedural-languages-concourse-bucket}}
+    region_name: ((aws-region))
+    access_key_id: ((bucket-access-key-id))
+    secret_access_key: ((bucket-secret-access-key))
+    bucket: ((procedural-languages-concourse-bucket))
     regexp: release/gpdb4/data-science/DataScienceR-(.*)-gp4-rhel7-x86_64.gppkg
 
 - name: libgppc_rhel5_gppkg
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: deliverables/libgppc-pv1.2_gpdb4.3orca-rhel5-x86_64.gppkg
 
 - name: pivnet_client
   type: git
   source:
-    branch: {{pivnet-client-branch}}
-    private_key: {{pivnet-client-remote-deploy-key}}
-    uri: {{pivnet-client-git-remote}}
-    tag_filter: {{pivnet-client-version}}
+    branch: ((pivnet-client-branch))
+    private_key: ((pivnet-client-remote-deploy-key))
+    uri: ((pivnet-client-git-remote))
+    tag_filter: ((pivnet-client-version))
 
 - name: commit_log_email
   type: email
   source:
     smtp:
-      host: {{smtp-host}}
-      port: {{smpt-port}} # this must be a string
-      username: {{smtp-username}}
-      password: {{smtp-password}}
+      host: ((smtp-host))
+      port: ((smpt-port)) # this must be a string
+      username: ((smtp-username))
+      password: ((smtp-password))
     from: "pa-toolsmiths@pivotal.io"
     to:
-      - {{commit-log-smtp-receiver-1}}
-      - {{commit-log-smtp-receiver-2}}
+      - ((commit-log-smtp-receiver-1))
+      - ((commit-log-smtp-receiver-2))
 
 - name: staged_on_pivnet_email
   type: email
   source:
     smtp:
-      host: {{smtp-host}}
-      port: {{smpt-port}} # this must be a string
-      username: {{smtp-username}}
-      password: {{smtp-password}}
+      host: ((smtp-host))
+      port: ((smpt-port)) # this must be a string
+      username: ((smtp-username))
+      password: ((smtp-password))
     from: "pa-toolsmiths@pivotal.io"
     to:
-      - {{pivnet-smtp-receiver-1}}
-      - {{pivnet-smtp-receiver-2}}
+      - ((pivnet-smtp-receiver-1))
+      - ((pivnet-smtp-receiver-2))
 
 ## ============================
 ## Resources for Morgan Stanley
@@ -589,141 +589,141 @@ resources:
 - name: ds_python_rhel6
   type: s3
   source:
-    region_name: {{aws-region}}
-    access_key_id: {{bucket-access-key-id}}
-    secret_access_key: {{bucket-secret-access-key}}
-    bucket: {{procedural-languages-concourse-bucket}}
+    region_name: ((aws-region))
+    access_key_id: ((bucket-access-key-id))
+    secret_access_key: ((bucket-secret-access-key))
+    bucket: ((procedural-languages-concourse-bucket))
     regexp: release/gpdb4/data-science/DataSciencePython-(.*)-gp4-rhel6-x86_64.gppkg
 
 - name: ds_r_rhel6
   type: s3
   source:
-    region_name: {{aws-region}}
-    access_key_id: {{bucket-access-key-id}}
-    secret_access_key: {{bucket-secret-access-key}}
-    bucket: {{procedural-languages-concourse-bucket}}
+    region_name: ((aws-region))
+    access_key_id: ((bucket-access-key-id))
+    secret_access_key: ((bucket-secret-access-key))
+    bucket: ((procedural-languages-concourse-bucket))
     regexp: release/gpdb4/data-science/DataScienceR-(.*)-gp4-rhel6-x86_64.gppkg
 
 - name: madlib_rhel5_gppkg
   type: s3
   source:
-    bucket: {{madlib-bucket-name}}
-    region_name: {{aws-region}}
-    access_key_id: {{gpdb5-pipeline-bucket-access-key-id}}
-    secret_access_key: {{gpdb5-pipeline-bucket-secret-access-key}}
+    bucket: ((madlib-bucket-name))
+    region_name: ((aws-region))
+    access_key_id: ((gpdb5-pipeline-bucket-access-key-id))
+    secret_access_key: ((gpdb5-pipeline-bucket-secret-access-key))
     versioned_file: release/gpdb4/madlib-1.16-gp4.3orca-rhel5-x86_64.gppkg
 
 - name: mit_krb5_rhel62_tarball
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{snowflakes-bucket}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((snowflakes-bucket))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: mit_krb5_1.13/krb5-rhel62_x86_64-1.13.targz
 
 - name: greenplum_jdbc_zip
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{snowflakes-bucket}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((snowflakes-bucket))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: datadirect_jdbc/greenplum_jdbc_5.1.4.000275.zip
 
 - name: gpsupport_package
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{snowflakes-bucket}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((snowflakes-bucket))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: gpsupport/gpsupport-1.2.0.0.gz
 
 - name: gpmt_binary
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{snowflakes-bucket}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((snowflakes-bucket))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: gpmt_1.1.2/gpmt.gz
 
 - name: patched_bin_gpdb_ms
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: ms_intermediates/bin_gpdb.tar.gz
 
 - name: ms_installer_rhel5_gpdb_rc
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     regexp: ms_deliverables/greenplum-db-(.*)-rhel5-x86_64.zip
 
 - name: ms_installer_rhel5_gpdb_rc_sha256
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     regexp: ms_deliverables/greenplum-db-(.*)-rhel5-x86_64.zip.sha256
 
 - name: ms_installer_rhel5_gpdb_bundled_clients
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     regexp: ms_deliverables/greenplum-clients-(.*)-rhel5-x86_64.zip
 
 - name: ms_installer_rhel5_gpdb_bundled_clients_sha256
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{bucket-name}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     regexp: ms_deliverables/greenplum-clients-(.*)-rhel5-x86_64.zip.sha256
 
 - name: jre
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: {{snowflakes-bucket}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((snowflakes-bucket))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: jre/jre-1.6.0_32.tgz
 
 - name: osl_gpdb4
   type: s3
   source:
-    access_key_id: {{bucket-access-key-id}}
+    access_key_id: ((bucket-access-key-id))
     bucket: gpdb-4.3-release
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
     versioned_file: osl/open_source_license_GPDB_-_4.3_-_GA.pdf
 
 - name: ms_email
   type: email
   source:
     smtp:
-      host: {{smtp-host}}
-      port: {{smpt-port}} # this must be a string
-      username: {{smtp-username}}
-      password: {{smtp-password}}
+      host: ((smtp-host))
+      port: ((smpt-port)) # this must be a string
+      username: ((smtp-username))
+      password: ((smtp-password))
     from: "pa-toolsmiths@pivotal.io"
     to:
-      - {{ms-smtp-receiver-1}}
-      - {{ms-smtp-receiver-2}}
+      - ((ms-smtp-receiver-1))
+      - ((ms-smtp-receiver-2))
 
 ## ======================================================================
 ## jobs
@@ -784,10 +784,10 @@ jobs:
     file: gpdb_src/ci/concourse/get_ivy_dependencies.yml
     image: centos-gpdb-dev-6
     params:
-      IVYREPO_HOST: {{ivyrepo_host}}
-      IVYREPO_REALM: {{ivyrepo_realm}}
-      IVYREPO_USER: {{ivyrepo_user}}
-      IVYREPO_PASSWD: {{ivyrepo_passwd}}
+      IVYREPO_HOST: ((ivyrepo_host))
+      IVYREPO_REALM: ((ivyrepo_realm))
+      IVYREPO_USER: ((ivyrepo_user))
+      IVYREPO_PASSWD: ((ivyrepo_passwd))
       TASK_OS: centos
       TASK_OS_VERSION: 6
       TARGET_OS: win32
@@ -827,10 +827,10 @@ jobs:
     file: gpdb_src/ci/concourse/get_ivy_dependencies.yml
     image: centos-gpdb-dev-6
     params:
-      IVYREPO_HOST: {{ivyrepo_host}}
-      IVYREPO_REALM: {{ivyrepo_realm}}
-      IVYREPO_USER: {{ivyrepo_user}}
-      IVYREPO_PASSWD: {{ivyrepo_passwd}}
+      IVYREPO_HOST: ((ivyrepo_host))
+      IVYREPO_REALM: ((ivyrepo_realm))
+      IVYREPO_USER: ((ivyrepo_user))
+      IVYREPO_PASSWD: ((ivyrepo_passwd))
       TASK_OS: centos
       TASK_OS_VERSION: 6
       TARGET_OS: sles
@@ -950,10 +950,10 @@ jobs:
     file: gpdb_src/ci/concourse/get_ivy_dependencies.yml
     image: centos-gpdb-dev-6
     params:
-      IVYREPO_HOST: {{ivyrepo_host}}
-      IVYREPO_REALM: {{ivyrepo_realm}}
-      IVYREPO_USER: {{ivyrepo_user}}
-      IVYREPO_PASSWD: {{ivyrepo_passwd}}
+      IVYREPO_HOST: ((ivyrepo_host))
+      IVYREPO_REALM: ((ivyrepo_realm))
+      IVYREPO_USER: ((ivyrepo_user))
+      IVYREPO_PASSWD: ((ivyrepo_passwd))
       TASK_OS: centos
       TASK_OS_VERSION: 6
       TARGET_OS: centos
@@ -987,10 +987,10 @@ jobs:
     file: gpdb_src/ci/concourse/get_ivy_dependencies.yml
     image: centos-gpdb-dev-6
     params:
-      IVYREPO_HOST: {{ivyrepo_host}}
-      IVYREPO_REALM: {{ivyrepo_realm}}
-      IVYREPO_USER: {{ivyrepo_user}}
-      IVYREPO_PASSWD: {{ivyrepo_passwd}}
+      IVYREPO_HOST: ((ivyrepo_host))
+      IVYREPO_REALM: ((ivyrepo_realm))
+      IVYREPO_USER: ((ivyrepo_user))
+      IVYREPO_PASSWD: ((ivyrepo_passwd))
       TASK_OS: centos
       TASK_OS_VERSION: 6
       TARGET_OS: centos
@@ -1023,10 +1023,10 @@ jobs:
     file: gpdb_src/ci/concourse/get_ivy_dependencies.yml
     image: centos-gpdb-dev-6
     params:
-      IVYREPO_HOST: {{ivyrepo_host}}
-      IVYREPO_REALM: {{ivyrepo_realm}}
-      IVYREPO_USER: {{ivyrepo_user}}
-      IVYREPO_PASSWD: {{ivyrepo_passwd}}
+      IVYREPO_HOST: ((ivyrepo_host))
+      IVYREPO_REALM: ((ivyrepo_realm))
+      IVYREPO_USER: ((ivyrepo_user))
+      IVYREPO_PASSWD: ((ivyrepo_passwd))
       TASK_OS: centos
       TASK_OS_VERSION: 6
       TARGET_OS: centos
@@ -1345,13 +1345,13 @@ jobs:
         - name: ds_r_rhel7
 
         params:
-          PIVNET_ENDPOINT: {{4_3-release_pivnet_endpoint}}
-          PIVNET_REFRESH_TOKEN: {{4_3-release_pivnet_refresh_token}}
-          PIVNET_PRODUCT_SLUG: {{4_3-release_pivnet_product_slug}}
-          PIVNET_S3_FILEPATH_PREFIX: {{4_3-release_pivnet_s3-filepath-prefix}}
-          BUCKET_ACCESS_KEY_ID: {{gpdb5-pipeline-bucket-access-key-id}}
-          BUCKET_SECRET_ACCESS_KEY: {{gpdb5-pipeline-bucket-secret-access-key}}
-          BUCKET_AWS_REGION: {{gpdb5-pipeline-aws-region}}
+          PIVNET_ENDPOINT: ((4_3-release_pivnet_endpoint))
+          PIVNET_REFRESH_TOKEN: ((4_3-release_pivnet_refresh_token))
+          PIVNET_PRODUCT_SLUG: ((4_3-release_pivnet_product_slug))
+          PIVNET_S3_FILEPATH_PREFIX: ((4_3-release_pivnet_s3-filepath-prefix))
+          BUCKET_ACCESS_KEY_ID: ((gpdb5-pipeline-bucket-access-key-id))
+          BUCKET_SECRET_ACCESS_KEY: ((gpdb5-pipeline-bucket-secret-access-key))
+          BUCKET_AWS_REGION: ((gpdb5-pipeline-aws-region))
         run:
           path: "sh"
           args:
@@ -1504,10 +1504,10 @@ jobs:
     file: gpdb_src/ci/concourse/upload_to_ms_ftp.yml
     image: centos-gpdb-dev-6
     params:
-      FTP_HOST: {{ftp_host}}
-      FTP_USERNAME: {{ftp_username}}
-      FTP_PASSWORD: {{ftp_password}}
-      FTP_PATH: {{ftp_path}}
+      FTP_HOST: ((ftp_host))
+      FTP_USERNAME: ((ftp_username))
+      FTP_PASSWORD: ((ftp_password))
+      FTP_PATH: ((ftp_path))
 
 - name: send_ms_email
   plan:
