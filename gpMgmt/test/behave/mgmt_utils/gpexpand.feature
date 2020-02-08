@@ -94,6 +94,7 @@ Feature: expand the cluster by adding more segments
         When the user runs gpexpand with the latest gpexpand_inputfile
         Then gpexpand should return a return code of 0
         And verify that the cluster has 2 new segments
+        And verify that the master-only tables are empty on one new segment
 
     @gpexpand_no_mirrors
     @gpexpand_host
@@ -113,6 +114,7 @@ Feature: expand the cluster by adding more segments
         When the user runs gpexpand with the latest gpexpand_inputfile
         Then gpexpand should return a return code of 0
         And verify that the cluster has 2 new segments
+        And verify that the master-only tables are empty on one new segment
 
     @gpexpand_no_mirrors
     @gpexpand_host_and_segment
@@ -132,6 +134,7 @@ Feature: expand the cluster by adding more segments
         When the user runs gpexpand with the latest gpexpand_inputfile
         Then gpexpand should return a return code of 0
         And verify that the cluster has 4 new segments
+        And verify that the master-only tables are empty on one new segment
 
     @gpexpand_mirrors
     @gpexpand_segment
@@ -149,6 +152,7 @@ Feature: expand the cluster by adding more segments
         When the user runs gpexpand with a static inputfile for a single-node cluster with mirrors
         Then gpexpand should return a return code of 0
         And verify that the cluster has 4 new segments
+        And verify that the master-only tables are empty on one new segment
 
     @gpexpand_mirrors
     @gpexpand_host
@@ -168,6 +172,7 @@ Feature: expand the cluster by adding more segments
         When the user runs gpexpand with the latest gpexpand_inputfile
         Then gpexpand should return a return code of 0
         And verify that the cluster has 8 new segments
+        And verify that the master-only tables are empty on one new segment
 
     @gpexpand_mirrors
     @gpexpand_host_and_segment
@@ -189,3 +194,4 @@ Feature: expand the cluster by adding more segments
         When the user runs gpexpand with the latest gpexpand_inputfile
         Then gpexpand should return a return code of 0
         And verify that the cluster has 14 new segments
+        And verify that the master-only tables are empty on one new segment

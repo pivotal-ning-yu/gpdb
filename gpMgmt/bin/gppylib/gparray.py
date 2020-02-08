@@ -413,7 +413,7 @@ class GpDB:
         return res
 
     # --------------------------------------------------------------------
-    def createTemplate(self, dstDir):
+    def createTemplate(self, dstDir, excludes=[]):
         """
         Create a tempate given the information in this GpDB.
         """
@@ -438,9 +438,32 @@ class GpDB:
         if dstBytesAvail <= requiredSize:
             raise Exception("Not enough space on directory: '%s'.  Currently %d bytes free but need %d bytes." % (dstDir, int(dstBytesAvail), int(requiredSize)))
 
+        # the passed exclude list contains patterns for both default and
+        # non-default tablespaces, split them
+        fsExcludes = []
+        defExcludes = []
+        for pathname in excludes:
+            if pathname[0].isdigit():
+                # in a non-default tablespace, the exclude list is in below
+                # format:
+                #
+                #     filespace_id/tablespace_id/database_id/filenode
+                #
+                # this is expected by the destDir structure, however in the
+                # srcDir the structure begins from the tablespace_id, so we
+                # need to construct a different exclude list by removing the
+                # filespace_id.
+                pathname = os.path.sep.join(pathname.split(os.path.sep)[1:])
+                fsExcludes.append(pathname)
+            else:
+                # in a default tablespace
+                defExcludes.append(pathname)
+
         logger.info("Starting copy of segment dbid %d to location %s" % (int(self.getSegmentDbId()), dstDir))
 
-        cpCmd = LocalDirCopy("Copy system data directory", self.getSegmentDataDirectory(), dstDir)
+        cpCmd = LocalDirCopy("Copy system data directory",
+                             self.getSegmentDataDirectory(), dstDir,
+                             excludes=defExcludes)
         cpCmd.run(validateAfter = True)
         res = cpCmd.get_results()
 
@@ -458,7 +481,7 @@ class GpDB:
                 destDir = fullPathFsDir + "/" + str(oid)
                 MakeDirectory.local("gpexpand make directory to hold file space: " + destDir, destDir)
                 name = "GpSegCopy %s to %s" % (dir, destDir)
-                cpCmd = LocalDirCopy(name, dir, destDir)
+                cpCmd = LocalDirCopy(name, dir, destDir, excludes=fsExcludes)
                 cpCmd.run(validateAfter = True)
                 res = cpCmd.get_results()
 
@@ -467,6 +490,35 @@ class GpDB:
             logger.info("Cleaning up catalog for schema only copy on destination")
             # We need 700 permissions or postgres won't start
             Chmod.local('set template permissions', dstDir, '0700')
+
+        # the files of the master only tables are already deleted, now add an
+        # empty copy of them, so they are seen as empty on the new segments,
+        # and we do not need to delete them via sql separately.
+        if excludes:
+            logger.info('Creating an empty copy of excluded files')
+        for pathname in excludes:
+            if pathname[0].isdigit():
+                # in non-default tablespaces
+                fullname = os.path.join(fullPathFsDir, pathname)
+            else:
+                # in default tablespaces
+                fullname = os.path.join(dstDir, pathname)
+            filename = os.path.basename(fullname)
+            dirname = os.path.dirname(fullname)
+            if '.' in filename:
+                # ignore seg files
+                continue
+            logger.debug("Creating empty file %s" % fullname)
+            # if the file already exists it means we do not generate the
+            # master-only catalog file list correctly.
+            if os.path.exists(fullname):
+                logger.error("master-only catalog file '%s' is not correctly skipped" % fullname)
+                raise Exception("GpArray - failed to handle master-only catalog files")
+            # the template dir is not expected to be updated concurrently,
+            # so it is safe to use a check-and-create style to create dirs.
+            if not os.path.isdir(dirname):
+                os.makedirs(dirname)
+            open(fullname, 'wb')
 
 
     # --------------------------------------------------------------------

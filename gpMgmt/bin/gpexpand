@@ -8,6 +8,7 @@ from gppylib.mainUtils import getProgramName
 
 import copy
 import datetime
+import glob
 import os
 import sys
 import socket
@@ -690,7 +691,9 @@ class SegmentTemplate:
     def build_segment_template(self):
         """Builds segment template tar file"""
         self.statusLogger.set_status('BUILD_SEGMENT_TEMPLATE_STARTED', self.tempDir)
-        self._create_template()
+        # build segment template should consider tablespace files
+        excludes = self._list_master_only_files()
+        self._create_template(excludes=excludes)
         self._fixup_template()
         self._tar_template()
         self.statusLogger.set_status('BUILD_SEGMENT_TEMPLATE_DONE')
@@ -703,7 +706,145 @@ class SegmentTemplate:
         numNewSegments = len(self.gparray.getExpansionSegDbList())
         self.statusLogger.set_status('BUILD_SEGMENTS_DONE', numNewSegments)
 
-    def _create_template(self):
+    def _list_master_only_files(self):
+        """Build a list of files of master only tables and their indexes.
+
+        The content of master only tables should be cleared or refilled on the
+        new segments, by including an empty copy of the heap & index files less
+        data is transferred via network and there is no need to delete the
+        content on the segments explicitly.
+
+        However empty index files are actually invalid, we need to reindex the
+        master only tables on the new segments to rebuild the index files, this
+        is fast as the heap files are all empty.
+        """
+
+        self.logger.info("Building the file list of master only tables")
+
+        regclasses = ["'%s'::regclass::oid" % tab
+                      for tab in MASTER_ONLY_TABLES]
+        regclasses = "(" + ", ".join(regclasses) + ")"
+        self.logger.debug("master only tables: %s" % regclasses)
+
+        # sql to get all the filepaths for master-only catalog tables, this
+        # includes both the relation and the index files.  The file can be in
+        # three different locations:
+        #
+        # - global/filenode: this is for the global catalogs;
+        # - base/dbid/filenode: this is for the per-db catalogs in the default
+        #   filespace;
+        # - tsoid/dboid/filenode: this is for the per-db catalogs in the
+        #   non-default filespaces, however when copying to the template these
+        #   kind of files will be stored un fsoid/tsoid/dboid/filenode, so to
+        #   make the handling easier we will generate the filepaths in the
+        #   target form;
+        sql = """
+/* relation files of master-only catalog tables in global tablespace */
+SELECT 'global/' || c.relfilenode AS filepath
+  FROM pg_catalog.pg_class c
+  JOIN pg_catalog.pg_tablespace t
+    ON c.reltablespace = t.oid
+ WHERE c.oid IN %s
+   AND t.spcname = 'pg_global'
+
+UNION ALL
+
+/* index files of master-only catalog tables in global tablespace */
+SELECT 'global/' || c.relfilenode AS filepath
+  FROM pg_catalog.pg_index i
+  JOIN pg_catalog.pg_class c
+    ON i.indexrelid = c.oid
+  JOIN pg_catalog.pg_tablespace t
+    ON c.reltablespace = t.oid
+ WHERE i.indrelid IN %s
+   AND t.spcname = 'pg_global'
+
+UNION ALL
+
+/* relation files of master-only catalog tables in default tablespace */
+SELECT 'base/' || d.oid || '/' || c.relfilenode AS filepath
+  FROM pg_catalog.pg_class c
+  JOIN pg_catalog.pg_database d
+    ON TRUE
+  JOIN pg_catalog.pg_tablespace t
+    ON d.dattablespace = t.oid
+  JOIN pg_catalog.pg_filespace_entry f
+    ON t.spcfsoid = f.fsefsoid
+ WHERE c.oid IN %s
+   AND c.reltablespace = 0
+   AND d.datname <> 'template0'
+   AND f.fsedbid = 1
+   AND t.spcname = 'pg_default'
+
+UNION ALL
+
+/* index files of master-only catalog tables in default tablespace */
+SELECT 'base/' || d.oid || '/' || c.relfilenode AS filepath
+  FROM pg_catalog.pg_index i
+  JOIN pg_catalog.pg_class c
+    ON i.indexrelid = c.oid
+  JOIN pg_catalog.pg_database d
+    ON TRUE
+  JOIN pg_catalog.pg_tablespace t
+    ON d.dattablespace = t.oid
+  JOIN pg_catalog.pg_filespace_entry f
+    ON t.spcfsoid = f.fsefsoid
+ WHERE i.indrelid IN %s
+   AND c.reltablespace = 0
+   AND d.datname <> 'template0'
+   AND f.fsedbid = 1
+   AND t.spcname = 'pg_default'
+
+UNION ALL
+
+/* relation files of master-only catalog tables in non-default tablespaces */
+SELECT f.fsefsoid || '/' || t.oid || '/' || d.oid || '/' || c.relfilenode AS filepath
+  FROM pg_catalog.pg_class c
+  JOIN pg_catalog.pg_database d
+    ON TRUE
+  JOIN pg_catalog.pg_tablespace t
+    ON d.dattablespace = t.oid
+  JOIN pg_catalog.pg_filespace_entry f
+    ON t.spcfsoid = f.fsefsoid
+ WHERE c.oid IN %s
+   AND c.reltablespace = 0
+   AND d.datname <> 'template0'
+   AND f.fsedbid = 1
+   AND t.spcname NOT IN ('pg_default', 'pg_global')
+
+UNION ALL
+
+/* index files of master-only catalog tables in non-default tablespaces */
+SELECT f.fsefsoid || '/' || t.oid || '/' || d.oid || '/' || c.relfilenode AS filepath
+  FROM pg_catalog.pg_index i
+  JOIN pg_catalog.pg_class c
+    ON i.indexrelid = c.oid
+  JOIN pg_catalog.pg_database d
+    ON TRUE
+  JOIN pg_catalog.pg_tablespace t
+    ON d.dattablespace = t.oid
+  JOIN pg_catalog.pg_filespace_entry f
+    ON t.spcfsoid = f.fsefsoid
+ WHERE i.indrelid IN %s
+   AND c.reltablespace = 0
+   AND d.datname <> 'template0'
+   AND f.fsedbid = 1
+   AND t.spcname NOT IN ('pg_default', 'pg_global')
+""" % (regclasses, regclasses, regclasses, regclasses, regclasses, regclasses)
+
+        result = []
+
+        # first list the global master-only tables
+        with dbconn.connect(self.dburl, utility=True, encoding='UTF8') as conn:
+            paths = [str(row[0])
+                     for row in dbconn.execSQL(conn, sql).fetchall()]
+            result.extend(paths)
+
+        self.logger.debug("files of master only tables: %s" % result)
+
+        return result
+
+    def _create_template(self, excludes=[]):
         """Creates the schema template that is used by new segments"""
         self.logger.info('Creating segment template')
 
@@ -735,7 +876,7 @@ class SegmentTemplate:
 
         try:
             masterSeg = self.gparray.master
-            masterSeg.createTemplate(dstDir=self.tempDir)
+            masterSeg.createTemplate(dstDir=self.tempDir, excludes=excludes)
         except Exception, msg:
             raise SegmentTemplateError(msg)
 
@@ -1750,9 +1891,17 @@ Set PGDATABASE or use the -D option to specify the correct database to use.""" %
         GpStop.local('gpexpand update master stop database', masterOnly=True, fast=True)
 
         """
-        Connect to each database in each segment and do some cleanup of tables that have stuff in them as a result of copying the segment from the master.
-        Note, this functionaliy used to be in segcopy and was therefore done just once to the original copy of the master. We need to do it separately for
-        each segment now since filespaces may contain the databases.
+        Connect to each database in each segment and do some cleanup of tables
+        that have stuff in them as a result of copying the segment from the
+        master.  Note, this functionaliy used to be in segcopy and was
+        therefore done just once to the original copy of the master. We need to
+        do it separately for each segment now since filespaces may contain the
+        databases.
+
+        Need to start the new segments with the system indexes disabled, this
+        is necessary because the master-only catalog tables are copied as empty
+        files, as well as their index files, the indexes are invalid and should
+        not be used until being reindexed.
         """
         for seg in newSegments:
             if seg.isSegmentMirror() == True:
@@ -1768,16 +1917,18 @@ Set PGDATABASE or use the -D option to specify the correct database to use.""" %
                 , ctxt=REMOTE
                 , remoteHost=seg.getSegmentHostName()
                 , noWait=False
-                , timeout=SEGMENT_TIMEOUT_DEFAULT)
+                , timeout=SEGMENT_TIMEOUT_DEFAULT
+                , disableSystemIndexes=True)
             self.pool.addCommand(segStartCmd)
         self.pool.join()
         self.pool.check_results()
 
         """
-        Build the list of delete statements based on the MASTER_ONLY_TABLES
+        Build the list of reindex statements based on the MASTER_ONLY_TABLES
         defined in gpcatalog.py
         """
-        statements = ["delete from pg_catalog.%s" % tab for tab in MASTER_ONLY_TABLES]
+        statements = ["REINDEX TABLE pg_catalog.%s" % tab
+                      for tab in MASTER_ONLY_TABLES]
 
         """
           Connect to each database in the new segments, and clean up the catalog tables.

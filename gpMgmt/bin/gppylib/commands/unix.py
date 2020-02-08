@@ -741,12 +741,20 @@ class Scp(Command):
 
 # -------------local copy------------------
 class LocalDirCopy(Command):
-    def __init__(self, name, srcDirectory, dstDirectory):
+    def __init__(self, name, srcDirectory, dstDirectory, excludes=[]):
         # tar is much faster than cp for directories with lots of files
         self.srcDirectory = srcDirectory
         self.dstDirectory = dstDirectory
+
+        extraOpts = ''
+
+        for exclude in excludes:
+            extraOpts += ' --exclude %s' % exclude # FIXME: use full path?
+
         tarCmd = SYSTEM.getTarCmd()
-        cmdStr = "%s -cf - -C %s . | %s -xf - -C %s" % (tarCmd, srcDirectory, tarCmd, dstDirectory)
+        cmdStr = "%s -cf - %s -C %s . | %s -xf - -C %s" % (tarCmd, extraOpts,
+                                                           srcDirectory,
+                                                           tarCmd, dstDirectory)
         Command.__init__(self, name, cmdStr, LOCAL, None)
 
 
