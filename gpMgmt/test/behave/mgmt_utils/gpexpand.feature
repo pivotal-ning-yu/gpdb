@@ -97,7 +97,7 @@ Feature: expand the cluster by adding more segments
 
     @gpexpand_no_mirrors
     @gpexpand_host
-    Scenario: expand a cluster that has no mirrors with one new hosts
+    Scenario: expand a cluster that has no mirrors on one new host
         Given a working directory of the test as '/tmp/gpexpand_behave'
         And the database is killed on hosts "mdw,sdw1,sdw2"
         And the user runs command "rm -rf /tmp/gpexpand_behave/*"
@@ -116,7 +116,7 @@ Feature: expand the cluster by adding more segments
 
     @gpexpand_no_mirrors
     @gpexpand_host_and_segment
-    Scenario: expand a cluster that has no mirrors with one new hosts
+    Scenario: expand a cluster that has no mirrors on both old and new hosts
         Given a working directory of the test as '/tmp/gpexpand_behave'
         And the database is killed on hosts "mdw,sdw1,sdw2"
         And the user runs command "rm -rf /tmp/gpexpand_behave/*"
@@ -152,7 +152,7 @@ Feature: expand the cluster by adding more segments
 
     @gpexpand_mirrors
     @gpexpand_host
-    Scenario: expand a cluster that has mirrors with one new hosts
+    Scenario: expand a cluster that has mirrors with two new hosts
         Given a working directory of the test as '/tmp/gpexpand_behave'
         And the database is killed on hosts "mdw,sdw1,sdw2,sdw3"
         And the user runs command "rm -rf /tmp/gpexpand_behave/*"
@@ -172,7 +172,7 @@ Feature: expand the cluster by adding more segments
     @gpexpand_mirrors
     @gpexpand_host_and_segment
     @gpexpand_standby
-    Scenario: expand a cluster that has mirrors with one new hosts
+    Scenario: expand a cluster that has mirrors with both old and new hosts
         Given a working directory of the test as '/tmp/gpexpand_behave'
         And the database is killed on hosts "mdw,sdw1,sdw2,sdw3"
         And the user runs command "rm -rf /tmp/gpexpand_behave/*"
