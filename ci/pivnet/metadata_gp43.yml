@@ -10,12 +10,6 @@ release:
   controlled: false
   eccn: 5D002
   license_exception: TSU
-  # release_date: (defaulted to current date)
-  # The offsets are from the release_date
-  end_of_support_date_offset: +18m
-  # The EoGD is EoSD + 12m, therefore it is +30m when based off of the release_date
-  end_of_guidance_date_offset: +30m
-  end_of_availability_date_offset:  # we don't set this one.
 
 file_groups:
 - name: Greenplum Database Server
