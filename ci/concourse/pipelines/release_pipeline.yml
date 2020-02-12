@@ -146,7 +146,7 @@ resources:
     bucket: ((bucket-name))
     region_name: ((aws-region))
     secret_access_key: ((bucket-secret-access-key))
-    regexp: deliverables/greenplum-clients-4.(.*)-WinXP-x86_32.msi
+    regexp: deliverables/greenplum-clients-(((release-version)))-WinXP-x86_32.msi
 
 - name: bin_gpdb_windows_connectivity
   type: s3
@@ -155,7 +155,7 @@ resources:
     bucket: ((bucket-name))
     region_name: ((aws-region))
     secret_access_key: ((bucket-secret-access-key))
-    regexp: deliverables/greenplum-connectivity-4.(.*)-WinXP-x86_32.msi
+    regexp: deliverables/greenplum-connectivity-(((release-version)))-WinXP-x86_32.msi
 
 - name: bin_gpdb_windows_loaders
   type: s3
@@ -164,7 +164,7 @@ resources:
     bucket: ((bucket-name))
     region_name: ((aws-region))
     secret_access_key: ((bucket-secret-access-key))
-    regexp: deliverables/greenplum-loaders-4.(.*)-WinXP-x86_32.msi
+    regexp: deliverables/greenplum-loaders-(((release-version)))-WinXP-x86_32.msi
 
 - name: component_gpbackup
   type: s3
@@ -173,7 +173,7 @@ resources:
     bucket: ((component-bucket-name))
     region_name: ((gpdb5-pipeline-aws-region))
     secret_access_key: ((gpdb5-pipeline-bucket-secret-access-key))
-    regexp: components/gpbackup/gpbackup-(1\.12\.1).tar.gz
+    regexp: components/gpbackup/gpbackup-(((gpbackup-version))).tar.gz
 
 - name: component_gpcopy
   type: s3
@@ -182,7 +182,7 @@ resources:
     bucket: ((component-bucket-name))
     region_name: ((gpdb5-pipeline-aws-region))
     secret_access_key: ((gpdb5-pipeline-bucket-secret-access-key))
-    regexp: components/gpcopy/gpcopy-(1\.4\.0).tar.gz
+    regexp: components/gpcopy/gpcopy-(((gpcopy-version))).tar.gz
 
 - name: component_gpcopy_helper
   type: s3
@@ -191,7 +191,7 @@ resources:
     bucket: ((component-bucket-name))
     region_name: ((gpdb5-pipeline-aws-region))
     secret_access_key: ((gpdb5-pipeline-bucket-secret-access-key))
-    regexp: components/gpcopy/gpcopy_helper-(1\.4\.0).tar.gz
+    regexp: components/gpcopy/gpcopy_helper-(((gpcopy-helper-version))).tar.gz
 
 - name: sync_tools_gpdb_sles
   type: s3
@@ -210,7 +210,7 @@ resources:
     bucket: ((bucket-name))
     region_name: ((aws-region))
     secret_access_key: ((bucket-secret-access-key))
-    regexp: deliverables/greenplum-db-4.(.*)-rhel5-x86_64.zip
+    regexp: deliverables/greenplum-db-(((release-version)))-rhel5-x86_64.zip
 
 - name: installer_rhel5_gpdb_rc_sha256
   type: s3
@@ -219,7 +219,7 @@ resources:
     bucket: ((bucket-name))
     region_name: ((aws-region))
     secret_access_key: ((bucket-secret-access-key))
-    regexp: deliverables/greenplum-db-4.(.*)-rhel5-x86_64.zip.sha256
+    regexp: deliverables/greenplum-db-(((release-version)))-rhel5-x86_64.zip.sha256
 
 - name: installer_rhel5_gpdb_clients
   type: s3
@@ -228,7 +228,7 @@ resources:
     bucket: ((bucket-name))
     region_name: ((aws-region))
     secret_access_key: ((bucket-secret-access-key))
-    regexp: deliverables/greenplum-clients-4.(.*)-build-1-rhel5-x86_64.zip
+    regexp: deliverables/greenplum-clients-(((release-version)))-build-1-rhel5-x86_64.zip
 
 - name: installer_rhel5_gpdb_clients_sha256
   type: s3
@@ -237,7 +237,7 @@ resources:
     bucket: ((bucket-name))
     region_name: ((aws-region))
     secret_access_key: ((bucket-secret-access-key))
-    regexp: deliverables/greenplum-clients-4.(.*)-build-1-rhel5-x86_64.zip.sha256
+    regexp: deliverables/greenplum-clients-(((release-version)))-build-1-rhel5-x86_64.zip.sha256
 
 - name: installer_sles11_gpdb_rc
   type: s3-week-long-urls
@@ -247,7 +247,7 @@ resources:
     bucket: ((bucket-name))
     region_name: ((aws-region))
     secret_access_key: ((bucket-secret-access-key))
-    regexp: deliverables/greenplum-db-4.(.*)-sles11-x86_64.zip
+    regexp: deliverables/greenplum-db-(((release-version)))-sles11-x86_64.zip
 
 - name: installer_sles11_gpdb_rc_sha256
   type: s3
@@ -256,7 +256,7 @@ resources:
     bucket: ((bucket-name))
     region_name: ((aws-region))
     secret_access_key: ((bucket-secret-access-key))
-    regexp: deliverables/greenplum-db-4.(.*)-sles11-x86_64.zip.sha256
+    regexp: deliverables/greenplum-db-(((release-version)))-sles11-x86_64.zip.sha256
 
 - name: installer_appliance_rhel5_gpdb_rc
   type: s3
@@ -265,7 +265,7 @@ resources:
     bucket: ((bucket-name))
     region_name: ((aws-region))
     secret_access_key: ((bucket-secret-access-key))
-    regexp: deliverables/greenplum-db-appliance-4.(.*)-rhel5-x86_64.zip
+    regexp: deliverables/greenplum-db-appliance-(((release-version)))-rhel5-x86_64.zip
 
 - name: installer_appliance_rhel5_gpdb_rc_sha256
   type: s3
@@ -274,7 +274,7 @@ resources:
     bucket: ((bucket-name))
     region_name: ((aws-region))
     secret_access_key: ((bucket-secret-access-key))
-    regexp: deliverables/greenplum-db-appliance-4.(.*)-rhel5-x86_64.zip.sha256
+    regexp: deliverables/greenplum-db-appliance-(((release-version)))-rhel5-x86_64.zip.sha256
 
 - name: qautils_rhel5_tarball
   type: s3-week-long-urls
@@ -303,7 +303,7 @@ resources:
     bucket: ((bucket-name))
     region_name: ((aws-region))
     secret_access_key: ((bucket-secret-access-key))
-    regexp: deliverables/greenplum-clients-4.(.*)-build-1-sles11-x86_64.zip
+    regexp: deliverables/greenplum-clients-(((release-version)))-build-1-sles11-x86_64.zip
 
 - name: installer_sles11_gpdb_clients_sha256
   type: s3
@@ -312,7 +312,7 @@ resources:
     bucket: ((bucket-name))
     region_name: ((aws-region))
     secret_access_key: ((bucket-secret-access-key))
-    regexp: deliverables/greenplum-clients-4.(.*)-build-1-sles11-x86_64.zip.sha256
+    regexp: deliverables/greenplum-clients-(((release-version)))-build-1-sles11-x86_64.zip.sha256
 
 - name: installer_rhel5_gpdb_connectivity
   type: s3
@@ -321,7 +321,7 @@ resources:
     bucket: ((bucket-name))
     region_name: ((aws-region))
     secret_access_key: ((bucket-secret-access-key))
-    regexp: deliverables/greenplum-connectivity-4.(.*)-build-1-rhel5-x86_64.zip
+    regexp: deliverables/greenplum-connectivity-(((release-version)))-build-1-rhel5-x86_64.zip
 
 - name: installer_rhel5_gpdb_connectivity_sha256
   type: s3
@@ -330,7 +330,7 @@ resources:
     bucket: ((bucket-name))
     region_name: ((aws-region))
     secret_access_key: ((bucket-secret-access-key))
-    regexp: deliverables/greenplum-connectivity-4.(.*)-build-1-rhel5-x86_64.zip.sha256
+    regexp: deliverables/greenplum-connectivity-(((release-version)))-build-1-rhel5-x86_64.zip.sha256
 
 - name: installer_sles11_gpdb_connectivity
   type: s3
@@ -339,7 +339,7 @@ resources:
     bucket: ((bucket-name))
     region_name: ((aws-region))
     secret_access_key: ((bucket-secret-access-key))
-    regexp: deliverables/greenplum-connectivity-4.(.*)-build-1-sles11-x86_64.zip
+    regexp: deliverables/greenplum-connectivity-(((release-version)))-build-1-sles11-x86_64.zip
 
 - name: installer_sles11_gpdb_connectivity_sha256
   type: s3
@@ -348,7 +348,7 @@ resources:
     bucket: ((bucket-name))
     region_name: ((aws-region))
     secret_access_key: ((bucket-secret-access-key))
-    regexp: deliverables/greenplum-connectivity-4.(.*)-build-1-sles11-x86_64.zip.sha256
+    regexp: deliverables/greenplum-connectivity-(((release-version)))-build-1-sles11-x86_64.zip.sha256
 
 - name: installer_rhel5_gpdb_loaders
   type: s3
@@ -357,7 +357,7 @@ resources:
     bucket: ((bucket-name))
     region_name: ((aws-region))
     secret_access_key: ((bucket-secret-access-key))
-    regexp: deliverables/greenplum-loaders-4.(.*)-build-1-rhel5-x86_64.zip
+    regexp: deliverables/greenplum-loaders-(((release-version)))-build-1-rhel5-x86_64.zip
 
 - name: installer_rhel5_gpdb_loaders_sha256
   type: s3
@@ -366,7 +366,7 @@ resources:
     bucket: ((bucket-name))
     region_name: ((aws-region))
     secret_access_key: ((bucket-secret-access-key))
-    regexp: deliverables/greenplum-loaders-4.(.*)-build-1-rhel5-x86_64.zip.sha256
+    regexp: deliverables/greenplum-loaders-(((release-version)))-build-1-rhel5-x86_64.zip.sha256
 
 - name: installer_sles11_gpdb_loaders
   type: s3
@@ -375,7 +375,7 @@ resources:
     bucket: ((bucket-name))
     region_name: ((aws-region))
     secret_access_key: ((bucket-secret-access-key))
-    regexp: deliverables/greenplum-loaders-4.(.*)-build-1-sles11-x86_64.zip
+    regexp: deliverables/greenplum-loaders-(((release-version)))-build-1-sles11-x86_64.zip
 
 - name: installer_sles11_gpdb_loaders_sha256
   type: s3
@@ -384,7 +384,7 @@ resources:
     bucket: ((bucket-name))
     region_name: ((aws-region))
     secret_access_key: ((bucket-secret-access-key))
-    regexp: deliverables/greenplum-loaders-4.(.*)-build-1-sles11-x86_64.zip.sha256
+    regexp: deliverables/greenplum-loaders-(((release-version)))-build-1-sles11-x86_64.zip.sha256
 
 - name: postgis_rhel5_gppkg
   type: s3
@@ -483,7 +483,7 @@ resources:
     access_key_id: ((bucket-access-key-id))
     secret_access_key: ((bucket-secret-access-key))
     bucket: ((procedural-languages-concourse-bucket))
-    regexp: release/gpdb4/pljava/pljava-(.*)-gp4-rhel5-x86_64.gppkg
+    regexp: release/gpdb4/pljava/pljava-(((pl-java-version)))-gp4-rhel5-x86_64.gppkg
 
 - name: pljava_sles11_gppkg
   type: s3
@@ -492,7 +492,7 @@ resources:
     access_key_id: ((bucket-access-key-id))
     secret_access_key: ((bucket-secret-access-key))
     bucket: ((procedural-languages-concourse-bucket))
-    regexp: release/gpdb4/pljava/pljava-(.*)-gp4-sles11-x86_64.gppkg
+    regexp: release/gpdb4/pljava/pljava-(((pl-java-version)))-gp4-sles11-x86_64.gppkg
 
 - name: plr_rhel5_gppkg
   type: s3
@@ -501,7 +501,7 @@ resources:
     access_key_id: ((bucket-access-key-id))
     secret_access_key: ((bucket-secret-access-key))
     bucket: ((procedural-languages-concourse-bucket))
-    regexp: release/gpdb4/plr/plr-(.*)-GPDB4.3-rhel5-x86_64.gppkg
+    regexp: release/gpdb4/plr/plr-(((pl-r-version)))-GPDB4.3-rhel5-x86_64.gppkg
 
 - name: plr_rhel6_gppkg
   type: s3
@@ -510,7 +510,7 @@ resources:
     access_key_id: ((bucket-access-key-id))
     secret_access_key: ((bucket-secret-access-key))
     bucket: ((procedural-languages-concourse-bucket))
-    regexp: release/gpdb4/plr/plr-(.*)-GPDB4.3-rhel6-x86_64.gppkg
+    regexp: release/gpdb4/plr/plr-(((pl-r-version)))-GPDB4.3-rhel6-x86_64.gppkg
 
 - name: plr_sles11_gppkg
   type: s3
@@ -519,7 +519,7 @@ resources:
     access_key_id: ((bucket-access-key-id))
     secret_access_key: ((bucket-secret-access-key))
     bucket: ((procedural-languages-concourse-bucket))
-    regexp: release/gpdb4/plr/plr-(.*)-GPDB4.3-sles11-x86_64.gppkg
+    regexp: release/gpdb4/plr/plr-(((pl-r-version)))-GPDB4.3-sles11-x86_64.gppkg
 
 - name: ds_python_rhel7
   type: s3
@@ -528,7 +528,7 @@ resources:
     access_key_id: ((bucket-access-key-id))
     secret_access_key: ((bucket-secret-access-key))
     bucket: ((procedural-languages-concourse-bucket))
-    regexp: release/gpdb4/data-science/DataSciencePython-(.*)-gp4-rhel7-x86_64.gppkg
+    regexp: release/gpdb4/data-science/DataSciencePython-(((data-science-python-version)))-gp4-rhel7-x86_64.gppkg
 
 - name: ds_r_rhel7
   type: s3
@@ -537,7 +537,7 @@ resources:
     access_key_id: ((bucket-access-key-id))
     secret_access_key: ((bucket-secret-access-key))
     bucket: ((procedural-languages-concourse-bucket))
-    regexp: release/gpdb4/data-science/DataScienceR-(.*)-gp4-rhel7-x86_64.gppkg
+    regexp: release/gpdb4/data-science/DataScienceR-(((data-science-r-version)))-gp4-rhel7-x86_64.gppkg
 
 - name: libgppc_rhel5_gppkg
   type: s3
@@ -593,7 +593,7 @@ resources:
     access_key_id: ((bucket-access-key-id))
     secret_access_key: ((bucket-secret-access-key))
     bucket: ((procedural-languages-concourse-bucket))
-    regexp: release/gpdb4/data-science/DataSciencePython-(.*)-gp4-rhel6-x86_64.gppkg
+    regexp: release/gpdb4/data-science/DataSciencePython-(((data-science-python-version)))-gp4-rhel6-x86_64.gppkg
 
 - name: ds_r_rhel6
   type: s3
@@ -602,7 +602,7 @@ resources:
     access_key_id: ((bucket-access-key-id))
     secret_access_key: ((bucket-secret-access-key))
     bucket: ((procedural-languages-concourse-bucket))
-    regexp: release/gpdb4/data-science/DataScienceR-(.*)-gp4-rhel6-x86_64.gppkg
+    regexp: release/gpdb4/data-science/DataScienceR-(((data-science-r-version)))-gp4-rhel6-x86_64.gppkg
 
 - name: madlib_rhel5_gppkg
   type: s3
@@ -611,7 +611,7 @@ resources:
     region_name: ((aws-region))
     access_key_id: ((gpdb5-pipeline-bucket-access-key-id))
     secret_access_key: ((gpdb5-pipeline-bucket-secret-access-key))
-    versioned_file: release/gpdb4/madlib-1.16-gp4.3orca-rhel5-x86_64.gppkg
+    versioned_file: release/gpdb4/madlib-((madlib-version))-gp4.3orca-rhel5-x86_64.gppkg
 
 - name: mit_krb5_rhel62_tarball
   type: s3
@@ -638,7 +638,7 @@ resources:
     bucket: ((snowflakes-bucket))
     region_name: ((aws-region))
     secret_access_key: ((bucket-secret-access-key))
-    versioned_file: gpsupport/gpsupport-1.2.0.0.gz
+    versioned_file: gpsupport/gpsupport-((gpsupport-version)).gz
 
 - name: gpmt_binary
   type: s3
@@ -647,7 +647,7 @@ resources:
     bucket: ((snowflakes-bucket))
     region_name: ((aws-region))
     secret_access_key: ((bucket-secret-access-key))
-    versioned_file: gpmt_1.1.2/gpmt.gz
+    versioned_file: gpmt_((gpmt-version))/gpmt.gz
 
 - name: patched_bin_gpdb_ms
   type: s3
@@ -665,7 +665,7 @@ resources:
     bucket: ((bucket-name))
     region_name: ((aws-region))
     secret_access_key: ((bucket-secret-access-key))
-    regexp: ms_deliverables/greenplum-db-(.*)-rhel5-x86_64.zip
+    regexp: ms_deliverables/greenplum-db-(((release-version)))-rhel5-x86_64.zip
 
 - name: ms_installer_rhel5_gpdb_rc_sha256
   type: s3
@@ -674,7 +674,7 @@ resources:
     bucket: ((bucket-name))
     region_name: ((aws-region))
     secret_access_key: ((bucket-secret-access-key))
-    regexp: ms_deliverables/greenplum-db-(.*)-rhel5-x86_64.zip.sha256
+    regexp: ms_deliverables/greenplum-db-(((release-version)))-rhel5-x86_64.zip.sha256
 
 - name: ms_installer_rhel5_gpdb_bundled_clients
   type: s3
@@ -683,7 +683,7 @@ resources:
     bucket: ((bucket-name))
     region_name: ((aws-region))
     secret_access_key: ((bucket-secret-access-key))
-    regexp: ms_deliverables/greenplum-clients-(.*)-rhel5-x86_64.zip
+    regexp: ms_deliverables/greenplum-clients-(((release-version)))-rhel5-x86_64.zip
 
 - name: ms_installer_rhel5_gpdb_bundled_clients_sha256
   type: s3
@@ -692,7 +692,7 @@ resources:
     bucket: ((bucket-name))
     region_name: ((aws-region))
     secret_access_key: ((bucket-secret-access-key))
-    regexp: ms_deliverables/greenplum-clients-(.*)-rhel5-x86_64.zip.sha256
+    regexp: ms_deliverables/greenplum-clients-(((release-version)))-rhel5-x86_64.zip.sha256
 
 - name: jre
   type: s3

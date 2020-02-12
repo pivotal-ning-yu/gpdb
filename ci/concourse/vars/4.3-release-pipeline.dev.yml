@@ -1,0 +1,11 @@
+release-version: 4.*
+gpbackup-version: 1\.12\.1
+gpcopy-version: 1\.4\.0
+gpcopy-helper-version: 1\.4\.0
+pl-java-version: 1\.3\.2
+pl-r-version: 2\.3\.3
+data-science-python-version: 1\.0\.1
+data-science-r-version: 1\.0\.1
+gpsupport-version: 1.2.0.0
+gpmt-version: 1.1.2
+madlib-version: "1.16"
