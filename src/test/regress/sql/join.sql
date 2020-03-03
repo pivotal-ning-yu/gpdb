@@ -625,6 +625,7 @@ drop schema pred cascade;
 -- can't get the correct data.
 
 reset search_path;
+set optimizer=off;
 create table t_join_squelch_a (a int, b int);
 insert into t_join_squelch_a values (2, 2);
 create table t_join_squelch_b (x int, y int);
@@ -649,3 +650,7 @@ set enable_mergejoin to on;
 explain select (select count(*) from (select 'random' from t_join_squelch_a a join t_join_squelch_b b on a.a = b.x and a.b = c.i) x)d from t_join_squelch_c c;
 select (select count(*) from (select 'random' from t_join_squelch_a a join t_join_squelch_b b on a.a = b.x and a.b = c.i) x)d from t_join_squelch_c c;
 drop table t_join_squelch_a, t_join_squelch_b, t_join_squelch_c;
+reset enable_nestloop;
+reset enable_hashjoin;
+reset enable_mergejoin;
+reset optimizer;
