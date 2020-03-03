@@ -2891,6 +2891,7 @@ l2:
 
 	newtup->t_data->t_infomask &= ~(HEAP_XACT_MASK);
 	newtup->t_data->t_infomask |= (HEAP_XMAX_INVALID | HEAP_UPDATED);
+	newtup->t_data->t_infomask2 &= ~(HEAP_XMIN_DISTRIBUTED_SNAPSHOT_IGNORE | HEAP_XMAX_DISTRIBUTED_SNAPSHOT_IGNORE);
 	HeapTupleHeaderSetXmin(newtup->t_data, xid);
 	HeapTupleHeaderSetCmin(newtup->t_data, cid);
 	HeapTupleHeaderSetXmax(newtup->t_data, 0);	/* for cleanliness */
