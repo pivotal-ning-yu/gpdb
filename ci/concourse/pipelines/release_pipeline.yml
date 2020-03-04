@@ -1121,7 +1121,6 @@ jobs:
       passed: [compile_gpdb_centos5]
       trigger: true
     - get: centos-gpdb-dev-5
-    - get: component_gpbackup
     - get: component_gpcopy_helper
       resource: component_gpcopy_helper_ms
     - get: component_gpcopy
