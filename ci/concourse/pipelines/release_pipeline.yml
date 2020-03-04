@@ -8,6 +8,12 @@ resource_types:
   source:
     repository: pivotaldata/s3-resource
 
+- name: pivnet
+  type: docker-image
+  source:
+    repository: pivotalcf/pivnet-resource
+    tag: latest-final
+
 ## ======================================================================
 ## resources
 ## ======================================================================
@@ -19,7 +25,7 @@ resources:
     branch: ((gpdb-git-branch))
     private_key: ((gpdb-git-key))
     uri: ((gpdb-git-remote))
-    tag_filter: 4.3.*
+    tag_filter: ((gpdb-tag-filter))
 
 - name: centos-gpdb-dev-5
   type: docker-image
@@ -169,6 +175,15 @@ resources:
     region_name: ((gpdb5-pipeline-aws-region))
     secret_access_key: ((gpdb5-pipeline-bucket-secret-access-key))
     regexp: components/gpbackup/gpbackup-(((gpbackup-version))).tar.gz
+
+- name: pivnet_gpbackup
+  source:
+    api_token: ((public_pivnet_refresh_token))
+    endpoint: ((4_3-release_pivnet_endpoint))
+    product_slug: pivotal-gpdb-backup-restore
+    product_version: ((pivnet-gpbackup-version))
+    sort_by: semver
+  type: pivnet
 
 - name: component_gpcopy
   type: s3
@@ -1352,6 +1367,8 @@ jobs:
     - get: ds_r_rhel6
     - get: centos-gpdb-dev-6
     - get: jre
+    - get: pivnet_gpbackup
+      params: {globs: ["pivotal_greenplum_backup_restore-*.tar.gz"]}
   - task: update_artifacts
     file: gpdb_src/ci/concourse/apply_morgan_stanley_patches.yml
     image: centos-gpdb-dev-6

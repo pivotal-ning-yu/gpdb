@@ -18,6 +18,7 @@ inputs:
   - name: ds_python_rhel6
   - name: ds_r_rhel6
   - name: jre
+  - name: pivnet_gpbackup
 run:
   path: gpdb_src/customer-patches/morgan-stanley/scripts/gen-customer-installer.sh
 outputs:

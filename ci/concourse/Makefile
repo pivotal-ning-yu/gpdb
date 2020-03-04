@@ -26,6 +26,7 @@ set-release-dev:
 		-p ${DEV_PIPELINE_NAME} \
 		-c pipelines/release_pipeline.yml \
 		-l vars/4.3-release-pipeline.dev.yml \
-		-l ~/workspace/gp-continuous-integration/secrets/gpdb-4.3-release-secrets.dev.yml
+		-l ~/workspace/gp-continuous-integration/secrets/gpdb-4.3-release-secrets.dev.yml \
+		--var=gpdb-git-branch=${BRANCH}
 
 	fly -t dev pause-job -j ${DEV_PIPELINE_NAME}/upload_to_ms_ftp

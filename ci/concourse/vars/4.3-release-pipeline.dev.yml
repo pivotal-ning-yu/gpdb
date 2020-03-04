@@ -1,3 +1,5 @@
+gpdb-tag-filter: ''
+
 release-version: 4.*
 gpbackup-version: 1\.12\.1
 gpcopy-version: 1\.4\.0
@@ -9,3 +11,4 @@ data-science-r-version: 1\.0\.1
 gpsupport-version: 1.2.0.0
 gpmt-version: 1.1.2
 madlib-version: "1.16"
+pivnet-gpbackup-version: 1\.17\.0

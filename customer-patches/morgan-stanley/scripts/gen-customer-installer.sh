@@ -127,6 +127,9 @@ if [ -z "${GPCOPY_FILE}" ]; then
     GPCOPY_FILE=$(echo ${BASE_DIR}/component_gpcopy/gpcopy-*.tar.gz)
 fi
 
+if [ -z "${GPBACKUP_FILE}" ]; then
+    GPBACKUP_FILE=$(echo ${BASE_DIR}/pivnet_gpbackup/pivotal_greenplum_backup_restore-*.tar.gz)
+fi
 cat <<-EOF
 ======================================================================
 TIMESTAMP ..... : $(date)
@@ -147,6 +150,7 @@ TIMESTAMP ..... : $(date)
   DS_R_GPPKG_FILE ........... : ${DATASCIENCE_R_GPPKG_FILE}
   JDBC_DRIVER_FILE .......... : ${JDBC_DRIVER_FILE}
   GPSUPPORT_FILE ............ : ${GPSUPPORT_FILE}
+  GPBACKUP_FILE ............. : ${GPBACKUP_FILE}
 
 ======================================================================
 EOF
@@ -388,6 +392,17 @@ echo "----------------------------------------------------------------------"
 
 tar -xf ${GPCOPY_FILE} -C /tmp
 tar -xf /tmp/gpdb_component_gpcopy.tar.gz -C ${GPDB_INSTALLDIR}/bin
+
+## ----------------------------------------------------------------------
+## Process gpbackup gpdb_installer
+## ----------------------------------------------------------------------
+
+echo ""
+echo "----------------------------------------------------------------------"
+echo "GPBACKUP retrieval: $( basename ${GPBACKUP_FILE} )"
+echo "----------------------------------------------------------------------"
+
+tar -xf ${GPBACKUP_FILE} -C ${GPDB_INSTALLDIR}
 
 ## ----------------------------------------------------------------------
 ## Update KRB5 gpdb_installer
