@@ -1333,7 +1333,7 @@ jobs:
             cd ..
             cd pivnet_client/
             bundle install
-            bundle exec pivnet_client upload --verbose --metadata ../gpdb_src/ci/pivnet/metadata_gp43.yml --search_path ../ --gpdb_version ${GPDB_VERSION}
+            bundle exec pivnet_client upload --trace --verbose --metadata ../gpdb_src/ci/pivnet/metadata_gp43.yml --search_path ../ --gpdb_version ${GPDB_VERSION}
 
 - name: patch_ms
   plan:
