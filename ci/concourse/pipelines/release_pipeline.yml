@@ -68,6 +68,15 @@ resources:
     secret_access_key: ((bucket-secret-access-key))
     versioned_file: bin_gpdb_centos5_with_components/bin_gpdb.tar.gz
 
+- name: bin_gpdb_centos5_with_components_ms
+  type: s3
+  source:
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
+    versioned_file: bin_gpdb_centos5_with_components_ms/bin_gpdb.tar.gz
+
 - name: bin_gpdb_sles11
   type: s3
   source:
@@ -185,15 +194,6 @@ resources:
     sort_by: semver
   type: pivnet
 
-- name: component_gpcopy
-  type: s3
-  source:
-    access_key_id: ((gpdb5-pipeline-bucket-access-key-id))
-    bucket: ((component-bucket-name))
-    region_name: ((gpdb5-pipeline-aws-region))
-    secret_access_key: ((gpdb5-pipeline-bucket-secret-access-key))
-    regexp: components/gpcopy/gpcopy-(((gpcopy-version))).tar.gz
-
 - name: component_gpcopy_helper
   type: s3
   source:
@@ -221,6 +221,16 @@ resources:
     region_name: ((aws-region))
     secret_access_key: ((bucket-secret-access-key))
     regexp: deliverables/greenplum-db-(((release-version)))-rhel5-x86_64.zip
+
+- name: installer_rhel5_gpdb_rc_ms
+  type: s3-week-long-urls
+  source:
+    private: true
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
+    regexp: deliverables/ms/greenplum-db-(((release-version)))-rhel5-x86_64.zip
 
 - name: installer_rhel5_gpdb_rc_sha256
   type: s3
@@ -295,6 +305,16 @@ resources:
     region_name: ((aws-region))
     secret_access_key: ((bucket-secret-access-key))
     versioned_file: deliverables/QAUtils-rhel5-x86_64.tar.gz
+
+- name: qautils_rhel5_tarball_ms
+  type: s3-week-long-urls
+  source:
+    private: true
+    access_key_id: ((bucket-access-key-id))
+    bucket: ((bucket-name))
+    region_name: ((aws-region))
+    secret_access_key: ((bucket-secret-access-key))
+    versioned_file: deliverables/ms/QAUtils-rhel5-x86_64.tar.gz
 
 - name: qautils_sles11_tarball
   type: s3-week-long-urls
@@ -696,6 +716,24 @@ resources:
     secret_access_key: ((bucket-secret-access-key))
     versioned_file: osl/open_source_license_GPDB_-_4.3_-_GA.pdf
 
+- name: component_gpcopy_ms
+  type: s3
+  source:
+    access_key_id: ((gpdb5-pipeline-bucket-access-key-id))
+    bucket: ((component-bucket-name))
+    region_name: ((gpdb5-pipeline-aws-region))
+    secret_access_key: ((gpdb5-pipeline-bucket-secret-access-key))
+    regexp: components/gpcopy/gpcopy-(((gpcopy-version-ms))).tar.gz
+
+- name: component_gpcopy_helper_ms
+  type: s3
+  source:
+    access_key_id: ((gpdb5-pipeline-bucket-access-key-id))
+    bucket: ((component-bucket-name))
+    region_name: ((gpdb5-pipeline-aws-region))
+    secret_access_key: ((gpdb5-pipeline-bucket-secret-access-key))
+    regexp: components/gpcopy/gpcopy_helper-(((gpcopy-helper-version-ms))).tar.gz
+
 ## ======================================================================
 ## jobs
 ## ======================================================================
@@ -1075,6 +1113,30 @@ jobs:
         params:
           file: bin_gpdb_centos5_with_components/bin_gpdb.tar.gz
 
+- name: gpdb_component_packaging_centos_ms
+  plan:
+  - aggregate:
+    - get: gpdb_src
+    - get: bin_gpdb_centos5
+      passed: [compile_gpdb_centos5]
+      trigger: true
+    - get: centos-gpdb-dev-5
+    - get: component_gpbackup
+    - get: component_gpcopy_helper
+      resource: component_gpcopy_helper_ms
+    - get: component_gpcopy
+      resource: component_gpcopy_ms
+  - task: add_components_to_bin_gpdb_centos5
+    file: gpdb_src/ci/concourse/add_components_ms.yml
+    image: centos-gpdb-dev-5
+    input_mapping:
+      bin_gpdb: bin_gpdb_centos5
+    output_mapping:
+      bin_gpdb_with_components: bin_gpdb_centos5_with_components
+  - put: bin_gpdb_centos5_with_components_ms
+    params:
+      file: bin_gpdb_centos5_with_components/bin_gpdb.tar.gz
+
 - name: gpdb_rc_packaging_centos5
   plan:
   - aggregate:
@@ -1127,6 +1189,41 @@ jobs:
       params:
         file: packaged_gpdb_appliance_rc/greenplum-db-appliance-*-rhel5-x86_64.zip.sha256
     - put: qautils_rhel5_tarball
+      params:
+        file: rc_bin_gpdb/QAUtils-rhel5-x86_64.tar.gz
+
+- name: gpdb_rc_packaging_centos5_ms
+  plan:
+  - aggregate:
+    - get: gpdb_src
+      passed:
+      - compile_gpdb_centos5
+    - get: bin_gpdb
+      resource: bin_gpdb_centos5_with_components_ms
+      passed: [gpdb_component_packaging_centos_ms]
+      trigger: true
+    - get: centos-gpdb-dev-5
+  - task: separate_qautils_files_for_rc
+    file: gpdb_src/ci/concourse/separate_qautils_files_for_rc.yml
+    image: centos-gpdb-dev-5
+    params:
+      QAUTILS_TARBALL: rc_bin_gpdb/QAUtils-rhel5-x86_64.tar.gz
+  - task: gpdb_rc_packaging_centos
+    file: gpdb_src/ci/concourse/gpdb_packaging.yml
+    image: centos-gpdb-dev-5
+    input_mapping:
+      bin_gpdb: rc_bin_gpdb
+    output_mapping:
+      packaged_gpdb: packaged_gpdb_rc
+    params:
+      INSTALL_SCRIPT_SRC: gpdb_src/gpAux/releng/bin/installer-header-rhel5-gpdb.sh
+      INSTALLER_ZIP: packaged_gpdb/greenplum-db-@GP_VERSION@-rhel5-x86_64.zip
+      ADD_README_INSTALL: true
+  - aggregate:
+    - put: installer_rhel5_gpdb_rc_ms
+      params:
+        file: packaged_gpdb_rc/greenplum-db-*-rhel5-x86_64.zip
+    - put: qautils_rhel5_tarball_ms
       params:
         file: rc_bin_gpdb/QAUtils-rhel5-x86_64.tar.gz
 
@@ -1343,10 +1440,12 @@ jobs:
       - gpdb_rc_packaging_centos5
       - compile_gpdb_centos5
     - get: installer_rhel5_gpdb_rc
-      passed: [gpdb_rc_packaging_centos5]
+      resource: installer_rhel5_gpdb_rc_ms
+      passed: [gpdb_rc_packaging_centos5_ms]
       trigger: true
     - get: qautils_rhel5_tarball
-      passed: [gpdb_rc_packaging_centos5]
+      resource: qautils_rhel5_tarball_ms
+      passed: [gpdb_rc_packaging_centos5_ms]
     - get: installer_rhel5_gpdb_clients
       passed: [compile_gpdb_centos5]
     - get: installer_rhel5_gpdb_connectivity
@@ -1362,7 +1461,6 @@ jobs:
     - get: greenplum_jdbc_zip
     - get: gpsupport_package
     - get: gpmt_binary
-    - get: component_gpcopy
     - get: ds_python_rhel6
     - get: ds_r_rhel6
     - get: centos-gpdb-dev-6

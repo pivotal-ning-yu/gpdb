@@ -124,7 +124,7 @@ psql -P pager -f ~/mad_test.sql testdb
 psql -P pager -f ~/plr_test.sql testdb 
 psql -P pager -f ~/pgcrypto_test.sql testdb 
 ~/pljava_test.sh
-gpcopy || exit 1
+gpcopy --version || exit 1
 
 EOF
 

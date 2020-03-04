@@ -14,7 +14,6 @@ inputs:
   - name: greenplum_jdbc_zip
   - name: gpsupport_package
   - name: gpmt_binary
-  - name: component_gpcopy
   - name: ds_python_rhel6
   - name: ds_r_rhel6
   - name: jre
