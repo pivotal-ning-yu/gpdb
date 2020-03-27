@@ -20,12 +20,16 @@ addons:
             - libxml2-dev
             - libevent-dev
             - libperl-dev
+            - libuv1-dev
             - g++-8
             - python-dev
             - python-yaml
             - libapr1-dev
             - libzstd1
             - libzstd1-dev
+    homebrew:
+        packages:
+            - libuv
 
 matrix:
     include:
