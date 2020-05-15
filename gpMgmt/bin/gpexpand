@@ -639,6 +639,7 @@ class SegmentTemplate:
         self._fixup_template()
         self._tar_template()
         self.statusLogger.set_status('BUILD_SEGMENT_TEMPLATE_DONE')
+        #raise Exception('stop here')
 
     def build_new_segments(self):
         """Deploys the template tar file and configures the new segments"""
@@ -661,6 +662,8 @@ class SegmentTemplate:
         master only tables on the new segments to rebuild the index files, this
         is fast as the heap files are all empty.
         """
+
+        global EMPTY_INDEX
 
         self.logger.info("Building the file list of master only tables")
 
@@ -748,12 +751,6 @@ SELECT oid
                          for row in catalog.getDatabaseList(conn)]
             self.logger.debug("list of databases: %s" % databases)
 
-            # also get the database oid of template0 and build the real path
-            # for EMPTY_INDEX
-            dboid0 = dbconn.execSQLForSingleton(conn, dboid_of_template0_sql)
-            global EMPTY_INDEX
-            EMPTY_INDEX = 'base/%s/5112' % dboid0
-
         # then list the per-database master-only tables
         for database in databases:
             # template0 does not accept connections, so we have no chance to
@@ -777,6 +774,12 @@ SELECT oid
                          for row in dbconn.execSQL(conn, per_db_index_sql).fetchall()]
                 self.logger.debug("raw index files of per-database master-only tables: %s" % paths)
                 self.master_only_relation_paths.extend(scan_paths(paths))
+
+                if database == 'template1':
+                    EMPTY_INDEX = dbconn.execSQLForSingleton(conn, '''
+select pg_relation_filepath('pg_partition_oid_index'::regclass);
+''')
+                    self.logger.debug("EMPTY_INDEX: {}".format(EMPTY_INDEX))
 
         os.chdir(oldcwd)
 
@@ -859,50 +862,114 @@ SELECT oid
                                                "dumps")
         os.mkdir(tablespace_template_dir)
 
+        #empty_index = os.path.join(tablespace_template_dir, EMPTY_INDEX)
+        empty_index = os.path.join(self.masterDataDirectory, EMPTY_INDEX)
+        self.logger.info('empty_index: {}'.format(empty_index))
+
         # build a list of master-only files that are under tablespaces, these
         # files will be ignored during the dumping.
         excludes = self.master_only_relation_paths + self.master_only_index_paths
         full_exclude_relations = []
         full_exclude_indices = []
-        for pathname in excludes:
-            if not pathname.startswith('./pg_tblspc/'):
-                # only tablespaces are handled here
-                continue
-            # a pathname is like './pg_tblspc/16385/GPDB_7_301911081/16386/6052_vm'
-            # we need to change it to './16385/<dummyDBID>/GPDB_7_301911081/16386/6052_vm'
-            seps = pathname.split(os.sep)
-            pathname = os.sep.join([seps[2], str(dummyDBID)] + seps[3:])
-            if pathname in self.master_only_relation_paths:
-                full_exclude_relations.append(os.path.join(tablespace_template_dir,
-                                                           pathname))
-            else:
-                full_exclude_indices.append(os.path.join(tablespace_template_dir,
-                                                         pathname))
+        #for pathname in excludes:
+        #    if not pathname.startswith('./pg_tblspc/'):
+        #        # only tablespaces are handled here
+        #        continue
+        #    ## a pathname is like './pg_tblspc/16385/GPDB_7_301911081/16386/6052_vm'
+        #    ## we need to change it to '16385/<dummyDBID>/GPDB_7_301911081/16386/6052_vm'
+        #    #seps = pathname.split(os.sep)
+        #    ##self.logger.info('old path: {}'.format(pathname))
+        #    #pathname = os.sep.join([seps[2], str(dummyDBID)] + seps[3:])
+        #    ##self.logger.info('new path: {}'.format(pathname))
+        #    if pathname in self.master_only_relation_paths:
+        #        full_exclude_relations.append(pathname)
+        #    else:
+        #        full_exclude_indices.append(pathname)
 
-        full_excludes = full_exclude_relations + full_exclude_indices
+        #full_excludes = full_exclude_relations + full_exclude_indices
+        #self.logger.info('full_excludes: {}'.format(full_excludes))
+        #self.logger.info('excludes: {}'.format(excludes))
+        self.logger.info('master_only_relation_paths: {}'.format(self.master_only_relation_paths))
+        self.logger.info('master_only_index_paths: {}'.format(self.master_only_index_paths))
+        excluded = []
+        def should_ignore(path, names):
+            self.logger.info('should_ignore(): path: {}, names: {}'.format(path, names))
+            ignores = []
+            seps = path.split(os.path.sep)
+            if 'pg_tblspc' not in seps:
+                # nothing to ignore, only tablespaces are handled here
+                return []
+
+            # only care about the seps since 'pg_tblspc', also add leading './'
+            path = os.path.join('.', *seps[seps.index('pg_tblspc'):])
+            for name in names:
+                pathname = os.path.join(path, name)
+                self.logger.info('should_ignore(): pathname: {}'.format(pathname))
+                if pathname not in excludes:
+                    continue
+
+                self.logger.info('should_ignore(): ignored {}'.format(pathname))
+                ignores.append(name)
+
+                excluded.append(pathname)
+
+                # the files of the master only tables are already deleted, now
+                # add an empty copy of them, so they are seen as empty on the
+                # new segments, and we do not need to delete them via sql
+                # separately.
+
+                ## a pathname is like './pg_tblspc/16385/GPDB_7_301911081/16386/6052_vm'
+                ## convert it to '16385/<dummyDBID>/GPDB_7_301911081/16386/6052_vm'
+                #seps = pathname.split(os.sep)
+                #self.logger.info('old path: {}'.format(pathname))
+                #newpathname = os.sep.join([seps[2], str(dummyDBID)] + seps[3:])
+                #self.logger.info('new path: {}'.format(newpathname))
+                #fullname = os.path.join(tablespace_template_dir, newpathname)
+                #self.logger.info('fullname: {}'.format(fullname))
+
+                #if pathname in self.master_only_relation_paths:
+                #    full_exclude_relations.append(pathname)
+                #else:
+                #    full_exclude_indices.append(pathname)
+
+            return ignores
+
         for tbcspc_oid in tbcspc_oids:
             symlink_path = os.path.join(master_tblspc_dir, tbcspc_oid)
+            self.logger.info("symlink_path: {}".format(symlink_path))
             target_path = os.readlink(symlink_path)
+            self.logger.info("target_path: {}".format(target_path))
             os.mkdir(os.path.join(tablespace_template_dir, tbcspc_oid))
             # the target name for copytree does not impact anything
-            shutil.copytree(target_path,
+            shutil.copytree(symlink_path,
                             os.path.join(tablespace_template_dir,
                                          tbcspc_oid, str(dummyDBID)),
-                            shutil.ignore_patterns(full_excludes))
+                            symlinks=True,
+                            ignore=should_ignore)
             shutil.rmtree(os.path.join(os.path.dirname(target_path),
                                        str(dummyDBID)))
+            #self.logger.info('rmtree({})'.format(os.path.join(os.path.dirname(target_path), str(dummyDBID))))
 
         with open(os.path.join(self.tempDir,
                                "pg_tblspc",
                                "newTableSpaceInfo.json"), "w") as f:
             json.dump(newTableSpaceInfo, f)
 
-        empty_index = os.path.join(tablespace_template_dir, EMPTY_INDEX)
-
         # the files of the master only tables are already deleted, now add an
         # empty copy of them, so they are seen as empty on the new segments,
         # and we do not need to delete them via sql separately.
-        for fullname in full_excludes:
+        #full_excludes = full_exclude_relations + full_exclude_indices
+        self.logger.info('excluded: {}'.format(excluded))
+        for pathname in excluded:
+            # a pathname is like './pg_tblspc/16385/GPDB_7_301911081/16386/6052_vm'
+            # we need to change it to '16385/<dummyDBID>/GPDB_7_301911081/16386/6052_vm'
+            seps = pathname.split(os.sep)
+            #self.logger.info('old path: {}'.format(pathname))
+            newpathname = os.sep.join([seps[2], str(dummyDBID)] + seps[3:])
+            #self.logger.info('new path: {}'.format(newpathname))
+            fullname = os.path.join(tablespace_template_dir, newpathname)
+            #self.logger.info('fullname: {}'.format(fullname))
+
             # the file should not already exist, however in case it does, which
             # indicates an error in the excluding logic, raise an error.
             if os.path.exists(fullname):
@@ -913,13 +980,16 @@ SELECT oid
             # so it is safe to use a check-and-create style to create dirs.
             if not os.path.isdir(dirname):
                 os.makedirs(dirname)
-            if fullname in full_exclude_relations:
+            #if fullname in full_exclude_relations:
+            if pathname in self.master_only_relation_paths:
                 # an empty relation file is valid, so touch it directly
                 open(fullname, 'ab')
+                self.logger.info("created a placeholder for relation file {}".format(fullname))
             else:
                 # an empty index file is invalid, in needs to contain a b-tree
                 # meta page, so we copy such a file from an existing one
                 shutil.copyfile(empty_index, fullname)
+                self.logger.info("created a placeholder for index file {}".format(fullname))
 
     def _gen_DummyDBID(self):
         """gen a random int that surely beyond the possible dbid range"""
@@ -1062,7 +1132,8 @@ SELECT oid
         cpCmd.run(validateAfter=True)
 
         excludes = self.master_only_relation_paths + self.master_only_index_paths
-        empty_index = os.path.join(self.tempDir, EMPTY_INDEX)
+        empty_index = os.path.join(self.masterDataDirectory, EMPTY_INDEX)
+        self.logger.info('empty_index: {}'.format(empty_index))
 
         # the files of the master only tables are already deleted, now add an
         # empty copy of them, so they are seen as empty on the new segments,
@@ -1111,7 +1182,7 @@ SELECT oid
         rmCmd = RemoveDirectory('gpexpand remove temp dir: %s' % tempDir, tempDir)
         rmCmd.run(validateAfter=True)
         rmCmd = RemoveFile('gpexpand remove segment template file', tarFile)
-        rmCmd.run(validateAfter=True)
+        #rmCmd.run(validateAfter=True)
 
     @staticmethod
     def cleanup_build_new_segments(pool, tarFile, gparray, hosts=None, removeDataDirs=False):
@@ -1232,7 +1303,7 @@ class gpexpand:
         # make sure gpexpand schema doesn't exist since it wasn't in DB provided
         if not gpexpand_db_status:
             """
-            MPP-14145 - If there's no discernable status, the schema must not exist.
+            MPP-14145 - If there's no discernible status, the schema must not exist.
 
             The checks in get_status_from_db claim to look for existence of the 'gpexpand' schema, but more accurately they're
             checking for non-emptiness of the gpexpand.status table. If the table were empty, but the schema did exist, gpexpand would presume
@@ -2212,7 +2283,7 @@ class ExpandTable():
 
     def expand(self, table_conn, cancel_flag):
         # for root partition, we want to expand whose partition in one shot
-        # TODO: expand leaf partitions seperately in parallel
+        # TODO: expand leaf partitions separately in parallel
         only_str = "" if self.is_root_partition else "ONLY"
         external_str = "EXTERNAL" if self.external_writable else ""
         sql = 'ALTER %s TABLE %s %s EXPAND TABLE' % (external_str, only_str, self.fq_name)
