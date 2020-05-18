@@ -76,6 +76,12 @@ extern void load_auxiliary_libraries(void);
 extern bool amAuxiliaryBgWorker(void);
 extern bool IsUnderMasterDispatchMode(void);
 
+#ifdef HAVE_LIBUV
+# define IC_PROXY_NUM_BGWORKER 1
+#else  /* HAVE_LIBUV */
+# define IC_PROXY_NUM_BGWORKER 0
+#endif  /* HAVE_LIBUV */
+
 /*
  * Note: MAX_BACKENDS is limited to 2^18-1 because that's the width reserved
  * for buffer references in buf_internals.h.  This limitation could be lifted
@@ -87,6 +93,6 @@ extern bool IsUnderMasterDispatchMode(void);
  * relevant GUC check hooks and in RegisterBackgroundWorker().
  */
 #define MAX_BACKENDS	0x3FFFF
-#define MaxPMAuxProc	4
+#define MaxPMAuxProc	(4 + IC_PROXY_NUM_BGWORKER)
 
 #endif   /* _POSTMASTER_H */
