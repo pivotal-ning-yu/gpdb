@@ -3947,6 +3947,7 @@ _readCdbProcess(void)
 	READ_INT_FIELD(listenerPort);
 	READ_INT_FIELD(pid);
 	READ_INT_FIELD(contentid);
+	READ_INT_FIELD(dbid);
 
 	READ_DONE();
 }
