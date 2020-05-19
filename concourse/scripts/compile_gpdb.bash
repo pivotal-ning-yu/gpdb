@@ -51,10 +51,37 @@ function prep_env() {
 function install_deps_for_centos_or_sles() {
   rpm -i libquicklz-installer/libquicklz-*.rpm
   rpm -i libquicklz-devel-installer/libquicklz-*.rpm
+
+  # install libuv for ic-proxy
+  if [ "$TARGET_OS" = centos ]; then
+    yum install -y epel-release
+    yum install -y libuv-devel
+  fi
 }
 
 function install_deps_for_ubuntu() {
   dpkg --install libquicklz-installer/libquicklz-*.deb
+
+  # install libuv for ic-proxy
+  apt-get update
+  apt-get install -y libuv1-dev
+
+  # set it to y to install the debug symbols of libuv
+  install_dbgsym=
+
+  if [ "$install_dbgsym" = y ]; then
+    apt-get install -y ubuntu-dbgsym-keyring
+
+    . /etc/os-release
+    cat >/etc/apt/sources.list.d/ddebs.list <<EOF
+deb http://ddebs.ubuntu.com $UBUNTU_CODENAME main restricted universe multiverse
+deb http://ddebs.ubuntu.com $UBUNTU_CODENAME-updates main restricted universe multiverse
+deb http://ddebs.ubuntu.com $UBUNTU_CODENAME-proposed main restricted universe multiverse
+EOF
+
+    apt-get update
+    apt-get install -y libuv1-dbgsym
+  fi
 }
 
 function install_deps() {

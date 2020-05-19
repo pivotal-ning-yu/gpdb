@@ -61,6 +61,35 @@ function _main() {
       ;;
     esac
 
+    # install libuv for ic-proxy
+    case "${TEST_OS}" in
+      centos)
+        yum install -y epel-release
+        yum install -y libuv-devel
+        ;;
+      ubuntu)
+        apt-get update
+        apt-get install -y libuv1-dev
+
+        # set it to y to install the debug symbols of libuv
+        install_dbgsym=
+
+        if [ "$install_dbgsym" = y ]; then
+          apt-get install -y ubuntu-dbgsym-keyring
+
+          . /etc/os-release
+          cat >/etc/apt/sources.list.d/ddebs.list <<EOF
+deb http://ddebs.ubuntu.com $UBUNTU_CODENAME main restricted universe multiverse
+deb http://ddebs.ubuntu.com $UBUNTU_CODENAME-updates main restricted universe multiverse
+deb http://ddebs.ubuntu.com $UBUNTU_CODENAME-proposed main restricted universe multiverse
+EOF
+
+          apt-get update
+          apt-get install -y libuv1-dbgsym
+        fi
+        ;;
+    esac
+
     time install_and_configure_gpdb
     time setup_gpadmin_user
     time make_cluster
