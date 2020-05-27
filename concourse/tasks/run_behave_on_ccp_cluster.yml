@@ -68,6 +68,18 @@ run:
             sysctl -w vm.dirty_ratio=0
             sysctl -w vm.dirty_background_bytes=1610612736
             sysctl -w vm.dirty_bytes=4294967296
+
+            # install libuv for ic-proxy
+            case \"${TEST_OS}\" in
+              centos)
+                yum install -y epel-release
+                yum install -y libuv-devel
+                ;;
+              ubuntu)
+                apt-get update
+                apt-get install -y libuv1-dev
+                ;;
+            esac
         '"
     done <cluster_env_files/etc_hostfile
 
