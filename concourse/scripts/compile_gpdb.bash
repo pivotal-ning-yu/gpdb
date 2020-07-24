@@ -58,11 +58,9 @@ function install_libuv() {
     *) return ;;
   esac
 
-  tar xf libuv-installer/libuv-*.tar.gz -C /tmp
-
   mkdir -p ${includedir} ${libdir}
-  cp -a /tmp/libuv-*/include/* ${includedir}/
-  cp -a /tmp/libuv-*/lib/* ${libdir}/
+  cp -a /usr/local/include/uv* ${includedir}/
+  cp -a /usr/local/lib/libuv* ${libdir}/
 }
 
 function install_deps_for_centos_or_sles() {
@@ -160,13 +158,8 @@ function include_quicklz() {
 }
 
 function include_libuv() {
-  local includedir=/usr/include
-  local libdir
-  case "${TARGET_OS}" in
-    centos | sles) libdir=/usr/lib64 ;;
-    ubuntu) libdir=/usr/lib/x86_64-linux-gnu ;;
-    *) return ;;
-  esac
+  local includedir=/usr/local/include
+  local libdir=/usr/local/lib
   pushd ${GREENPLUM_INSTALL_DIR}
     # need to include both uv.h and uv/*.h
     cp -a ${includedir}/uv* include
