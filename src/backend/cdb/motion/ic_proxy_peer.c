@@ -43,10 +43,23 @@
 
 #include "postgres.h"
 
+#include "ic_proxy_addr.h"
 #include "ic_proxy_server.h"
 #include "ic_proxy_pkt_cache.h"
 
 #include <uv.h>
+
+
+typedef struct ICProxyPeerSchedule ICProxyPeerSchedule;
+
+
+struct ICProxyPeerSchedule
+{
+	uv_timer_t	timer;
+
+	int16		content;
+	uint16		dbid;
+};
 
 
 /*
@@ -286,6 +299,39 @@ ic_proxy_peer_blessed_lookup(uv_loop_t *loop, int16 content, uint16 dbid)
 	}
 
 	return ic_proxy_peers[dbid];
+}
+
+static void
+ic_proxy_peer_schedule_on_close(uv_handle_t *handle)
+{
+	ICProxyPeerSchedule *schedule = (ICProxyPeerSchedule *) handle;
+
+	ic_proxy_free(schedule);
+}
+
+static void
+ic_proxy_peer_schedule_on_timer(uv_timer_t *timer)
+{
+	ICProxyPeerSchedule *schedule = (ICProxyPeerSchedule *) timer;
+
+	ic_proxy_log(LOG, "ic-proxy-peer: reconnecting to seg%hd:dbid%hu",
+				 schedule->content, schedule->dbid);
+
+	ic_proxy_peer_auto_connect(timer->loop, schedule->content, schedule->dbid);
+
+	uv_close((uv_handle_t *) timer, ic_proxy_peer_schedule_on_close);
+}
+
+static void
+ic_proxy_peer_schedule_reconnect(uv_loop_t *loop, int16 content, uint16 dbid)
+{
+	ICProxyPeerSchedule *schedule = ic_proxy_new(ICProxyPeerSchedule);
+
+	schedule->content = content;
+	schedule->dbid = dbid;
+
+	uv_timer_init(loop, &schedule->timer);
+	uv_timer_start(&schedule->timer, ic_proxy_peer_schedule_on_timer, 100, 0);
 }
 
 /*
@@ -763,6 +809,9 @@ ic_proxy_peer_on_connected(uv_connect_t *conn, int status)
 		/* the peer might just not get ready yet, retry later */
 		ic_proxy_log(LOG, "%s: fail to connect: %s",
 					 peer->name, uv_strerror(status));
+		/* schedule a retry, the current peer is useless, anyway */
+		ic_proxy_peer_schedule_reconnect(peer->tcp.loop,
+										 peer->content, peer->dbid);
 		ic_proxy_peer_close(peer);
 		return;
 	}
@@ -770,8 +819,6 @@ ic_proxy_peer_on_connected(uv_connect_t *conn, int status)
 	ic_proxy_log(LOG, "%s: connected, sending HELLO", peer->name);
 
 	peer->state |= IC_PROXY_PEER_STATE_CONNECTED;
-
-	/* TODO: increase ic_proxy_peer_contents[peer->content] */
 
 	/* hello packet must be the first one from a client */
 
@@ -824,6 +871,31 @@ ic_proxy_peer_connect(ICProxyPeer *peer, struct sockaddr_in *dest)
 
 	uv_tcp_connect(conn, &peer->tcp, (struct sockaddr *) dest,
 				   ic_proxy_peer_on_connected);
+}
+
+/*
+ * Connect to a remote peer if not yet.
+ */
+void
+ic_proxy_peer_auto_connect(uv_loop_t *loop, int16 content, uint16 dbid)
+{
+	ICProxyPeer *peer;
+	const ICProxyAddr *addr;
+
+	/*
+	 * Only connect to a remote peer if it has a less content and is not the
+	 * primary/mirror of myself.
+	 */
+	if (content >= GpIdentity.segindex || dbid == GpIdentity.dbid)
+		return;
+
+	peer = ic_proxy_peer_blessed_lookup(loop, content, dbid);
+	if (peer->state & IC_PROXY_PEER_STATE_CONNECTING)
+		return;
+
+	addr = ic_proxy_get_addr(content, dbid);
+	if (addr)
+		ic_proxy_peer_connect(peer, (struct sockaddr_in *) addr);
 }
 
 /*

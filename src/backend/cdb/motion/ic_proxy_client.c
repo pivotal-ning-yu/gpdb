@@ -663,6 +663,10 @@ ic_proxy_client_on_hello_pkt(void *opaque, const void *data, uint16 size)
 
 	ic_proxy_key_from_c2p_pkt(&key, pkt);
 
+	/* Connect to the peer if not yet */
+	ic_proxy_peer_auto_connect(client->pipe.loop,
+							   key.remoteContentId, key.remoteDbid);
+
 	/*
 	 * If we register before the HELLO ACK is sent, the peer has a chance to
 	 * route data before HELLO ACK.  So we must register in the write callback.

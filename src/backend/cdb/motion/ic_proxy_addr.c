@@ -41,9 +41,6 @@ List	   *ic_proxy_addrs;
 void
 ic_proxy_reload_addresses(void)
 {
-	int			max_content_id;
-	int			uniq_content_count;
-
 	/* reset the old addresses */
 	{
 		ListCell   *cell;
@@ -56,8 +53,6 @@ ic_proxy_reload_addresses(void)
 		list_free(ic_proxy_addrs);
 		ic_proxy_addrs = NIL;
 	}
-
-	max_content_id = IC_PROXY_INVALID_CONTENT;
 
 	/* parse the new addresses */
 	{
@@ -95,22 +90,32 @@ ic_proxy_reload_addresses(void)
 							 content, dbid, ip, port, uv_strerror(ret));
 
 			ic_proxy_addrs = lappend(ic_proxy_addrs, addr);
-
-			max_content_id = Max(max_content_id, content);
 		}
 
 		fclose(f);
 		ic_proxy_free(buf);
 	}
+}
 
-	/*
-	 * We have found the max content id, convert it to a count by adding 2, as
-	 * content ids are counted from -1.
-	 */
-	uniq_content_count = max_content_id + 2;
+/*
+ * Get the address of the specified content:dbid.
+ *
+ * Return NULL if not found.
+ */
+const ICProxyAddr *
+ic_proxy_get_addr(int16 content, uint16 dbid)
+{
+	ListCell   *cell;
 
-	ic_proxy_log(LOG, "ic-proxy-server: %d unique content ids",
-				 uniq_content_count);
+	foreach(cell, ic_proxy_addrs)
+	{
+		ICProxyAddr *addr = lfirst(cell);
+
+		if (addr->dbid == dbid)
+			return addr;
+	}
+
+	return NULL;
 }
 
 /*
@@ -121,16 +126,11 @@ ic_proxy_reload_addresses(void)
 int
 ic_proxy_get_my_port(void)
 {
-	ListCell   *cell;
-	int			dbid = GpIdentity.dbid;
+	const ICProxyAddr *addr;
 
-	foreach(cell, ic_proxy_addrs)
-	{
-		ICProxyAddr *addr = lfirst(cell);
-
-		if (addr->dbid == dbid)
-			return ic_proxy_addr_get_port(addr);
-	}
+	addr = ic_proxy_get_addr(GpIdentity.segindex, GpIdentity.dbid);
+	if (addr)
+		return ic_proxy_addr_get_port(addr);
 
 	ic_proxy_log(WARNING, "ic-proxy-addr: cannot get my port");
 	return -1;

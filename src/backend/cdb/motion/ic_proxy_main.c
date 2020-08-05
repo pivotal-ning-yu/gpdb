@@ -303,42 +303,6 @@ ic_proxy_server_client_listener_init(uv_loop_t *loop)
 }
 
 /*
- * Establish the peer connections.
- *
- * A proxy connects to all the other proxies, all these connections form the
- * proxy network.  Only one connection is needed between 2 proxies, this is
- * ensured by a policy that "proxy X connects to proxy Y iff X > Y".  To support
- * mirror promotion, X attempts to connect to Y even if Y is a mirror, or even
- * if we have connected to Y's primary.  In fact we do not know whether Y is a
- * mirror or not, and we do not care.
- */
-static void
-ic_proxy_server_ensure_peers(uv_loop_t *loop)
-{
-	ListCell   *cell;
-
-	foreach(cell, ic_proxy_addrs)
-	{
-		ICProxyAddr *addr = lfirst(cell);
-		ICProxyPeer *peer;
-
-		if (addr->content >= GpIdentity.segindex)
-			continue;
-		if (addr->dbid == GpIdentity.dbid)
-			continue; /* do not connect to my primary / mirror */
-
-		/*
-		 * First get the peer with the peer id, then connect to it.  The peer
-		 * can be a placeholder, can be in the progress of a connection, or can
-		 * be connected, the ic_proxy_peer_connect() function will take care of
-		 * the state.
-		 */
-		peer = ic_proxy_peer_blessed_lookup(loop, addr->content, addr->dbid);
-		ic_proxy_peer_connect(peer, (struct sockaddr_in *) addr);
-	}
-}
-
-/*
  * Timer handler.
  *
  * This is used to maintain the proxy-proxy network, as well as the client and
@@ -348,7 +312,6 @@ static void
 ic_proxy_server_on_timer(uv_timer_t *timer)
 {
 	ic_proxy_server_peer_listener_init(timer->loop);
-	ic_proxy_server_ensure_peers(timer->loop);
 	ic_proxy_server_client_listener_init(timer->loop);
 }
 
@@ -370,7 +333,6 @@ ic_proxy_server_on_signal(uv_signal_t *handle, int signum)
 		ic_proxy_reload_addresses();
 
 		ic_proxy_server_peer_listener_init(handle->loop);
-		ic_proxy_server_ensure_peers(handle->loop);
 		ic_proxy_server_client_listener_init(handle->loop);
 	}
 	else
