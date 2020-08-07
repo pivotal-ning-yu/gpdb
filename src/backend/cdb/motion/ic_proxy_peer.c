@@ -45,6 +45,7 @@
 
 #include "ic_proxy_server.h"
 #include "ic_proxy_pkt_cache.h"
+#include "ic_proxy_addr.h"
 
 #include <uv.h>
 
@@ -125,36 +126,14 @@ ic_proxy_peer_update_name(ICProxyPeer *peer)
 	 * useful, though.
 	 */
 	uv_tcp_getsockname(&peer->tcp, (struct sockaddr *) &peeraddr, &addrlen);
-	if (peeraddr.ss_family == AF_INET)
-	{
-		struct sockaddr_in *peeraddr4 = (struct sockaddr_in *) &peeraddr;
-
-		uv_ip4_name(peeraddr4, sockname, sizeof(sockname));
-		sockport = ntohs(peeraddr4->sin_port);
-	}
-	else if (peeraddr.ss_family == AF_INET6)
-	{
-		struct sockaddr_in6 *peeraddr6 = (struct sockaddr_in6 *) &peeraddr;
-
-		uv_ip6_name(peeraddr6, sockname, sizeof(sockname));
-		sockport =  ntohs(peeraddr6->sin6_port);
-	}
+	ic_proxy_extract_addr((struct sockaddr *) &peeraddr,
+						  sockname, sizeof(sockname),
+						  &sockport, NULL /* family */);
 
 	uv_tcp_getpeername(&peer->tcp, (struct sockaddr *) &peeraddr, &addrlen);
-	if (peeraddr.ss_family == AF_INET)
-	{
-		struct sockaddr_in *peeraddr4 = (struct sockaddr_in *) &peeraddr;
-
-		uv_ip4_name(peeraddr4, peername, sizeof(peername));
-		peerport = ntohs(peeraddr4->sin_port);
-	}
-	else if (peeraddr.ss_family == AF_INET6)
-	{
-		struct sockaddr_in6 *peeraddr6 = (struct sockaddr_in6 *) &peeraddr;
-
-		uv_ip6_name(peeraddr6, peername, sizeof(peername));
-		peerport =  ntohs(peeraddr6->sin6_port);
-	}
+	ic_proxy_extract_addr((struct sockaddr *) &peeraddr,
+						  peername, sizeof(peername),
+						  &peerport, NULL /* family */);
 
 	snprintf(peer->name, sizeof(peer->name), "peer%s[seg%hd,dbid%hu %s:%d->%s:%d]",
 			 (peer->state & IC_PROXY_PEER_STATE_LEGACY) ? ".legacy" : "",
