@@ -55,8 +55,8 @@ ic_proxy_addr_on_getaddrinfo(uv_getaddrinfo_t *req,
 			/* the req is cancelled, nothing to do */
 		}
 		else
-			ic_proxy_log(LOG,
-						 "ic-proxy-addr: seg%d,dbid%d: failed to resolve the hostname \"%s\":%s: %s",
+			ic_proxy_log(WARNING,
+						 "ic-proxy-addr: seg%d,dbid%d: fail to resolve the hostname \"%s\":%s: %s",
 						 addr->content, addr->dbid,
 						 addr->hostname, addr->service,
 						 uv_strerror(status));
@@ -78,14 +78,23 @@ ic_proxy_addr_on_getaddrinfo(uv_getaddrinfo_t *req,
 				char		name[HOST_NAME_MAX] = "unknown";
 				int			port = 0;
 				int			family;
+				int			ret;
 
-				ic_proxy_extract_addr(iter->ai_addr,
-									  name, sizeof(name), &port, &family);
-				ic_proxy_log(LOG,
-							 "ic-proxy-addr: seg%d,dbid%d: resolved address %s:%s -> %s:%d family=%d",
-							 addr->content, addr->dbid,
-							 addr->hostname, addr->service,
-							 name, port, family);
+				ret = ic_proxy_extract_addr(iter->ai_addr, name, sizeof(name),
+											&port, &family);
+				if (ret == 0)
+					ic_proxy_log(LOG,
+								 "ic-proxy-addr: seg%d,dbid%d: resolved address %s:%s -> %s:%d family=%d",
+								 addr->content, addr->dbid,
+								 addr->hostname, addr->service,
+								 name, port, family);
+				else
+					ic_proxy_log(LOG,
+								 "ic-proxy-addr: seg%d,dbid%d: resolved address %s:%s -> %s:%d family=%d (fail to extract the address: %s)",
+								 addr->content, addr->dbid,
+								 addr->hostname, addr->service,
+								 name, port, family,
+								 uv_strerror(ret));
 			}
 #endif /* IC_PROXY_LOG_LEVEL <= LOG */
 
@@ -236,14 +245,20 @@ ic_proxy_addr_get_port(const ICProxyAddr *addr)
  * - the port is stored in "port";
  * - the address family is stored in "family" if it is not NULL;
  *
+ * "name" and "port" must be provided, "family" is optional.
+ *
  * Return 0 on success; otherwise return a negative value, which can be
  * translated with uv_strerror().  The __out__ fields are always filled.
+ *
+ * Failures from this function can be safely ignored, if the "addr" is really
+ * bad, the "uv_tcp_bind()" or "uv_tcp_connect()" will fail with the actual
+ * error code.
  */
 int
 ic_proxy_extract_addr(const struct sockaddr *addr,
 					  char *name, size_t namelen, int *port, int *family)
 {
-	int			ret = UV_EINVAL;
+	int			ret;
 
 	if (family)
 		*family = addr->sa_family;
@@ -273,9 +288,14 @@ ic_proxy_extract_addr(const struct sockaddr *addr,
 			break;
 
 		default:
-			snprintf(name, namelen, "unknown");
-			*port = 0;
+			ret = UV_EINVAL;
 			break;
+	}
+
+	if (ret < 0)
+	{
+		snprintf(name, namelen, "unknown");
+		*port = 0;
 	}
 
 	return ret;

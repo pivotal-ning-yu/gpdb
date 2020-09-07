@@ -110,6 +110,9 @@ ic_proxy_peer_table_uninit(void)
 
 /*
  * Update the peer name from the state bits.
+ *
+ * This function is usually called during logging, so it is good practice not
+ * to generate messages in this function.
  */
 static void
 ic_proxy_peer_update_name(ICProxyPeer *peer)
@@ -124,6 +127,11 @@ ic_proxy_peer_update_name(ICProxyPeer *peer)
 	/*
 	 * Show the tcp level connection information in the name, they are not very
 	 * useful, though.
+	 *
+	 * Return codes from ic_proxy_extract_addr() are ignored, as logging should
+	 * be avoided in this place.  On the other hand the failures are reflected
+	 * in the hostnames and ports, as well as the peer name, so we know it
+	 * happens.
 	 */
 	uv_tcp_getsockname(&peer->tcp, (struct sockaddr *) &peeraddr, &addrlen);
 	ic_proxy_extract_addr((struct sockaddr *) &peeraddr,

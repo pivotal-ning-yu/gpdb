@@ -23,8 +23,17 @@ struct ICProxyAddr
 	int			dbid;
 	int			content;
 
-	char		hostname[HOST_NAME_MAX];
-	char		service[32];
+	/*
+	 * Below two attributes are arguments to uv_getaddrinfo().
+	 *
+	 * That API allows "service" to be either a port number or a service name,
+	 * like "http".  In our case each segment needs a unique port on its host,
+	 * so it is more convenient to specify port numbers directly, so we only
+	 * support the port numbers in gp_interconnect_proxy_addresses, service
+	 * names will be considered as syntax errors.
+	 */
+	char		hostname[HOST_NAME_MAX];	/* hostname or IP */
+	char		service[32];				/* port number as a string */
 
 	uv_getaddrinfo_t req;
 };

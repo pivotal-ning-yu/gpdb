@@ -150,12 +150,19 @@ ic_proxy_server_peer_listener_init(uv_loop_t *loop)
 		char		name[HOST_NAME_MAX] = "unknown";
 		int			port = 0;
 		int			family;
+		int			ret;
 
-		ic_proxy_extract_addr((struct sockaddr *) &addr->addr,
-							  name, sizeof(name), &port, &family);
-		ic_proxy_log(LOG,
-					 "ic-proxy-server: setting up peer listener on %s:%s (%s:%d family=%d)",
-					 addr->hostname, addr->service, name, port, family);
+		ret = ic_proxy_extract_addr((struct sockaddr *) &addr->addr,
+									name, sizeof(name), &port, &family);
+		if (ret == 0)
+			ic_proxy_log(LOG,
+						 "ic-proxy-server: setting up peer listener on %s:%s (%s:%d family=%d)",
+						 addr->hostname, addr->service, name, port, family);
+		else
+			ic_proxy_log(WARNING,
+						 "ic-proxy-server: setting up peer listener on %s:%s (%s:%d family=%d) (fail to extract the address: %s)",
+						 addr->hostname, addr->service, name, port, family,
+						 uv_strerror(ret));
 	}
 #endif /* IC_PROXY_LOG_LEVEL <= LOG */
 
