@@ -11,13 +11,45 @@ jobs:
 
     runs-on: ubuntu-20.04
 
+    env:
+      ORCA_CONFIG: --enable-orca
+
     steps:
     - uses: actions/checkout@v2
+    - name: check system
+      run: |
+        set -x
+        uname -a
+        free -h
+        lscpu
+        id
+        who am i
+        pwd
     - name: install depends
-      run: ./README.ubuntu.bash
+      run: sudo ./README.ubuntu.bash
     - name: configure
-      run: ./configure
+      run: >
+        ./configure --with-perl --without-quicklz --with-gssapi
+        --enable-mapreduce --enable-orafce --enable-ic-proxy ${ORCA_CONFIG}
+        --enable-gpcloud --with-libxml
+        --enable-faultinjector --disable-tap-tests --enable-debug-extensions
     - name: make
-      run: make
+      run: make -j2
+    - name: make install
+      run: |
+        sudo make -j2 install
+        sudo chown -R $USER .
+    - name: make cluster
+      run: |
+        . /usr/local/gpdb/greenplum_path.sh
+        make create-demo-cluster
     - name: make installcheck regress
-      run: make -C src/test/regress installcheck-parallel
+      run: |
+        . /usr/local/gpdb/greenplum_path.sh
+        . gpAux/gpdemo/gpdemo-env.sh
+        make -C src/test/regress installcheck-parallel \
+        || ( ret=$? \
+           ; find * -name regression.diffs \
+                    -exec echo ==== '{}' \; \
+                    -exec cat '{}' \; \
+           ; exit $? )

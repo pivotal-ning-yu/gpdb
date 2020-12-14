@@ -22,6 +22,7 @@ apt-get install -y \
   libperl-dev \
   libreadline-dev \
   libssl-dev \
+  libuv1-dev \
   libxerces-c-dev \
   libxml2-dev \
   libyaml-dev \
@@ -32,13 +33,13 @@ apt-get install -y \
   openssh-client \
   openssh-server \
   openssl \
-  python-dev \
-  python-pip \
-  python-psutil \
-  python-pygresql \
-  python-yaml \
+  python3-dev \
+  python3-pip \
+  python3-psutil \
+  python3-pygresql \
+  python3-yaml \
   zlib1g-dev
 
 
-pip install conan
+pip3 install conan
 
