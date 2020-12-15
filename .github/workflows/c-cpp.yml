@@ -3,53 +3,322 @@ name: C/C++ CI
 on:
   push:
     branches: [ master ]
+    paths-ignore:
+      - '**.md'
+      - 'doc/**'
   pull_request:
     branches: [ master ]
+    paths-ignore:
+      - '**.md'
+      - 'doc/**'
 
 jobs:
-  build:
 
+  test-ssh:
+    runs-on: ubuntu-18.04
+    container:
+      image: pivotaldata/gpdb7-centos7-build
+#     volumes:
+#       - ${{ github.workspace }}:/tmp/src/matrixdb
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: centos7 container
+        run: |
+          exec 2>&1
+          set -x
+          set +e
+
+          echo $GITHUB_WORKSPACE
+          mkdir -p /tmp/src
+          cp -a $GITHUB_WORKSPACE /tmp/src/matrixdb
+          mkdir -p /tmp/build/artifacts
+          /tmp/src/matrixdb/PKG.CentOS.bash
+          ls -lh /tmp/build/artifacts
+          exit 1
+
+          ls -lh /etc/resolv.conf
+          ls -Llh /etc/resolv.conf
+
+          cat /etc/resolv.conf
+          cat /etc/systemd/resolved.conf
+
+          systemd-resolve --status
+
+          dig not-exist-host
+          nslookup not-exist-host
+
+          python3 <<EOF
+          import socket
+          import time
+          try:
+            addr = socket.getaddrinfo('not-exist-host', 8080)
+            print('addr: {}'.format(addr))
+          except socket.gaierror as err:
+            print('error: {}: {}'.format(err.errno, err.strerror))
+          EOF
+
+          sudo ufw allow out 53,113,123/udp || true
+
+          python3 <<EOF
+          import socket
+          import time
+          try:
+            addr = socket.getaddrinfo('not-exist-host', 8080)
+            print('addr: {}'.format(addr))
+          except socket.gaierror as err:
+            print('error: {}: {}'.format(err.errno, err.strerror))
+          EOF
+
+          exit 1
+
+          #sudo grep -v -e '^#' -e '^$' /etc/sudoers
+          #sudo grep -v -e '^#' -e '^$' /etc/ssh/sshd_config
+
+          #echo 'PubkeyAuthentication yes' | sudo tee /etc/ssh/sshd_config
+          #sudo systemctl reload-or-restart sshd.service
+
+          #ps -ef | grep ssh
+          sudo groupadd supergroup
+          #sudo /usr/sbin/adduser gpadmin
+          #sudo /usr/sbin/adduser gpadmin supergroup
+          sudo /usr/sbin/useradd -G supergroup,tty gpadmin -s /bin/bash
+          echo -e "password\npassword" | sudo passwd gpadmin
+          #sudo --set-home -u gpadmin bash -x +e <<EOF
+
+          user=gpadmin
+          home_dir=$(eval echo "~${user}")
+          sudo mkdir -p "${home_dir}/.ssh"
+          sudo touch "${home_dir}/.ssh/authorized_keys" "${home_dir}/.ssh/known_hosts" "${home_dir}/.ssh/config"
+          if [ ! -f "${home_dir}/.ssh/id_rsa" ]; then
+            sudo ssh-keygen -t rsa -N "" -f "${home_dir}/.ssh/id_rsa"
+          fi
+          cat "${home_dir}/.ssh/id_rsa.pub" | sudo tee -a "${home_dir}/.ssh/authorized_keys"
+          sudo chmod 0600 "${home_dir}/.ssh/authorized_keys"
+          sudo tee -a "${home_dir}/.ssh/config" << 'NOROAMING'
+          Host *
+            UseRoaming no
+          NOROAMING
+          sudo chmod 0644 "${home_dir}/.ssh/config"
+          sudo chmod 0600 "${home_dir}/.ssh/known_hosts"
+          sudo chmod 0700 "${home_dir}/.ssh"
+          sudo chmod 0755 "${home_dir}"
+
+          #sudo chown -R "${user}" "${home_dir}/.ssh"
+          sudo chown -R "${user}" "${home_dir}"
+          #ls /etc/ssh
+          sudo su - gpadmin -c 'bash -x +e' <<'EOF' 2>&1
+            exec 2>&1
+            set +e
+            #env
+            #id
+            #pwd
+            #cd
+            #pwd
+            #mkdir -p .ssh
+            #ssh-keygen -t rsa -N "" -f .ssh/id_rsa
+            #cat .ssh/id_rsa.pub >> .ssh/authorized_keys
+            ##ssh-keyscan $(hostname) >> ~/.ssh/known_hosts
+
+            #chmod 700 .ssh
+            #chmod 600 .ssh/authorized_keys
+            #chmod 600 .ssh/known_hosts
+
+            #ls -lhd /home /home/gpadmin /home/gpadmin/.ssh /home/gpadmin/.ssh/*
+
+            ssh -o StrictHostKeyChecking=no -o PasswordAuthentication=no $HOSTNAME echo "accessed via $HOSTNAME"
+            ssh -o StrictHostKeyChecking=no -o PasswordAuthentication=no localhost echo "accessed via localhost"
+            exit 0
+          EOF
+
+          #sudo grep -w sshd /var/log/auth.log | tail
+
+          exit 0
+
+  before:
+    needs: test-ssh
     runs-on: ubuntu-20.04
+    steps:
+      - name: echo
+        run: |
+          echo 'before'
+  experiment:
+    needs: [ before ]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-18.04, ubuntu-20.04 ]
+        planner: [ planner, gporca ]
+    steps:
+      - name: begin
+        run: |
+          echo begin ${{ matrix.os }} with ${{ matrix.planner }}
+      - name: 18.04 specific
+        if: matrix.os == 'ubuntu-18.04'
+        run: |
+          echo "I'm on ${{ matrix.os }}"
+      - name: 20.04 specific
+        if: matrix.os == 'ubuntu-20.04'
+        run: |
+          echo "I'm on ${{ matrix.os }}"
+      - name: end
+        run: |
+          echo end ${{ matrix.os }} with ${{ matrix.planner }}
+  after:
+    needs: [ experiment ]
+    runs-on: ubuntu-20.04
+    steps:
+      - name: echo
+        run: |
+          echo 'after'
 
+  compile_gpdb_ubuntu1804:
+    needs: test-ssh
+    runs-on: ubuntu-18.04
     env:
-      ORCA_CONFIG: --enable-orca
-
+#     ORCA_CONFIG: --enable-orca
+      BUILDROOT: /tmp/build
+      PREFIX: /usr/local/greenplum-db-devel
+      GPDB_SRC_PATH: gpdb_src
+      OUTPUT_ARTIFACT_DIR: artifacts
+      CONFIGURE_FLAGS: "--with-perl --without-quicklz --enable-faultinjector --disable-tap-tests --enable-debug-extensions"
+      # for compile_gpdb.bash
+      TARGET_OS: ubuntu
+      TARGET_OS_VERSION: 18.04
+      BLD_TARGETS:
+      RC_BUILD_TYPE_GCS:
     steps:
     - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+        fetch-depth: 0
+    - name: install depends
+      run: |
+        sudo ./README.ubuntu.bash
+        sudo apt-get install -y libldap2-dev libuv1-dev
+        sudo apt-get install -y libxerces-c-dev
+#   - uses: actions/cache@v2
+#     with:
+#       path: |
+#         ${{ env.BUILDROOT }}/${{ env.GPDB_SRC_PATH }}/config.cache
+#       key: ${{ runner.os }}-config-cache
+    - name: move code
+      run: |
+        sudo mkdir -p ${BUILDROOT}
+        sudo chown $USER ${BUILDROOT}
+        mkdir -p ${BUILDROOT}/${OUTPUT_ARTIFACT_DIR}
+        cp -a ${GITHUB_WORKSPACE} ${BUILDROOT}/${GPDB_SRC_PATH}
+        # also prepare the install dir.
+        sudo mkdir -p ${PREFIX}
+        sudo chown $USER ${PREFIX}
+    - name: compile_gpdb
+      run: |
+        cd ${BUILDROOT}
+        ./${GPDB_SRC_PATH}/concourse/scripts/compile_gpdb.bash
+    - uses: actions/upload-artifact@v2
+      with:
+        name: bin_gpdb_ubuntu18.04
+        path: ${{ env.BUILDROOT }}/${{ env.OUTPUT_ARTIFACT_DIR }}/bin_gpdb.tar.gz
+
+  icw_planner_ubuntu1804:
+    needs: [ compile_gpdb_ubuntu1804 ]
+    runs-on: ubuntu-18.04
+    env:
+      BUILDROOT: /tmp/build
+      GPDB_SRC_PATH: gpdb_src
+      OUTPUT_ARTIFACT_DIR: artifacts
+      # CONFIGURE_FLAGS is appended to the other configure flags of gpAux, so
+      # we can override the settings here.  However this might be confusing,
+      # take quicklz for example, we will see both "--with-quicklz" and
+      # "--without-quicklz" in "pg_config --configure".
+      CONFIGURE_FLAGS: "--with-perl --without-quicklz --enable-faultinjector --disable-tap-tests --enable-debug-extensions"
+      # for ic_gpdb.bash
+      DUMP_DB: false
+      TEST_OS: ubuntu
+      MAKE_TEST_COMMAND: "-k PGOPTIONS='-c optimizer=off' -C src/test/regress installcheck"
+      BLDWRAP_POSTGRES_CONF_ADDONS: "enable_mergejoin=off enable_nestloop=off"
+#     WITH_MIRRORS:
+#     EXTRA_REGRESS_OPTS: "--exclude-tests=gp_metadata,eagerfree,gp_aggregates_costs,workfile/sisc_mat_sort"
+      # set to non-empty to skip unit tests
+      SKIP_UNITTESTS: true
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+        #fetch-depth: 0
     - name: check system
       run: |
         set -x
-        uname -a
-        free -h
-        lscpu
-        id
-        who am i
-        pwd
+        hostname
+        hostname -I
+        ip a
+        ifconfig || true
+        cat /etc/hosts
+#   - name: check system
+#     run: |
+#       set -x
+#       uname -a
+#       free -h
+#       lscpu
+#       id
+#       who am i
+#       pwd
+#       env
+#       sysctl -a
     - name: install depends
-      run: sudo ./README.ubuntu.bash
-    - name: configure
-      run: >
-        ./configure --with-perl --without-quicklz --with-gssapi
-        --enable-mapreduce --enable-orafce --enable-ic-proxy ${ORCA_CONFIG}
-        --enable-gpcloud --with-libxml
-        --enable-faultinjector --disable-tap-tests --enable-debug-extensions
-    - name: make
-      run: make -j2
-    - name: make install
       run: |
-        sudo make -j2 install
-        sudo chown -R $USER .
-    - name: make cluster
+        sudo ./README.ubuntu.bash
+        sudo apt-get install -y libldap2-dev libuv1-dev
+    - name: move code
       run: |
-        . /usr/local/gpdb/greenplum_path.sh
-        make create-demo-cluster
-    - name: make installcheck regress
+        sudo mkdir -p ${BUILDROOT}
+        sudo chown $USER ${BUILDROOT}
+        mkdir -p ${BUILDROOT}/${OUTPUT_ARTIFACT_DIR}
+        cp -a ${GITHUB_WORKSPACE} ${BUILDROOT}/${GPDB_SRC_PATH}
+        ## also prepare the install dir.
+        #sudo mkdir -p /usr/local/greenplum-db-devel
+        #sudo chown $USER /usr/local/greenplum-db-devel
+#   - uses: actions/cache@v2
+#     with:
+#       path: |
+#         ${{ env.BUILDROOT }}/${{ env.GPDB_SRC_PATH }}/config.cache
+#       key: ${{ runner.os }}-config-cache
+    - uses: actions/download-artifact@v2
+      with:
+        name: bin_gpdb_ubuntu18.04
+        path: /tmp/build/bin_gpdb/
+    - name: test
       run: |
-        . /usr/local/gpdb/greenplum_path.sh
-        . gpAux/gpdemo/gpdemo-env.sh
-        make -C src/test/regress installcheck-parallel \
-        || ( ret=$? \
-           ; find * -name regression.diffs \
-                    -exec echo ==== '{}' \; \
-                    -exec cat '{}' \; \
-           ; exit $? )
+        cd ${BUILDROOT}
+        sudo -E bash -x ./${GPDB_SRC_PATH}/concourse/scripts/ic_gpdb.bash \
+        || ( ret=$? ; \
+             set +e ; \
+             cd ${GPDB_SRC_PATH}/gpAux/gpdemo/datadirs ; \
+             sudo find -name log -o -name pg_log -o -name gpAdminLogs \
+             | sudo xargs tar zcf ${BUILDROOT}/${OUTPUT_ARTIFACT_DIR}/logs.tar.gz ; \
+             exit 0 )
+        #sudo -E bash -x ./${GPDB_SRC_PATH}/concourse/scripts/ic_gpdb.bash || true
+        #cd ${GPDB_SRC_PATH}/gpAux/gpdemo/datadirs
+        #find -type d -a '(' -name log -o -name pg_log -o -name gpAdminLogs ')' \
+        #| xargs tar zcf ${BUILDROOT}/${OUTPUT_ARTIFACT_DIR}/logs.tar.gz
+        set -x
+        ls -lah /
+        ls -lah /home
+        ls -lah /home/gpadmin
+        ls -lah /home/gpadmin/.ssh
+        sudo cat /home/gpadmin/.ssh/config
+        sudo cat /home/gpadmin/.ssh/authorized_keys
+        sudo cat /home/gpadmin/.ssh/id_rsa.pub
+        sudo su - gpadmin -c 'bash -x +e' <<'EOF' 2>&1
+          ssh -o StrictHostKeyChecking=no $HOSTNAME echo "accessed via $HOSTNAME"
+          ssh -o StrictHostKeyChecking=no localhost echo "accessed via localhost"
+          exit 0
+        EOF
+    - uses: actions/upload-artifact@v2
+      ## uncomment below line if we only want to upload the logs on failure
+      #if: failure()
+      with:
+        name: icw_planner_ubuntu18.04_logs
+        path: /tmp/build/artifacts/logs.tar.gz
+        if-no-files-found: error
+        retention-days: 2

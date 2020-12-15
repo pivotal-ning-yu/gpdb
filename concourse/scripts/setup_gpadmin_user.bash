@@ -19,6 +19,10 @@ setup_ssh_for_user() {
 Host *
   UseRoaming no
 NOROAMING
+  chmod 0644 "${home_dir}/.ssh/config"
+  chmod 0600 "${home_dir}/.ssh/known_hosts"
+  chmod 0700 "${home_dir}/.ssh"
+  chmod 0755 "${home_dir}"
   chown -R "${user}" "${home_dir}/.ssh"
 }
 

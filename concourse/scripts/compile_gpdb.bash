@@ -49,6 +49,7 @@ function prep_env() {
 }
 
 function install_libuv() {
+  return 0
   local includedir=/usr/include
   local libdir
 
@@ -64,11 +65,13 @@ function install_libuv() {
 
 
 function install_deps_for_centos_or_sles() {
+  return 0
   rpm -i libquicklz-installer/libquicklz-*.rpm
   rpm -i libquicklz-devel-installer/libquicklz-*.rpm
 }
 
 function install_deps_for_ubuntu() {
+  return 0
   dpkg --install libquicklz-installer/libquicklz-*.deb
 }
 
@@ -134,7 +137,7 @@ function include_zstd() {
   local libdir
   case "${TARGET_OS}" in
     centos | sles) libdir=/usr/lib64 ;;
-    ubuntu) libdir=/usr/lib ;;
+    ubuntu) libdir=/usr/lib/x86_64-linux-gnu ;;
     *) return ;;
   esac
   pushd ${GREENPLUM_INSTALL_DIR}
@@ -145,6 +148,7 @@ function include_zstd() {
 }
 
 function include_quicklz() {
+  return 0
   local libdir
   case "${TARGET_OS}" in
     centos | sles) libdir=/usr/lib64 ;;
@@ -223,6 +227,7 @@ function export_gpdb_clients() {
 
 function build_xerces()
 {
+	return 0
     OUTPUT_DIR="gpdb_src/gpAux/ext/${BLD_ARCH}"
     mkdir -p xerces_patch/concourse
     cp -r gpdb_src/src/backend/gporca/concourse/xerces-c xerces_patch/concourse

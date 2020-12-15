@@ -22,7 +22,6 @@ apt-get install -y \
   libperl-dev \
   libreadline-dev \
   libssl-dev \
-  libuv1-dev \
   libxerces-c-dev \
   libxml2-dev \
   libyaml-dev \
@@ -37,6 +36,7 @@ apt-get install -y \
   python3-pip \
   python3-psutil \
   python3-pygresql \
+  python3-setuptools \
   python3-yaml \
   zlib1g-dev
 

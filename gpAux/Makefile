@@ -193,7 +193,7 @@ RECONFIG :
 aix7_ppc_64_CONFIG_SHELL=/usr/bin/bash
 BLD_CONFIG_SHELL=$($(BLD_ARCH)_CONFIG_SHELL)
 $(GPPGDIR)/GNUmakefile : $(GPPGDIR)/configure  env.sh
-	rm -rf $(INSTLOC)
+	-rm -rf $(INSTLOC)
 	mkdir -p $(GPPGDIR)
 	echo "Running ./configure with CONFIGFLAGS=$(CONFIGFLAGS)\n"
 	cd $(GPPGDIR) && \
@@ -203,7 +203,7 @@ $(GPPGDIR)/GNUmakefile : $(GPPGDIR)/configure  env.sh
                          --mandir=$(INSTLOC)/man
 
 Debug/GNUmakefile : $(GPPGDIR)/configure  env.sh
-	rm -rf $(INSTLOC)
+	-rm -rf $(INSTLOC)
 	mkdir -p Debug
 	echo "Running ./configure with CONFIGFLAGS=$(CONFIGFLAGS)\n"
 	cd Debug && \
@@ -213,7 +213,7 @@ Debug/GNUmakefile : $(GPPGDIR)/configure  env.sh
                     --mandir=$(INSTLOC)/man
 
 Release/GNUmakefile : $(GPPGDIR)/configure  env.sh
-	rm -rf $(INSTLOC)
+	-rm -rf $(INSTLOC)
 	mkdir -p Release
 	echo "Running ./configure with CONFIGFLAGS=$(CONFIGFLAGS)\n"
 	cd Release && \
@@ -266,7 +266,7 @@ endef
 
 ifeq "$(BLD_GPDB_BUILDSET)" "aix_subset"
 define BUILD_STEPS
-	rm -rf $(INSTLOC)
+	-rm -rf $(INSTLOC)
 	cd $(BUILDDIR)/gpMgmt/ && $(MAKE) generate_greenplum_path_file
 	cd $(BUILDDIR)/src/backend/ && $(MAKE) ../../src/include/parser/gram.h
 	cd $(BUILDDIR)/src/backend/ && $(MAKE) ../../src/include/utils/errcodes.h
@@ -286,7 +286,7 @@ endef
 endif
 ifeq "$(BLD_GPDB_BUILDSET)" "partial"
 define BUILD_STEPS
-	rm -rf $(INSTLOC)
+	-rm -rf $(INSTLOC)
 	cd $(BUILDDIR)/gpMgmt/ && $(MAKE) generate_greenplum_path_file
 	cd $(BUILDDIR)/src/backend/ && $(MAKE) ../../src/include/parser/gram.h
 	cd $(BUILDDIR)/src/backend/ && $(MAKE) ../../src/include/utils/errcodes.h
@@ -637,11 +637,11 @@ mgmtcopy :
 	fi
 	$(MAKE) set_scripts_version INSTLOC=$(INSTLOC)
 	# Remove unwanted files.
-	rm -rf $(INSTLOC)/bin/ext
-	rm -rf $(INSTLOC)/bin/pythonSrc
-	rm -rf $(INSTLOC)/bin/Makefile
-	rm -rf $(INSTLOC)/bin/src
-	rm -rf $(INSTLOC)/bin/gppylib
+	-rm -rf $(INSTLOC)/bin/ext
+	-rm -rf $(INSTLOC)/bin/pythonSrc
+	-rm -rf $(INSTLOC)/bin/Makefile
+	-rm -rf $(INSTLOC)/bin/src
+	-rm -rf $(INSTLOC)/bin/gppylib
 	find $(INSTLOC)/lib/python/gppylib -name test -type d | xargs rm -rf
 
 libcopy=(cd $(1) && $(TAR) cf - $(2)) | (cd $(3) && $(TAR) xvf -)$(check_pipe_for_errors)
